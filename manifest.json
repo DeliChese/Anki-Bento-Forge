@@ -1,0 +1,26 @@
+{
+  "name": "Bento Forge",
+  "version": "17.1.0",
+  "description": "Bento Forge — Multi-language vocabulary factory for Anki — Japanese, Chinese & Korean card creation with AI-powered extraction, TTS audio, and interactive learning templates.",
+  "author": "AnkiTool Team / Bento Station AIOS",
+  "license": "MIT",
+  "anki": {
+    "min_version": "2.1.50",
+    "max_version": "2.1.99"
+  },
+  "keywords": ["japanese", "chinese", "korean", "vocabulary", "ai", "tts", "language-learning"],
+  "categories": ["learning", "import", "templates"],
+  "dependencies": {
+    "python": ">=3.9",
+    "packages": ["edge-tts", "gtts"]
+  },
+  "config": {
+    "ai_providers": ["openai", "deepseek", "ollama", "lmstudio", "openrouter"],
+    "languages": ["japanese", "chinese", "korean"],
+    "tts_engines": ["edge-tts", "gtts", "voicevox"],
+    "template_count": 1,
+    "study_modes": ["qa", "vn", "wb", "pron", "lg"]
+  },
+  "entry_point": "start_smart_factory",
+  "shortcut": "Ctrl+Shift+I"
+}
