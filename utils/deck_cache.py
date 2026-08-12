@@ -16,18 +16,22 @@ import time
 from typing import List
 
 from .logger import get_logger
+from .user_data import atomic_write_json, get_user_data_path, migrate_legacy_directory, prune_cache_dir, read_json
 
 logger = get_logger()
 
 # Config
-_CACHE_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "ai_cache")
+_LEGACY_CACHE_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "ai_cache")
+_CACHE_DIR = get_user_data_path("cache")
 _DECK_CACHE_TTL = 30 * 60       # 30 phút full rescan
 _DECK_INCREMENTAL_TTL = 5 * 60  # 5 phút incremental merge
 
 
 def _ensure_cache_dir():
-    if not os.path.exists(_CACHE_DIR):
-        os.makedirs(_CACHE_DIR)
+    migrate_legacy_directory(_LEGACY_CACHE_DIR, _CACHE_DIR)
+    os.makedirs(_CACHE_DIR, exist_ok=True)
+    prune_cache_dir(_CACHE_DIR, max_age_seconds=_DECK_CACHE_TTL,
+                    max_bytes=25 * 1024 * 1024, max_files=200)
 
 
 # ═══════════════════════════════════════════════════════════
@@ -50,8 +54,7 @@ def get_existing_vocab_from_deck(model_name: str, deck_id: int, front_field: str
     cached_at = 0
     if os.path.exists(cache_file):
         try:
-            with open(cache_file, "r", encoding="utf-8") as f:
-                data = json.load(f)
+            data = read_json(cache_file, {}, lambda value: isinstance(value, dict))
             age = time.time() - data.get("_cached_at", 0)
             if age < _DECK_CACHE_TTL:
                 cached_words = data.get("words", [])
@@ -79,11 +82,10 @@ def get_existing_vocab_from_deck(model_name: str, deck_id: int, front_field: str
         words = _query_anki_deck_full(model_name, deck_id, front_field)
 
     try:
-        with open(cache_file, "w", encoding="utf-8") as f:
-            json.dump({
-                "words": words, "_cached_at": time.time(),
-                "_model": model_name, "_deck_id": deck_id, "_count": len(words),
-            }, f, indent=2, ensure_ascii=False)
+        atomic_write_json(cache_file, {
+            "words": words, "_cached_at": time.time(),
+            "_model": model_name, "_deck_id": deck_id, "_count": len(words),
+        })
     except Exception:
         pass
 

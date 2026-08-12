@@ -64,7 +64,7 @@
 cd %APPDATA%/Anki2/addons21/
 
 # 2. Clone repo (standalone)
-git clone https://github.com/NDChi243/Anki_AI_Factory.git
+git clone https://github.com/DeliChese/Anki-Bento-Forge.git
 
 # 3. Khởi động lại Anki
 ```

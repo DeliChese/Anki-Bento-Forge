@@ -120,7 +120,7 @@ class TestGrammarTemplates:
     def test_chinese_reverse_question_html(self):
         from mode.templates import tmpl_zh_g_rev_q
         html = tmpl_zh_g_rev_q()
-        assert "{{type:Pattern}}" in html
+        assert "{{type:Pinyin}}" in html
         assert "{{Meaning}}" in html
 
     def test_korean_question_html(self):

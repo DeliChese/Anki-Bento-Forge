@@ -26,13 +26,15 @@ import hashlib
 import threading
 
 from .logger import get_logger
+from .user_data import atomic_write_json, get_user_data_path, migrate_legacy_json, read_json
 
 logger = get_logger()
 
 # Version của cấu trúc prompt config — bump khi thay đổi defaults (cache invalidation)
 PROMPT_CONFIG_VERSION = 5
 
-CONFIG_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "ai_prompts.json")
+_LEGACY_CONFIG_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "ai_prompts.json")
+CONFIG_PATH = get_user_data_path("ai_prompts.json")
 
 LANGS = ("japanese", "chinese", "korean")
 KINDS = ("vocab", "grammar")
@@ -52,6 +54,7 @@ _overrides_mtime = None
 def _read_overrides() -> dict:
     """Đọc file ghi đè (nếu có). Trả {} khi thiếu/corrupt."""
     global _overrides_cache, _overrides_mtime
+    migrate_legacy_json(_LEGACY_CONFIG_PATH, CONFIG_PATH, lambda value: isinstance(value, dict))
     if not os.path.exists(CONFIG_PATH):
         _overrides_cache = {}
         _overrides_mtime = None
@@ -60,8 +63,7 @@ def _read_overrides() -> dict:
         mtime = os.path.getmtime(CONFIG_PATH)
         if _overrides_cache is not None and mtime == _overrides_mtime:
             return _overrides_cache
-        with open(CONFIG_PATH, "r", encoding="utf-8") as f:
-            data = json.load(f)
+        data = read_json(CONFIG_PATH, {}, lambda value: isinstance(value, dict))
         if not isinstance(data, dict):
             data = {}
         _overrides_cache = data
@@ -77,19 +79,11 @@ def _read_overrides() -> dict:
 def _write_overrides(cfg: dict):
     """Ghi file ghi đè với atomic write (tmp → rename) — giống _save_config."""
     global _overrides_cache, _overrides_mtime
-    tmp_path = CONFIG_PATH + ".tmp"
     try:
-        with open(tmp_path, "w", encoding="utf-8") as f:
-            json.dump(cfg, f, indent=2, ensure_ascii=False)
-        os.replace(tmp_path, CONFIG_PATH)
+        atomic_write_json(CONFIG_PATH, cfg)
         _overrides_cache = dict(cfg)
         _overrides_mtime = os.path.getmtime(CONFIG_PATH)
     except Exception:
-        if os.path.exists(tmp_path):
-            try:
-                os.remove(tmp_path)
-            except Exception:
-                pass
         raise
 
 

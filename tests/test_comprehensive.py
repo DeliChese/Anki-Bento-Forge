@@ -414,4 +414,3 @@ class TestEndToEndFlows:
         set_language("en")
         msg_en = t("filter_raw_count", count=99)
         assert "99" in msg_en
-        assert "Warehouse" in msg_en

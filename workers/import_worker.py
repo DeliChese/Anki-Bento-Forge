@@ -37,7 +37,13 @@ class ImportWorker(QThread):
         self._is_running = True
 
     def run(self):
-        report = {"added": 0, "updated": 0, "audio_gen": 0, "errors": 0}
+        report = {
+            "added": 0,
+            "added_note_ids": [],
+            "updated": 0,
+            "audio_gen": 0,
+            "errors": 0,
+        }
         errors_detail = []
         audio_fields = self.cfg["audio_fields"]
         lang_code = self.cfg["lang_code"]
@@ -104,6 +110,10 @@ class ImportWorker(QThread):
                             audio_tasks.append((note, src_val, audio_fn, lang_code))
 
                     mw.col.add_note(note, self.deck_id)
+                    # Only notes created in this batch are eligible for rollback.
+                    note_id = getattr(note, "id", 0)
+                    if note_id:
+                        report["added_note_ids"].append(int(note_id))
                     notes_to_flush.append(note)
                     report["added"] += 1
 

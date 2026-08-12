@@ -20,6 +20,15 @@ from typing import Optional, Callable, List
 from urllib.parse import urlparse
 
 from .logger import get_logger
+from .user_data import (
+    atomic_write_json,
+    clear_cache_dir,
+    get_user_data_path,
+    migrate_legacy_directory,
+    migrate_legacy_json,
+    prune_cache_dir,
+    read_json,
+)
 
 logger = get_logger()
 
@@ -306,10 +315,15 @@ def _http_post_json(url: str, payload: dict, headers: dict,
 # ═══════════════════════════════════════════════════════════
 #  PATHS
 # ═══════════════════════════════════════════════════════════
-_CONFIG_DIR = os.path.dirname(os.path.abspath(__file__))
-_CONFIG_PATH = os.path.join(_CONFIG_DIR, "ai_config.json")
-_CACHE_DIR = os.path.join(_CONFIG_DIR, "ai_cache")
+_LEGACY_CONFIG_DIR = os.path.dirname(os.path.abspath(__file__))
+_CONFIG_DIR = get_user_data_path("")
+_CONFIG_PATH = get_user_data_path("ai_config.json")
+_CACHE_DIR = get_user_data_path("cache")
+_LEGACY_CONFIG_PATH = os.path.join(_LEGACY_CONFIG_DIR, "ai_config.json")
+_LEGACY_CACHE_DIR = os.path.join(_LEGACY_CONFIG_DIR, "ai_cache")
 _DECK_VOCAB_CACHE_TTL = 30 * 60  # 30 phút
+_AI_CACHE_MAX_BYTES = 25 * 1024 * 1024
+_AI_CACHE_MAX_FILES = 200
 
 # ── Chi phí AI tích lũy (theo dõi ngân sách) ──
 _COST_STATE = {"total_usd": 0.0, "calls": 0, "last": None}
@@ -328,36 +342,23 @@ def reset_cost():
 
 
 def _ensure_cache_dir():
+    migrate_legacy_directory(_LEGACY_CACHE_DIR, _CACHE_DIR)
     os.makedirs(_CACHE_DIR, exist_ok=True)
+    prune_cache_dir(_CACHE_DIR, max_age_seconds=14 * 24 * 3600,
+                    max_bytes=_AI_CACHE_MAX_BYTES, max_files=_AI_CACHE_MAX_FILES)
 
 
 # ═══════════════════════════════════════════════════════════
 #  CONFIG
 # ═══════════════════════════════════════════════════════════
 def _load_config() -> dict:
-    if os.path.exists(_CONFIG_PATH):
-        try:
-            with open(_CONFIG_PATH, "r", encoding="utf-8") as f:
-                return json.load(f)
-        except Exception:
-            pass
-    return {}
+    migrate_legacy_json(_LEGACY_CONFIG_PATH, _CONFIG_PATH, lambda value: isinstance(value, dict))
+    return read_json(_CONFIG_PATH, {}, lambda value: isinstance(value, dict))
 
 
 def _save_config(cfg: dict):
     """Ghi config với atomic write (tmp → rename) để tránh mất dữ liệu nếu crash."""
-    tmp_path = _CONFIG_PATH + ".tmp"
-    try:
-        with open(tmp_path, "w", encoding="utf-8") as f:
-            json.dump(cfg, f, indent=2, ensure_ascii=False)
-        os.replace(tmp_path, _CONFIG_PATH)
-    except Exception:
-        if os.path.exists(tmp_path):
-            try:
-                os.remove(tmp_path)
-            except Exception:
-                pass
-        raise
+    atomic_write_json(_CONFIG_PATH, cfg)
 
 
 def get_api_config() -> dict:
@@ -509,8 +510,7 @@ def _ai_cache_get(text: str, lang: str, instruction: str, existing_hash: str, ki
     cache_file = os.path.join(_CACHE_DIR, f"ai_{key}.json")
     if os.path.exists(cache_file):
         try:
-            with open(cache_file, "r", encoding="utf-8") as f:
-                data = json.load(f)
+            data = read_json(cache_file, {}, lambda value: isinstance(value, dict))
             # TTL cache: 14 ngày nếu dùng OpenRouter (giảm request lặp lại do rate limit),
             # 7 ngày cho provider khác
             ttl = 14 * 24 * 3600 if is_openrouter() else 7 * 24 * 3600
@@ -526,14 +526,12 @@ def _ai_cache_set(text: str, lang: str, instruction: str, existing_hash: str, vo
     key = _ai_cache_key(text, lang, instruction, existing_hash, kind=kind)
     cache_file = os.path.join(_CACHE_DIR, f"ai_{key}.json")
     try:
-        with open(cache_file, "w", encoding="utf-8") as f:
-            json.dump({
-                "vocab": vocab_list,
-                "_kind": kind,
-                "_cached_at": time.time(),
-                "_lang": lang,
-                "_text_preview": text[:200],
-            }, f, indent=2, ensure_ascii=False)
+        atomic_write_json(cache_file, {
+            "vocab": vocab_list,
+            "_kind": kind,
+            "_cached_at": time.time(),
+            "_lang": lang,
+        })
     except Exception:
         pass
 
@@ -541,8 +539,7 @@ def _ai_cache_set(text: str, lang: str, instruction: str, existing_hash: str, vo
 def clear_cache():
     """Xóa toàn bộ cache"""
     if os.path.exists(_CACHE_DIR):
-        import shutil
-        shutil.rmtree(_CACHE_DIR)
+        clear_cache_dir(_CACHE_DIR)
 
 
 # ═══════════════════════════════════════════════════════════
@@ -2226,21 +2223,18 @@ def extract_grammar_long_text(
 #  quét toàn bộ database Anki. Tiết kiệm token.
 # ═══════════════════════════════════════════════════════════
 
-_HISTORY_PATH = os.path.join(_CONFIG_DIR, "import_history.json")
+_HISTORY_PATH = get_user_data_path("import_history.json")
+_LEGACY_HISTORY_PATH = os.path.join(_LEGACY_CONFIG_DIR, "import_history.json")
 _HISTORY_VERSION = 1
 _HISTORY_SCAN_TTL = 24 * 3600  # TTL 24h cho full scan
 
 
 def _load_history() -> dict:
     """Đọc file lịch sử import"""
-    if os.path.exists(_HISTORY_PATH):
-        try:
-            with open(_HISTORY_PATH, "r", encoding="utf-8") as f:
-                data = json.load(f)
-            if data.get("version") == _HISTORY_VERSION:
-                return data
-        except Exception:
-            pass
+    migrate_legacy_json(_LEGACY_HISTORY_PATH, _HISTORY_PATH, lambda value: isinstance(value, dict))
+    data = read_json(_HISTORY_PATH, {}, lambda value: isinstance(value, dict))
+    if data.get("version") == _HISTORY_VERSION:
+        return data
     return {
         "version": _HISTORY_VERSION,
         "last_full_scan": None,
@@ -2252,8 +2246,7 @@ def _load_history() -> dict:
 def _save_history(data: dict):
     """Ghi file lịch sử import"""
     try:
-        with open(_HISTORY_PATH, "w", encoding="utf-8") as f:
-            json.dump(data, f, indent=2, ensure_ascii=False)
+        atomic_write_json(_HISTORY_PATH, data)
     except Exception as e:
         logger.warning("Lỗi ghi import_history: %s", e)
 

@@ -93,6 +93,7 @@ aqt_utils_mock = types.ModuleType("aqt.utils")
 aqt_utils_mock.showInfo = lambda *a: None
 aqt_utils_mock.tooltip = lambda *a: None
 aqt_utils_mock.qconnect = lambda f: f
+aqt_utils_mock.askUser = lambda *a, **k: True
 sys.modules["aqt.utils"] = aqt_utils_mock
 
 # Mock anki
@@ -149,6 +150,50 @@ class TestImportWorker:
         assert worker._is_running is True
         worker.stop()
         assert worker._is_running is False
+
+    def test_run_reports_only_created_note_ids(self, monkeypatch):
+        from workers import import_worker
+        from workers.import_worker import ImportWorker
+
+        class FakeNote(dict):
+            def __init__(self, *args):
+                super().__init__()
+                self.id = 0
+
+            def flush(self):
+                pass
+
+        class CaptureSignal:
+            def __init__(self):
+                self.value = None
+
+            def emit(self, value):
+                self.value = value
+
+        monkeypatch.setattr(import_worker, "Note", FakeNote)
+        monkeypatch.setattr(import_worker.mw.col, "add_note", lambda note, did: setattr(note, "id", 987))
+
+        cfg = {
+            "lang_code": "ja",
+            "audio_fields": [],
+            "json_field_map": {"front": "Front"},
+            "all_fields": ["Front"],
+            "model_name": "TestModel",
+            "front_field": "Front",
+            "detect_key": "front",
+        }
+        worker = ImportWorker(
+            [{"item": {"front": "test"}, "action": "add"}],
+            cfg,
+            deck_id=123,
+            audio_options=(False, False, False),
+        )
+        finished = CaptureSignal()
+        worker.finished = finished
+        worker.run()
+
+        assert finished.value["added"] == 1
+        assert finished.value["added_note_ids"] == [987]
 
 
 class TestAiExtractThread:

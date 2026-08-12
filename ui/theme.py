@@ -21,6 +21,7 @@ from aqt.qt import (
 from aqt.utils import tooltip
 
 from utils.i18n import t
+from utils.user_data import atomic_write_json, get_user_data_path, read_json
 
 # QSplitter có thể không có trong aqt.qt của một số version Anki → fallback
 try:
@@ -43,10 +44,11 @@ except ImportError:
                         def __init__(self, *args, **kwargs):
                             pass
 
-THEME_FILE = os.path.join(
+_LEGACY_THEME_FILE = os.path.join(
     os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
     "utils", "ui_theme.json",
 )
+THEME_FILE = get_user_data_path("ui_theme.json")
 
 DEFAULT_CONFIG = {
     "preset": "glass_dark",   # chủ đề nền
@@ -293,8 +295,12 @@ def build_stylesheet(cfg=None):
 def load_config():
     cfg = dict(DEFAULT_CONFIG)
     try:
-        with open(THEME_FILE, "r", encoding="utf-8") as f:
-            data = json.load(f)
+        # The legacy file is a bundled default; new choices are written below
+        # the profile path and never modify this updateable source file.
+        legacy = read_json(_LEGACY_THEME_FILE, {}, lambda value: isinstance(value, dict))
+        data = read_json(THEME_FILE, {}, lambda value: isinstance(value, dict))
+        if not data:
+            data = legacy
         if isinstance(data, dict):
             cfg.update({k: v for k, v in data.items() if k in DEFAULT_CONFIG})
     except Exception:
@@ -304,9 +310,7 @@ def load_config():
 
 def save_config(cfg):
     try:
-        os.makedirs(os.path.dirname(THEME_FILE), exist_ok=True)
-        with open(THEME_FILE, "w", encoding="utf-8") as f:
-            json.dump(cfg, f, ensure_ascii=False, indent=2)
+        atomic_write_json(THEME_FILE, {k: v for k, v in cfg.items() if k in DEFAULT_CONFIG})
     except Exception:
         pass
 

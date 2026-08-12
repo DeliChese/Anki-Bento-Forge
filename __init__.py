@@ -9,10 +9,11 @@ import json
 import os
 import sys
 import re
+import time
 
 from aqt import mw, gui_hooks
 from aqt.qt import *
-from aqt.utils import showInfo, qconnect, tooltip
+from aqt.utils import askUser, showInfo, qconnect, tooltip
 
 # ═══════════════════════════════════════════════════════════
 #  Đảm bảo thư mục addon có trong sys.path để import
@@ -23,7 +24,16 @@ if _addon_root not in sys.path:
     sys.path.insert(0, _addon_root)
 
 # Lưu trạng thái ô AI (text + file kẹp) theo từng luồng: {lang: {vocab|grammar: {...}}}
-_STATE_PATH = os.path.join(_addon_root, "utils", "factory_state.json")
+# Dữ liệu này phải ở profile Anki để update add-on không thể ghi đè dữ liệu người dùng.
+from utils.user_data import atomic_write_json, get_user_data_path, migrate_legacy_json, read_json
+
+_LEGACY_STATE_PATH = os.path.join(_addon_root, "utils", "factory_state.json")
+_STATE_PATH = get_user_data_path("factory_state.json")
+_FACTORY_STATE_MAX_AGE_SECONDS = 7 * 24 * 3600
+_FACTORY_STATE_MAX_TEXT_CHARS = 12_000
+_FACTORY_STATE_MAX_JSON_CHARS = 24_000
+_FACTORY_STATE_MAX_ITEMS = 100
+_FACTORY_STATE_MAX_FLOW_BYTES = 192 * 1024
 
 # ═══════════════════════════════════════════════════════════
 #  IMPORTS FROM MODULES (Bridge)
@@ -41,6 +51,7 @@ from utils.ai_extractor import (
     extract_vocabulary_with_ai, extract_vocabulary_long_text,
     init_import_history, add_to_import_history, get_history_summary_text,
 )
+from utils.import_safety import rollback_added_notes, summarize_import_batch
 
 logger = get_logger()
 
@@ -83,6 +94,7 @@ class AnkiSmartFactory(QDialog):
 
     def __init__(self, parent=None):
         super().__init__(parent)
+        self._last_imported_note_ids = []
         self.setWindowTitle("Bento Forge — Vocabulary Factory")
         # Cho phép kéo thả cửa sổ tự do (thích ứng mọi kích thước, chia đôi màn hình)
         self.setMinimumSize(640, 420)
@@ -164,11 +176,12 @@ class AnkiSmartFactory(QDialog):
     def _load_factory_state(self):
         """Đọc trạng thái đã lưu từ file JSON."""
         try:
-            if os.path.exists(_STATE_PATH):
-                with open(_STATE_PATH, "r", encoding="utf-8") as f:
-                    data = json.load(f)
-                    if isinstance(data, dict):
-                        return data
+            migrate_legacy_json(_LEGACY_STATE_PATH, _STATE_PATH, lambda value: isinstance(value, dict))
+            data = read_json(_STATE_PATH, {}, lambda value: isinstance(value, dict), max_bytes=512 * 1024)
+            saved_at = data.get("_saved_at", 0)
+            if saved_at and (time.time() - float(saved_at)) > _FACTORY_STATE_MAX_AGE_SECONDS:
+                return {}
+            return self._sanitize_factory_state(data)
         except Exception as e:
             logger.warning("Lỗi đọc factory_state: %s", e)
         return {}
@@ -176,10 +189,60 @@ class AnkiSmartFactory(QDialog):
     def _save_factory_state(self):
         """Ghi trạng thái vào file JSON."""
         try:
-            with open(_STATE_PATH, "w", encoding="utf-8") as f:
-                json.dump(self._factory_state, f, ensure_ascii=False, indent=2)
+            self._factory_state = self._sanitize_factory_state(self._factory_state)
+            self._factory_state["_saved_at"] = time.time()
+            atomic_write_json(_STATE_PATH, self._factory_state)
         except Exception as e:
             logger.warning("Lỗi ghi factory_state: %s", e)
+
+    @staticmethod
+    def _bounded_state_items(items, max_bytes):
+        """Keep a bounded JSON-safe prefix; state is convenience, not an archive."""
+        if not isinstance(items, list):
+            return []
+        result = []
+        used = 0
+        for item in items[:_FACTORY_STATE_MAX_ITEMS]:
+            if not isinstance(item, dict):
+                continue
+            try:
+                size = len(json.dumps(item, ensure_ascii=False).encode("utf-8"))
+            except (TypeError, ValueError):
+                continue
+            if used + size > max_bytes:
+                break
+            result.append(item)
+            used += size
+        return result
+
+    @classmethod
+    def _sanitize_factory_state(cls, state):
+        """Validate and cap persisted draft data to avoid an unbounded private cache."""
+        if not isinstance(state, dict):
+            return {}
+        clean = {}
+        for lang in ("japanese", "chinese", "korean"):
+            lang_state = state.get(lang)
+            if not isinstance(lang_state, dict):
+                continue
+            clean_lang = {}
+            for mode in ("vocab", "grammar"):
+                flow = lang_state.get(mode)
+                if not isinstance(flow, dict):
+                    continue
+                text = flow.get("text", "")
+                json_text = flow.get("json", "")
+                files = flow.get("files", [])
+                clean_lang[mode] = {
+                    "text": text[:_FACTORY_STATE_MAX_TEXT_CHARS] if isinstance(text, str) else "",
+                    "json": json_text[:_FACTORY_STATE_MAX_JSON_CHARS] if isinstance(json_text, str) else "",
+                    "files": [path[:512] for path in files[:5] if isinstance(path, str)],
+                    "raw": cls._bounded_state_items(flow.get("raw", []), _FACTORY_STATE_MAX_FLOW_BYTES // 2),
+                    "cards": cls._bounded_state_items(flow.get("cards", []), _FACTORY_STATE_MAX_FLOW_BYTES // 2),
+                }
+            if clean_lang:
+                clean[lang] = clean_lang
+        return clean
 
     def _flow_key(self):
         """Trả về (lang, mode) — mode: 'vocab' hoặc 'grammar'."""
@@ -682,6 +745,13 @@ class AnkiSmartFactory(QDialog):
         self.btn_import.clicked.connect(self._process_import)
         right.addWidget(self.btn_import)
 
+        self.btn_rollback_import = QPushButton(t("btn_rollback_import"))
+        self.btn_rollback_import.setProperty("class", "warning")
+        self.btn_rollback_import.setMinimumHeight(40)
+        self.btn_rollback_import.setEnabled(False)
+        self.btn_rollback_import.clicked.connect(self._rollback_last_import)
+        right.addWidget(self.btn_rollback_import)
+
         op_row = QHBoxLayout()
         self.btn_cancel = QPushButton(t("btn_cancel"))
         self.btn_cancel.setProperty("class", "danger")
@@ -876,6 +946,7 @@ class AnkiSmartFactory(QDialog):
             self.spin_start.setToolTip(t("rng_tip"))
             self.spin_end.setToolTip(t("rng_tip"))
             self.btn_import.setText(t("btn_import"))
+            self.btn_rollback_import.setText(t("btn_rollback_import"))
             self.btn_cancel.setText(t("btn_cancel"))
             self.btn_cancel_order.setText(t("btn_cancel_order"))
             self.btn_cancel_order.setToolTip(t("btn_cancel_order_tip"))
@@ -1718,6 +1789,10 @@ class AnkiSmartFactory(QDialog):
             tooltip("⚠️ Không có thẻ nào được chọn để xuất xưởng.")
             return
 
+        summary = summarize_import_batch(batch)
+        if not askUser(t("confirm_import_preview", **summary), parent=self):
+            return
+
         # Lưu lại các index đã xuất để cập nhật lại xưởng sau khi import xong
         self._last_export_indices = list(export_indices)
 
@@ -1755,6 +1830,9 @@ class AnkiSmartFactory(QDialog):
         self.btn_cancel.setVisible(False)
         self.btn_import.setEnabled(True)
         self.lbl_status.setText(t("status_done"))
+
+        self._last_imported_note_ids = list(report.get("added_note_ids", []))
+        self.btn_rollback_import.setEnabled(bool(self._last_imported_note_ids))
 
         idxs = sorted(set(getattr(self, '_last_export_indices', None) or []))
         # Ghi nhận vào lịch sử import
@@ -1796,6 +1874,26 @@ class AnkiSmartFactory(QDialog):
 
         showInfo(msg)
         self.import_worker = None
+
+    def _rollback_last_import(self):
+        """Undo only notes newly created by the latest completed import batch."""
+        note_ids = list(getattr(self, "_last_imported_note_ids", []))
+        if not note_ids:
+            return
+        if not askUser(t("confirm_rollback_import", count=len(note_ids)), parent=self):
+            return
+
+        try:
+            mw.checkpoint("Bento Forge: rollback last import batch")
+            removed = rollback_added_notes(mw.col, note_ids)
+            mw.reset()
+            invalidate_deck_cache()
+            self._last_imported_note_ids = []
+            self.btn_rollback_import.setEnabled(False)
+            tooltip(t("rollback_import_done", count=removed))
+        except Exception as e:
+            logger.warning("Rollback import batch failed: %s", e)
+            showInfo(t("rollback_import_failed", error=str(e)))
 
     def _on_import_error(self, error_msg):
         showInfo(f"Lỗi import: {error_msg}")

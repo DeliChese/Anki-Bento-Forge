@@ -21,6 +21,7 @@ import urllib.error
 from typing import Optional, Callable, List, Dict
 
 from .logger import get_logger
+from .user_data import atomic_write_json, get_user_data_path, migrate_legacy_directory, prune_cache_dir, read_json
 from .ai_extractor import (
     get_api_config,
     _make_existing_hash, _parse_ai_json_with_comment,
@@ -42,7 +43,8 @@ MAX_WORDS_PER_REQUEST = 100       # Tối đa từ trong 1 request
 MIN_DELAY_BETWEEN_BATCHES = 1.5  # Giây delay giữa các batch
 MAX_RETRIES = 3                  # Số lần retry tối đa
 RETRY_BASE_DELAY = 2.0           # Delay cơ sở cho exponential backoff
-CACHE_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "ai_cache")
+_LEGACY_CACHE_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "ai_cache")
+CACHE_DIR = get_user_data_path("cache")
 CACHE_TTL = 14 * 24 * 3600       # Cache 14 ngày
 
 
@@ -440,8 +442,10 @@ def _call_ai_for_batch(
 # ═══════════════════════════════════════════════════════════
 
 def _ensure_cache_dir():
-    if not os.path.exists(CACHE_DIR):
-        os.makedirs(CACHE_DIR)
+    migrate_legacy_directory(_LEGACY_CACHE_DIR, CACHE_DIR)
+    os.makedirs(CACHE_DIR, exist_ok=True)
+    prune_cache_dir(CACHE_DIR, max_age_seconds=CACHE_TTL,
+                    max_bytes=25 * 1024 * 1024, max_files=200)
 
 
 def _batch_cache_key(words: List[Dict[str, str]], lang: str, instruction: str, existing_hash: str, grammar: bool = False) -> str:
@@ -459,8 +463,7 @@ def _batch_cache_get(words: List[Dict[str, str]], lang: str, instruction: str, e
     cache_file = os.path.join(CACHE_DIR, f"batch_{key}.json")
     if os.path.exists(cache_file):
         try:
-            with open(cache_file, "r", encoding="utf-8") as f:
-                data = json.load(f)
+            data = read_json(cache_file, {}, lambda value: isinstance(value, dict))
             if time.time() - data.get("_cached_at", 0) < CACHE_TTL:
                 return data.get("vocab", [])
         except Exception:
@@ -474,14 +477,12 @@ def _batch_cache_set(words: List[Dict[str, str]], lang: str, instruction: str, e
     key = _batch_cache_key(words, lang, instruction, existing_hash, grammar=grammar)
     cache_file = os.path.join(CACHE_DIR, f"batch_{key}.json")
     try:
-        with open(cache_file, "w", encoding="utf-8") as f:
-            json.dump({
-                "vocab": vocab_list,
-                "_cached_at": time.time(),
-                "_lang": lang,
-                "_count": len(vocab_list),
-                "_words": [w["front"] for w in words[:5]],
-            }, f, indent=2, ensure_ascii=False)
+        atomic_write_json(cache_file, {
+            "vocab": vocab_list,
+            "_cached_at": time.time(),
+            "_lang": lang,
+            "_count": len(vocab_list),
+        })
     except Exception:
         pass
 

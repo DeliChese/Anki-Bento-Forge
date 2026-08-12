@@ -16,10 +16,13 @@ Sử dụng:
 import json
 import os
 
+from .user_data import atomic_write_json, get_user_data_path, migrate_legacy_json, read_json
+
 # ═══════════════════════════════════════════════════════════
 #  CONFIG
 # ═══════════════════════════════════════════════════════════
-_CONFIG_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "i18n_config.json")
+_LEGACY_CONFIG_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "i18n_config.json")
+_CONFIG_PATH = get_user_data_path("i18n_config.json")
 
 SUPPORTED_LANGUAGES = {
     "vi": "🇻🇳 Tiếng Việt",
@@ -216,9 +219,35 @@ _TRANSLATIONS = {
         "vi": "🚀 XUẤT BẾN (NẠP VÀO ANKI)",
         "en": "🚀 DEPART (LOAD INTO ANKI)",
     },
+    "btn_rollback_import": {
+        "vi": "↩️ HOÀN TÁC BATCH VỪA IMPORT",
+        "en": "↩️ UNDO LAST IMPORT BATCH",
+    },
     "btn_cancel": {
         "vi": "⏹️ DỪNG LẠI",
         "en": "⏹️ STOP",
+    },
+    "confirm_import_preview": {
+        "vi": "Bạn sắp import {new} note mới và cập nhật {updates} note.\\n\\n"
+              "Bạn có thể hoàn tác các note mới tạo của batch này trong phiên Forge hiện tại. "
+              "Các note cập nhật và file audio không được tự động hoàn tác.\\n\\nTiếp tục?",
+        "en": "You are about to import {new} new notes and update {updates} notes.\\n\\n"
+              "You can undo the newly created notes from this batch while this Forge window remains open. "
+              "Updates and audio files cannot be undone automatically.\\n\\nContinue?",
+    },
+    "confirm_rollback_import": {
+        "vi": "Hoàn tác {count} note mới tạo bởi batch import gần nhất?\\n\\n"
+              "Các note đã cập nhật và file audio không bị thay đổi.",
+        "en": "Undo the {count} notes created by the latest import batch?\\n\\n"
+              "Updated notes and audio files will not be changed.",
+    },
+    "rollback_import_done": {
+        "vi": "↩️ Đã hoàn tác {count} note mới tạo từ batch gần nhất.",
+        "en": "↩️ Undid {count} notes created by the latest batch.",
+    },
+    "rollback_import_failed": {
+        "vi": "Không thể hoàn tác batch import: {error}",
+        "en": "Could not undo the import batch: {error}",
     },
 
     # ── Dialog Titles ───────────────────────────────────
@@ -1720,8 +1749,7 @@ def _notify_language_listeners():
 def _save_config():
     """Lưu ngôn ngữ hiện tại vào file config."""
     try:
-        with open(_CONFIG_PATH, "w", encoding="utf-8") as f:
-            json.dump({"language": _current_lang}, f, indent=2)
+        atomic_write_json(_CONFIG_PATH, {"language": _current_lang})
     except Exception:
         pass
 
@@ -1730,12 +1758,24 @@ def _load_config():
     """Tải ngôn ngữ từ file config nếu có."""
     global _current_lang
     try:
-        if os.path.exists(_CONFIG_PATH):
-            with open(_CONFIG_PATH, "r", encoding="utf-8") as f:
-                data = json.load(f)
-                lang = data.get("language", "vi")
-                if lang in SUPPORTED_LANGUAGES:
-                    _current_lang = lang
+        # ``i18n_config.json`` shipped with older releases contains the default
+        # Vietnamese value.  It is source data, not a user setting; only migrate
+        # a non-default legacy choice so tests and updates never delete it.
+        legacy = read_json(
+            _LEGACY_CONFIG_PATH,
+            {},
+            lambda data: isinstance(data, dict) and data.get("language") in SUPPORTED_LANGUAGES,
+        )
+        if legacy.get("language") not in (None, "vi"):
+            migrate_legacy_json(
+                _LEGACY_CONFIG_PATH,
+                _CONFIG_PATH,
+                lambda data: isinstance(data, dict) and data.get("language") in SUPPORTED_LANGUAGES,
+            )
+        data = read_json(_CONFIG_PATH, {}, lambda value: isinstance(value, dict))
+        lang = data.get("language", "vi")
+        if lang in SUPPORTED_LANGUAGES:
+            _current_lang = lang
     except Exception:
         pass
 

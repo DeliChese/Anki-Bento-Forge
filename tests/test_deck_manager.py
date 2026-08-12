@@ -47,6 +47,7 @@ aqt_utils = types.ModuleType("aqt.utils")
 aqt_utils.showInfo = lambda *a, **k: None
 aqt_utils.tooltip = lambda *a, **k: None
 aqt_utils.qconnect = lambda *a, **k: None
+aqt_utils.askUser = lambda *a, **k: True
 sys.modules["aqt.utils"] = aqt_utils
 
 from utils.deck_manager import (
