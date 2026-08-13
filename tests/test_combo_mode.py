@@ -127,29 +127,6 @@ class TestComboConfig:
 
 
 class TestOverviewModeSelector:
-    def test_build_selector_html(self):
-        from hooks.overview_mode import _build_selector_html, MODES
-        html = _build_selector_html()
-        assert "ai-factory-mode-selector" in html
-        assert "ai-factory-study" in html
-        assert "ai_factory_set_mode" in html
-        for m in MODES:
-            assert f'value="{m}"' in html
-
-    def test_inject_selector_before_study(self):
-        from hooks.overview_mode import _inject_selector
-        base = '<div class="stats"></div><button id="study">Study now</button>'
-        out = _inject_selector(base)
-        # Selector nằm trước nút study
-        assert out.index("ai-factory-mode-selector") < out.index('id="study"')
-        assert 'id="study"' in out
-
-    def test_inject_selector_fallback(self):
-        from hooks.overview_mode import _inject_selector
-        base = "<div>no study button</div>"
-        out = _inject_selector(base)
-        assert "ai-factory-mode-selector" in out
-
     def test_set_and_get_study_mode(self):
         from unittest.mock import patch
         from hooks.overview_mode import get_study_mode, set_study_mode, CONF_KEY, MODES
@@ -183,33 +160,38 @@ class TestOverviewModeSelector:
         result = _on_js_message((False, None), "onigiri_study", None)
         assert result == (False, None)
 
-    def test_patch_overview_wraps_not_overwrites(self):
-        """Patch Overview._table phải WRAP hàm hiện tại, không ghi đè (bảo toàn Onigiri)."""
+    def test_register_overview_hook_falls_back_when_api_is_missing(self):
         from unittest.mock import patch
-        import types as _types
-        import sys as _sys
-        # Fake module aqt.overview
-        fake_overview_mod = _types.ModuleType("aqt.overview")
-        calls = []
-        class FakeOverview:
-            pass
-        def orig_table(self):
-            calls.append("orig")
-            return '<div><button id="study">Study now</button></div>'
-        FakeOverview._table = staticmethod(orig_table)
-        fake_overview_mod.Overview = FakeOverview
-        _sys.modules["aqt.overview"] = fake_overview_mod
-        try:
-            from hooks.overview_mode import _patch_overview
-            _patch_overview()
-            wrapped = FakeOverview._table
-            # hàm hiện tại đã bị wrap
-            html = wrapped(FakeOverview())
-            assert calls == ["orig"]  # vẫn gọi hàm gốc
-            assert "ai-factory-mode-selector" in html
-            assert 'id="study"' in html
-            assert FakeOverview._ai_factory_mode_patched is True
-        finally:
-            _sys.modules.pop("aqt.overview", None)
+        import hooks.overview_mode as overview_mode
+
+        overview_mode._REGISTERED_HOOKS.clear()
+        with patch.object(overview_mode, "gui_hooks", object()):
+            assert overview_mode.register_overview_hooks() is False
+
+    def test_register_overview_hook_is_idempotent(self):
+        from unittest.mock import patch
+        import hooks.overview_mode as overview_mode
+
+        hook = MagicMock()
+        hooks = types.SimpleNamespace(webview_did_receive_js_message=hook)
+        overview_mode._REGISTERED_HOOKS.clear()
+        with patch.object(overview_mode, "gui_hooks", hooks):
+            assert overview_mode.register_overview_hooks() is True
+            assert overview_mode.register_overview_hooks() is True
+        hook.append.assert_called_once_with(overview_mode._on_js_message)
+
+
+class TestReviewerHookCompatibility:
+    def test_missing_reviewer_hook_does_not_disable_available_hook(self):
+        from unittest.mock import patch
+        import hooks.reviewer as reviewer
+
+        question_hook = MagicMock()
+        hooks = types.SimpleNamespace(reviewer_did_show_question=question_hook)
+        reviewer._REGISTERED_HOOKS.clear()
+        with patch.object(reviewer, "gui_hooks", hooks):
+            assert reviewer.register_hooks() is True
+            assert reviewer.register_hooks() is True
+        question_hook.append.assert_called_once_with(reviewer._on_reviewer_question)
 
 

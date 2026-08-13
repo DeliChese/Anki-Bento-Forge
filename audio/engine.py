@@ -108,8 +108,14 @@ def detect_lang_from_model(model_name: str) -> str:
     return _MODEL_LANG_MAP.get(model_name, "")
 
 
-def get_audio_multilang(text: str, lang: str, voice: str = None, rate: str = None) -> Optional[str]:
-    """Generate audio using the selected voice. rate: edge-tts rate string như '+0%', '-50%'"""
+def get_audio_multilang(
+    text: str,
+    lang: str,
+    voice: str = None,
+    rate: str = None,
+    cancel_event: Optional[threading.Event] = None,
+) -> Optional[str]:
+    """Generate audio without changing dependencies; cancellation reaches providers."""
     if not text or not text.strip():
         return ""
 
@@ -118,13 +124,13 @@ def get_audio_multilang(text: str, lang: str, voice: str = None, rate: str = Non
         return ""
 
     if _install_edge_tts():
-        result = get_audio_edge_tts(text, chosen_voice, lang, rate=rate)
+        result = get_audio_edge_tts(text, chosen_voice, lang, rate=rate, cancel_event=cancel_event)
         if result:
             return result
 
     if _install_gtts():
         # gTTS dùng lang_code ("ja" | "zh" | "ko")
-        return get_audio_gtts(text, lang)
+        return get_audio_gtts(text, lang, cancel_event=cancel_event)
 
     return ""
 

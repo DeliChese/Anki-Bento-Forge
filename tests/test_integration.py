@@ -7,6 +7,7 @@ import sys
 import os
 import types
 from unittest.mock import MagicMock
+import pytest
 
 # === Add addon root to path ===
 _addon_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -133,35 +134,20 @@ with open(_engine_path, "r", encoding="utf-8") as f:
 class TestImportWorker:
     def test_init_stores_params(self):
         from workers.import_worker import ImportWorker
-        batch = [{"item": {"front": "test"}, "action": "add", "nid": None, "update_fields": []}]
-        cfg = {"lang_code": "ja", "audio_fields": [], "json_field_map": {},
-               "all_fields": ["Front"], "model_name": "TestModel",
-               "front_field": "Front", "detect_key": "front"}
-        worker = ImportWorker(batch, cfg, deck_id=123, audio_options=(True, True, True), speed=1.0)
-        assert worker.batch == batch
-        assert worker.deck_id == 123
-        assert worker._is_running is True
+        tasks = [{"key": "0:Audio", "text": "test", "lang": "ja"}]
+        worker = ImportWorker(tasks, speed=1.0)
+        assert worker.audio_tasks == tasks
+        assert worker.is_cancelled() is False
 
     def test_stop_sets_flag(self):
         from workers.import_worker import ImportWorker
-        cfg = {"lang_code": "ja", "audio_fields": [], "json_field_map": {},
-               "all_fields": [], "model_name": "Test", "front_field": "Front", "detect_key": "front"}
-        worker = ImportWorker([], cfg, deck_id=1, audio_options=(False, False, False))
-        assert worker._is_running is True
+        worker = ImportWorker([])
         worker.stop()
-        assert worker._is_running is False
+        assert worker.is_cancelled() is True
 
-    def test_run_reports_only_created_note_ids(self, monkeypatch):
+    def test_run_generates_tags_without_collection_access(self, monkeypatch):
         from workers import import_worker
         from workers.import_worker import ImportWorker
-
-        class FakeNote(dict):
-            def __init__(self, *args):
-                super().__init__()
-                self.id = 0
-
-            def flush(self):
-                pass
 
         class CaptureSignal:
             def __init__(self):
@@ -170,30 +156,13 @@ class TestImportWorker:
             def emit(self, value):
                 self.value = value
 
-        monkeypatch.setattr(import_worker, "Note", FakeNote)
-        monkeypatch.setattr(import_worker.mw.col, "add_note", lambda note, did: setattr(note, "id", 987))
-
-        cfg = {
-            "lang_code": "ja",
-            "audio_fields": [],
-            "json_field_map": {"front": "Front"},
-            "all_fields": ["Front"],
-            "model_name": "TestModel",
-            "front_field": "Front",
-            "detect_key": "front",
-        }
-        worker = ImportWorker(
-            [{"item": {"front": "test"}, "action": "add"}],
-            cfg,
-            deck_id=123,
-            audio_options=(False, False, False),
-        )
+        monkeypatch.setattr(import_worker, "_generate_audio_safe", lambda *args: "[sound:test.mp3]")
+        worker = ImportWorker([{"key": "0:Audio", "text": "test", "lang": "ja"}])
         finished = CaptureSignal()
         worker.finished = finished
         worker.run()
 
-        assert finished.value["added"] == 1
-        assert finished.value["added_note_ids"] == [987]
+        assert finished.value["audio_tags"] == {"0:Audio": "[sound:test.mp3]"}
 
 
 class TestAiExtractThread:
@@ -210,6 +179,63 @@ class TestAiExtractThread:
         thread = AiExtractThread(text="test", lang="chinese")
         assert thread.custom_instruction == ""
         assert thread.existing_words == []
+
+
+class TestPhaseOneCollectionOperations:
+    def test_apply_import_reports_audio_and_created_note(self, monkeypatch):
+        from utils import import_operations
+
+        class FakeNote(dict):
+            def __init__(self, *args):
+                super().__init__()
+                self.id = 0
+                self.flushed = False
+
+            def flush(self):
+                self.flushed = True
+
+        class FakeCollection:
+            def __init__(self):
+                self.models = MagicMock()
+                self.models.by_name.return_value = {"name": "TestModel"}
+                self.added = []
+
+            def add_note(self, note, _deck_id):
+                note.id = 987
+                self.added.append(note)
+
+        monkeypatch.setattr(import_operations, "Note", FakeNote)
+        cfg = {
+            "lang_code": "ja", "audio_fields": [("Audio", "Front")],
+            "json_field_map": {"front": "Front"}, "all_fields": ["Front", "Audio"],
+            "model_name": "TestModel", "front_field": "Front", "detect_key": "front",
+        }
+        report = import_operations.apply_import(
+            FakeCollection(), [{"item": {"front": "test"}, "action": "add"}], cfg, 1,
+            {"0:Audio": "[sound:test.mp3]"}, lambda: False,
+        )
+        assert report["added"] == 1
+        assert report["added_note_ids"] == [987]
+        assert report["audio_gen"] == 1
+
+    def test_cancelled_import_does_not_mutate_collection(self, monkeypatch):
+        from utils import import_operations
+
+        collection = MagicMock()
+        report = import_operations.apply_import(
+            collection, [{"item": {"front": "test"}, "action": "add"}],
+            {"audio_fields": [], "json_field_map": {}, "all_fields": [],
+             "model_name": "Test", "front_field": "Front", "detect_key": "front"},
+            1, {}, lambda: True,
+        )
+        assert report["cancelled"] is True
+        collection.add_note.assert_not_called()
+
+    def test_backoff_wait_is_cancelable(self):
+        from utils.ai_extractor import _abortable_wait
+
+        with pytest.raises(RuntimeError, match="Đã hủy"):
+            _abortable_wait(5, lambda: True)
 
 
 class TestDeckScanWorker:

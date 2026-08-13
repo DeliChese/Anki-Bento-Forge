@@ -13,7 +13,13 @@ from aqt.qt import (
 )
 from aqt.utils import showInfo, tooltip
 
-from utils.ai_extractor import get_api_config, save_api_config, clear_cache, clear_import_history
+from utils.ai_extractor import (
+    clear_cache,
+    clear_import_history,
+    get_api_config,
+    get_api_key_storage_status,
+    save_api_config,
+)
 from utils.i18n import t
 from ui.prompt_editor import show_prompt_editor_dialog
 
@@ -42,6 +48,21 @@ def show_ai_settings_dialog(parent):
     txt_key.setText(cfg.get("api_key", ""))
     txt_key.setMinimumHeight(30)
     vl.addWidget(txt_key)
+
+    secret_store = get_api_key_storage_status()
+    secret_store_key = (
+        "ai_set_secret_store_ready"
+        if secret_store["available"]
+        else "ai_set_secret_store_unavailable"
+    )
+    secret_store_text = t(
+        secret_store_key,
+        command=secret_store["install_command"],
+    )
+    secret_store_note = QLabel(secret_store_text)
+    secret_store_note.setWordWrap(True)
+    secret_store_note.setStyleSheet("color:#267a3d;" if secret_store["available"] else "color:#c0392b;")
+    vl.addWidget(secret_store_note)
 
     chk_show = QCheckBox(t("ai_set_show_key"))
     chk_show.toggled.connect(lambda checked: (
@@ -196,19 +217,20 @@ def show_ai_settings_dialog(parent):
 
     btn_save = QPushButton(t("btn_save"))
     btn_save.setStyleSheet("padding:8px 20px;background:#27ae60;color:white;font-weight:bold;border-radius:6px;")
-    btn_save.clicked.connect(lambda: (
-        save_api_config(
+    def save_settings():
+        saved = save_api_config(
             txt_key.text().strip(),
             txt_base.text().strip(),
             cbo_model.currentText().strip(),
             spin_temp.value(),
-            spin_chunk.value(),          # max_chars (mỗi lần gọi)
-            spin_chunk.value(),          # chunk_size (chia đoạn)
-            cbo_effort.currentData() or "",  # reasoning_effort
-        ),
-        dlg.accept(),
-        tooltip(t("tooltip_saved_config")),
-    ))
+            spin_chunk.value(),
+            spin_chunk.value(),
+            cbo_effort.currentData() or "",
+        )
+        dlg.accept()
+        tooltip(t("tooltip_saved_config") if saved else t("ai_set_secret_store_save_failed"))
+
+    btn_save.clicked.connect(save_settings)
     btn_layout.addWidget(btn_save)
 
     vl.addLayout(btn_layout)

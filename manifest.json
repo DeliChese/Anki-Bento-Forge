@@ -6,7 +6,7 @@
   "license": "MIT",
   "anki": {
     "min_version": "2.1.50",
-    "max_version": "2.1.99"
+    "max_version": "2.1.50"
   },
   "keywords": ["japanese", "chinese", "korean", "vocabulary", "ai", "tts", "language-learning"],
   "categories": ["learning", "import", "templates"],

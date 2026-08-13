@@ -50,56 +50,38 @@ class TestImportWorker:
 
     def test_init_stores_params(self):
         from workers.import_worker import ImportWorker
-        batch = [{"item": {"front": "test"}, "action": "add", "nid": None, "update_fields": []}]
-        cfg = {
-            "lang_code": "ja", "audio_fields": [], "json_field_map": {},
-            "all_fields": ["Front"], "model_name": "TestModel",
-            "front_field": "Front", "detect_key": "front",
-        }
-        worker = ImportWorker(batch, cfg, deck_id=123, audio_options=(True, True, True), speed=1.0)
-        assert worker.batch == batch
-        assert worker.deck_id == 123
-        assert worker._is_running is True
+        worker = ImportWorker([{"key": "0:Audio", "text": "test", "lang": "ja"}], speed=1.0)
+        assert worker.audio_tasks[0]["key"] == "0:Audio"
+        assert worker.is_cancelled() is False
 
     def test_stop_sets_flag(self):
         from workers.import_worker import ImportWorker
-        cfg = {
-            "lang_code": "ja", "audio_fields": [], "json_field_map": {},
-            "all_fields": [], "model_name": "Test",
-            "front_field": "Front", "detect_key": "front",
-        }
-        worker = ImportWorker([], cfg, deck_id=1, audio_options=(False, False, False))
+        worker = ImportWorker([])
         worker.stop()
-        assert worker._is_running is False
+        assert worker.is_cancelled() is True
 
     def test_fill_example_blanks(self):
-        from workers.import_worker import ImportWorker
+        from utils.import_operations import _fill_example_blanks
         note = {"Front": "食べる", "Example": "毎日食べるよ", "Example2": "食べるのが好き"}
-        ImportWorker._fill_example_blanks(note, "Front")
+        _fill_example_blanks(note, "Front")
         assert "___" in note.get("Example Fill", "")
         assert "___" in note.get("Example2 Fill", "")
 
     def test_fill_example_blanks_empty_front(self):
-        from workers.import_worker import ImportWorker
+        from utils.import_operations import _fill_example_blanks
         note = {"Front": "", "Example": "text"}
-        ImportWorker._fill_example_blanks(note, "Front")
+        _fill_example_blanks(note, "Front")
 
     def test_fill_example_blanks_no_front_field(self):
-        from workers.import_worker import ImportWorker
+        from utils.import_operations import _fill_example_blanks
         note = {"Front": "test"}
-        ImportWorker._fill_example_blanks(note, None)
+        _fill_example_blanks(note, None)
 
-    def test_audio_options_parsing(self):
+    def test_cancel_event_is_shared_state(self):
         from workers.import_worker import ImportWorker
-        cfg = {
-            "lang_code": "ja", "audio_fields": [], "json_field_map": {},
-            "all_fields": [], "model_name": "Test",
-            "front_field": "Front", "detect_key": "front",
-        }
-        worker = ImportWorker([], cfg, 1, (True, False, True))
-        assert worker.do_vocab is True
-        assert worker.do_ex1 is False
-        assert worker.do_ex2 is True
+        worker = ImportWorker([])
+        worker.stop()
+        assert worker.cancel_event.is_set()
 
 
 # ═══════════════════════════════════════════════════════════
@@ -311,62 +293,8 @@ class TestI18nEdgeCases:
 
 
 # ═══════════════════════════════════════════════════════════
-#  Encryption tests
+#  Legacy credential migration tests live in test_secret_storage.py
 # ═══════════════════════════════════════════════════════════
-
-class TestEncryption:
-    def test_encrypt_decrypt_roundtrip(self):
-        from utils.ai_extractor import _encrypt_api_key, _decrypt_api_key
-        original = "sk-test-key-12345"
-        encrypted = _encrypt_api_key(original)
-        assert encrypted != original
-        assert encrypted.startswith(("f:", "x:"))
-        decrypted = _decrypt_api_key(encrypted)
-        assert decrypted == original
-
-    def test_encrypt_empty_string(self):
-        from utils.ai_extractor import _encrypt_api_key
-        assert _encrypt_api_key("") == ""
-
-    def test_decrypt_empty_string(self):
-        from utils.ai_extractor import _decrypt_api_key
-        assert _decrypt_api_key("") == ""
-
-    def test_decrypt_plaintext_fallback(self):
-        from utils.ai_extractor import _decrypt_api_key
-        plain = "sk-old-plaintext-key"
-        assert _decrypt_api_key(plain) == plain
-
-    def test_decrypt_corrupted_data(self):
-        from utils.ai_extractor import _decrypt_api_key
-        assert _decrypt_api_key("x:!!!not-valid-base64!!!") == "x:!!!not-valid-base64!!!"
-
-    def test_encrypt_long_key(self):
-        from utils.ai_extractor import _encrypt_api_key, _decrypt_api_key
-        long_key = "sk-" + "a" * 200
-        encrypted = _encrypt_api_key(long_key)
-        decrypted = _decrypt_api_key(encrypted)
-        assert decrypted == long_key
-
-    def test_encrypt_unicode_key(self):
-        from utils.ai_extractor import _encrypt_api_key, _decrypt_api_key
-        key = "sk-áéíóú"
-        encrypted = _encrypt_api_key(key)
-        decrypted = _decrypt_api_key(encrypted)
-        assert decrypted == key
-
-    def test_deterministic(self):
-        """Fernet (AES-GCM) CỐ Ý sinh ciphertext khác nhau mỗi lần mã hoá
-        cùng một plaintext — do dùng nonce/timestamp ngẫu nhiên, đây là
-        thuộc tính bảo mật đúng đắn (chống phân tích pattern), không phải
-        bug. So sánh k1 == k2 sẽ luôn fail khi có cài `cryptography`.
-        Điều cần đảm bảo là GIẢI MÃ cả hai đều ra đúng plaintext gốc."""
-        from utils.ai_extractor import _encrypt_api_key, _decrypt_api_key
-        k1 = _encrypt_api_key("test-key")
-        k2 = _encrypt_api_key("test-key")
-        assert _decrypt_api_key(k1) == "test-key"
-        assert _decrypt_api_key(k2) == "test-key"
-
 
 # ═══════════════════════════════════════════════════════════
 #  Integration: end-to-end flow tests

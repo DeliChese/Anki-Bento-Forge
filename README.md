@@ -3,9 +3,9 @@
 > **Vocabulary Factory cho Anki** — Tạo thẻ từ vựng tiếng Nhật, Trung & Hàn với AI, TTS, và interactive templates.
 
 [![Version](https://img.shields.io/badge/version-17.1.0-blue)](manifest.json)
-[![Anki](https://img.shields.io/badge/anki-%3E%3D2.1.50-green)](manifest.json)
+[![Anki](https://img.shields.io/badge/anki-2.1.50-green)](COMPATIBILITY.md)
 [![Python](https://img.shields.io/badge/python-%3E%3D3.9-yellow)](manifest.json)
-[![Tests](https://img.shields.io/badge/tests-344-brightgreen)](tests/)
+[![Tests](https://github.com/DeliChese/Anki-Bento-Forge/actions/workflows/ci.yml/badge.svg)](https://github.com/DeliChese/Anki-Bento-Forge/actions/workflows/ci.yml)
 
 ---
 
@@ -22,7 +22,7 @@
 | Tính năng | Mô tả |
 |-----------|-------|
 | 🎯 **Card gộp 5 chế độ** | Thay vì 1 từ tạo 5 card riêng, giờ **1 từ = 1 card duy nhất** → deck đếm đúng số từ vựng. Trong card có **thanh chọn chế độ** chuyển đổi bằng JS: QA (Nhật→Việt), VN (Việt→Nhật), WB (Ghép chữ), PRON (Furigana/Pinyin/Romanization), LG (Ẩn chữ cái) |
-| 🎛️ **Bộ chọn chế độ ở Overview** | Patch màn hình Overview (không ghi đè Onigiri) → chèn bộ chọn mode + nút "Study now", mode lưu vào `mw.col.conf` |
+| 🎛️ **Đồng bộ chế độ học** | Thanh chọn trong card đồng bộ mode vào `mw.col.conf` qua public WebView hook; không patch private API của Overview. |
 | 🔁 **Migration tự động** | Model cũ (5 card) khi tái tạo sẽ giữ card mode chính + lịch sử học, tự xóa 4 card thừa |
 
 ### 🤖 AI & Xử lý nội dung
@@ -51,9 +51,9 @@
 ## 📦 Cài đặt
 
 ### Yêu cầu
-- Anki >= 2.1.50
-- Python >= 3.9
-- `edge-tts` (tự động cài qua pip khi dùng lần đầu)
+- Anki 2.1.50 (xem [compatibility matrix](COMPATIBILITY.md))
+- Python 3.9 (bundled with the supported Anki runtime)
+- `edge-tts` (cài rõ ràng bằng lệnh được hiển thị khi thiếu)
 - `gtts` (optional, fallback)
 
 ### Cài đặt thủ công

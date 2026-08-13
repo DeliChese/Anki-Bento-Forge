@@ -1139,6 +1139,18 @@ _TRANSLATIONS = {
         "vi": "sk-... (DeepSeek: vào platform.deepseek.com/api_keys để lấy)",
         "en": "sk-... (DeepSeek: get it at platform.deepseek.com/api_keys)",
     },
+    "ai_set_secret_store_ready": {
+        "vi": "🔒 API key được lưu trong kho thông tin xác thực của hệ điều hành.",
+        "en": "🔒 API keys are stored in the operating system credential store.",
+    },
+    "ai_set_secret_store_unavailable": {
+        "vi": "⚠️ Không có kho thông tin xác thực an toàn. API key sẽ không được lưu. Cài thủ công: {command}",
+        "en": "⚠️ No secure credential store is available. The API key will not be saved. Install manually: {command}",
+    },
+    "ai_set_secret_store_save_failed": {
+        "vi": "⚠️ Không thể lưu API key an toàn; key không được ghi vào cấu hình.",
+        "en": "⚠️ The API key could not be stored securely and was not written to configuration.",
+    },
     "ai_set_base_placeholder": {
         "vi": "https://api.deepseek.com/v1 (DeepSeek) hoặc https://api.openai.com/v1",
         "en": "https://api.deepseek.com/v1 (DeepSeek) or https://api.openai.com/v1",

@@ -4,7 +4,7 @@
 Hỗ trợ: OpenAI, DeepSeek, Claude (qua proxy), Ollama, LM Studio, và các API tương thích.
 Cache thông minh: cache kết quả AI + cache danh sách từ vựng hiện có trong deck để tiết kiệm token.
 Tự động quét deck Anki để tránh trùng lặp từ đã có.
-V16.0: API key encryption at rest.
+API keys are stored only in the OS credential store (keyring).
 """
 
 import json
@@ -19,6 +19,7 @@ import threading
 from typing import Optional, Callable, List
 from urllib.parse import urlparse
 
+from .credentials import delete_api_key, get_secret_store_status, load_api_key, save_api_key
 from .logger import get_logger
 from .user_data import (
     atomic_write_json,
@@ -49,7 +50,7 @@ from .prompt_config import (
 )
 
 # ═══════════════════════════════════════════════════════════
-#  API KEY ENCRYPTION (AES-GCM via Fernet, fallback XOR)
+#  LEGACY API KEY MIGRATION
 # ═══════════════════════════════════════════════════════════
 
 try:
@@ -81,26 +82,8 @@ def _derive_fernet_key() -> bytes:
     return base64.urlsafe_b64encode(kdf.derive(_get_machine_key()))
 
 
-def _encrypt_api_key(plain_text: str) -> str:
-    """Encrypt API key với AES-GCM (Fernet) nếu có cryptography, fallback XOR."""
-    if not plain_text:
-        return ""
-    if _HAS_CRYPTO:
-        try:
-            f = Fernet(_derive_fernet_key())
-            encrypted = f.encrypt(plain_text.encode("utf-8"))
-            return "f:" + base64.b64encode(encrypted).decode("ascii")
-        except Exception:
-            pass
-    # Fallback: XOR + base64
-    key = _get_machine_key()[:16]
-    data = plain_text.encode("utf-8")
-    encrypted = bytes([data[i] ^ key[i % len(key)] for i in range(len(data))])
-    return "x:" + base64.b64encode(encrypted).decode("ascii")
-
-
-def _decrypt_api_key(encrypted_text: str) -> str:
-    """Decrypt API key, auto-detect format (Fernet / XOR / plaintext)."""
+def _decrypt_legacy_api_key(encrypted_text: str) -> str:
+    """Read pre-Phase-2 key formats once, solely to migrate them to keyring."""
     if not encrypted_text:
         return ""
     # Plaintext fallback (old format)
@@ -118,7 +101,7 @@ def _decrypt_api_key(encrypted_text: str) -> str:
             return decrypted.decode("utf-8")
     except Exception:
         pass
-    return encrypted_text  # Fallback: return as-is
+    return encrypted_text
 
 # ═══════════════════════════════════════════════════════════
 #  HTTP HELPER — Connection reuse + chunked reading
@@ -203,10 +186,25 @@ def _reset_rate_limit_delay():
     _rate_limit_state.delay = 0.0
 
 
+def _abortable_wait(seconds: float, should_abort: Optional[Callable[[], bool]] = None):
+    """Wait in short increments so cancellation is observed promptly."""
+    deadline = time.monotonic() + max(0.0, seconds)
+    while time.monotonic() < deadline:
+        if should_abort and should_abort():
+            raise RuntimeError("⏹ Đã hủy bởi người dùng")
+        before = time.monotonic()
+        time.sleep(min(0.1, deadline - before))
+        # Test doubles often replace sleep() with a no-op. Do not spin for the
+        # real-time duration in that case.
+        if time.monotonic() <= before:
+            return
+
+
 def _http_post_json(url: str, payload: dict, headers: dict,
                     timeout: int = 300,
                     progress_callback: Optional[Callable[[str], None]] = None,
-                    should_abort: Optional[Callable[[], bool]] = None) -> str:
+                    should_abort: Optional[Callable[[], bool]] = None,
+                    total_timeout: int = 900) -> str:
     """Gửi POST request với JSON body, trả về response body dạng string.
 
     Dùng http.client thay vì urllib.request để:
@@ -222,6 +220,9 @@ def _http_post_json(url: str, payload: dict, headers: dict,
     use_ssl = parsed.scheme == "https"
     ssl_context = _pick_ssl_context(host)
 
+    if should_abort and should_abort():
+        raise RuntimeError("⏹ Đã hủy bởi người dùng")
+    deadline = time.monotonic() + total_timeout
     # Lấy hoặc tạo connection từ pool của thread hiện tại (không cần lock)
     pool_key = f"{host}:{port}"
     conn = _get_thread_conn(pool_key, host, port, use_ssl, timeout, ssl_context)
@@ -234,13 +235,17 @@ def _http_post_json(url: str, payload: dict, headers: dict,
     if rate_delay > 0:
         if progress_callback:
             progress_callback(f"⏳ Đang chờ {rate_delay:.1f}s (tránh rate limit)...")
-        time.sleep(rate_delay)
+        _abortable_wait(rate_delay, should_abort)
 
     last_error = None
     # Retry nhiều hơn cho 429 (rate limit thường tạm thời) — tối đa 5 lần
     max_retries = 5
     for attempt in range(max_retries + 1):
         try:
+            if should_abort and should_abort():
+                raise RuntimeError("⏹ Đã hủy bởi người dùng")
+            if time.monotonic() >= deadline:
+                raise RuntimeError("⏱ Đã hết thời gian chờ tổng cho yêu cầu AI")
             if attempt > 0:
                 # Tạo connection MỚI khi retry (connection cũ có thể đã hỏng)
                 conn = _get_thread_conn(pool_key, host, port, use_ssl, timeout, ssl_context,
@@ -266,7 +271,7 @@ def _http_post_json(url: str, payload: dict, headers: dict,
                         f"⚠️ Rate limit (429) — chờ {wait:.0f}s rồi thử lại...\n"
                         f"💡 OpenRouter free giới hạn ~20 req/phút. Đang tự chậm lại."
                     )
-                time.sleep(wait)
+                _abortable_wait(min(wait, max(0.0, deadline - time.monotonic())), should_abort)
                 last_error = http.client.HTTPException(
                     f"HTTP 429 Rate Limit: {err_body}"
                 )
@@ -306,7 +311,7 @@ def _http_post_json(url: str, payload: dict, headers: dict,
                 delay = 2.0 * (2 ** attempt)
                 if progress_callback:
                     progress_callback(f"🔄 Retry {attempt + 1}/{max_retries} sau {delay:.0f}s...")
-                time.sleep(delay)
+                _abortable_wait(min(delay, max(0.0, deadline - time.monotonic())), should_abort)
                 continue
             raise RuntimeError(f"❌ Lỗi kết nối sau {max_retries + 1} lần thử: {last_error}")
 
@@ -361,6 +366,30 @@ def _save_config(cfg: dict):
     atomic_write_json(_CONFIG_PATH, cfg)
 
 
+def get_api_key_storage_status() -> dict:
+    """Expose credential-store availability to the settings UI."""
+    return get_secret_store_status()
+
+
+def _migrate_legacy_api_key(cfg: dict) -> str:
+    """Move a historical plaintext/Fernet/XOR value out of JSON exactly once."""
+    legacy_value = cfg.pop("api_key", "")
+    if not legacy_value:
+        return ""
+    api_key = _decrypt_legacy_api_key(legacy_value)
+    if api_key and save_api_key(api_key):
+        cfg["api_key_storage"] = "keyring"
+        logger.info("Migrated API key from legacy configuration to OS credential store")
+        _save_config(cfg)
+        return api_key
+
+    # Do not retain plaintext or reversible XOR values after a failed migration.
+    cfg["api_key_storage"] = "unavailable"
+    _save_config(cfg)
+    logger.warning("Legacy API key was removed because no secure credential store is available")
+    return ""
+
+
 def get_api_config() -> dict:
     defaults = {
         "api_key": "",
@@ -386,10 +415,17 @@ def get_api_config() -> dict:
     except Exception:
         cfg["max_chars"] = 45000
         cfg["chunk_size"] = 8000
-    # Decrypt API key nếu đã được encrypt (f: = Fernet, x: = XOR)
-    if cfg.get("api_key") and cfg["api_key"].startswith(("f:", "x:")):
-        cfg["api_key"] = _decrypt_api_key(cfg["api_key"])
-    return cfg
+    if "api_key" in cfg:
+        resolved_api_key = _migrate_legacy_api_key(cfg)
+    elif cfg.get("api_key_storage") == "keyring":
+        resolved_api_key = load_api_key() or ""
+    else:
+        resolved_api_key = ""
+    # Keep the returned runtime value separate from the persisted dictionary.
+    # This protects against a future caller saving the resolved config by mistake.
+    runtime_cfg = dict(cfg)
+    runtime_cfg["api_key"] = resolved_api_key
+    return runtime_cfg
 
 
 def save_api_config(api_key: str, api_base: str, model: str, temperature: float = 0.3,
@@ -408,8 +444,17 @@ def save_api_config(api_key: str, api_base: str, model: str, temperature: float 
     if reasoning_effort not in ("low", "medium", "high"):
         reasoning_effort = ""
 
+    api_key = api_key.strip()
+    key_saved = True
+    if api_key:
+        key_saved = save_api_key(api_key)
+        key_storage = "keyring" if key_saved else "unavailable"
+    else:
+        delete_api_key()
+        key_storage = "none"
+
     cfg = {
-        "api_key": _encrypt_api_key(api_key.strip()) if api_key.strip() else "",
+        "api_key_storage": key_storage,
         "api_base": api_base,
         "model": model,
         "temperature": temperature,
@@ -419,6 +464,7 @@ def save_api_config(api_key: str, api_base: str, model: str, temperature: float 
         "reasoning_effort": reasoning_effort,
     }
     _save_config(cfg)
+    return key_saved
 
 
 def _apply_reasoning_effort(payload: dict, cfg: dict):
@@ -1331,6 +1377,7 @@ def extract_vocabulary_with_ai(
     progress_callback: Optional[Callable[[str], None]] = None,
     force_refresh: bool = False,
     token_callback: Optional[Callable[[dict], None]] = None,
+    should_abort: Optional[Callable[[], bool]] = None,
 ) -> list:
     """
     Gửi văn bản đến AI API để trích xuất từ vựng. Cache thông minh.
@@ -1347,6 +1394,8 @@ def extract_vocabulary_with_ai(
         List các dict từ vựng (chỉ từ mới, không trùng deck)
     """
     existing_hash = _make_existing_hash(existing_words or [])
+    if should_abort and should_abort():
+        raise RuntimeError("⏹ Đã hủy bởi người dùng")
 
     # Cache
     if not force_refresh:
@@ -1406,7 +1455,7 @@ def extract_vocabulary_with_ai(
 
     _timeout = 600 if "reasoner" in cfg.get("model", "") else 300
     body = _http_post_json(url, payload, headers, timeout=_timeout,
-                           progress_callback=progress_callback)
+                           progress_callback=progress_callback, should_abort=should_abort)
 
     result = json.loads(body)
     if "choices" not in result or len(result["choices"]) == 0:
@@ -1532,7 +1581,7 @@ def _parse_ai_json_with_comment(content: str) -> tuple:
 #  SMART ANKI QUERY — truy vấn thông minh, không quét toàn bộ
 # ═══════════════════════════════════════════════════════════
 
-def query_anki_context(user_message: str, lang: str = "japanese") -> dict:
+def query_anki_context(user_message: str, lang: str = "japanese", collection=None) -> dict:
     """
     Thu thập ngữ cảnh Anki MỘT CÁCH THÔNG MINH dựa trên yêu cầu của người dùng.
     Chỉ query những gì liên quan, không quét toàn bộ database.
@@ -1548,16 +1597,18 @@ def query_anki_context(user_message: str, lang: str = "japanese") -> dict:
     }
     
     try:
-        from aqt import mw
+        if collection is None:
+            from aqt import mw
+            collection = mw.col
         
         # 1. Lấy danh sách deck (nhẹ, chỉ tên + số lượng)
-        deck_names = mw.col.decks.all_names()
+        deck_names = collection.decks.all_names()
         deck_list = []
         for name in deck_names:
             try:
-                did = mw.col.decks.id(name)
+                did = collection.decks.id(name)
                 # Chỉ đếm số thẻ trong deck này (có giới hạn)
-                count = mw.col.decks.card_count(did, include_subdecks=False)
+                count = collection.decks.card_count(did, include_subdecks=False)
                 deck_list.append({"name": name, "card_count": count})
             except Exception:
                 deck_list.append({"name": name, "card_count": "?"})
@@ -1568,16 +1619,16 @@ def query_anki_context(user_message: str, lang: str = "japanese") -> dict:
         for d in deck_list:
             if d["name"].lower() in msg_lower:
                 try:
-                    did = mw.col.decks.id(d["name"])
+                    did = collection.decks.id(d["name"])
                     # Stats cơ bản (không quét từng thẻ)
                     due_count = 0
                     new_count = 0
                     try:
                         # Due cards
-                        due = mw.col.find_cards(f'"deck:{d["name"]}" is:due')
+                        due = collection.find_cards(f'"deck:{d["name"]}" is:due')
                         due_count = len(due) if due else 0
                         # New cards
-                        new = mw.col.find_cards(f'"deck:{d["name"]}" is:new')
+                        new = collection.find_cards(f'"deck:{d["name"]}" is:new')
                         new_count = len(new) if new else 0
                     except Exception:
                         pass
@@ -1596,10 +1647,10 @@ def query_anki_context(user_message: str, lang: str = "japanese") -> dict:
         if not context["current_deck_stats"] and deck_list:
             d = deck_list[0]
             try:
-                did = mw.col.decks.id(d["name"])
-                due = mw.col.find_cards(f'"deck:{d["name"]}" is:due')
+                did = collection.decks.id(d["name"])
+                due = collection.find_cards(f'"deck:{d["name"]}" is:due')
                 due_count = len(due) if due else 0
-                new = mw.col.find_cards(f'"deck:{d["name"]}" is:new')
+                new = collection.find_cards(f'"deck:{d["name"]}" is:new')
                 new_count = len(new) if new else 0
                 context["current_deck_stats"] = {
                     "name": d["name"],
@@ -1744,6 +1795,8 @@ def chat_with_ai(
     conversation_history: Optional[List[dict]] = None,
     progress_callback: Optional[Callable[[str], None]] = None,
     quick: bool = False,
+    should_abort: Optional[Callable[[], bool]] = None,
+    anki_context: Optional[dict] = None,
 ) -> dict:
     """
     Gửi tin nhắn đến AI và nhận phản hồi. AI có ngữ cảnh Anki.
@@ -1774,7 +1827,7 @@ def chat_with_ai(
     else:
         if progress_callback:
             progress_callback("🔍 Đang thu thập ngữ cảnh Anki...")
-        context = query_anki_context(user_message, lang)
+        context = anki_context if anki_context is not None else query_anki_context(user_message, lang)
         context_text = _build_anki_context_text(context)
         if progress_callback:
             progress_callback(f"🤖 Đang gọi {cfg['model']}...")
@@ -1814,7 +1867,7 @@ def chat_with_ai(
     _timeout = 600 if "reasoner" in cfg.get("model", "") else 300
     try:
         body = _http_post_json(url, payload, headers, timeout=_timeout,
-                               progress_callback=progress_callback)
+                               progress_callback=progress_callback, should_abort=should_abort)
     except RuntimeError as e:
         return {"reply": "", "vocab_json": None, "token_info": None, "error": str(e)}
     
@@ -1907,6 +1960,7 @@ def extract_vocabulary_long_text(
     chunk_size: Optional[int] = None,
     progress_callback: Optional[Callable[[str], None]] = None,
     force_refresh: bool = False,
+    should_abort: Optional[Callable[[], bool]] = None,
 ) -> list:
     """Xử lý văn bản dài: chia đoạn, gọi AI, loại trùng, tổng hợp token."""
     if chunk_size is None:
@@ -1915,6 +1969,7 @@ def extract_vocabulary_long_text(
         return extract_vocabulary_with_ai(
             text, lang, custom_instruction, existing_words,
             progress_callback, force_refresh,
+            should_abort=should_abort,
         )
 
     chunks = [text[i:i + chunk_size] for i in range(0, len(text), chunk_size)]
@@ -1943,6 +1998,8 @@ def extract_vocabulary_long_text(
         agg["total_cost"] += ti.get("total_cost", 0)
 
     for idx, chunk in enumerate(chunks):
+        if should_abort and should_abort():
+            raise RuntimeError("⏹ Đã hủy bởi người dùng")
         if progress_callback:
             progress_callback(f"🔄 Đoạn {idx + 1}/{len(chunks)}...")
 
@@ -1952,6 +2009,7 @@ def extract_vocabulary_long_text(
                 chunk, lang, custom_instruction, combined_existing,
                 progress_callback=None, force_refresh=force_refresh,
                 token_callback=_acc,
+                should_abort=should_abort,
             )
             for item in vocab_chunk:
                 if not isinstance(item, dict):
@@ -1994,6 +2052,7 @@ def extract_grammar_with_ai(
     progress_callback: Optional[Callable[[str], None]] = None,
     force_refresh: bool = False,
     token_callback: Optional[Callable[[dict], None]] = None,
+    should_abort: Optional[Callable[[], bool]] = None,
 ) -> list:
     """
     Gửi văn bản đến AI API để trích xuất CẤU TRÚC NGỮ PHÁP (khác từ vựng).
@@ -2010,6 +2069,8 @@ def extract_grammar_with_ai(
         List các dict ngữ pháp (chỉ pattern mới, không trùng deck)
     """
     existing_hash = _make_existing_hash(existing_patterns or [])
+    if should_abort and should_abort():
+        raise RuntimeError("⏹ Đã hủy bởi người dùng")
 
     # Cache
     if not force_refresh:
@@ -2069,7 +2130,7 @@ def extract_grammar_with_ai(
 
     _timeout = 600 if "reasoner" in cfg.get("model", "") else 300
     body = _http_post_json(url, payload, headers, timeout=_timeout,
-                           progress_callback=progress_callback)
+                           progress_callback=progress_callback, should_abort=should_abort)
 
     result = json.loads(body)
     if "choices" not in result or len(result["choices"]) == 0:
@@ -2149,6 +2210,7 @@ def extract_grammar_long_text(
     chunk_size: Optional[int] = None,
     progress_callback: Optional[Callable[[str], None]] = None,
     force_refresh: bool = False,
+    should_abort: Optional[Callable[[], bool]] = None,
 ) -> list:
     """Xử lý văn bản dài: chia đoạn, gọi AI trích ngữ pháp, loại trùng, tổng hợp token."""
     if chunk_size is None:
@@ -2157,6 +2219,7 @@ def extract_grammar_long_text(
         return extract_grammar_with_ai(
             text, lang, custom_instruction, existing_patterns,
             progress_callback, force_refresh,
+            should_abort=should_abort,
         )
 
     chunks = [text[i:i + chunk_size] for i in range(0, len(text), chunk_size)]
@@ -2182,6 +2245,8 @@ def extract_grammar_long_text(
         agg["total_cost"] += ti.get("total_cost", 0)
 
     for idx, chunk in enumerate(chunks):
+        if should_abort and should_abort():
+            raise RuntimeError("⏹ Đã hủy bởi người dùng")
         if progress_callback:
             progress_callback(f"🔄 Đoạn {idx + 1}/{len(chunks)}...")
 
@@ -2190,6 +2255,7 @@ def extract_grammar_long_text(
                 chunk, lang, custom_instruction, existing_patterns,
                 progress_callback=None, force_refresh=force_refresh,
                 token_callback=_acc,
+                should_abort=should_abort,
             )
             for item in grammar_chunk:
                 if not isinstance(item, dict):

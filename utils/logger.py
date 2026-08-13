@@ -7,17 +7,50 @@ Log đồng thời ra file và console (Anki debug window).
 
 import logging
 import os
+import re
 import sys
 from logging.handlers import RotatingFileHandler
+from typing import Optional
 
 # Singleton logger
-_logger: logging.Logger | None = None
+_logger: Optional[logging.Logger] = None
 _initialized: bool = False
 
 # Đường dẫn file log
 _LOG_FILENAME = "anki_tool.log"
 _LOG_MAX_BYTES = 5 * 1024 * 1024  # 5 MB
 _LOG_BACKUP_COUNT = 3  # Giữ 3 file log cũ
+
+_AUTHORIZATION_RE = re.compile(r"(?i)(authorization\s*[:=]\s*(?:bearer\s+)?)\S+")
+_API_KEY_FIELD_RE = re.compile(r"(?i)([\"']?api[_-]?key[\"']?\s*[:=]\s*[\"']?)[^\s,}\"']+")
+_COMMON_SECRET_RE = re.compile(r"\b(?:sk|rk|pk)_[A-Za-z0-9_\-]{8,}\b")
+
+
+def redact_sensitive(value):
+    """Mask credentials before any handler can write them to a log sink."""
+    if isinstance(value, str):
+        value = _AUTHORIZATION_RE.sub(r"\1[REDACTED]", value)
+        value = _API_KEY_FIELD_RE.sub(r"\1[REDACTED]", value)
+        return _COMMON_SECRET_RE.sub("[REDACTED]", value)
+    if isinstance(value, dict):
+        return {
+            key: "[REDACTED]" if str(key).lower() in {"api_key", "authorization"} else redact_sensitive(item)
+            for key, item in value.items()
+        }
+    if isinstance(value, tuple):
+        return tuple(redact_sensitive(item) for item in value)
+    if isinstance(value, list):
+        return [redact_sensitive(item) for item in value]
+    return value
+
+
+class _SensitiveDataFilter(logging.Filter):
+    """Last-line defense for logger calls that accidentally include secrets."""
+
+    def filter(self, record: logging.LogRecord) -> bool:
+        record.msg = redact_sensitive(record.msg)
+        record.args = redact_sensitive(record.args)
+        return True
 
 
 def _get_log_dir() -> str:
@@ -46,6 +79,8 @@ def setup_logging(level: str = "INFO", log_to_file: bool = True, log_to_console:
     _logger = logging.getLogger("AnkiTool")
     _logger.setLevel(getattr(logging, level.upper(), logging.INFO))
     _logger.handlers.clear()
+    _logger.filters.clear()
+    _logger.addFilter(_SensitiveDataFilter())
 
     # Format
     fmt = logging.Formatter(

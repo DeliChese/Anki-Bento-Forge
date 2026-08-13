@@ -2,10 +2,17 @@
 Hooks package — Reviewer hooks for AnkiTool.
 """
 
-from aqt import gui_hooks
+try:
+    from aqt import gui_hooks
+except Exception:
+    gui_hooks = None
 
 from audio.engine import detect_lang_from_model, get_default_speed
 from mode import _SPEED_CTRL_JS, _LG_JS_BODY
+from utils.logger import get_logger
+
+logger = get_logger()
+_REGISTERED_HOOKS = set()
 
 # Import an toàn module overview_mode (tránh circular import ở mức module load)
 try:
@@ -64,10 +71,33 @@ def _on_reviewer_answer(reviewer):
         pass
 
 
-def register_hooks():
-    """Đăng ký tất cả reviewer hooks."""
+def _register_gui_hook(name, callback):
+    """Register one public Anki hook without assuming other hooks exist."""
+    if name in _REGISTERED_HOOKS:
+        return True
+    hook = getattr(gui_hooks, name, None) if gui_hooks is not None else None
+    append = getattr(hook, "append", None)
+    if not callable(append):
+        logger.warning(
+            "HOOK_REVIEWER_UNAVAILABLE: Anki does not expose gui_hooks.%s; feature disabled.",
+            name,
+        )
+        return False
     try:
-        gui_hooks.reviewer_did_show_question.append(_on_reviewer_question)
-        gui_hooks.reviewer_did_show_answer.append(_on_reviewer_answer)
-    except Exception:
-        pass
+        append(callback)
+        _REGISTERED_HOOKS.add(name)
+        return True
+    except Exception as exc:
+        logger.warning("HOOK_REVIEWER_REGISTER_FAILED: %s", exc)
+        return False
+
+
+def register_hooks():
+    """Register available reviewer hooks, gracefully disabling missing features."""
+    question_registered = _register_gui_hook(
+        "reviewer_did_show_question", _on_reviewer_question
+    )
+    answer_registered = _register_gui_hook(
+        "reviewer_did_show_answer", _on_reviewer_answer
+    )
+    return question_registered or answer_registered

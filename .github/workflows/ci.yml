@@ -8,12 +8,12 @@ on:
 
 jobs:
   test:
-    name: pytest (Python ${{ matrix.python-version }})
+    name: quality (Python ${{ matrix.python-version }})
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
-        python-version: ["3.11", "3.12"]
+        python-version: ["3.9", "3.11"]
     steps:
       - uses: actions/checkout@v4
 
@@ -22,10 +22,16 @@ jobs:
           python-version: ${{ matrix.python-version }}
 
       - name: Install dependencies
-        run: pip install pytest
+        run: pip install pytest ruff
 
-      - name: Run tests
-        run: python -m pytest tests/ -q
+      - name: Critical lint
+        run: ruff check --select=E9,F63,F7,F82 .
+
+      - name: Run isolated tests
+        run: |
+          TEST_DATA_DIR="$(mktemp -d)"
+          BENTO_FORGE_DATA_DIR="$TEST_DATA_DIR" python -m pytest --rootdir=tests --basetemp "$TEST_DATA_DIR/pytest" -p no:cacheprovider -q tests
+          rm -rf "$TEST_DATA_DIR"
 
       - name: Compile check (syntax)
         run: python -m py_compile __init__.py utils/*.py ui/*.py workers/*.py mode/*.py audio/*.py hooks/*.py Language/*.py

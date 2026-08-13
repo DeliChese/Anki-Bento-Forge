@@ -48,6 +48,18 @@ CACHE_DIR = get_user_data_path("cache")
 CACHE_TTL = 14 * 24 * 3600       # Cache 14 ngày
 
 
+def _wait_for_cancel(seconds: float, should_abort: Optional[Callable[[], bool]] = None):
+    """Cancelable inter-batch delay; avoids a UI Stop waiting for sleep()."""
+    deadline = time.monotonic() + max(0.0, seconds)
+    while time.monotonic() < deadline:
+        if should_abort and should_abort():
+            raise RuntimeError("⏹ Đã hủy bởi người dùng")
+        before = time.monotonic()
+        time.sleep(min(0.1, deadline - before))
+        if time.monotonic() <= before:
+            return
+
+
 # ═══════════════════════════════════════════════════════════
 #  WORD LIST PARSER — Parse danh sách từ từ nhiều format
 # ═══════════════════════════════════════════════════════════
@@ -379,6 +391,7 @@ def _call_ai_for_batch(
     total_batches: int = 1,
     progress_callback: Optional[Callable[[str], None]] = None,
     grammar: bool = False,
+    should_abort: Optional[Callable[[], bool]] = None,
 ) -> list:
     """Gọi AI API cho một batch từ vựng (hoặc cấu trúc ngữ pháp)"""
     cfg = get_api_config()
@@ -413,7 +426,7 @@ def _call_ai_for_batch(
     _timeout = 600 if "reasoner" in cfg.get("model", "") else 300
     try:
         body = _http_post_json(url, payload, headers, timeout=_timeout,
-                               progress_callback=progress_callback)
+                               progress_callback=progress_callback, should_abort=should_abort)
     except RuntimeError as e:
         raise RuntimeError(f"❌ Lỗi API: {e}")
     
@@ -622,7 +635,8 @@ def process_large_word_list(
             try:
                 vocab_batch = _call_ai_for_batch(
                     batch, lang, existing_words or [], custom_instruction,
-                    batch_num, total_batches, progress_callback, grammar=grammar
+                    batch_num, total_batches, progress_callback, grammar=grammar,
+                    should_abort=should_abort,
                 )
                  
                 # Lọc trùng
@@ -662,7 +676,7 @@ def process_large_word_list(
             delay = current_delay if current_delay > 0 else base_delay
             if delay > base_delay and progress_callback:
                 progress_callback(f"⏳ Đang chờ {delay:.1f}s (rate limit đang hoạt động)...")
-            time.sleep(delay)
+            _wait_for_cancel(delay, should_abort)
     
     # ── Step 5: Tổng kết ──────────────────────────────────
     if progress_callback:
@@ -713,6 +727,7 @@ def organize_decks_with_ai(
     vocab_list: List[dict],
     lang: str,
     progress_callback: Optional[Callable[[str], None]] = None,
+    should_abort: Optional[Callable[[], bool]] = None,
 ) -> dict:
     """
     🤖 Dùng AI để đề xuất cấu trúc Parent Deck + Sub Decks dựa trên từ vựng đã trích xuất.
@@ -790,7 +805,7 @@ Tên deck bằng tiếng Việt, ngắn gọn, dễ hiểu.
 
     try:
         body = _http_post_json(url, payload, headers, timeout=300,
-                               progress_callback=progress_callback)
+                               progress_callback=progress_callback, should_abort=should_abort)
     except Exception as e:
         logger.warning("Deck organizer error: %s", e)
         # Fallback: tự tổ chức đơn giản
@@ -928,6 +943,8 @@ def create_decks_from_organization(
     vocab_list: List[dict],
     lang: str,
     progress_callback: Optional[Callable[[str], None]] = None,
+    collection=None,
+    should_abort: Optional[Callable[[], bool]] = None,
 ) -> Dict[str, int]:
     """
     📦 Tự động tạo parent deck + sub decks trong Anki dựa trên đề xuất của AI.
@@ -942,7 +959,9 @@ def create_decks_from_organization(
         Dict mapping deck_name → deck_id đã tạo
     """
     try:
-        from aqt import mw
+        if collection is None:
+            from aqt import mw
+            collection = mw.col
     except ImportError:
         raise RuntimeError("⚠️ Không thể truy cập Anki. Đảm bảo add-on đang chạy trong Anki.")
     
@@ -959,17 +978,19 @@ def create_decks_from_organization(
     deck_count = 0
     
     for parent_info in organization.get("decks", []):
+        if should_abort and should_abort():
+            break
         parent_name = parent_info.get("parent", "Từ Vựng Mới").strip()
         
         # Tạo parent deck nếu chưa có
         try:
-            parent_id = mw.col.decks.id(parent_name, create=False)
+            parent_id = collection.decks.id(parent_name, create=False)
         except Exception:
             parent_id = None
         
         if parent_id is None:
             try:
-                parent_id = mw.col.decks.id(parent_name)
+                parent_id = collection.decks.id(parent_name)
                 if progress_callback:
                     progress_callback(f"📁 Tạo parent deck: {parent_name}")
             except Exception as e:
@@ -979,6 +1000,8 @@ def create_decks_from_organization(
         created_decks[parent_name] = parent_id
         
         for sub_info in parent_info.get("sub_decks", []):
+            if should_abort and should_abort():
+                break
             sub_name = sub_info.get("name", "Sub Deck").strip()
             full_name = f"{parent_name}::{sub_name}"
             
@@ -988,7 +1011,7 @@ def create_decks_from_organization(
             
             # Tạo sub deck
             try:
-                sub_id = mw.col.decks.id(full_name)
+                sub_id = collection.decks.id(full_name)
                 created_decks[full_name] = sub_id
             except Exception as e:
                 logger.warning("Không tạo được sub deck '%s': %s", full_name, e)

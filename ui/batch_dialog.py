@@ -10,6 +10,8 @@ from aqt.qt import (
 from aqt.utils import tooltip
 
 from utils.batch_processor import estimate_batch_cost, parse_word_list
+from utils.batch_processor import create_decks_from_organization
+from utils.anki_ops import run_collection
 from utils.ai_extractor import is_openrouter
 from utils.i18n import t
 
@@ -315,6 +317,8 @@ class BatchWordListDialog(QDialog):
 
     def _on_deck_organized(self, organization):
         """Deck organization hoàn tất"""
+        if self._deck_thread and self._deck_thread.cancel_event.is_set():
+            return
         suggestion = organization.get("suggestion", "")
         total_parents = len(organization.get("decks", []))
         total_subs = sum(len(p.get("sub_decks", [])) for p in organization.get("decks", []))
@@ -327,11 +331,24 @@ class BatchWordListDialog(QDialog):
         self.progress_bar.setValue(100)
         self.lbl_status.setText(msg)
 
-        if not self.chk_create_decks.isChecked():
+        if self.chk_create_decks.isChecked():
+            self.lbl_status.setText(t("worker_progress_create_decks"))
+            run_collection(
+                self,
+                lambda col: create_decks_from_organization(
+                    organization, self.result_vocab, self.lang, collection=col,
+                    should_abort=self._deck_thread.cancel_event.is_set,
+                ),
+                self._on_decks_created,
+                self._on_error,
+            )
+        else:
             self._finish_processing()
 
     def _on_decks_created(self, created_decks):
         """Decks đã được tạo trong Anki"""
+        if self._deck_thread and self._deck_thread.cancel_event.is_set():
+            return
         self.lbl_status.setText(
             t("batch_status_decks_created", count=len(created_decks),
               names="\n".join(f"📁 {name}" for name in list(created_decks.keys())[:10])

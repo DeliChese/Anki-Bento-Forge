@@ -2,6 +2,8 @@
 Batch Workers — Background threads for batch word list processing and deck organization.
 """
 
+import threading
+
 from aqt.qt import QThread, pyqtSignal
 
 from utils.logger import get_logger
@@ -9,7 +11,6 @@ from utils.i18n import t
 from utils.batch_processor import (
     process_large_word_list,
     organize_decks_with_ai,
-    create_decks_from_organization,
     estimate_batch_cost,
 )
 
@@ -40,11 +41,11 @@ class BatchProcessThread(QThread):
         self.batch_size = batch_size
         self.grammar = grammar
         self.slow_mode = slow_mode
-        self._is_running = True
+        self.cancel_event = threading.Event()
 
     def run(self):
         try:
-            if not self._is_running:
+            if self.cancel_event.is_set():
                 return
 
             # Báo cáo ước tính
@@ -63,12 +64,12 @@ class BatchProcessThread(QThread):
                 existing_words=self.existing_words,
                 batch_size=self.batch_size,
                 progress_callback=lambda msg: self.progress.emit(msg),
-                should_abort=lambda: not self._is_running,
+                should_abort=self.cancel_event.is_set,
                 grammar=self.grammar,
                 slow_mode=self.slow_mode,
             )
 
-            if not self._is_running:
+            if self.cancel_event.is_set():
                 return
 
             if not vocab_list:
@@ -82,10 +83,11 @@ class BatchProcessThread(QThread):
 
         except Exception as e:
             logger.warning("Batch process error: %s", e)
-            self.error.emit(str(e))
+            if not self.cancel_event.is_set():
+                self.error.emit(str(e))
 
     def stop(self):
-        self._is_running = False
+        self.cancel_event.set()
 
 
 class DeckOrganizerThread(QThread):
@@ -103,11 +105,11 @@ class DeckOrganizerThread(QThread):
         self.vocab_list = vocab_list
         self.lang = lang
         self.auto_create = auto_create
-        self._is_running = True
+        self.cancel_event = threading.Event()
 
     def run(self):
         try:
-            if not self._is_running:
+            if self.cancel_event.is_set():
                 return
 
             # Step 1: AI đề xuất tổ chức
@@ -117,9 +119,10 @@ class DeckOrganizerThread(QThread):
                 vocab_list=self.vocab_list,
                 lang=self.lang,
                 progress_callback=lambda msg: self.progress.emit(msg),
+                should_abort=self.cancel_event.is_set,
             )
 
-            if not self._is_running:
+            if self.cancel_event.is_set():
                 return
 
             if not organization or not organization.get("decks"):
@@ -138,26 +141,10 @@ class DeckOrganizerThread(QThread):
 
             self.finished.emit(organization)
 
-            # Step 2: Tự động tạo deck nếu được yêu cầu
-            if self.auto_create and self._is_running:
-                self.progress.emit(t("worker_progress_create_decks"))
-                
-                created = create_decks_from_organization(
-                    organization=organization,
-                    vocab_list=self.vocab_list,
-                    lang=self.lang,
-                    progress_callback=lambda msg: self.progress.emit(msg),
-                )
-                
-                if not self._is_running:
-                    return
-                
-                self.decks_created.emit(created)
-                self.progress.emit(f"✅ Đã tạo {len(created)} deck trong Anki!")
-
         except Exception as e:
             logger.warning("Deck organizer error: %s", e)
-            self.error.emit(str(e))
+            if not self.cancel_event.is_set():
+                self.error.emit(str(e))
 
     def stop(self):
-        self._is_running = False
+        self.cancel_event.set()

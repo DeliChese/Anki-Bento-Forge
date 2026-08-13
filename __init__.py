@@ -10,6 +10,7 @@ import os
 import sys
 import re
 import time
+import threading
 
 from aqt import mw, gui_hooks
 from aqt.qt import *
@@ -49,9 +50,11 @@ from utils.ai_extractor import (
     get_api_config,
     get_existing_vocab_from_deck, invalidate_deck_cache,
     extract_vocabulary_with_ai, extract_vocabulary_long_text,
-    init_import_history, add_to_import_history, get_history_summary_text,
+    init_import_history, add_to_import_history, get_history_summary_text, query_anki_context,
 )
 from utils.import_safety import rollback_added_notes, summarize_import_batch
+from utils.anki_ops import run_collection, run_query
+from utils.import_operations import apply_import, prepare_audio_tasks
 
 logger = get_logger()
 
@@ -64,7 +67,6 @@ from utils.i18n import (
 
 # Import workers (đã tách ra workers/)
 from workers import ImportWorker, PreviewThread, AiExtractThread, AiChatThread
-from workers.deck_scan_worker import DeckScanWorker
 
 # Import UI dialogs (đã tách ra ui/)
 from ui import AiChatDialog, show_ai_settings_dialog, show_diff_meaning_dialog, show_ai_preview_dialog
@@ -114,7 +116,9 @@ class AnkiSmartFactory(QDialog):
         self._current_lang = "japanese"
         self._is_grammar = False   # False = từ vựng, True = ngữ pháp
         self.import_worker = None
+        self._import_cancel_event = None
         self._ai_thread = None
+        self._ai_cancel_event = None
         # Danh sách file tài liệu tham khảo đã kẹp: [(name, text), ...] + đường dẫn
         self._ai_attached_files = []
         self._ai_attached_paths = []
@@ -1165,11 +1169,17 @@ class AnkiSmartFactory(QDialog):
         voice_id = voices[idx]["id"]
         sample = VOICE_SAMPLE.get(lang, "Hello!")
 
+        previous_preview = getattr(self, "_preview_thread", None)
+        if previous_preview is not None and previous_preview.isRunning():
+            previous_preview.stop()
+
         self.btn_preview_voice.setEnabled(False)
         self.btn_preview_voice.setText("⏳")
 
         speed = self.spin_speed.value()
-        self._preview_thread = PreviewThread(sample, voice_id, lang, speed=speed)
+        self._preview_thread = PreviewThread(
+            sample, voice_id, lang, speed=speed, media_dir=mw.col.media.dir()
+        )
         self._preview_thread.done.connect(self._on_preview_done)
         self._preview_thread.start()
 
@@ -1796,7 +1806,6 @@ class AnkiSmartFactory(QDialog):
         # Lưu lại các index đã xuất để cập nhật lại xưởng sau khi import xong
         self._last_export_indices = list(export_indices)
 
-        mw.checkpoint("Anki V16 Import")
         cfg = self._cfg()
         deck_id = mw.col.decks.id(self.deck_chooser.currentText())
 
@@ -1812,12 +1821,42 @@ class AnkiSmartFactory(QDialog):
         self.pbar.setValue(0)
         self.pbar.setVisible(True)
 
-        speed = self.spin_speed.value()
-        self.import_worker = ImportWorker(batch, cfg, deck_id, audio_options, speed=speed)
+        self._import_cancel_event = threading.Event()
+        for entry in batch:
+            entry["audio_enabled"] = audio_options
+        run_query(
+            self,
+            lambda col: prepare_audio_tasks(col, batch, cfg),
+            lambda tasks: self._start_import_audio(batch, cfg, deck_id, tasks),
+            self._on_import_error,
+        )
+
+    def _start_import_audio(self, batch, cfg, deck_id, audio_tasks):
+        """Run only network/TTS work outside Anki's collection executor."""
+        if self._import_cancel_event is None or self._import_cancel_event.is_set():
+            return
+        if not audio_tasks:
+            self._commit_import(batch, cfg, deck_id, {})
+            return
+        self.lbl_status.setText(f"🎤 Đang tạo {len(audio_tasks)} audio files...")
+        self.import_worker = ImportWorker(audio_tasks, speed=self.spin_speed.value())
         self.import_worker.progress.connect(self._on_import_progress)
-        self.import_worker.finished.connect(self._on_import_finished)
+        self.import_worker.finished.connect(
+            lambda result: self._commit_import(batch, cfg, deck_id, result["audio_tags"])
+        )
         self.import_worker.error.connect(self._on_import_error)
         self.import_worker.start()
+
+    def _commit_import(self, batch, cfg, deck_id, audio_tags):
+        if self._import_cancel_event is None or self._import_cancel_event.is_set():
+            return
+        self.lbl_status.setText("💾 Đang lưu notes...")
+        run_collection(
+            self,
+            lambda col: apply_import(col, batch, cfg, deck_id, audio_tags, self._import_cancel_event.is_set),
+            self._on_import_finished,
+            self._on_import_error,
+        )
 
     def _on_import_progress(self, current, status_text):
         self.pbar.setValue(current)
@@ -1825,6 +1864,8 @@ class AnkiSmartFactory(QDialog):
         mw.app.processEvents()
 
     def _on_import_finished(self, report):
+        if self._import_cancel_event is None or self._import_cancel_event.is_set():
+            return
         mw.reset()
         self.pbar.setVisible(False)
         self.btn_cancel.setVisible(False)
@@ -1867,6 +1908,8 @@ class AnkiSmartFactory(QDialog):
             f"🔄 Cập nhật  : {report['updated']} thẻ\n"
             f"🎵 Audio gen  : {report['audio_gen']} file\n"
         )
+        if report.get("audio_failed", 0):
+            msg += f"⚠️ Audio lỗi : {report['audio_failed']} file\n"
         if report.get('errors', 0) > 0:
             msg += f"\n⚠️ Lỗi: {report['errors']} thẻ\n"
             if 'errors_detail' in report:
@@ -1874,6 +1917,7 @@ class AnkiSmartFactory(QDialog):
 
         showInfo(msg)
         self.import_worker = None
+        self._import_cancel_event = None
 
     def _rollback_last_import(self):
         """Undo only notes newly created by the latest completed import batch."""
@@ -1896,6 +1940,8 @@ class AnkiSmartFactory(QDialog):
             showInfo(t("rollback_import_failed", error=str(e)))
 
     def _on_import_error(self, error_msg):
+        if self._import_cancel_event is not None and self._import_cancel_event.is_set():
+            return
         showInfo(f"Lỗi import: {error_msg}")
         self.btn_import.setEnabled(True)
         self.btn_cancel.setVisible(False)
@@ -1904,10 +1950,16 @@ class AnkiSmartFactory(QDialog):
         self._last_export_indices = None
 
     def _cancel_import(self):
-        if self.import_worker and self.import_worker.isRunning():
+        if self._import_cancel_event is None or self._import_cancel_event.is_set():
+            return
+        self._import_cancel_event.set()
+        if self.import_worker:
             self.import_worker.stop()
-            self.lbl_status.setText(t("status_stopping"))
-            self.btn_cancel.setEnabled(False)
+        self._last_export_indices = None
+        self.btn_cancel.setVisible(False)
+        self.btn_import.setEnabled(True)
+        self.pbar.setVisible(False)
+        self.lbl_status.setText(t("status_stopping"))
 
     def _drop_extra_combo_cards(self, mid, keep_count):
         """Migration combo: xóa các card thừa (ord >= keep_count) của model,
@@ -2252,20 +2304,23 @@ class AnkiSmartFactory(QDialog):
         # Lưu params để dùng trong callback
         self._ai_pending_text = text
         self._ai_pending_instr = custom_instr
+        self._ai_cancel_event = threading.Event()
 
-        # Quét deck trong background thread (không chặn UI)
+        # Collection reads use Anki's serialized QueryOp; the following AI
+        # request remains network-only.
         cfg = self._cfg()
         deck_name = self.deck_chooser.currentText()
         if deck_name:
             try:
                 deck_id = mw.col.decks.id(deck_name)
-                self._deck_scan_worker = DeckScanWorker(
-                    cfg["model_name"], deck_id, cfg["front_field"]
+                run_query(
+                    self,
+                    lambda col: get_existing_vocab_from_deck(
+                        cfg["model_name"], deck_id, cfg["front_field"], collection=col
+                    ),
+                    self._on_deck_scan_finished,
+                    self._on_deck_scan_error,
                 )
-                self._deck_scan_worker.progress.connect(self._on_deck_scan_progress)
-                self._deck_scan_worker.finished.connect(self._on_deck_scan_finished)
-                self._deck_scan_worker.error.connect(self._on_deck_scan_error)
-                self._deck_scan_worker.start()
                 return
             except Exception as e:
                 logger.warning("Lỗi khởi tạo deck scan: %s", e)
@@ -2290,6 +2345,8 @@ class AnkiSmartFactory(QDialog):
 
     def _start_ai_extract(self, text, custom_instr, existing_words):
         """Khởi động AI extract thread sau khi đã có existing_words"""
+        if self._ai_cancel_event is None or self._ai_cancel_event.is_set():
+            return
         if existing_words:
             self.lbl_ai_status.setText(f"📚 Deck có {len(existing_words)} từ → AI sẽ tránh trùng")
         else:
@@ -2302,6 +2359,7 @@ class AnkiSmartFactory(QDialog):
             custom_instruction=custom_instr,
             existing_words=existing_words,
             grammar=self._is_grammar,
+            cancel_event=self._ai_cancel_event,
         )
         self._ai_thread.progress.connect(self._on_ai_progress)
         self._ai_thread.finished.connect(self._on_ai_finished)
@@ -2368,17 +2426,22 @@ class AnkiSmartFactory(QDialog):
                 self._show_ai_settings()
             return
 
-        from ui.batch_dialog import BatchWordListDialog
-        existing_words = []
+        cfg = self._cfg()
         try:
-            cfg = self._cfg()
             deck_id = mw.col.decks.id(self.deck_chooser.currentText())
-            existing_words = get_existing_vocab_from_deck(
-                cfg.get("model_name", ""), deck_id, cfg.get("front_field", "Front")
+            run_query(
+                self,
+                lambda col: get_existing_vocab_from_deck(
+                    cfg.get("model_name", ""), deck_id, cfg.get("front_field", "Front"), collection=col
+                ),
+                self._open_batch_dialog,
+                lambda _error: self._open_batch_dialog([]),
             )
         except Exception:
-            pass
+            self._open_batch_dialog([])
 
+    def _open_batch_dialog(self, existing_words):
+        from ui.batch_dialog import BatchWordListDialog
         dlg = BatchWordListDialog(
             lang=self._current_lang,
             existing_words=existing_words,
@@ -2487,11 +2550,25 @@ class AnkiSmartFactory(QDialog):
         self.btn_ai_stop.setVisible(True)
         mw.app.processEvents()
 
-        # Chạy trong thread
+        # Snapshot Collection context through QueryOp before starting the
+        # network-only chat worker.
+        self._ai_cancel_event = threading.Event()
+        run_query(
+            self,
+            lambda col: query_anki_context(full_message, self._current_lang, collection=col),
+            lambda context: self._start_ai_chat_thread(full_message, context),
+            self._on_ai_chat_error,
+        )
+
+    def _start_ai_chat_thread(self, full_message, anki_context):
+        if self._ai_cancel_event is None or self._ai_cancel_event.is_set():
+            return
         self._ai_chat_thread = AiChatThread(
             message=full_message,
             lang=self._current_lang,
             conversation_history=self._ai_chat_history if len(self._ai_chat_history) > 0 else None,
+            anki_context=anki_context,
+            cancel_event=self._ai_cancel_event,
         )
         self._ai_chat_thread.progress.connect(self._on_ai_chat_progress)
         self._ai_chat_thread.finished.connect(self._on_ai_chat_finished)
@@ -2565,17 +2642,15 @@ class AnkiSmartFactory(QDialog):
 
     def _cancel_ai_chat(self):
         """Dừng tác vụ AI (cả chat và extract)"""
-        # Dừng AI chat thread
+        if self._ai_cancel_event is not None:
+            self._ai_cancel_event.set()
+        # Signal cancellation only. Never block the UI waiting for a network
+        # thread, and never forcibly terminate one.
         if hasattr(self, '_ai_chat_thread') and self._ai_chat_thread and self._ai_chat_thread.isRunning():
             self._ai_chat_thread.stop()
-            self._ai_chat_thread.wait(2000)
-            self._ai_chat_thread = None
 
-        # Dừng AI extract thread
         if hasattr(self, '_ai_thread') and self._ai_thread and self._ai_thread.isRunning():
-            self._ai_thread.terminate()
-            self._ai_thread.wait(2000)
-            self._ai_thread = None
+            self._ai_thread.stop()
 
         self._stop_ai_chat_timer()
         self._enable_ai_buttons()

@@ -5,7 +5,7 @@
 
 **Cập nhật gần nhất:** 2026-08-13
 
-**Trạng thái chung:** Phase 0 hoàn thành; Phase 1–3 chưa bắt đầu.
+**Trạng thái chung:** Phase 0–2 hoàn thành; Phase 3 chưa bắt đầu.
 **Nguyên tắc:** bảo toàn dữ liệu Anki và dữ liệu cá nhân quan trọng hơn thêm tính năng.
 
 ## Quy tắc duy trì bắt buộc
@@ -62,20 +62,28 @@ Mỗi phiên làm việc có động đến chất lượng, dữ liệu, worker
 - Kiểm chứng: `powershell -ExecutionPolicy Bypass -File scripts/test_isolated.ps1` → 354 passed, lặp lại 354 passed; script xác nhận worktree không đổi.
 - Rủi ro còn lại / bước kế tiếp: Xác minh migration trên một profile Anki sao lưu trước khi phát hành; Phase 1 xử lý worker/Collection.
 
+### 2026-08-13 — Phase 1 / Worker, hủy tác vụ và Collection
+
+- Trạng thái: `Đang làm` → `Hoàn thành`
+- Phạm vi: `__init__.py`, `workers/`, `ui/batch_dialog.py`, `utils/anki_ops.py`, `utils/import_operations.py`, AI/batch/deck-cache và test.
+- Thay đổi: Collection read dùng `QueryOp`; import và tạo deck dùng `CollectionOp`. Audio/AI/batch worker chỉ giữ network work. Cancellation dùng `threading.Event`, không còn `QThread.terminate()`, đồng thời retry/backoff có thể dừng và request có timeout tổng. Import báo note thêm/cập nhật, audio thành công/thất bại; undo-aware operation và rollback note mới vẫn khả dụng.
+- Kiểm chứng: `powershell -ExecutionPolicy Bypass -File scripts/test_isolated.ps1` → 357 passed, lặp lại 357 passed; test bổ sung cover audio import, import bị hủy và backoff bị hủy.
+- Rủi ro còn lại / bước kế tiếp: Kiểm tra thủ công trên profile Anki sao lưu để xác nhận UI/progress và undo của phiên bản Anki mục tiêu trước khi phát hành; tiếp tục Phase 2.
+
 ---
 
 ## Phase 1 — Worker, hủy tác vụ và an toàn Collection
 
-**Trạng thái:** `Chưa bắt đầu`
+**Trạng thái:** `Hoàn thành`
 **Mục tiêu:** Không treo UI, không hủy thread cưỡng bức, không truy cập/ghi Anki Collection theo cách không được quản lý.
 
 ### Hạng mục
 
-- [ ] Thay các `QThread` tự quản lý đang đọc/ghi `mw.col` bằng Anki `QueryOp` cho đọc và `CollectionOp` cho thay đổi có undo.
-- [ ] Tách network-only operation khỏi Collection để có thể chạy song song đúng cách; mọi cập nhật Qt/UI quay lại main thread.
-- [ ] Thay `terminate()` và cờ boolean rời rạc bằng cancellation event xuyên suốt AI extract, chat, batch, retry và backoff.
-- [ ] Biến mọi khoảng chờ/retry thành có thể hủy; đặt timeout tổng và timeout mỗi request rõ ràng.
-- [ ] Gom import thành transaction/undo step có báo cáo chính xác: note mới, note cập nhật, audio thất bại và rollback an toàn.
+- [x] Thay các `QThread` tự quản lý đang đọc/ghi `mw.col` bằng Anki `QueryOp` cho đọc và `CollectionOp` cho thay đổi có undo.
+- [x] Tách network-only operation khỏi Collection để có thể chạy song song đúng cách; mọi cập nhật Qt/UI quay lại main thread.
+- [x] Thay `terminate()` và cờ boolean rời rạc bằng cancellation event xuyên suốt AI extract, chat, batch, retry và backoff.
+- [x] Biến mọi khoảng chờ/retry thành có thể hủy; đặt timeout tổng và timeout mỗi request rõ ràng.
+- [x] Gom import thành transaction/undo step có báo cáo chính xác: note mới, note cập nhật, audio thất bại và rollback an toàn.
 
 ### Tiêu chí hoàn tất
 
@@ -88,16 +96,24 @@ Mỗi phiên làm việc có động đến chất lượng, dữ liệu, worker
 
 ## Phase 2 — TTS, dependency và bí mật
 
-**Trạng thái:** `Chưa bắt đầu`
+**Trạng thái:** `Hoàn thành`
 **Mục tiêu:** Audio và AI thất bại minh bạch, không treo, không làm hỏng Python environment, và không tạo cảm giác an toàn giả cho API key.
 
 ### Hạng mục
 
-- [ ] Bỏ tự động `pip install` thầm lặng trong Anki; thay bằng dependency check + thao tác cài đặt rõ ràng, version được pin và thông báo lỗi hữu ích.
-- [ ] Thêm connect/read timeout, cancellation, lock theo cache key và ghi file audio atomic cho Edge TTS, gTTS, VoiceVox.
-- [ ] Giới hạn cache VoiceVox/audio và có cơ chế dọn file orphan an toàn.
-- [ ] Thay fallback XOR của API key bằng OS credential store/keyring; nếu không thể bảo vệ thì thông báo chính xác thay vì gọi là encryption.
-- [ ] Không log API key, Authorization header, raw prompt hoặc raw response trừ khi người dùng chủ động bật debug có che dữ liệu.
+- [x] Bỏ tự động `pip install` thầm lặng trong Anki; thay bằng dependency check + thao tác cài đặt rõ ràng, version được pin và thông báo lỗi hữu ích.
+- [x] Thêm connect/read timeout, cancellation, lock theo cache key và ghi file audio atomic cho Edge TTS, gTTS, VoiceVox.
+- [x] Giới hạn cache VoiceVox/audio và có cơ chế dọn file orphan an toàn.
+- [x] Thay fallback XOR của API key bằng OS credential store/keyring; nếu không thể bảo vệ thì thông báo chính xác thay vì gọi là encryption.
+- [x] Không log API key, Authorization header, raw prompt hoặc raw response trừ khi người dùng chủ động bật debug có che dữ liệu.
+
+### 2026-08-13 — Phase 2 / Dependency, TTS và bí mật
+
+- Trạng thái: `Đang làm` → `Hoàn thành`
+- Phạm vi: `audio/`, `workers/import_worker.py`, `workers/ai_workers.py`, `utils/credentials.py`, `utils/ai_extractor.py`, `utils/logger.py`, UI AI settings và test.
+- Thay đổi: Bỏ `pip install` tự động; thêm kiểm tra dependency và lệnh cài đặt pin rõ ràng. Edge/gTTS/VoiceVox có timeout, nhận cancellation event, khóa theo audio cache key, và chỉ publish media bằng ghi file tạm rồi atomic replace. Cache query VoiceVox có giới hạn; chỉ dọn file tạm Bento Forge quá hạn, không xóa Anki media có thể đang được thẻ tham chiếu. API key đã chuyển sang OS credential store/keyring theo profile; migration xóa key Fernet/XOR/plaintext khỏi JSON, failure mode không lưu secret. Logger redacts Authorization, api_key và token phổ biến trước khi ghi handler.
+- Kiểm chứng: `powershell -ExecutionPolicy Bypass -File scripts/test_isolated.ps1` → 360 passed, lặp lại 360 passed; test bao phủ TTS safety, migration keyring/failure mode và log redaction.
+- Rủi ro còn lại / bước kế tiếp: Xác minh thủ công trên profile Anki sao lưu: keyring của hệ điều hành mục tiêu, TTS server offline và hủy giữa request trước khi phát hành; tiếp tục Phase 3.
 
 ### Tiêu chí hoàn tất
 
@@ -110,15 +126,15 @@ Mỗi phiên làm việc có động đến chất lượng, dữ liệu, worker
 
 ## Phase 3 — Tương thích, quan sát và phát hành bền vững
 
-**Trạng thái:** `Chưa bắt đầu`
+**Trạng thái:** `Đang làm`
 **Mục tiêu:** Mỗi bản phát hành có giới hạn tương thích thật, tín hiệu lỗi đủ dùng và tài liệu phản ánh hiện trạng.
 
 ### Hạng mục
 
-- [ ] Rà private API/hook Anki (ví dụ Overview patch), thêm feature detection và graceful fallback để không phá reviewer/overview khi Anki đổi API.
-- [ ] Xác định matrix Anki + Python được hỗ trợ thực sự; thu hẹp `max_version` nếu chưa có smoke test tương ứng.
+- [x] Rà private API/hook Anki (ví dụ Overview patch), thêm feature detection và graceful fallback để không phá reviewer/overview khi Anki đổi API.
+- [x] Xác định matrix Anki + Python được hỗ trợ thực sự; thu hẹp `max_version` nếu chưa có smoke test tương ứng.
 - [ ] Bổ sung smoke test với Anki thật hoặc harness tương đương cho import, reviewer hook, combo mode, config migration và undo.
-- [ ] CI chạy format/lint/type-or-import check, test cô lập state, và báo số test thật thay vì badge tĩnh.
+- [x] CI chạy format/lint/type-or-import check, test cô lập state, và báo số test thật thay vì badge tĩnh.
 - [ ] Chuẩn hóa logging thành mã lỗi/ngữ cảnh hành động, không ghi dữ liệu nhạy cảm; thêm hướng dẫn lấy log để debug.
 - [ ] Mỗi release cập nhật CHANGELOG, compatibility matrix và phần Baseline/nhật ký của tài liệu này.
 
@@ -128,6 +144,14 @@ Mỗi phiên làm việc có động đến chất lượng, dữ liệu, worker
 - Hook không tương thích tự tắt có cảnh báo thay vì làm hỏng UI Anki.
 - Release checklist được chạy và ghi kết quả trước khi tăng version.
 
+### 2026-08-13 — Phase 3 / Hook compatibility, matrix và CI
+
+- Trạng thái: `Đang làm`
+- Phạm vi: `hooks/`, `manifest.json`, `COMPATIBILITY.md`, `README.md`, `.github/workflows/ci.yml`, `utils/logger.py` và test.
+- Thay đổi: Loại bỏ đường patch private `Overview._table`; reviewer và WebView hook dùng feature detection, đăng ký idempotent và fallback theo từng hook. Thu hẹp release matrix về Anki 2.1.50/Python 3.9, thêm tài liệu matrix; README dùng CI badge thay vì badge test tĩnh. CI chạy critical lint, test state cô lập và compile check trên Python 3.9/3.11.
+- Kiểm chứng: `python -m py_compile hooks/reviewer.py hooks/overview_mode.py utils/logger.py tests/test_combo_mode.py tests/test_release_metadata.py` và pytest cô lập cho `test_combo_mode.py`, `test_release_metadata.py` → 16 passed.
+- Rủi ro còn lại / bước kế tiếp: Chưa có smoke test Anki thật cho import, reviewer, combo, migration và undo; cần chạy trên profile sao lưu trước khi mở rộng matrix hoặc tăng version. Full isolated suite đã được khởi chạy nhưng chưa trả kết quả trong hơn sáu phút, cần tái chạy trong môi trường CI/phát triển trước release.
+
 ---
 
 ## Nhật ký thay đổi
@@ -136,6 +160,9 @@ Mỗi phiên làm việc có động đến chất lượng, dữ liệu, worker
 | --- | --- | --- |
 | 2026-08-13 | Thay roadmap refactor đã hoàn thành bằng roadmap chất lượng 4 phase. | Giữ một nguồn kế hoạch hiện hành cho các phiên sau. |
 | 2026-08-13 | Hoàn thành Phase 0: profile-scoped persistence, migration atomic, cache/state bounds và test cô lập. | Ngăn update hoặc test ghi đè dữ liệu người dùng; tạo baseline lặp lại được. |
+| 2026-08-13 | Hoàn thành Phase 1: CollectionOp/QueryOp, cancellation event, retry có thể hủy và import audio an toàn. | Ngăn worker tự quản lý truy cập Collection, treo UI và dừng thread cưỡng bức. |
+| 2026-08-13 | Bắt đầu Phase 2: dependency và độ bền TTS. | Loại bỏ cài dependency ngầm; bảo đảm TTS có timeout, hủy và ghi audio an toàn. |
+| 2026-08-13 | Hoàn thành Phase 2: TTS/dependency an toàn, keyring và redaction log. | Ngăn treo TTS, file audio lỗi, sửa Python environment ngầm và lưu/lộ API key không an toàn. |
 
 ## Mẫu cập nhật cho phiên tiếp theo
 
