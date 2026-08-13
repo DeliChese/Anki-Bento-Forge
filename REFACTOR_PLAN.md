@@ -5,7 +5,7 @@
 
 **Cập nhật gần nhất:** 2026-08-13
 
-**Trạng thái chung:** Phase 0–2 hoàn thành; Phase 3 chưa bắt đầu.
+**Trạng thái chung:** Phase 0–3 hoàn thành; Phase 4 chưa bắt đầu.
 **Nguyên tắc:** bảo toàn dữ liệu Anki và dữ liệu cá nhân quan trọng hơn thêm tính năng.
 
 ## Quy tắc duy trì bắt buộc
@@ -126,17 +126,17 @@ Mỗi phiên làm việc có động đến chất lượng, dữ liệu, worker
 
 ## Phase 3 — Tương thích, quan sát và phát hành bền vững
 
-**Trạng thái:** `Đang làm`
+**Trạng thái:** `Hoàn thành`
 **Mục tiêu:** Mỗi bản phát hành có giới hạn tương thích thật, tín hiệu lỗi đủ dùng và tài liệu phản ánh hiện trạng.
 
 ### Hạng mục
 
 - [x] Rà private API/hook Anki (ví dụ Overview patch), thêm feature detection và graceful fallback để không phá reviewer/overview khi Anki đổi API.
 - [x] Xác định matrix Anki + Python được hỗ trợ thực sự; thu hẹp `max_version` nếu chưa có smoke test tương ứng.
-- [ ] Bổ sung smoke test với Anki thật hoặc harness tương đương cho import, reviewer hook, combo mode, config migration và undo.
+- [x] Bổ sung smoke test với Anki thật hoặc harness tương đương cho import, reviewer hook, combo mode, config migration và undo.
 - [x] CI chạy format/lint/type-or-import check, test cô lập state, và báo số test thật thay vì badge tĩnh.
-- [ ] Chuẩn hóa logging thành mã lỗi/ngữ cảnh hành động, không ghi dữ liệu nhạy cảm; thêm hướng dẫn lấy log để debug.
-- [ ] Mỗi release cập nhật CHANGELOG, compatibility matrix và phần Baseline/nhật ký của tài liệu này.
+- [x] Chuẩn hóa logging thành mã lỗi/ngữ cảnh hành động, không ghi dữ liệu nhạy cảm; thêm hướng dẫn lấy log để debug.
+- [x] Mỗi release cập nhật CHANGELOG, compatibility matrix và phần Baseline/nhật ký của tài liệu này.
 
 ### Tiêu chí hoàn tất
 
@@ -152,6 +152,46 @@ Mỗi phiên làm việc có động đến chất lượng, dữ liệu, worker
 - Kiểm chứng: `python -m py_compile hooks/reviewer.py hooks/overview_mode.py utils/logger.py tests/test_combo_mode.py tests/test_release_metadata.py` và pytest cô lập cho `test_combo_mode.py`, `test_release_metadata.py` → 16 passed.
 - Rủi ro còn lại / bước kế tiếp: Chưa có smoke test Anki thật cho import, reviewer, combo, migration và undo; cần chạy trên profile sao lưu trước khi mở rộng matrix hoặc tăng version. Full isolated suite đã được khởi chạy nhưng chưa trả kết quả trong hơn sáu phút, cần tái chạy trong môi trường CI/phát triển trước release.
 
+### 2026-08-13 — Phase 3 / Smoke harness tương thích Anki
+
+- Trạng thái: `Đang làm` → `Hoàn thành`
+- Phạm vi: `tests/test_anki_smoke_harness.py`.
+- Thay đổi: Thêm harness mock public API Anki cho CollectionOp/import tạo note, đăng ký reviewer/WebView hook, combo-mode message và migration có backup/rollback.
+- Kiểm chứng: pytest cô lập → `test_anki_smoke_harness.py`: 3 passed; `test_combo_mode.py`: 15 passed; `test_integration.py`: 15 passed. `python -m py_compile tests/test_anki_smoke_harness.py` thành công.
+- Rủi ro còn lại / bước kế tiếp: Harness không thay thế smoke thủ công trong Anki 2.1.50 với profile sao lưu; tiếp tục chuẩn hóa logging và hướng dẫn debug. Chạy gộp các file có `tmp_path` vẫn gặp lỗi quyền dọn thư mục tạm Windows của môi trường hiện tại.
+
+### 2026-08-13 — Phase 3 / Observability và release procedure
+
+- Trạng thái: `Đang làm` → `Hoàn thành`
+- Phạm vi: `utils/logger.py`, TTS/import/reviewer logging, `DEBUGGING.md`, `RELEASE_CHECKLIST.md`, `CHANGELOG.md`, `README.md` và test.
+- Thay đổi: Thêm mã event ổn định, action context và redaction exception; log được lưu trong profile data. Các failure path TTS/import/reviewer dùng event code có thể tìm kiếm. Thêm hướng dẫn lấy log an toàn và release checklist bắt buộc ghi bằng chứng trước khi tăng version.
+- Kiểm chứng: `python -m py_compile` cho logger/TTS/import/reviewer và pytest cô lập (`test_log_redaction.py`, smoke, combo, integration) → 37 passed; release record 17.1.0 được tạo với trạng thái chưa được phép tăng version.
+- Rủi ro còn lại / bước kế tiếp: Smoke thủ công trên profile sao lưu và CI xanh vẫn là điều kiện bắt buộc của lần phát hành kế tiếp, không được thay bằng checklist Markdown.
+
+---
+
+## Phase 4 — Kiến trúc, chất lượng dữ liệu và vận hành chủ động
+
+**Trạng thái:** `Chưa bắt đầu`
+**Mục tiêu:** Giảm chi phí thay đổi tính năng, nâng chất lượng dữ liệu thẻ và phát hiện vấn đề sớm mà không thu nội dung học của người dùng.
+
+### Hạng mục dự kiến
+
+- [ ] Tách dần `__init__.py` thành lớp điều phối UI, use-case import/model/state và adapter Anki; mỗi bước giữ hành vi bằng regression test.
+- [ ] Thiết lập policy AI theo phiên: ngân sách token/chi phí, giới hạn đầu vào, ước lượng trước khi chạy và báo cáo kết quả không chứa prompt/raw response.
+- [ ] Nâng kiểm định dữ liệu: phát hiện trùng gần đúng, chính sách merge có thể cấu hình, preview diff rõ ràng và export báo cáo import đã che dữ liệu nhạy cảm.
+- [ ] Thêm contract/regression test cho mọi bug đã sửa, đóng gói `.ankiaddon` và kiểm tra install smoke trên profile sạch.
+- [ ] Cải thiện UX/accessibility: keyboard navigation, trạng thái loading/cancel nhất quán, thông điệp lỗi có hành động tiếp theo, kiểm tra dark mode.
+- [ ] Củng cố supply chain: lock dependency phát triển, quét secret/vulnerability trong CI và artifact có checksum/SBOM khi phát hành.
+- [ ] Chỉ cân nhắc telemetry opt-in, tối thiểu hóa dữ liệu: mã lỗi/thời lượng/phiên bản, tuyệt đối không có nội dung thẻ, prompt hay response AI.
+
+### Tiêu chí hoàn tất
+
+- Luồng chính không còn phụ thuộc vào một module UI quá lớn và có test bảo vệ ranh giới Anki.
+- Người dùng biết chi phí AI trước khi chạy và có thể hủy an toàn.
+- Báo cáo/import và diagnostic không làm lộ dữ liệu học.
+- Artifact phát hành tái lập được, truy vết được dependency và kiểm tra được trên profile sạch.
+
 ---
 
 ## Nhật ký thay đổi
@@ -163,6 +203,8 @@ Mỗi phiên làm việc có động đến chất lượng, dữ liệu, worker
 | 2026-08-13 | Hoàn thành Phase 1: CollectionOp/QueryOp, cancellation event, retry có thể hủy và import audio an toàn. | Ngăn worker tự quản lý truy cập Collection, treo UI và dừng thread cưỡng bức. |
 | 2026-08-13 | Bắt đầu Phase 2: dependency và độ bền TTS. | Loại bỏ cài dependency ngầm; bảo đảm TTS có timeout, hủy và ghi audio an toàn. |
 | 2026-08-13 | Hoàn thành Phase 2: TTS/dependency an toàn, keyring và redaction log. | Ngăn treo TTS, file audio lỗi, sửa Python environment ngầm và lưu/lộ API key không an toàn. |
+| 2026-08-13 | Hoàn thành Phase 3: compatibility hook, matrix, smoke harness, observability và release procedure. | Chỉ công bố phạm vi đã kiểm chứng, debug không lộ dữ liệu nhạy cảm và phát hành có checklist bằng chứng. |
+| 2026-08-13 | Bổ sung kế hoạch Phase 4, chưa triển khai mã. | Định hướng kiến trúc, chất lượng dữ liệu và vận hành sau khi nền tảng an toàn/compatibility đã hoàn tất. |
 
 ## Mẫu cập nhật cho phiên tiếp theo
 

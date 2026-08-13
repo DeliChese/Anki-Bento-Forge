@@ -11,7 +11,7 @@ from aqt.qt import QThread, pyqtSignal
 
 from audio import get_audio_multilang
 from audio.engine import speed_to_edge_rate
-from utils.logger import get_logger
+from utils.logger import get_logger, log_event
 
 logger = get_logger()
 _MAX_AUDIO_WORKERS = 4
@@ -54,7 +54,11 @@ class ImportWorker(QThread):
                     try:
                         tags[task["key"]] = future.result()
                     except Exception as exc:
-                        logger.warning("Audio generation failed: %s", exc)
+                        log_event(
+                            "IMPORT_AUDIO_TASK_FAILED",
+                            "continue_import_without_audio",
+                            error=exc.__class__.__name__,
+                        )
                         tags[task["key"]] = ""
                     completed += 1
                     self.progress.emit(completed, f"🎤 Audio: {completed}/{total}")
@@ -65,7 +69,11 @@ class ImportWorker(QThread):
             if not self.cancel_event.is_set():
                 self.finished.emit({"audio_tags": tags, "cancelled": False})
         except Exception as exc:
-            logger.warning("Import audio worker failed: %s", exc)
+            log_event(
+                "IMPORT_AUDIO_WORKER_FAILED",
+                "stop_audio_worker",
+                error=exc.__class__.__name__,
+            )
             if not self.cancel_event.is_set():
                 self.error.emit(str(exc))
         finally:
@@ -82,5 +90,9 @@ def _generate_audio_safe(text: str, lang: str, rate: str, cancel_event=None) -> 
     try:
         return get_audio_multilang(text, lang, rate=rate, cancel_event=cancel_event) or ""
     except Exception as exc:
-        logger.warning("Audio generation error: %s", exc)
+        log_event(
+            "IMPORT_AUDIO_GENERATION_FAILED",
+            "return_empty_audio_tag",
+            error=exc.__class__.__name__,
+        )
         return ""

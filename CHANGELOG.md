@@ -1,5 +1,11 @@
 # 📋 CHANGELOG
 
+## [Unreleased]
+
+### Quality
+- Chuẩn hóa diagnostic event code, che exception message có thể chứa dữ liệu người dùng, và lưu log theo Anki profile.
+- Bổ sung `DEBUGGING.md`, `COMPATIBILITY.md` và `RELEASE_CHECKLIST.md` để phát hành có bằng chứng kiểm thử và phạm vi tương thích rõ ràng.
+
 ## [V17.1] — 2026-08-12
 
 ### ✨ Added

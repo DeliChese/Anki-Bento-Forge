@@ -7,6 +7,8 @@
 [![Python](https://img.shields.io/badge/python-%3E%3D3.9-yellow)](manifest.json)
 [![Tests](https://github.com/DeliChese/Anki-Bento-Forge/actions/workflows/ci.yml/badge.svg)](https://github.com/DeliChese/Anki-Bento-Forge/actions/workflows/ci.yml)
 
+Xem [Compatibility Matrix](COMPATIBILITY.md), [Debugging Guide](DEBUGGING.md) và [Release Checklist](RELEASE_CHECKLIST.md) trước khi phát hành.
+
 ---
 
 ## ✨ Tính năng

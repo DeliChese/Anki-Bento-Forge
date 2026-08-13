@@ -20,7 +20,7 @@ from collections import OrderedDict
 from contextlib import contextmanager
 from typing import Dict, Iterator, Optional
 
-from utils.logger import get_logger
+from utils.logger import get_logger, log_event
 
 logger = get_logger()
 
@@ -80,10 +80,11 @@ def get_tts_install_command(module_name: str) -> str:
 
 
 def _report_missing_dependency(module_name: str) -> None:
-    logger.warning(
-        "Optional TTS dependency '%s' is unavailable. Install it explicitly with: %s",
-        module_name,
-        get_tts_install_command(module_name),
+    log_event(
+        "TTS_DEPENDENCY_MISSING",
+        "show_explicit_install_instruction",
+        install_command=get_tts_install_command(module_name),
+        provider=module_name,
     )
 
 

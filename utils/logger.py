@@ -9,7 +9,9 @@ import logging
 import os
 import re
 import sys
+import tempfile
 from logging.handlers import RotatingFileHandler
+from pathlib import Path
 from typing import Optional
 
 # Singleton logger
@@ -24,10 +26,14 @@ _LOG_BACKUP_COUNT = 3  # Giữ 3 file log cũ
 _AUTHORIZATION_RE = re.compile(r"(?i)(authorization\s*[:=]\s*(?:bearer\s+)?)\S+")
 _API_KEY_FIELD_RE = re.compile(r"(?i)([\"']?api[_-]?key[\"']?\s*[:=]\s*[\"']?)[^\s,}\"']+")
 _COMMON_SECRET_RE = re.compile(r"\b(?:sk|rk|pk)_[A-Za-z0-9_\-]{8,}\b")
+_EVENT_CODE_RE = re.compile(r"^[A-Z][A-Z0-9_]{2,63}$")
 
 
 def redact_sensitive(value):
     """Mask credentials before any handler can write them to a log sink."""
+    if isinstance(value, BaseException):
+        # Exception messages can contain remote responses or user-provided input.
+        return type(value).__name__
     if isinstance(value, str):
         value = _AUTHORIZATION_RE.sub(r"\1[REDACTED]", value)
         value = _API_KEY_FIELD_RE.sub(r"\1[REDACTED]", value)
@@ -44,6 +50,26 @@ def redact_sensitive(value):
     return value
 
 
+def format_event(code: str, action: str, **context) -> str:
+    """Build a privacy-safe, searchable log event.
+
+    ``code`` is a stable, uppercase identifier (for example ``TTS_EDGE_FAILED``).
+    Callers should pass only operational metadata such as counts, provider names,
+    or exception *types*; never card text, prompts, responses, API keys, or URLs.
+    """
+    if not _EVENT_CODE_RE.fullmatch(code):
+        raise ValueError("Log event code must be an uppercase identifier")
+    fields = [f"action={action}"]
+    for key in sorted(context):
+        fields.append(f"{key}={redact_sensitive(context[key])}")
+    return f"{code}: " + "; ".join(fields)
+
+
+def log_event(code: str, action: str, *, level: int = logging.WARNING, **context) -> None:
+    """Emit a standardized event without serializing private learning content."""
+    get_logger().log(level, format_event(code, action, **context))
+
+
 class _SensitiveDataFilter(logging.Filter):
     """Last-line defense for logger calls that accidentally include secrets."""
 
@@ -54,8 +80,30 @@ class _SensitiveDataFilter(logging.Filter):
 
 
 def _get_log_dir() -> str:
-    """Lấy thư mục chứa file log (cùng thư mục với addon)"""
-    return os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    """Return the profile-scoped directory used for diagnostic logs."""
+    override = os.environ.get("BENTO_FORGE_DATA_DIR")
+    if override:
+        directory = Path(override)
+    else:
+        profile_folder = None
+        try:
+            from aqt import mw
+
+            profile_manager = getattr(mw, "pm", None)
+            profile_path = getattr(profile_manager, "profileFolder", None)
+            if callable(profile_path):
+                value = profile_path()
+                if isinstance(value, str) and value:
+                    profile_folder = value
+        except Exception:
+            profile_folder = None
+        directory = (
+            Path(profile_folder) / "bento_forge"
+            if profile_folder else Path(tempfile.gettempdir()) / f"bento_forge-{os.getpid()}"
+        )
+    directory = directory / "logs"
+    directory.mkdir(parents=True, exist_ok=True)
+    return str(directory)
 
 
 def setup_logging(level: str = "INFO", log_to_file: bool = True, log_to_console: bool = True) -> logging.Logger:

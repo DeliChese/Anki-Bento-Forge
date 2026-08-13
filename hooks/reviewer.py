@@ -9,7 +9,7 @@ except Exception:
 
 from audio.engine import detect_lang_from_model, get_default_speed
 from mode import _SPEED_CTRL_JS, _LG_JS_BODY
-from utils.logger import get_logger
+from utils.logger import get_logger, log_event
 
 logger = get_logger()
 _REGISTERED_HOOKS = set()
@@ -88,7 +88,12 @@ def _register_gui_hook(name, callback):
         _REGISTERED_HOOKS.add(name)
         return True
     except Exception as exc:
-        logger.warning("HOOK_REVIEWER_REGISTER_FAILED: %s", exc)
+        log_event(
+            "HOOK_REVIEWER_REGISTER_FAILED",
+            "disable_reviewer_hook",
+            hook=name,
+            error=exc.__class__.__name__,
+        )
         return False
 
 
