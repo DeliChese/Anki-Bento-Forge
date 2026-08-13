@@ -141,6 +141,32 @@ def show_ai_settings_dialog(parent):
     )
     vl.addWidget(spin_chunk)
 
+    # Session policy: aggregate limits only; no prompt or response is retained.
+    vl.addWidget(QLabel(f"<b>{t('ai_set_session_input_label')}</b>"))
+    spin_session_input = QSpinBox()
+    spin_session_input.setRange(1_000, 500_000)
+    spin_session_input.setSingleStep(5_000)
+    spin_session_input.setValue(cfg.get("session_max_input_chars", 90_000))
+    spin_session_input.setToolTip(t("ai_set_session_input_tip"))
+    vl.addWidget(spin_session_input)
+
+    vl.addWidget(QLabel(f"<b>{t('ai_set_session_tokens_label')}</b>"))
+    spin_session_tokens = QSpinBox()
+    spin_session_tokens.setRange(1_000, 1_000_000)
+    spin_session_tokens.setSingleStep(10_000)
+    spin_session_tokens.setValue(cfg.get("session_max_tokens", 120_000))
+    spin_session_tokens.setToolTip(t("ai_set_session_tokens_tip"))
+    vl.addWidget(spin_session_tokens)
+
+    vl.addWidget(QLabel(f"<b>{t('ai_set_session_cost_label')}</b>"))
+    spin_session_cost = QDoubleSpinBox()
+    spin_session_cost.setRange(0.0, 1000.0)
+    spin_session_cost.setDecimals(2)
+    spin_session_cost.setSingleStep(0.5)
+    spin_session_cost.setValue(cfg.get("session_max_cost_usd", 2.0))
+    spin_session_cost.setToolTip(t("ai_set_session_cost_tip"))
+    vl.addWidget(spin_session_cost)
+
     # Presets
     preset_grp = QGroupBox(t("ai_set_preset_grp"))
     preset_layout = QHBoxLayout()
@@ -226,6 +252,9 @@ def show_ai_settings_dialog(parent):
             spin_chunk.value(),
             spin_chunk.value(),
             cbo_effort.currentData() or "",
+            spin_session_input.value(),
+            spin_session_tokens.value(),
+            spin_session_cost.value(),
         )
         dlg.accept()
         tooltip(t("tooltip_saved_config") if saved else t("ai_set_secret_store_save_failed"))

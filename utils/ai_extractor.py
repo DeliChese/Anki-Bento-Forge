@@ -21,6 +21,7 @@ from urllib.parse import urlparse
 
 from .credentials import delete_api_key, get_secret_store_status, load_api_key, save_api_key
 from .logger import get_logger
+from .ai_session_policy import get_ai_session_policy
 from .user_data import (
     atomic_write_json,
     clear_cache_dir,
@@ -344,6 +345,54 @@ def reset_cost():
     _COST_STATE["total_usd"] = 0.0
     _COST_STATE["calls"] = 0
     _COST_STATE["last"] = None
+    get_ai_session_policy().reset()
+
+
+def get_ai_session_estimate(text: str) -> dict:
+    """Estimate a run before sending content; return aggregate data only."""
+    cfg = get_api_config()
+    policy = get_ai_session_policy()
+    policy.configure(
+        max_input_chars=cfg.get("session_max_input_chars", 90_000),
+        max_tokens=cfg.get("session_max_tokens", 120_000),
+        max_cost_usd=cfg.get("session_max_cost_usd", 2.0),
+    )
+    estimate = policy.estimate(
+        text_chars=len(text or ""), model=cfg.get("model", ""),
+        max_output_tokens=cfg.get("max_tokens", 8192), chunk_size=cfg.get("chunk_size", 8000),
+    )
+    result = {
+        "input_tokens": estimate.input_tokens, "output_tokens": estimate.output_tokens,
+        "total_tokens": estimate.total_tokens, "cost_usd": estimate.cost_usd,
+        "calls": estimate.calls, "input_truncated": estimate.input_truncated,
+    }
+    result.update(policy.snapshot())
+    result["blocked_reason"] = policy.check(estimate)
+    return result
+
+
+def ensure_ai_session_budget(text: str) -> dict:
+    """Reject unsafe runs without logging or retaining their content."""
+    estimate = get_ai_session_estimate(text)
+    if estimate["input_truncated"]:
+        raise ValueError("AI input exceeds the configured session input limit")
+    if estimate["blocked_reason"]:
+        raise ValueError("AI session budget exceeded: " + estimate["blocked_reason"])
+    return estimate
+
+
+def _record_token_info(token_info: dict) -> None:
+    if not token_info:
+        return
+    get_ai_session_policy().record(token_info)
+    try:
+        _COST_STATE["total_usd"] = round(
+            float(_COST_STATE.get("total_usd", 0.0)) + float(token_info.get("total_cost") or 0), 6
+        )
+        _COST_STATE["calls"] = int(_COST_STATE.get("calls", 0)) + 1
+        _COST_STATE["last"] = dict(token_info)
+    except (AttributeError, TypeError, ValueError):
+        pass
 
 
 def _ensure_cache_dir():
@@ -404,6 +453,9 @@ def get_api_config() -> dict:
         "chunk_size": 8000,
         # Mức độ nỗ lực suy nghĩ: "" / auto (không gửi), "low", "medium", "high"
         "reasoning_effort": "",
+        "session_max_input_chars": 90000,
+        "session_max_tokens": 120000,
+        "session_max_cost_usd": 2.0,
     }
     cfg = _load_config()
     for k, v in defaults.items():
@@ -415,6 +467,14 @@ def get_api_config() -> dict:
     except Exception:
         cfg["max_chars"] = 45000
         cfg["chunk_size"] = 8000
+    try:
+        cfg["session_max_input_chars"] = max(1_000, min(500_000, int(cfg.get("session_max_input_chars") or 90_000)))
+        cfg["session_max_tokens"] = max(1_000, min(1_000_000, int(cfg.get("session_max_tokens") or 120_000)))
+        cfg["session_max_cost_usd"] = max(0.0, min(1_000.0, float(cfg.get("session_max_cost_usd") or 0.0)))
+    except (TypeError, ValueError):
+        cfg["session_max_input_chars"] = 90_000
+        cfg["session_max_tokens"] = 120_000
+        cfg["session_max_cost_usd"] = 2.0
     if "api_key" in cfg:
         resolved_api_key = _migrate_legacy_api_key(cfg)
     elif cfg.get("api_key_storage") == "keyring":
@@ -430,7 +490,8 @@ def get_api_config() -> dict:
 
 def save_api_config(api_key: str, api_base: str, model: str, temperature: float = 0.3,
                     max_chars: int = 45000, chunk_size: int = 8000,
-                    reasoning_effort: str = ""):
+                    reasoning_effort: str = "", session_max_input_chars: int = 90000,
+                    session_max_tokens: int = 120000, session_max_cost_usd: float = 2.0):
     # Sanitize input
     api_base = api_base.strip().rstrip("/")
     if api_base and not api_base.startswith(("http://", "https://")):
@@ -462,6 +523,9 @@ def save_api_config(api_key: str, api_base: str, model: str, temperature: float 
         "max_chars": max_chars,
         "chunk_size": chunk_size,
         "reasoning_effort": reasoning_effort,
+        "session_max_input_chars": max(1_000, min(500_000, int(session_max_input_chars))),
+        "session_max_tokens": max(1_000, min(1_000_000, int(session_max_tokens))),
+        "session_max_cost_usd": max(0.0, min(1_000.0, float(session_max_cost_usd))),
     }
     _save_config(cfg)
     return key_saved
@@ -1470,6 +1534,7 @@ def extract_vocabulary_with_ai(
             usage.get("prompt_tokens", 0),
             usage.get("completion_tokens", 0),
         )
+        _record_token_info(token_info)
         if token_callback:
             try:
                 token_callback(token_info)
@@ -1813,6 +1878,10 @@ def chat_with_ai(
     cfg = get_api_config()
     if not cfg.get("api_key") and "localhost" not in cfg.get("api_base", ""):
         return {"reply": "", "vocab_json": None, "error": "⚠️ Chưa cấu hình API Key. Vào Cài đặt AI để nhập key."}
+    try:
+        ensure_ai_session_budget(user_message)
+    except ValueError as error:
+        return {"reply": "", "vocab_json": None, "token_info": None, "error": str(error)}
     
     # Thu thập ngữ cảnh Anki THÔNG MINH dựa trên yêu cầu.
     # quick=True → BỎ qua truy vấn context Anki (nhanh hơn) — dùng cho sinh câu ngữ pháp.
@@ -1884,15 +1953,7 @@ def chat_with_ai(
             usage.get("prompt_tokens", 0),
             usage.get("completion_tokens", 0),
         )
-        # Tích lũy chi phí phiên (để hiển thị ngân sách)
-        try:
-            _COST_STATE["total_usd"] = round(
-                float(_COST_STATE.get("total_usd", 0.0)) + float(token_info.get("total_cost") or 0), 6
-            )
-            _COST_STATE["calls"] = int(_COST_STATE.get("calls", 0)) + 1
-            _COST_STATE["last"] = token_info
-        except Exception:
-            pass
+        _record_token_info(token_info)
     
     msg = result["choices"][0]["message"]
     content = msg.get("content", "") or ""
@@ -1963,6 +2024,7 @@ def extract_vocabulary_long_text(
     should_abort: Optional[Callable[[], bool]] = None,
 ) -> list:
     """Xử lý văn bản dài: chia đoạn, gọi AI, loại trùng, tổng hợp token."""
+    ensure_ai_session_budget(text)
     if chunk_size is None:
         chunk_size = get_api_config().get("chunk_size", 8000)
     if len(text) <= chunk_size:
@@ -2145,6 +2207,7 @@ def extract_grammar_with_ai(
             usage.get("prompt_tokens", 0),
             usage.get("completion_tokens", 0),
         )
+        _record_token_info(token_info)
         if token_callback:
             try:
                 token_callback(token_info)
@@ -2213,6 +2276,7 @@ def extract_grammar_long_text(
     should_abort: Optional[Callable[[], bool]] = None,
 ) -> list:
     """Xử lý văn bản dài: chia đoạn, gọi AI trích ngữ pháp, loại trùng, tổng hợp token."""
+    ensure_ai_session_budget(text)
     if chunk_size is None:
         chunk_size = get_api_config().get("chunk_size", 8000)
     if len(text) <= chunk_size:

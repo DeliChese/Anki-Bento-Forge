@@ -26,7 +26,8 @@ if _addon_root not in sys.path:
 
 # Lưu trạng thái ô AI (text + file kẹp) theo từng luồng: {lang: {vocab|grammar: {...}}}
 # Dữ liệu này phải ở profile Anki để update add-on không thể ghi đè dữ liệu người dùng.
-from utils.user_data import atomic_write_json, get_user_data_path, migrate_legacy_json, read_json
+from utils.user_data import get_user_data_path
+from utils.factory_state import FactoryStateStore
 
 _LEGACY_STATE_PATH = os.path.join(_addon_root, "utils", "factory_state.json")
 _STATE_PATH = get_user_data_path("factory_state.json")
@@ -35,6 +36,19 @@ _FACTORY_STATE_MAX_TEXT_CHARS = 12_000
 _FACTORY_STATE_MAX_JSON_CHARS = 24_000
 _FACTORY_STATE_MAX_ITEMS = 100
 _FACTORY_STATE_MAX_FLOW_BYTES = 192 * 1024
+
+
+def _factory_state_store():
+    """Build the state use case from current paths (supports isolated tests)."""
+    return FactoryStateStore(
+        legacy_path=_LEGACY_STATE_PATH,
+        path=_STATE_PATH,
+        max_age_seconds=_FACTORY_STATE_MAX_AGE_SECONDS,
+        max_text_chars=_FACTORY_STATE_MAX_TEXT_CHARS,
+        max_json_chars=_FACTORY_STATE_MAX_JSON_CHARS,
+        max_items=_FACTORY_STATE_MAX_ITEMS,
+        max_flow_bytes=_FACTORY_STATE_MAX_FLOW_BYTES,
+    )
 
 # ═══════════════════════════════════════════════════════════
 #  IMPORTS FROM MODULES (Bridge)
@@ -48,6 +62,7 @@ from utils import safe_parse_json
 from utils.logger import get_logger
 from utils.ai_extractor import (
     get_api_config,
+    get_ai_session_estimate,
     get_existing_vocab_from_deck, invalidate_deck_cache,
     extract_vocabulary_with_ai, extract_vocabulary_long_text,
     init_import_history, add_to_import_history, get_history_summary_text, query_anki_context,
@@ -55,6 +70,10 @@ from utils.ai_extractor import (
 from utils.import_safety import rollback_added_notes, summarize_import_batch
 from utils.anki_ops import run_collection, run_query
 from utils.import_operations import apply_import, prepare_audio_tasks
+from utils.anki_adapter import AnkiCollectionAdapter
+from utils.import_quality import find_near_duplicate
+from utils.import_report import write_import_report
+from utils.model_lifecycle import ensure_model
 
 logger = get_logger()
 
@@ -71,6 +90,7 @@ from workers import ImportWorker, PreviewThread, AiExtractThread, AiChatThread
 # Import UI dialogs (đã tách ra ui/)
 from ui import AiChatDialog, show_ai_settings_dialog, show_diff_meaning_dialog, show_ai_preview_dialog
 from ui.deck_manager_dialog import DeckManagerDialog
+from ui.accessibility import configure_keyboard_navigation
 from utils.deck_manager import refresh_anki
 
 # Import glassmorphism theme engine
@@ -178,75 +198,12 @@ class AnkiSmartFactory(QDialog):
     #  {lang: {vocab|grammar: {"text": ..., "files": [paths]}}}
     # ═══════════════════════════════════════════════════════
     def _load_factory_state(self):
-        """Đọc trạng thái đã lưu từ file JSON."""
-        try:
-            migrate_legacy_json(_LEGACY_STATE_PATH, _STATE_PATH, lambda value: isinstance(value, dict))
-            data = read_json(_STATE_PATH, {}, lambda value: isinstance(value, dict), max_bytes=512 * 1024)
-            saved_at = data.get("_saved_at", 0)
-            if saved_at and (time.time() - float(saved_at)) > _FACTORY_STATE_MAX_AGE_SECONDS:
-                return {}
-            return self._sanitize_factory_state(data)
-        except Exception as e:
-            logger.warning("Lỗi đọc factory_state: %s", e)
-        return {}
+        """Delegate persisted draft state to its profile-data use case."""
+        return _factory_state_store().load()
 
     def _save_factory_state(self):
-        """Ghi trạng thái vào file JSON."""
-        try:
-            self._factory_state = self._sanitize_factory_state(self._factory_state)
-            self._factory_state["_saved_at"] = time.time()
-            atomic_write_json(_STATE_PATH, self._factory_state)
-        except Exception as e:
-            logger.warning("Lỗi ghi factory_state: %s", e)
-
-    @staticmethod
-    def _bounded_state_items(items, max_bytes):
-        """Keep a bounded JSON-safe prefix; state is convenience, not an archive."""
-        if not isinstance(items, list):
-            return []
-        result = []
-        used = 0
-        for item in items[:_FACTORY_STATE_MAX_ITEMS]:
-            if not isinstance(item, dict):
-                continue
-            try:
-                size = len(json.dumps(item, ensure_ascii=False).encode("utf-8"))
-            except (TypeError, ValueError):
-                continue
-            if used + size > max_bytes:
-                break
-            result.append(item)
-            used += size
-        return result
-
-    @classmethod
-    def _sanitize_factory_state(cls, state):
-        """Validate and cap persisted draft data to avoid an unbounded private cache."""
-        if not isinstance(state, dict):
-            return {}
-        clean = {}
-        for lang in ("japanese", "chinese", "korean"):
-            lang_state = state.get(lang)
-            if not isinstance(lang_state, dict):
-                continue
-            clean_lang = {}
-            for mode in ("vocab", "grammar"):
-                flow = lang_state.get(mode)
-                if not isinstance(flow, dict):
-                    continue
-                text = flow.get("text", "")
-                json_text = flow.get("json", "")
-                files = flow.get("files", [])
-                clean_lang[mode] = {
-                    "text": text[:_FACTORY_STATE_MAX_TEXT_CHARS] if isinstance(text, str) else "",
-                    "json": json_text[:_FACTORY_STATE_MAX_JSON_CHARS] if isinstance(json_text, str) else "",
-                    "files": [path[:512] for path in files[:5] if isinstance(path, str)],
-                    "raw": cls._bounded_state_items(flow.get("raw", []), _FACTORY_STATE_MAX_FLOW_BYTES // 2),
-                    "cards": cls._bounded_state_items(flow.get("cards", []), _FACTORY_STATE_MAX_FLOW_BYTES // 2),
-                }
-            if clean_lang:
-                clean[lang] = clean_lang
-        return clean
+        """Persist bounded draft state without letting the UI own file I/O."""
+        self._factory_state = _factory_state_store().save(self._factory_state)
 
     def _flow_key(self):
         """Trả về (lang, mode) — mode: 'vocab' hoặc 'grammar'."""
@@ -806,6 +763,35 @@ class AnkiSmartFactory(QDialog):
 
         # Đồng bộ toàn bộ chuỗi hiển thị theo ngôn ngữ UI hiện tại
         self._retranslate_ui()
+        self._configure_accessibility()
+
+    def _configure_accessibility(self):
+        """Keep the main workflow fully reachable by keyboard and screen readers."""
+        controls = [
+            (self.btn_theme, t("btn_theme")),
+            (self.btn_lang_toggle, t("btn_lang_toggle")),
+            (self.deck_chooser, t("deck_label")),
+            (self.btn_load, t("open_file_btn")),
+            (self.ai_text_input, t("ai_input_accessible_name")),
+            (self.ai_instruction, t("ai_instruction_label")),
+            (self.btn_ai_extract, t("ai_extract_btn")),
+            (self.btn_ai_chat, t("ai_chat_btn")),
+            (self.json_input, t("json_input_label")),
+            (self.cbo_level, t("filter_level_label")),
+            (self.txt_topic, t("filter_topic_label")),
+            (self.btn_verify, t("btn_verify")),
+            (self.txt_search, t("search_accessible_name")),
+            (self.cbo_filter, t("cbo_filter_tip")),
+            (self.preview_list, t("preview_label")),
+            (self.spin_start, t("rng_from_label")),
+            (self.spin_end, t("rng_to_label")),
+            (self.btn_import, t("btn_import")),
+            (self.btn_cancel, t("btn_cancel")),
+        ]
+        configure_keyboard_navigation(
+            self, controls, description=t("accessibility_control_description"),
+            focus_policy=Qt.FocusPolicy.StrongFocus,
+        )
 
     def _update_cost_label(self):
         """Cập nhật chi phí AI tích lũy ở góc dưới (poll từ ai_extractor)."""
@@ -954,6 +940,7 @@ class AnkiSmartFactory(QDialog):
             self.btn_cancel.setText(t("btn_cancel"))
             self.btn_cancel_order.setText(t("btn_cancel_order"))
             self.btn_cancel_order.setToolTip(t("btn_cancel_order_tip"))
+            self._configure_accessibility()
 
             # Counts theo dữ liệu hiện tại
             self.lbl_raw.setText(t("filter_raw_count", count=len(self.raw_data)))
@@ -1382,10 +1369,7 @@ class AnkiSmartFactory(QDialog):
     def _get_model_id(self):
         """Lấy model ID (mid) của model hiện tại — an toàn hơn note: trong find_notes"""
         cfg = self._cfg()
-        m = mw.col.models.by_name(cfg["model_name"])
-        if m:
-            return m["id"]
-        return None
+        return AnkiCollectionAdapter(mw.col).model_id_by_name(cfg["model_name"])
 
     def _verify_batch_impl(self):
         cfg = self._cfg()
@@ -1393,8 +1377,6 @@ class AnkiSmartFactory(QDialog):
         self.prepared_data = []
 
         mid = self._get_model_id()
-        mid_filter = f'"mid:{mid}"' if mid else ""
-
         target_level = self.cbo_level.currentText()
         target_topic = self.txt_topic.text().strip().lower()
         cnt = {"dup": 0, "update": 0, "new": 0, "partial": 0, "dup_diff": 0}
@@ -1417,10 +1399,8 @@ class AnkiSmartFactory(QDialog):
         meaning_to_notes = {}
         if mid:
             try:
-                all_nids = mw.col.find_notes(mid_filter)
-                for nid in all_nids:
+                for note in AnkiCollectionAdapter(mw.col).notes_for_model(mid):
                     try:
-                        note = mw.col.get_note(nid)
                         f = str(note.get(front_field, "")).strip().lower()
                         if f:
                             front_to_notes.setdefault(f, []).append(note)
@@ -1503,7 +1483,19 @@ class AnkiSmartFactory(QDialog):
                 self._add_to_queue(item, action, target_nid, updatable, cnt, conflict_info)
                 continue
 
-            if level:
+            # A near match is never merged automatically.  It stays in the
+            # queue with an explicit warning so the learner retains control.
+            near_match = find_near_duplicate(front, front_to_notes.keys())
+            if near_match:
+                near_front, similarity = near_match
+                action = "add_partial"
+                cnt["partial"] += 1
+                conflict_info = {
+                    "near_duplicate": near_front,
+                    "similarity": similarity,
+                }
+
+            if level and action == "add":
                 same_mean = meaning_to_notes.get(meaning.lower(), [])
                 if same_mean:
                     action = "add_partial"
@@ -1594,6 +1586,9 @@ class AnkiSmartFactory(QDialog):
                            new=item.get('meaning', ''), old=ci.get('existing_meaning', ''))
             elif action == "update" and updatable:
                 suffix = t("preview_suffix_update", fields=", ".join(updatable))
+            elif ci and ci.get("near_duplicate"):
+                suffix = t("preview_suffix_near_duplicate",
+                           match=ci["near_duplicate"], score=ci["similarity"])
             elif action == "add_partial":
                 suffix = t("preview_suffix_partial")
             else:
@@ -1805,6 +1800,7 @@ class AnkiSmartFactory(QDialog):
 
         # Lưu lại các index đã xuất để cập nhật lại xưởng sau khi import xong
         self._last_export_indices = list(export_indices)
+        self._last_import_summary = dict(summary)
 
         cfg = self._cfg()
         deck_id = mw.col.decks.id(self.deck_chooser.currentText())
@@ -1874,6 +1870,11 @@ class AnkiSmartFactory(QDialog):
 
         self._last_imported_note_ids = list(report.get("added_note_ids", []))
         self.btn_rollback_import.setEnabled(bool(self._last_imported_note_ids))
+
+        try:
+            write_import_report(report, getattr(self, "_last_import_summary", {}))
+        except Exception as error:
+            logger.warning("Could not write privacy-safe import report: %s", error)
 
         idxs = sorted(set(getattr(self, '_last_export_indices', None) or []))
         # Ghi nhận vào lịch sử import
@@ -1988,156 +1989,32 @@ class AnkiSmartFactory(QDialog):
     def _force_rebuild_model(self):
         cfg = self._cfg()
         mm = mw.col.models
-        m = self._get_or_migrate_model(mm, cfg)
-        if m:
-            if self._is_grammar:
-                m['css'] = LANG_GRAMMAR_CSS[self._current_lang]()
-                tmpls = LANG_GRAMMAR_TEMPLATES[self._current_lang]
-            else:
-                m['css'] = LANG_CSS[self._current_lang]()
-                tmpls = LANG_TEMPLATES[self._current_lang]
-            tmpl_count = len(tmpls) // 2
-            # Đảm bảo đủ field trước khi save (model cũ có thể thiếu field)
-            existing = {f['name'] for f in m['flds']}
+        templates, css = self._model_assets()
+        result = ensure_model(
+            mm, cfg, templates, css, _build_qfmt, _build_afmt,
+            rename_primary_template=False,
+        )
+        if result.had_extra_templates and not self._is_grammar:
+            self._drop_extra_combo_cards(result.model['id'], len(templates) // 2)
+        message_key = "model_rebuilt" if result.existed else "model_created"
+        showInfo(t(message_key, model=cfg['model_name']))
 
-            def _ensure_fields(field_set):
-                added = 0
-                for fn in field_set:
-                    if fn and fn not in existing:
-                        mm.add_field(m, mm.new_field(fn))
-                        existing.add(fn)
-                        added += 1
-                return added
-
-            _ensure_fields(cfg["all_fields"])
-            _ensure_fields(self._collect_template_fields(tmpls))
-            for i in range(tmpl_count):
-                if i < len(m['tmpls']):
-                    # Mức 2: build_qfmt/build_afmt tự APPEND field tuỳ chỉnh (custom fields)
-                    m['tmpls'][i]['qfmt'] = _build_qfmt(cfg, tmpls, i * 2)
-                    m['tmpls'][i]['afmt'] = _build_afmt(cfg, tmpls, i * 2 + 1)
-                else:
-                    t = mm.new_template(cfg["template_names"][i])
-                    t['qfmt'] = _build_qfmt(cfg, tmpls, i * 2)
-                    t['afmt'] = _build_afmt(cfg, tmpls, i * 2 + 1)
-                    mm.add_template(m, t)
-            # Remove extra templates if model has more than needed
-            had_extra = len(m['tmpls']) > tmpl_count
-            while len(m['tmpls']) > tmpl_count:
-                mm.remove_template(m, m['tmpls'][-1])
-            mm.save(m)
-            # Migration combo: xóa card thừa sau khi giảm template
-            if had_extra and not self._is_grammar:
-                self._drop_extra_combo_cards(m['id'], tmpl_count)
-            showInfo(f"✅ Đã tái tạo model: {cfg['model_name']}")
-        else:
-            self.get_or_create_model()
-            showInfo(f"✅ Đã tạo model mới: {cfg['model_name']}")
-
-    def _get_or_migrate_model(self, mm, cfg):
-        name = cfg["model_name"]
-        m = mm.by_name(name)
-        if m:
-            return m
-
-        for old_name in cfg.get("old_model_names", []):
-            m = mm.by_name(old_name)
-            if m:
-                m["name"] = name
-                mm.save(m)
-                return m
-
-        return None
-
-    @staticmethod
-    def _collect_template_fields(tmpls):
-        """Trích xuất mọi field name được tham chiếu trong template HTML.
-
-        Hỗ trợ {{Field}}, {{#Field}}...{{/Field}}, {{^Field}}, {{type:Field}}.
-        Đảm bảo model cũ luôn có đủ field khi migrate sang card combo.
-        """
-        fields = set()
-        for fn in tmpls:
-            try:
-                html = fn()
-            except Exception:
-                continue
-            for m in re.finditer(r"\{\{([#^/]?)([^{}\n]+?)\}\}", html):
-                raw = m.group(2).strip()
-                if raw.startswith("type:"):
-                    raw = raw.split(":", 1)[1].strip()
-                if raw and raw not in ("FrontSide", "Tags", "Deck", "Subdeck", "Card", "Type"):
-                    fields.add(raw)
-        return fields
+    def _model_assets(self):
+        """Select card assets; model mutation lives in ``utils.model_lifecycle``."""
+        if self._is_grammar:
+            return LANG_GRAMMAR_TEMPLATES[self._current_lang], LANG_GRAMMAR_CSS[self._current_lang]()
+        return LANG_TEMPLATES[self._current_lang], LANG_CSS[self._current_lang]()
 
     def get_or_create_model(self):
-        cfg   = self._cfg()
-        mm    = mw.col.models
-        name  = cfg["model_name"]
-        m     = self._get_or_migrate_model(mm, cfg)
-        if self._is_grammar:
-            tmpls = LANG_GRAMMAR_TEMPLATES[self._current_lang]
-            css   = LANG_GRAMMAR_CSS[self._current_lang]()
-        else:
-            tmpls = LANG_TEMPLATES[self._current_lang]
-            css   = LANG_CSS[self._current_lang]()
-        tmpl_count = len(tmpls) // 2
-
-        if m:
-            existing = {f['name'] for f in m['flds']}
-
-            def _ensure_fields(field_set):
-                """Thêm field còn thiếu vào model, cập nhật lại tập existing."""
-                added = 0
-                for fn in field_set:
-                    if fn and fn not in existing:
-                        mm.add_field(m, mm.new_field(fn))
-                        existing.add(fn)
-                        added += 1
-                return added
-
-            # 1) Đủ field cấu hình (json_field_map/all_fields)
-            _ensure_fields(cfg["all_fields"])
-            # 2) Đủ field template tham chiếu (model cũ có thể thiếu → CardTypeError khi save)
-            _ensure_fields(self._collect_template_fields(tmpls))
-            m['css'] = css
-            had_extra = len(m['tmpls']) > tmpl_count
-            for i in range(tmpl_count):
-                if i < len(m['tmpls']):
-                    # Mức 2: build_qfmt/build_afmt tự APPEND field tuỳ chỉnh (custom fields)
-                    m['tmpls'][i]['qfmt'] = _build_qfmt(cfg, tmpls, i * 2)
-                    m['tmpls'][i]['afmt'] = _build_afmt(cfg, tmpls, i * 2 + 1)
-                else:
-                    t = mm.new_template(cfg["template_names"][i])
-                    t['qfmt'] = _build_qfmt(cfg, tmpls, i * 2)
-                    t['afmt'] = _build_afmt(cfg, tmpls, i * 2 + 1)
-                    mm.add_template(m, t)
-            # Migration combo: đổi tên template đầu thành "Tổng hợp (5 chế độ)"
-            if had_extra and not self._is_grammar and len(cfg["template_names"]) > 0:
-                try:
-                    m['tmpls'][0]['name'] = cfg["template_names"][0]
-                except Exception:
-                    pass
-            # Remove extra templates if model has more than needed
-            while len(m['tmpls']) > tmpl_count:
-                mm.remove_template(m, m['tmpls'][-1])
-            mm.save(m)
-            # Migration combo: xóa card thừa sau khi giảm template
-            if had_extra and not self._is_grammar:
-                self._drop_extra_combo_cards(m['id'], tmpl_count)
-            return m
-
-        m = mm.new(name)
-        for fn in cfg["all_fields"]:
-            mm.add_field(m, mm.new_field(fn))
-        for i in range(tmpl_count):
-            t = mm.new_template(cfg["template_names"][i])
-            t['qfmt'] = _build_qfmt(cfg, tmpls, i * 2)
-            t['afmt'] = _build_afmt(cfg, tmpls, i * 2 + 1)
-            mm.add_template(m, t)
-        m['css'] = css
-        mm.add(m)
-        return m
+        cfg = self._cfg()
+        templates, css = self._model_assets()
+        result = ensure_model(
+            mw.col.models, cfg, templates, css, _build_qfmt, _build_afmt,
+            rename_primary_template=not self._is_grammar,
+        )
+        if result.had_extra_templates and not self._is_grammar:
+            self._drop_extra_combo_cards(result.model['id'], len(templates) // 2)
+        return result.model
 
     # ═══════════════════════════════════════════════════════
     #  AI SETTINGS DIALOG (wired → ui/ai_settings.py)
@@ -2263,6 +2140,30 @@ class AnkiSmartFactory(QDialog):
             logger.warning("Lỗi lấy deck vocab: %s", e)
             return []
 
+    def _confirm_ai_budget(self, text):
+        """Show a privacy-safe AI estimate and require explicit confirmation."""
+        try:
+            estimate = get_ai_session_estimate(text)
+        except Exception as error:
+            logger.warning("Could not estimate AI session budget: %s", error)
+            showInfo(t("ai_budget_estimate_failed"))
+            return False
+        if estimate.get("input_truncated") or estimate.get("blocked_reason"):
+            showInfo(t(
+                "ai_budget_blocked",
+                input_limit=estimate["max_input_chars"],
+                token_limit=estimate["max_tokens"],
+                cost_limit=estimate["max_cost_usd"],
+            ))
+            return False
+        remaining_tokens = max(0, estimate["max_tokens"] - estimate["used_tokens"])
+        remaining_cost = max(0.0, estimate["max_cost_usd"] - estimate["used_cost_usd"])
+        return askUser(t(
+            "confirm_ai_budget",
+            calls=estimate["calls"], tokens=estimate["total_tokens"], cost=estimate["cost_usd"],
+            remaining_tokens=remaining_tokens, remaining_cost=remaining_cost,
+        ), parent=self)
+
     def _ai_extract(self):
         """Quét deck → gọi AI với context tránh trùng → preview"""
         text = self.ai_text_input.toPlainText().strip()
@@ -2346,6 +2247,9 @@ class AnkiSmartFactory(QDialog):
     def _start_ai_extract(self, text, custom_instr, existing_words):
         """Khởi động AI extract thread sau khi đã có existing_words"""
         if self._ai_cancel_event is None or self._ai_cancel_event.is_set():
+            return
+
+        if not self._confirm_ai_budget(text):
             return
         if existing_words:
             self.lbl_ai_status.setText(f"📚 Deck có {len(existing_words)} từ → AI sẽ tránh trùng")
@@ -2562,6 +2466,9 @@ class AnkiSmartFactory(QDialog):
 
     def _start_ai_chat_thread(self, full_message, anki_context):
         if self._ai_cancel_event is None or self._ai_cancel_event.is_set():
+            return
+
+        if not self._confirm_ai_budget(full_message):
             return
         self._ai_chat_thread = AiChatThread(
             message=full_message,

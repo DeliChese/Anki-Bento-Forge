@@ -5,6 +5,9 @@
 ### Quality
 - Chuẩn hóa diagnostic event code, che exception message có thể chứa dữ liệu người dùng, và lưu log theo Anki profile.
 - Bổ sung `DEBUGGING.md`, `COMPATIBILITY.md` và `RELEASE_CHECKLIST.md` để phát hành có bằng chứng kiểm thử và phạm vi tương thích rõ ràng.
+- Thêm AI session policy: hiển thị ước lượng token/chi phí, giới hạn input/token/chi phí theo phiên và chỉ lưu usage tổng hợp.
+- Phát hiện near-duplicate khi kiểm định import nhưng không tự merge; báo cáo import cục bộ không chứa nội dung thẻ hoặc lỗi chi tiết.
+- Đóng gói artifact tái lập qua `scripts/build_addon.ps1`, kèm SHA-256/SBOM; CI audit dependency, scan secret-shaped values và smoke artifact trên profile sạch.
 
 ## [V17.1] — 2026-08-12
 

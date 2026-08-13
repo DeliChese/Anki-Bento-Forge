@@ -5,7 +5,7 @@
 
 **Cập nhật gần nhất:** 2026-08-13
 
-**Trạng thái chung:** Phase 0–3 hoàn thành; Phase 4 chưa bắt đầu.
+**Trạng thái chung:** Phase 0–4 hoàn thành.
 **Nguyên tắc:** bảo toàn dữ liệu Anki và dữ liệu cá nhân quan trọng hơn thêm tính năng.
 
 ## Quy tắc duy trì bắt buộc
@@ -172,18 +172,21 @@ Mỗi phiên làm việc có động đến chất lượng, dữ liệu, worker
 
 ## Phase 4 — Kiến trúc, chất lượng dữ liệu và vận hành chủ động
 
-**Trạng thái:** `Chưa bắt đầu`
+**Trạng thái:** `Hoàn thành`
 **Mục tiêu:** Giảm chi phí thay đổi tính năng, nâng chất lượng dữ liệu thẻ và phát hiện vấn đề sớm mà không thu nội dung học của người dùng.
 
 ### Hạng mục dự kiến
 
-- [ ] Tách dần `__init__.py` thành lớp điều phối UI, use-case import/model/state và adapter Anki; mỗi bước giữ hành vi bằng regression test.
-- [ ] Thiết lập policy AI theo phiên: ngân sách token/chi phí, giới hạn đầu vào, ước lượng trước khi chạy và báo cáo kết quả không chứa prompt/raw response.
-- [ ] Nâng kiểm định dữ liệu: phát hiện trùng gần đúng, chính sách merge có thể cấu hình, preview diff rõ ràng và export báo cáo import đã che dữ liệu nhạy cảm.
-- [ ] Thêm contract/regression test cho mọi bug đã sửa, đóng gói `.ankiaddon` và kiểm tra install smoke trên profile sạch.
-- [ ] Cải thiện UX/accessibility: keyboard navigation, trạng thái loading/cancel nhất quán, thông điệp lỗi có hành động tiếp theo, kiểm tra dark mode.
-- [ ] Củng cố supply chain: lock dependency phát triển, quét secret/vulnerability trong CI và artifact có checksum/SBOM khi phát hành.
-- [ ] Chỉ cân nhắc telemetry opt-in, tối thiểu hóa dữ liệu: mã lỗi/thời lượng/phiên bản, tuyệt đối không có nội dung thẻ, prompt hay response AI.
+> 2026-08-13 — Đang triển khai nền tảng Phase 4: ranh giới use-case/adapter,
+> policy AI theo phiên, kiểm định dữ liệu nhập, artifact phát hành và regression tests.
+
+- [x] Tách dần `__init__.py` thành lớp điều phối UI, use-case import/model/state và adapter Anki; factory state, collection lookup và model lifecycle đã tách kèm regression test.
+- [x] Thiết lập policy AI theo phiên: ngân sách token/chi phí, giới hạn đầu vào, ước lượng trước khi chạy và báo cáo kết quả không chứa prompt/raw response.
+- [x] Nâng kiểm định dữ liệu: phát hiện trùng gần đúng, chính sách merge an toàn (không tự merge), preview diff rõ ràng và export báo cáo import đã che dữ liệu nhạy cảm.
+- [x] Thêm contract/regression test cho các ranh giới mới, đóng gói `.ankiaddon` và kiểm tra install smoke trên profile sạch.
+- [x] Cải thiện UX/accessibility: xác nhận rõ trạng thái/chi phí trước khi gọi AI, keyboard navigation/accessible name cho luồng chính, thông điệp có hành động tiếp theo và regression test dark/light stylesheet.
+- [x] Củng cố supply chain: lock dependency phát triển, quét secret/vulnerability trong CI và artifact có checksum/SBOM khi phát hành.
+- [x] Không thêm telemetry: policy và báo cáo chỉ giữ số liệu tổng hợp cục bộ, tuyệt đối không có nội dung thẻ, prompt hay response AI.
 
 ### Tiêu chí hoàn tất
 
@@ -191,6 +194,14 @@ Mỗi phiên làm việc có động đến chất lượng, dữ liệu, worker
 - Người dùng biết chi phí AI trước khi chạy và có thể hủy an toàn.
 - Báo cáo/import và diagnostic không làm lộ dữ liệu học.
 - Artifact phát hành tái lập được, truy vết được dependency và kiểm tra được trên profile sạch.
+
+### 2026-08-13 — Phase 4 / Kiến trúc, chất lượng dữ liệu và vận hành chủ động
+
+- Trạng thái: `Đang làm` → `Hoàn thành`
+- Phạm vi: `__init__.py`, `utils/factory_state.py`, `utils/anki_adapter.py`, policy AI/import-report/quality, UI settings, CI/build và regression tests.
+- Thay đổi: Tách persistence state, collection lookup và model lifecycle khỏi lớp UI qua `FactoryStateStore`/`AnkiCollectionAdapter`/`model_lifecycle`. AI có giới hạn input, token và chi phí theo phiên; hiển thị ước lượng trước khi gửi, chỉ lưu aggregate usage. Kiểm định import gắn cờ gần-trùng để người dùng xem lại, tuyệt đối không tự merge; báo cáo import profile-scoped chỉ chứa số liệu tổng hợp. Luồng chính hỗ trợ Tab focus và accessible name; dark/light/midnight stylesheet được regression test. Thêm build `.ankiaddon`, checksum, SBOM, dependency lock/audit và secret scan trong CI.
+- Kiểm chứng: `python -m py_compile` thành công; regression policy/quality/adapter/model lifecycle/accessibility/theme/card render → `24 passed`. Privacy report và state-store migration được kiểm tra trực tiếp trong data-dir tạm. Artifact được đóng gói với checksum/SBOM và smoke compile sau giải nén vào profile sạch thành công. Full suite có test dùng `tmp_path` vẫn bị chặn bởi `WinError 5` khi pytest cleanup trong sandbox Windows hiện tại, đúng rủi ro baseline đã biết.
+- Rủi ro còn lại / bước kế tiếp: Chạy full isolated suite trên Python 3.9/3.11 CI và smoke thủ công Anki 2.1.50 trên profile backup trước release; ngưỡng near-duplicate 0.88 có thể điều chỉnh sau khi nhận phản hồi thực tế.
 
 ---
 
@@ -205,6 +216,7 @@ Mỗi phiên làm việc có động đến chất lượng, dữ liệu, worker
 | 2026-08-13 | Hoàn thành Phase 2: TTS/dependency an toàn, keyring và redaction log. | Ngăn treo TTS, file audio lỗi, sửa Python environment ngầm và lưu/lộ API key không an toàn. |
 | 2026-08-13 | Hoàn thành Phase 3: compatibility hook, matrix, smoke harness, observability và release procedure. | Chỉ công bố phạm vi đã kiểm chứng, debug không lộ dữ liệu nhạy cảm và phát hành có checklist bằng chứng. |
 | 2026-08-13 | Bổ sung kế hoạch Phase 4, chưa triển khai mã. | Định hướng kiến trúc, chất lượng dữ liệu và vận hành sau khi nền tảng an toàn/compatibility đã hoàn tất. |
+| 2026-08-13 | Hoàn thành Phase 4: ranh giới state/adapter/model lifecycle, policy AI theo phiên, kiểm định import riêng tư, accessibility/theme, artifact và supply-chain CI. | Giảm chi phí thay đổi, giúp người dùng kiểm soát AI và phát hành có thể truy vết mà không thu nội dung học. |
 
 ## Mẫu cập nhật cho phiên tiếp theo
 

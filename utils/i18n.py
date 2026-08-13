@@ -219,6 +219,54 @@ _TRANSLATIONS = {
         "vi": "🚀 XUẤT BẾN (NẠP VÀO ANKI)",
         "en": "🚀 DEPART (LOAD INTO ANKI)",
     },
+    "ai_input_accessible_name": {
+        "vi": "Văn bản nguồn cho AI",
+        "en": "AI source text",
+    },
+    "search_accessible_name": {
+        "vi": "Tìm kiếm thẻ chờ xuất xưởng",
+        "en": "Search cards awaiting import",
+    },
+    "accessibility_control_description": {
+        "vi": "Dùng phím Tab để chuyển điều khiển, Space hoặc Enter để kích hoạt.",
+        "en": "Use Tab to move between controls and Space or Enter to activate.",
+    },
+    "model_rebuilt": {
+        "vi": "✅ Đã tái tạo model: {model}",
+        "en": "✅ Rebuilt model: {model}",
+    },
+    "model_created": {
+        "vi": "✅ Đã tạo model mới: {model}",
+        "en": "✅ Created model: {model}",
+    },
+    "ai_set_session_input_label": {
+        "vi": "Giới hạn ký tự đầu vào mỗi phiên AI",
+        "en": "AI session input-character limit",
+    },
+    "ai_set_session_input_tip": {
+        "vi": "Chặn phiên AI khi tổng văn bản vượt giới hạn này; không lưu nội dung văn bản.",
+        "en": "Blocks an AI run when its total text exceeds this limit; no text is stored.",
+    },
+    "ai_set_session_tokens_label": {
+        "vi": "Ngân sách token mỗi phiên AI",
+        "en": "AI session token budget",
+    },
+    "ai_set_session_tokens_tip": {
+        "vi": "Áp dụng cho tổng ước tính trước khi chạy và usage do provider báo về trong phiên hiện tại.",
+        "en": "Applies to the pre-run estimate and provider-reported usage in this session.",
+    },
+    "ai_set_session_cost_label": {
+        "vi": "Ngân sách chi phí mỗi phiên AI (USD, 0 = không giới hạn)",
+        "en": "AI session cost budget (USD, 0 = unlimited)",
+    },
+    "ai_set_session_cost_tip": {
+        "vi": "Chỉ theo dõi token/chi phí tổng hợp, không lưu prompt hay phản hồi AI.",
+        "en": "Tracks aggregate tokens/cost only; prompts and AI responses are never stored.",
+    },
+    "preview_suffix_near_duplicate": {
+        "vi": " (gần giống: {match}, {score:.0%} — cần xem lại)",
+        "en": " (similar to: {match}, {score:.0%} — review needed)",
+    },
     "btn_rollback_import": {
         "vi": "↩️ HOÀN TÁC BATCH VỪA IMPORT",
         "en": "↩️ UNDO LAST IMPORT BATCH",
@@ -234,6 +282,24 @@ _TRANSLATIONS = {
         "en": "You are about to import {new} new notes and update {updates} notes.\\n\\n"
               "You can undo the newly created notes from this batch while this Forge window remains open. "
               "Updates and audio files cannot be undone automatically.\\n\\nContinue?",
+    },
+    "confirm_ai_budget": {
+        "vi": "Phiên AI này ước tính {calls} lần gọi, tối đa {tokens:,} token và ${cost:.4f}.\n"
+              "Ngân sách còn lại: {remaining_tokens:,} token, ${remaining_cost:.4f}.\n\n"
+              "Ước tính chỉ dùng độ dài văn bản và cấu hình model; không lưu prompt hay phản hồi. Tiếp tục?",
+        "en": "This AI session is estimated at {calls} call(s), up to {tokens:,} tokens and ${cost:.4f}.\n"
+              "Remaining budget: {remaining_tokens:,} tokens, ${remaining_cost:.4f}.\n\n"
+              "The estimate uses only text length and model settings; prompts and responses are not stored. Continue?",
+    },
+    "ai_budget_blocked": {
+        "vi": "Yêu cầu AI vượt giới hạn phiên. Giới hạn hiện tại: {input_limit:,} ký tự, {token_limit:,} token, ${cost_limit:.2f}.\n"
+              "Hãy giảm nội dung hoặc điều chỉnh giới hạn trong Cài Đặt AI.",
+        "en": "The AI request exceeds the session limits: {input_limit:,} characters, {token_limit:,} tokens, ${cost_limit:.2f}.\n"
+              "Reduce the content or adjust the limits in AI Settings.",
+    },
+    "ai_budget_estimate_failed": {
+        "vi": "Không thể ước tính ngân sách AI an toàn. Yêu cầu chưa được gửi.",
+        "en": "Could not safely estimate the AI budget. The request was not sent.",
     },
     "confirm_rollback_import": {
         "vi": "Hoàn tác {count} note mới tạo bởi batch import gần nhất?\\n\\n"
