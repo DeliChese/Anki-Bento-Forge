@@ -25,9 +25,13 @@ from .user_data import atomic_write_json, get_user_data_path, migrate_legacy_dir
 from .ai_extractor import (
     get_api_config,
     _make_existing_hash, _parse_ai_json_with_comment,
-    _apply_reasoning_effort, _http_post_json,
+    _apply_reasoning_effort,
     get_existing_vocab_from_deck, init_import_history,
-    is_openrouter, _get_rate_limit_delay,
+    is_openrouter,
+)
+from .ai_http_client import (
+    get_rate_limit_delay as _get_rate_limit_delay,
+    post_json as _http_post_json,
 )
 from .prompt_config import (
     get_system_prompt, get_json_template,

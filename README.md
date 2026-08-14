@@ -7,7 +7,7 @@
 [![Python](https://img.shields.io/badge/python-%3E%3D3.9-yellow)](manifest.json)
 [![Tests](https://github.com/DeliChese/Anki-Bento-Forge/actions/workflows/ci.yml/badge.svg)](https://github.com/DeliChese/Anki-Bento-Forge/actions/workflows/ci.yml)
 
-Xem [Compatibility Matrix](COMPATIBILITY.md), [Debugging Guide](DEBUGGING.md) và [Release Checklist](RELEASE_CHECKLIST.md) trước khi phát hành.
+Version và phạm vi Anki lấy từ [`manifest.json`](manifest.json); tài liệu không mở rộng phạm vi đó. Xem [Compatibility Matrix](COMPATIBILITY.md), [Debugging Guide](DEBUGGING.md) và trạng thái bằng chứng trong [Release Checklist](RELEASE_CHECKLIST.md) trước khi phát hành.
 
 ---
 
@@ -20,12 +20,13 @@ Xem [Compatibility Matrix](COMPATIBILITY.md), [Debugging Guide](DEBUGGING.md) v�
 | 🔤 **Romanization** | Furigana/Pinyin cho Nhật-Trung, **Romanization chuẩn Revised Romanization cho tiếng Hàn** (field + ví dụ hiển thị trên thẻ) |
 | 🎤 **TTS Đa Engine** | Edge TTS (chất lượng cao) → gTTS (fallback) → VoiceVox (local JP). Giọng Hàn ko-KR cho tiếng Hàn |
 
-### 🎯 Combo Mode — 1 từ = 1 card
+### 🎯 Combo Mode và SRS độc lập
 | Tính năng | Mô tả |
 |-----------|-------|
-| 🎯 **Card gộp 5 chế độ** | Thay vì 1 từ tạo 5 card riêng, giờ **1 từ = 1 card duy nhất** → deck đếm đúng số từ vựng. Trong card có **thanh chọn chế độ** chuyển đổi bằng JS: QA (Nhật→Việt), VN (Việt→Nhật), WB (Ghép chữ), PRON (Furigana/Pinyin/Romanization), LG (Ẩn chữ cái) |
-| 🎛️ **Đồng bộ chế độ học** | Thanh chọn trong card đồng bộ mode vào `mw.col.conf` qua public WebView hook; không patch private API của Overview. |
-| 🔁 **Migration tự động** | Model cũ (5 card) khi tái tạo sẽ giữ card mode chính + lịch sử học, tự xóa 4 card thừa |
+| 🎯 **Combo mặc định** | **1 từ = 1 card/1 lịch chung** với 5 bài tập QA, VN, Ghép chữ, Phát âm và Ẩn chữ. Banner trên card nói rõ đổi bài tập không tạo lịch SRS riêng. |
+| 🧠 **SRS độc lập (opt-in)** | Có thể chọn theo deck để note nhập mới tạo 5 card/lịch riêng: Nhận diện, Sản xuất, Chính tả, Phát âm và Nhớ mặt chữ; mỗi lần Again/Good chỉ cập nhật kỹ năng ghi trên card. |
+| 🎛️ **Mặc định theo deck** | Hướng Combo và policy Combo/Independent được lưu theo deck qua public WebView hook; không patch private API của Overview. |
+| 🔁 **Migration an toàn** | Nút chuyển card cũ tạo Anki checkpoint/Undo, giữ nguyên card Nhận diện `ord=0` cùng lịch sử, chỉ sinh thêm 4 lịch; chạy lại không tạo trùng và không xóa card cũ. |
 
 ### 🤖 AI & Xử lý nội dung
 | Tính năng | Mô tả |

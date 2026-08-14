@@ -13,7 +13,7 @@ LANG_CONFIG = {
         "HSK Level", "Topic",
         "Example", "Example Fill", "Example Pinyin", "Example in Vietnamese", "Vocab Audio", "Example Audio",
         "Example2", "Example2 Fill", "Example2 Pinyin", "Example2 in Vietnamese", "Example2 Audio",
-        "Image",
+        "Image", "SRS Independent",
     ],
     "json_field_map": {
         "simplified":               "Front",
@@ -48,7 +48,10 @@ LANG_CONFIG = {
         ("Example Audio", "Example"),
         ("Example2 Audio", "Example2"),
     ],
-    "template_names": ("1. Tổng hợp (5 chế độ)",),
+    "template_names": (
+        "1. Nhận diện / Combo", "2. Sản xuất", "3. Chính tả",
+        "4. Phát âm", "5. Nhớ mặt chữ",
+    ),
     # Dùng cho report "nghĩa khác" trong UI
     "furi_label": "Pinyin",
     "furi_json_key": "pinyin",

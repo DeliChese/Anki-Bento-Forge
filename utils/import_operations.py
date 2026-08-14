@@ -86,6 +86,9 @@ def apply_import(col, batch, cfg, deck_id, audio_tags, is_cancelled):
                 for json_key, field_name in cfg["json_field_map"].items():
                     if json_key in item and field_name in cfg["all_fields"]:
                         note[field_name] = str(item[json_key])
+                for field_name, value in (cfg.get("note_defaults") or {}).items():
+                    if field_name in cfg["all_fields"] and value:
+                        note[field_name] = str(value)
                 col.add_note(note, deck_id)
                 if getattr(note, "id", 0):
                     report["added_note_ids"].append(int(note.id))

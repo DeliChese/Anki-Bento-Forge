@@ -18,7 +18,9 @@
     "ai_providers": ["openai", "deepseek", "ollama", "lmstudio", "openrouter"],
     "languages": ["japanese", "chinese", "korean"],
     "tts_engines": ["edge-tts", "gtts", "voicevox"],
-    "template_count": 1,
+    "template_count": 5,
+    "default_cards_per_note": 1,
+    "srs_layouts": ["combo", "independent"],
     "study_modes": ["qa", "vn", "wb", "pron", "lg"]
   },
   "entry_point": "start_smart_factory",

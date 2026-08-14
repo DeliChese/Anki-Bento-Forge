@@ -37,11 +37,9 @@ jobs:
       - name: Critical lint
         run: ruff check --select=E9,F63,F7,F82 .
 
-      - name: Run isolated tests
-        run: |
-          TEST_DATA_DIR="$(mktemp -d)"
-          BENTO_FORGE_DATA_DIR="$TEST_DATA_DIR" python -m pytest --rootdir=tests --basetemp "$TEST_DATA_DIR/pytest" -p no:cacheprovider -q tests
-          rm -rf "$TEST_DATA_DIR"
+      - name: Run isolated tests twice
+        shell: pwsh
+        run: ./scripts/test_isolated.ps1 -Python python
 
       - name: Compile check (syntax)
         run: python -m py_compile __init__.py utils/*.py ui/*.py workers/*.py mode/*.py audio/*.py hooks/*.py Language/*.py

@@ -30,8 +30,8 @@ def _on_reviewer_question(reviewer):
             return
         q = card.q() or ""
         # Card combo (1 từ = 1 card, 5 chế độ): đồng bộ mode từ config
-        if 'id="combo-mode-bar"' in q:
-            mode = get_study_mode()
+        if 'id="combo-mode-bar"' in q and 'data-srs-layout="combo"' in q:
+            mode = get_study_mode(getattr(card, "did", None))
             js = (
                 f"window._aiFactoryMode='{mode}';"
                 f"window.dispatchEvent(new CustomEvent('ai-factory-mode',{{detail:'{mode}'}}));"

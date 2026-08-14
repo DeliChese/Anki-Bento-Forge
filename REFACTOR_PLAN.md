@@ -3,9 +3,9 @@
 > Tài liệu sống và **nguồn kế hoạch duy nhất** cho các cải thiện chất lượng Bento Forge.
 > Không dùng `CODE_MAP.md` hay `UPGRADE_GUIDE.md` để quyết định công việc mới; cấu trúc mã nguồn chuẩn vẫn là `.claude/`.
 
-**Cập nhật gần nhất:** 2026-08-13
+**Cập nhật gần nhất:** 2026-08-14
 
-**Trạng thái chung:** Phase 0–4 hoàn thành.
+**Trạng thái chung:** Phase 0–4 hoàn thành; Phase 5 đang làm.
 **Nguyên tắc:** bảo toàn dữ liệu Anki và dữ liệu cá nhân quan trọng hơn thêm tính năng.
 
 ## Quy tắc duy trì bắt buộc
@@ -27,7 +27,7 @@ Mỗi phiên làm việc có động đến chất lượng, dữ liệu, worker
 
 ## Baseline đã biết
 
-- Add-on v17.1.0; phạm vi Anki khai báo: 2.1.50–2.1.99.
+- `manifest.json` là nguồn sự thật: add-on v17.1.0, min/max Anki đều là 2.1.50; tài liệu chỉ diễn giải phạm vi này.
 - Lần đánh giá 2026-08-13 phát hiện test không cô lập hoàn toàn cấu hình i18n: `set_language()` ghi trực tiếp vào `utils/i18n_config.json`.
 - Lần chạy `python -m pytest -q` trong sandbox: 271 pass, 20 fail, 57 error. Nhiều error liên quan quyền thư mục tạm; một số test i18n/template/prompt đang kỳ vọng nội dung cũ. Kết quả này là baseline cần tái hiện trong môi trường phát triển bình thường, không phải tiêu chí pass/fail cuối cùng.
 
@@ -205,6 +205,129 @@ Mỗi phiên làm việc có động đến chất lượng, dữ liệu, worker
 
 ---
 
+## Phase 5 — Đóng khoảng hở phát hành và hiệu quả học SRS
+
+**Trạng thái:** `Đang làm` — P0-A/P0-B/P1-E hoàn thành; P0-C đã đạt local gate, còn chờ CI và smoke Anki thật; P1-D còn orchestration UI.
+
+**Mục tiêu:** Chỉ phát hành khi hành vi runtime, tài liệu và bằng chứng kiểm chứng khớp nhau; đồng thời bảo đảm Combo Mode không làm mờ tín hiệu ghi nhớ mà Anki dùng để lập lịch.
+
+**Thứ tự thực hiện bắt buộc:** P0-A → P0-B → P0-C → P1-D → P1-E. Không tăng version hay mở rộng compatibility matrix trước khi P0-A, P0-B và P0-C hoàn tất.
+
+### P0-A — Loại bỏ hoàn toàn tự cài dependency trong Anki
+
+**Trạng thái:** `Hoàn thành` (2026-08-13)
+
+**Vấn đề:** `utils/ai_extractor.py` còn gọi `pip install` khi đọc DOCX/XLSX, trái với chính sách Phase 2 và có thể làm thay đổi Python runtime của Anki không có sự xác nhận rõ ràng.
+
+- Phạm vi dự kiến: `utils/ai_extractor.py`, UI/i18n báo dependency thiếu, `tests/test_file_extract.py` và test mới nếu cần.
+- Thay đổi yêu cầu: thay `_pip_install`, `_install_docx`, `_install_openpyxl` bằng kiểm tra availability không ghi hệ thống; hiển thị tên package, phiên bản được hỗ trợ và lệnh cài thủ công có thể copy. CSV/TXT và parser đã có sẵn vẫn phải hoạt động.
+- Không làm: không tự tải package, không gọi `subprocess`/`pip`, không thêm fallback âm thầm làm mất nội dung file.
+- Tiêu chí hoàn tất:
+  - Không còn đường runtime nào chứa `pip install`, `subprocess.check_call(... pip ...)` hoặc tự thay đổi site-packages.
+  - Thiếu DOCX/XLSX dependency cho thông báo có hành động tiếp theo, không crash và không treo UI.
+  - Có test cho dependency có/thiếu; test extraction hiện hữu pass.
+
+### 2026-08-13 — Phase 5 / P0-A loại bỏ auto-install dependency tài liệu
+
+- Trạng thái: `Đang làm` → `Hoàn thành`
+- Phạm vi: `utils/ai_extractor.py`, luồng đính kèm trong `__init__.py`, `utils/i18n.py`, `tests/test_file_extract.py`, `CHANGELOG.md` và `RELEASE_CHECKLIST.md`.
+- Thay đổi: Xóa `_pip_install`, `_install_docx`, `_install_openpyxl` và mọi lời gọi `subprocess`/pip tự động khỏi document extraction; chỉ kiểm tra availability. Khi thiếu parser, UI báo dependency pin `python-docx==1.1.2` hoặc `openpyxl==3.1.5` cùng lệnh cài thủ công có thể sao chép; lỗi không bị đưa vào prompt AI như nội dung file.
+- Kiểm chứng: `py_compile` cho các file Python đã sửa; pytest cô lập cho AI extraction/token/length/grammar/file/i18n → `80 passed`. Regression mở rộng factory/i18n có `51 passed, 1 failed`; lỗi độc lập đã tái hiện riêng tại test cũ `TestComboMigration::test_collect_template_fields_captures_all` do fixture không có `_collect_template_fields`, không thuộc P0-A và không được sửa trong phiên này.
+- Release: Chỉ ghi bằng chứng local P0-A; version, compatibility matrix, trạng thái CI và manual smoke giữ nguyên.
+
+### P0-B — Một nguồn sự thật cho version và compatibility
+
+**Trạng thái:** `Hoàn thành` (2026-08-14)
+
+**Vấn đề:** `manifest.json` giới hạn đúng một bản Anki nhưng baseline roadmap cũ từng ghi phạm vi rộng hơn. Mâu thuẫn release metadata làm người dùng không biết phiên bản nào được hỗ trợ thật.
+
+- Quyết định: `manifest.json` là nguồn sự thật cho version và min/max Anki; `COMPATIBILITY.md`, README, CHANGELOG và roadmap chỉ diễn giải hoặc dẫn lại thông tin đó.
+- Phạm vi dự kiến: `manifest.json`, `COMPATIBILITY.md`, `README.md`, `REFACTOR_PLAN.md`, `tests/test_release_metadata.py`; chỉ thêm script kiểm tra nếu test Python không đủ rõ ràng.
+- Thay đổi yêu cầu: sửa baseline lịch sử để không còn tuyên bố phạm vi rộng hơn manifest; thêm regression test đọc manifest và phát hiện mọi support range trái ngược trong tài liệu release đang dùng.
+- Tiêu chí hoàn tất:
+  - Một câu trả lời duy nhất, có test, cho version và phạm vi Anki được hỗ trợ.
+  - Không ghi version/changelog là “released” khi release record chưa có CI và manual smoke đạt.
+
+### P0-C — Bằng chứng release có thể tái lập
+
+**Trạng thái:** `Đang làm` — triển khai và local gate hoàn thành; chờ CI Python 3.9/3.11 và smoke Anki 2.1.50.
+
+**Vấn đề:** full suite trong Windows sandbox từng vướng cleanup tạm và v17.1.0 chưa có record CI xanh hoặc smoke Anki thật. Harness mock không thay thế Anki runtime.
+
+- Phạm vi dự kiến: `scripts/test_isolated.ps1`, test dùng `tmp_path`, `.github/workflows/ci.yml`, `RELEASE_CHECKLIST.md`, `COMPATIBILITY.md` và test liên quan.
+- Thay đổi yêu cầu: chẩn đoán rồi sửa riêng lỗi cleanup/quyền thư mục tạm (nếu tái hiện); giữ test hoàn toàn profile-scoped. Đừng làm yếu assertion hoặc bỏ qua cleanup để có màu xanh giả.
+- Bằng chứng bắt buộc trước release:
+  1. `scripts/test_isolated.ps1` pass hai lần liên tiếp, không làm bẩn worktree;
+  2. CI pass trên Python 3.9 và 3.11;
+  3. Manual smoke trên Anki 2.1.50 với profile đã backup: import add/update + undo, Combo reviewer, TTS offline/cancel, config migration;
+  4. Ghi kết quả, ngày và người xác nhận vào `RELEASE_CHECKLIST.md`.
+
+### 2026-08-14 — Phase 5 / P0-B và P0-C metadata + isolated release evidence
+
+- Trạng thái: P0-B `Đang làm` → `Hoàn thành`; P0-C giữ `Đang làm` do chưa có CI xanh và smoke Anki thật.
+- Phạm vi: `COMPATIBILITY.md`, `README.md`, `CHANGELOG.md`, `RELEASE_CHECKLIST.md`, `REFACTOR_PLAN.md`, `scripts/test_isolated.ps1`, `.github/workflows/ci.yml`, `tests/conftest.py`, `tests/test_release_metadata.py`, các test file/state dùng temp.
+- Thay đổi: Chuẩn hóa tài liệu theo version/min/max trong `manifest.json`; regression test quét range trái ngược và chặn ghi release khi checklist chưa có CI/smoke. Harness dùng hai run-root profile/temp độc lập, không nuốt lỗi cleanup, so worktree trước/sau; CI 3.9/3.11 gọi cùng harness.
+- Chẩn đoán: `WinError 5` được tái hiện khi pytest/`TemporaryDirectory` tạo thư mục quyền `0o700` trong Windows sandbox. Fixture temp profile-scoped dùng thư mục truy cập được và cleanup bắt buộc; không giảm assertion.
+- Kiểm chứng local: `py_compile` đạt; metadata/temp regression `119 passed`; gọi `scripts/test_isolated.ps1` hai lần liên tiếp, mỗi lần hai vòng `383 passed`, cleanup và worktree check đều đạt.
+- Release: `manifest.json` giữ nguyên 17.1.0 và Anki 2.1.50–2.1.50. CI và manual smoke không được tự nhận; release record vẫn chờ bằng chứng ngoài local.
+
+### P1-D — Giảm rủi ro từ các module điều phối lớn
+
+**Trạng thái:** `Đang làm` — document extractors và HTTP/AI client hoàn thành; kế tiếp là orchestration UI.
+
+**Vấn đề:** `__init__.py` và `utils/ai_extractor.py` vẫn là điểm tập trung thay đổi lớn, dù Phase 4 đã tách một phần state/adapter/model lifecycle.
+
+- Phạm vi dự kiến: trước hết map dependency và xác định seam có test; sau đó chỉ tách từng lát nhỏ: document extractors, HTTP/AI client và orchestration UI. Giữ public import/API tương thích trong một release.
+- Cách làm: mỗi PR/phiên chỉ tách một responsibility, di chuyển test cùng responsibility, không vừa refactor vừa thay đổi hành vi sản phẩm.
+- Tiêu chí hoàn tất cho mỗi lát: không tăng direct `mw`/`aqt` access ngoài adapter/UI cho phép; public behavior giữ nguyên qua regression test; module mới có owner/ràng buộc dependency rõ ràng.
+- Không làm: “big-bang rewrite” của Factory hoặc AI extractor.
+
+### 2026-08-14 — Phase 5 / P1-D tách document extractors
+
+- Trạng thái: lát cắt document extractors `Đang làm` → `Hoàn thành`; P1-D tổng thể giữ `Đang làm` để tách HTTP/AI client và orchestration UI ở các phiên riêng.
+- Phạm vi: `utils/document_extractors.py`, lớp tương thích trong `utils/ai_extractor.py`, `tests/test_file_extract.py`, project map và roadmap.
+- Thay đổi: Chuyển toàn bộ dispatch TXT/Markdown/CSV/PDF/DOCX/XLSX, kiểm tra parser tùy chọn và lỗi dependency sang module không phụ thuộc Anki/UI/AI/network. `utils.ai_extractor` re-export các tên cũ trong release hiện tại; test xác nhận các object public vẫn tương thích và module mới không import `aqt` hay gọi subprocess.
+- Kiểm chứng: `py_compile` đạt; test extraction hẹp `13 passed`; harness cô lập chính thức chạy hai vòng liên tiếp, mỗi vòng `384 passed`, cleanup và worktree check đạt. Một lượt gọi `test_comprehensive.py` trực tiếp ngoài harness có `120 passed, 13 failed` vì thiếu bootstrap mock `aqt`/`anki`; cùng các test này đều pass trong harness chính thức.
+- Rủi ro còn lại / bước kế tiếp: Chưa tách HTTP/AI client hoặc orchestration UI; P0-C vẫn chờ CI Python 3.9/3.11 và smoke Anki 2.1.50 thật. Không thay đổi version, compatibility hay hành vi sản phẩm trong lát cắt này.
+
+### 2026-08-14 — Phase 5 / P1-D tách HTTP/AI client
+
+- Trạng thái: lát cắt HTTP/AI client `Đang làm` → `Hoàn thành`; P1-D tổng thể giữ `Đang làm` để tách orchestration UI ở phiên riêng.
+- Phạm vi: `utils/ai_http_client.py`, lớp tương thích trong `utils/ai_extractor.py`, dependency network của `utils/batch_processor.py`, `tests/test_ai_http_client.py`, project map và roadmap.
+- Thay đổi: Chuyển TLS policy, connection pool theo thread, POST JSON, retry/backoff, rate-limit và cancellation sang module thuần Python stdlib, không phụ thuộc Anki/Qt/config/prompt/parser. `utils.ai_extractor` giữ các tên transport cũ trong release hiện tại; batch dùng trực tiếp owner mới. Không thay đổi payload, timeout, thông báo tiến độ hay hành vi API.
+- Kiểm chứng: `py_compile` đạt; regression AI/HTTP/extraction hẹp `84 passed`; harness cô lập chính thức chạy hai vòng liên tiếp, mỗi vòng `390 passed`, cleanup và worktree check đạt; `git diff --check` đạt.
+- Rủi ro còn lại / bước kế tiếp: P1-D còn orchestration UI; P1-E còn quyết định sản phẩm và triển khai SRS. P0-C vẫn chờ CI Python 3.9/3.11 cùng smoke Anki 2.1.50 thật. Không thay đổi version, compatibility hay release record trong lát cắt này.
+
+### P1-E — Làm rõ nghĩa học tập của Combo Mode
+
+**Trạng thái:** `Hoàn thành` (2026-08-14)
+
+**Vấn đề:** 5 dạng luyện tập dùng chung một card/lịch SRS có thể trộn lẫn các kỹ năng khác nhau (nhận diện, sản xuất, chính tả, phát âm), làm đánh giá Again/Good không còn phản ánh một prompt hồi tưởng ổn định.
+
+- Quyết định sản phẩm: Combo Mode mặc định là **luyện biến thể trên một card**; người dùng có thể opt-in **5 lịch SRS độc lập** theo deck cho Nhận diện, Sản xuất, Chính tả, Phát âm và Nhớ mặt chữ.
+- Phạm vi dự kiến: `mode/templates.py`, `mode/shared.py`, `hooks/overview_mode.py`, cấu hình/model lifecycle, i18n và test combo/migration.
+- Yêu cầu UX: mô tả rõ ở UI rằng đổi mode hiện tại có/không ảnh hưởng lịch; đặt default direction cố định theo deck hoặc mode study; migration phải giữ scheduling/history của card cũ và luôn có backup/undo khi có thể.
+- Tiêu chí hoàn tất:
+  - Người dùng hiểu card đang đo kỹ năng nào trước khi bấm Again/Good.
+  - Mỗi hướng được chọn “SRS độc lập” có card/template và scheduling độc lập; combo drill không giả vờ là kết quả recall độc lập.
+  - Có migration và reviewer tests cho mode cũ/mới, không sinh thẻ trùng ngoài ý muốn.
+
+### 2026-08-14 — Phase 5 / P1-E semantics và migration SRS cho Combo Mode
+
+- Trạng thái: `Đang làm` → `Hoàn thành`
+- Phạm vi: `mode/templates.py`, `mode/shared.py`, `mode/css.py`, `hooks/overview_mode.py`, `hooks/reviewer.py`, language config, `utils/srs_policy.py`, model/import lifecycle, i18n, README/manifest/changelog, card-template skill và regression tests.
+- Thay đổi: Giữ mặc định Combo một card/một lịch; card hiển thị rõ đây là luyện biến thể dùng lịch chung. Thêm field opt-in `SRS Independent`: ord=0 trở thành Nhận diện cố định và giữ scheduling/history cũ, ord=1..4 chỉ sinh khi opt-in và có lịch riêng. Mặc định mode/layout được lưu theo deck. UI chỉ đổi policy cho note nhập mới; migration note hiện có là thao tác tường minh, có Anki checkpoint/Undo, giữ card ord=0, không xóa card/template và idempotent khi chạy lại. Legacy model nhiều template được đánh dấu trước khi cài template conditional để không làm rỗng card cũ.
+- Kiểm chứng: `py_compile` đạt; regression P1-E/model/i18n/release metadata `55 passed`; `git diff --check` đạt; harness cô lập chính thức chạy hai vòng liên tiếp, mỗi vòng `396 passed`, cleanup và worktree check đạt. Một lượt ghép test trực tiếp ngoài harness bị nhiễu mock `aqt.qt` dùng chung (thiếu `QTabWidget`); cùng full suite pass trong harness chính thức.
+- Rủi ro còn lại / bước kế tiếp: Cần smoke thủ công trên Anki 2.1.50 với profile backup cho hiển thị 3 ngôn ngữ, tạo note Combo/Independent, migration + Undo và reviewer rating; bằng chứng này vẫn thuộc P0-C. Không tăng version, compatibility hay nhận release đã hoàn tất.
+
+### Handoff cho phiên tiếp theo
+
+Mỗi phiên chỉ nhận **một** item P0/P1 ở trên. Prompt đề nghị:
+
+```text
+Thực hiện REFACTOR_PLAN.md / Phase 5 / <ID>. Đọc AGENTS.md, .claude/CLAUDE.md và đúng skill phù hợp trước. Không mở rộng sang item khác. Trước khi sửa, nêu file/phạm vi và acceptance criteria; sau khi sửa, chạy test liên quan, cập nhật Phase 5 + release record khi đủ bằng chứng. Không tăng version hoặc thay đổi compatibility matrix ngoài P0-B/P0-C.
+```
+
 ## Nhật ký thay đổi
 
 | Ngày | Thay đổi | Lý do |
@@ -217,6 +340,12 @@ Mỗi phiên làm việc có động đến chất lượng, dữ liệu, worker
 | 2026-08-13 | Hoàn thành Phase 3: compatibility hook, matrix, smoke harness, observability và release procedure. | Chỉ công bố phạm vi đã kiểm chứng, debug không lộ dữ liệu nhạy cảm và phát hành có checklist bằng chứng. |
 | 2026-08-13 | Bổ sung kế hoạch Phase 4, chưa triển khai mã. | Định hướng kiến trúc, chất lượng dữ liệu và vận hành sau khi nền tảng an toàn/compatibility đã hoàn tất. |
 | 2026-08-13 | Hoàn thành Phase 4: ranh giới state/adapter/model lifecycle, policy AI theo phiên, kiểm định import riêng tư, accessibility/theme, artifact và supply-chain CI. | Giảm chi phí thay đổi, giúp người dùng kiểm soát AI và phát hành có thể truy vết mà không thu nội dung học. |
+| 2026-08-13 | Bổ sung Phase 5: đóng auto-install dependency, metadata release, evidence test/smoke, refactor có lát cắt và quyết định SRS cho Combo Mode. | Chuyển các phát hiện từ đánh giá kỹ thuật thành backlog có thứ tự, scope và tiêu chí bàn giao giữa các phiên. |
+| 2026-08-13 | Hoàn thành Phase 5 / P0-A: document parser chỉ kiểm tra dependency và cung cấp hướng dẫn cài thủ công có pin. | Không để thao tác đọc DOCX/XLSX tự thay đổi Python runtime của Anki; giữ lỗi dependency khỏi prompt AI. |
+| 2026-08-14 | Hoàn thành P0-B và local gate P0-C; P0-C còn chờ CI/smoke Anki thật. | Loại metadata compatibility mâu thuẫn và làm full-suite evidence lặp lại được mà không che lỗi cleanup. |
+| 2026-08-14 | Hoàn thành lát cắt P1-D document extractors; P1-D tiếp tục với HTTP/AI client. | Giảm trách nhiệm của AI orchestrator bằng một seam thuần local, có test và giữ import tương thích. |
+| 2026-08-14 | Hoàn thành lát cắt P1-D HTTP/AI client; P1-D tiếp tục với orchestration UI. | Cô lập TLS/retry/rate-limit/cancel khỏi AI orchestrator và cho batch phụ thuộc trực tiếp owner network mới. |
+| 2026-08-14 | Hoàn thành P1-E: Combo mặc định một lịch; opt-in theo deck tạo 5 lịch kỹ năng độc lập với migration checkpoint/idempotent. | Làm Again/Good phản ánh một prompt ổn định mà vẫn giữ lịch sử card cũ và không sinh card ngoài ý muốn. |
 
 ## Mẫu cập nhật cho phiên tiếp theo
 

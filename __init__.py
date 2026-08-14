@@ -74,6 +74,12 @@ from utils.anki_adapter import AnkiCollectionAdapter
 from utils.import_quality import find_near_duplicate
 from utils.import_report import write_import_report
 from utils.model_lifecycle import ensure_model
+from utils.srs_policy import (
+    apply_srs_layout_to_config,
+    migrate_deck_to_independent,
+    needs_legacy_srs_migration,
+    prepare_legacy_srs_model,
+)
 
 logger = get_logger()
 
@@ -105,7 +111,10 @@ from hooks.overview_mode import (
     register_overview_hooks,
     get_study_mode,
     set_study_mode,
+    get_srs_layout,
+    set_srs_layout,
     MODES as STUDY_MODES,
+    SRS_LAYOUTS,
     CONF_LANG_KEY,
 )
 
@@ -178,7 +187,19 @@ class AnkiSmartFactory(QDialog):
         is_grammar = bool(getattr(self, '_is_grammar', False))
         base = (LANG_GRAMMAR_CONFIG if is_grammar else LANG_CONFIG)[self._current_lang]
         kind = "grammar" if is_grammar else "vocab"
-        return apply_field_map_to_cfg(base, self._current_lang, kind)
+        cfg = apply_field_map_to_cfg(base, self._current_lang, kind)
+        if not is_grammar:
+            cfg = apply_srs_layout_to_config(cfg, get_srs_layout(self._current_deck_id()))
+        return cfg
+
+    def _current_deck_id(self):
+        """Resolve the selected deck without assuming UI setup has completed."""
+        try:
+            chooser = getattr(self, "deck_chooser", None)
+            name = chooser.currentText() if chooser is not None else ""
+            return mw.col.decks.id(name) if name else None
+        except Exception:
+            return None
 
     def _select_mode(self, is_grammar):
         """Chuyển chế độ Từ vựng ↔ Ngữ pháp (Note Type riêng)"""
@@ -370,6 +391,7 @@ class AnkiSmartFactory(QDialog):
         bar = QHBoxLayout()
         self.deck_chooser = QComboBox()
         self.deck_chooser.addItems(mw.col.decks.all_names())
+        self.deck_chooser.currentTextChanged.connect(self._on_deck_changed)
         self.lbl_deck = QLabel(t("deck_label"))
         bar.addWidget(self.lbl_deck, 0)
         bar.addWidget(self.deck_chooser, 1)
@@ -583,20 +605,21 @@ class AnkiSmartFactory(QDialog):
 
         # ── Voice Selection ───────────────────────────────
         self.voice_grp = QGroupBox(t("voice_group_title"))
-        vgl = QHBoxLayout()
+        vgl = QVBoxLayout()
+        voice_row = QHBoxLayout()
         self.lbl_voice = QLabel(t("voice_label"))
-        vgl.addWidget(self.lbl_voice, 0)
+        voice_row.addWidget(self.lbl_voice, 0)
         self.cbo_voice = QComboBox()
         self.cbo_voice.setMinimumWidth(150)
         self.cbo_voice.currentIndexChanged.connect(self._on_voice_changed)
-        vgl.addWidget(self.cbo_voice, 1)
+        voice_row.addWidget(self.cbo_voice, 1)
         self.btn_preview_voice = QPushButton(t("voice_preview_btn"))
         self.btn_preview_voice.setProperty("class", "purple")
         self.btn_preview_voice.clicked.connect(self._preview_voice)
-        vgl.addWidget(self.btn_preview_voice, 0)
-        vgl.addSpacing(12)
+        voice_row.addWidget(self.btn_preview_voice, 0)
+        voice_row.addSpacing(12)
         self.lbl_speed = QLabel(t("voice_speed_label"))
-        vgl.addWidget(self.lbl_speed, 0)
+        voice_row.addWidget(self.lbl_speed, 0)
         self.spin_speed = QDoubleSpinBox()
         self.spin_speed.setRange(0.25, 4.0)
         self.spin_speed.setSingleStep(0.05)
@@ -606,15 +629,28 @@ class AnkiSmartFactory(QDialog):
         self.spin_speed.setMinimumWidth(70)
         self.spin_speed.setToolTip(t("spin_speed_tip"))
         self.spin_speed.valueChanged.connect(self._on_speed_changed)
-        vgl.addWidget(self.spin_speed, 0)
+        voice_row.addWidget(self.spin_speed, 0)
+        vgl.addLayout(voice_row)
         # ── Chế độ học mặc định (đồng bộ với Study now của Onigiri) ──
-        vgl.addSpacing(12)
+        study_row = QHBoxLayout()
         self.lbl_study_mode = QLabel(t("study_mode_label"))
-        vgl.addWidget(self.lbl_study_mode, 0)
+        study_row.addWidget(self.lbl_study_mode, 0)
         self.cbo_study_mode = QComboBox()
         self.cbo_study_mode.setMinimumWidth(130)
         self.cbo_study_mode.currentIndexChanged.connect(self._on_study_mode_changed)
-        vgl.addWidget(self.cbo_study_mode, 0)
+        study_row.addWidget(self.cbo_study_mode, 1)
+        study_row.addSpacing(12)
+        self.lbl_srs_layout = QLabel(t("srs_layout_label"))
+        study_row.addWidget(self.lbl_srs_layout, 0)
+        self.cbo_srs_layout = QComboBox()
+        self.cbo_srs_layout.setMinimumWidth(155)
+        self.cbo_srs_layout.currentIndexChanged.connect(self._on_srs_layout_changed)
+        study_row.addWidget(self.cbo_srs_layout, 1)
+        self.btn_migrate_srs = QPushButton(t("srs_migrate_btn"))
+        self.btn_migrate_srs.setProperty("class", "info")
+        self.btn_migrate_srs.clicked.connect(self._migrate_current_deck_srs)
+        study_row.addWidget(self.btn_migrate_srs, 0)
+        vgl.addLayout(study_row)
         self.voice_grp.setLayout(vgl)
         left.addWidget(self.voice_grp)
 
@@ -771,6 +807,9 @@ class AnkiSmartFactory(QDialog):
             (self.btn_theme, t("btn_theme")),
             (self.btn_lang_toggle, t("btn_lang_toggle")),
             (self.deck_chooser, t("deck_label")),
+            (self.cbo_study_mode, t("study_mode_label")),
+            (self.cbo_srs_layout, t("srs_layout_label")),
+            (self.btn_migrate_srs, t("srs_migrate_btn")),
             (self.btn_load, t("open_file_btn")),
             (self.ai_text_input, t("ai_input_accessible_name")),
             (self.ai_instruction, t("ai_instruction_label")),
@@ -915,11 +954,16 @@ class AnkiSmartFactory(QDialog):
             self.lbl_voice.setText(t("voice_label"))
             self.lbl_speed.setText(t("voice_speed_label"))
             self.lbl_study_mode.setText(t("study_mode_label"))
+            self.lbl_srs_layout.setText(t("srs_layout_label"))
+            self.btn_migrate_srs.setText(t("srs_migrate_btn"))
+            self.cbo_srs_layout.setToolTip(t("srs_layout_tip"))
+            self.btn_migrate_srs.setToolTip(t("srs_migrate_tip"))
             self.btn_preview_voice.setText(t("voice_preview_btn"))
             self.spin_speed.setToolTip(t("spin_speed_tip"))
             self.chk_audio_vocab.setToolTip(t("voice_tooltip"))
             self.chk_audio_ex1.setToolTip(t("voice_tooltip"))
             self.chk_audio_ex2.setToolTip(t("voice_tooltip"))
+            self._sync_srs_layout_combo()
 
             # Preview area
             self.lbl_preview_title.setText(t("preview_label"))
@@ -1099,6 +1143,12 @@ class AnkiSmartFactory(QDialog):
         self.spin_speed.setValue(get_default_speed(lang))
         self.spin_speed.blockSignals(False)
 
+        is_vocab = not self._is_grammar
+        for widget in (self.lbl_study_mode, self.cbo_study_mode, self.lbl_srs_layout,
+                       self.cbo_srs_layout, self.btn_migrate_srs):
+            widget.setVisible(is_vocab)
+        if is_vocab:
+            self._sync_srs_layout_combo()
         self.get_or_create_model()
 
         # Đồng bộ dropdown chế độ học với cấu hình hiện tại
@@ -1127,7 +1177,7 @@ class AnkiSmartFactory(QDialog):
             lang = self._current_lang
             # Nhãn theo ngôn ngữ UI (vi: "1. Nhật→Việt" / en: "1. Japanese→English")
             lbl = study_mode_labels(lang)
-            current = get_study_mode()
+            current = get_study_mode(self._current_deck_id())
             self.cbo_study_mode.blockSignals(True)
             self.cbo_study_mode.clear()
             for k in STUDY_MODES:
@@ -1143,9 +1193,68 @@ class AnkiSmartFactory(QDialog):
         try:
             data = self.cbo_study_mode.itemData(index)
             if data:
-                set_study_mode(data)
+                set_study_mode(data, self._current_deck_id())
         except Exception as e:
             logger.warning("Lỗi lưu study mode: %s", e)
+
+    def _sync_srs_layout_combo(self):
+        """Show the selected deck's policy for notes created from now on."""
+        if not hasattr(self, "cbo_srs_layout"):
+            return
+        try:
+            current = get_srs_layout(self._current_deck_id())
+            labels = {
+                "combo": t("srs_layout_combo"),
+                "independent": t("srs_layout_independent"),
+            }
+            self.cbo_srs_layout.blockSignals(True)
+            self.cbo_srs_layout.clear()
+            for layout in SRS_LAYOUTS:
+                self.cbo_srs_layout.addItem(labels[layout], layout)
+            index = self.cbo_srs_layout.findData(current)
+            self.cbo_srs_layout.setCurrentIndex(index if index >= 0 else 0)
+            self.cbo_srs_layout.blockSignals(False)
+        except Exception as exc:
+            logger.warning("Lỗi đồng bộ SRS layout: %s", exc)
+
+    def _on_srs_layout_changed(self, index):
+        """Change defaults for future imports; never mutate existing notes here."""
+        try:
+            layout = self.cbo_srs_layout.itemData(index)
+            if layout:
+                set_srs_layout(layout, self._current_deck_id())
+                tooltip(t("srs_layout_changed"))
+        except Exception as exc:
+            logger.warning("Lỗi lưu SRS layout: %s", exc)
+
+    def _on_deck_changed(self, _name=None):
+        if hasattr(self, "cbo_study_mode"):
+            self._sync_study_mode_combo()
+        if hasattr(self, "cbo_srs_layout"):
+            self._sync_srs_layout_combo()
+
+    def _migrate_current_deck_srs(self):
+        """Opt existing Combo notes into five schedules under one undo checkpoint."""
+        if self._is_grammar:
+            return
+        deck_id = self._current_deck_id()
+        if deck_id is None:
+            showInfo(t("srs_migrate_no_deck"))
+            return
+        if not askUser(t("srs_migrate_confirm"), parent=self):
+            return
+        try:
+            mw.checkpoint(t("srs_migrate_checkpoint"))
+            model = self.get_or_create_model()
+            result = migrate_deck_to_independent(mw.col, model, deck_id)
+            set_srs_layout("independent", deck_id)
+            self._sync_srs_layout_combo()
+            mw.reset()
+            key = "srs_migrate_done" if result.changed_notes else "srs_migrate_none"
+            showInfo(t(key, count=result.changed_notes))
+        except Exception as exc:
+            logger.warning("SRS deck migration failed: %s", exc)
+            showInfo(t("srs_migrate_failed", error=str(exc)))
 
     def _preview_voice(self):
         lang = self._cfg()["lang_code"]
@@ -1962,40 +2071,37 @@ class AnkiSmartFactory(QDialog):
         self.pbar.setVisible(False)
         self.lbl_status.setText(t("status_stopping"))
 
-    def _drop_extra_combo_cards(self, mid, keep_count):
-        """Migration combo: xóa các card thừa (ord >= keep_count) của model,
-        giữ nguyên card mode chính (ord 0) + lịch sử học."""
-        try:
-            nids = mw.col.find_notes(f'"mid:{mid}"')
-            if not nids:
-                return
-            card_ids = []
-            for nid in nids:
-                try:
-                    card_ids.extend(
-                        mw.col.db.list(
-                            "select id from cards where nid=? and ord>=?",
-                            nid, keep_count
-                        )
-                    )
-                except Exception:
-                    continue
-            if card_ids:
-                mw.col.remCards(card_ids)
-                logger.info("Migration combo: xóa %d card thừa (model %s)", len(card_ids), mid)
-        except Exception as e:
-            logger.warning("Migration combo cards: %s", e)
+    def _prepare_legacy_srs_model(self, cfg):
+        """Preserve old multi-card notes before installing conditional templates."""
+        if self._is_grammar:
+            return
+        mm = mw.col.models
+        model = mm.by_name(cfg["model_name"])
+        if model is None:
+            for old_name in cfg.get("old_model_names", []):
+                model = mm.by_name(old_name)
+                if model is not None:
+                    break
+        if not needs_legacy_srs_migration(model):
+            return
+        mw.checkpoint(t("srs_legacy_checkpoint"))
+        result = prepare_legacy_srs_model(mw.col, mm, model)
+        logger.info(
+            "SRS legacy migration preserved %d/%d notes",
+            result.changed_notes,
+            result.matched_notes,
+        )
 
     def _force_rebuild_model(self):
         cfg = self._cfg()
         mm = mw.col.models
         templates, css = self._model_assets()
+        self._prepare_legacy_srs_model(cfg)
         result = ensure_model(
             mm, cfg, templates, css, _build_qfmt, _build_afmt,
             rename_primary_template=False,
+            prune_extra_templates=self._is_grammar,
         )
-        if result.had_extra_templates and not self._is_grammar:
-            self._drop_extra_combo_cards(result.model['id'], len(templates) // 2)
         message_key = "model_rebuilt" if result.existed else "model_created"
         showInfo(t(message_key, model=cfg['model_name']))
 
@@ -2008,12 +2114,12 @@ class AnkiSmartFactory(QDialog):
     def get_or_create_model(self):
         cfg = self._cfg()
         templates, css = self._model_assets()
+        self._prepare_legacy_srs_model(cfg)
         result = ensure_model(
             mw.col.models, cfg, templates, css, _build_qfmt, _build_afmt,
             rename_primary_template=not self._is_grammar,
+            prune_extra_templates=self._is_grammar,
         )
-        if result.had_extra_templates and not self._is_grammar:
-            self._drop_extra_combo_cards(result.model['id'], len(templates) // 2)
         return result.model
 
     # ═══════════════════════════════════════════════════════
@@ -2063,7 +2169,7 @@ class AnkiSmartFactory(QDialog):
         if not paths:
             return
 
-        from utils.ai_extractor import extract_text_from_file
+        from utils.ai_extractor import MissingDocumentDependencyError, extract_text_from_file
         self.lbl_ai_status.setText(t("status_reading_file"))
         mw.app.processEvents()
 
@@ -2075,6 +2181,16 @@ class AnkiSmartFactory(QDialog):
             name = os.path.basename(p)
             try:
                 text = extract_text_from_file(p)
+            except MissingDocumentDependencyError as e:
+                errors.append(
+                    f"• {name}: "
+                    + t(
+                        "status_document_dependency_missing",
+                        package=e.requirement,
+                        command=e.install_command,
+                    )
+                )
+                continue
             except Exception as e:
                 errors.append(f"• {name}: {e}")
                 continue

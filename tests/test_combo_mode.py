@@ -2,10 +2,10 @@
 Tests cho COMBO MODE (card gộp 5 chế độ → 1 card).
 
 Kiểm tra:
-- LANG_TEMPLATES mỗi ngôn ngữ chỉ còn 1 cặp template combo (1 từ = 1 card)
+- LANG_TEMPLATES có 1 cặp Combo + 4 hướng có điều kiện SRS Independent
 - Template combo chứa thanh chọn mode (combo-mode-bar) + 5 panel (qa/vn/wb/pron/lg)
 - CSS chứa style mode-btn / combo-check / combo-res
-- Language config template_names chỉ còn 1 tên combo
+- Language config có field opt-in; mặc định blank vẫn chỉ sinh 1 card Combo
 - _COMBO_MODE_JS tồn tại trong mode/shared.py
 - hooks/overview_mode: build selector HTML, inject vào overview, set/get study mode
 """
@@ -33,12 +33,12 @@ sys.modules["aqt.mw"] = aqt_mock.mw
 
 
 class TestComboTemplates:
-    def test_lang_templates_only_one_pair(self):
+    def test_lang_templates_have_conditional_srs_pairs(self):
         from mode import LANG_TEMPLATES
-        # Mỗi ngôn ngữ chỉ 1 cặp (q, a) → 1 template duy nhất = 1 card/từ
-        assert len(LANG_TEMPLATES["japanese"]) == 2
-        assert len(LANG_TEMPLATES["chinese"]) == 2
-        assert len(LANG_TEMPLATES["korean"]) == 2
+        # 5 cặp; 4 cặp phụ có Mustache opt-in nên Combo vẫn chỉ 1 card/từ.
+        assert len(LANG_TEMPLATES["japanese"]) == 10
+        assert len(LANG_TEMPLATES["chinese"]) == 10
+        assert len(LANG_TEMPLATES["korean"]) == 10
 
     def test_japanese_combo_question_has_mode_bar(self):
         from mode.templates import tmpl_ja_combo_q
@@ -52,6 +52,9 @@ class TestComboTemplates:
         assert "{{type:Meaning}}" in html
         assert "{{Front}}" in html
         assert "{{Meaning}}" in html
+        assert 'data-srs-layout="combo"' in html
+        assert 'data-srs-skill="recognition"' in html
+        assert "1 lịch chung" in html
 
     def test_japanese_combo_answer_has_answer(self):
         from mode.templates import tmpl_ja_combo_a
@@ -113,38 +116,56 @@ class TestComboJs:
         assert "ai_factory_set_mode" in _COMBO_MODE_JS
         assert "localStorage" in _COMBO_MODE_JS
         assert "mode-panel-qa" in _COMBO_MODE_JS
+        assert "if(independent) m='qa'" in _COMBO_MODE_JS
+        assert "if(independent) return" in _COMBO_MODE_JS
 
 
 class TestComboConfig:
-    def test_template_names_single(self):
+    def test_template_names_and_opt_in_field(self):
         from Language import LANG_CONFIG
-        assert len(LANG_CONFIG["japanese"]["template_names"]) == 1
-        assert len(LANG_CONFIG["chinese"]["template_names"]) == 1
-        assert len(LANG_CONFIG["korean"]["template_names"]) == 1
-        assert "Tổng hợp" in LANG_CONFIG["japanese"]["template_names"][0]
-        assert "Tổng hợp" in LANG_CONFIG["chinese"]["template_names"][0]
-        assert "Tổng hợp" in LANG_CONFIG["korean"]["template_names"][0]
+        from mode import LANG_TEMPLATES
+        for lang in ("japanese", "chinese", "korean"):
+            assert len(LANG_CONFIG[lang]["template_names"]) == 5
+            assert len(LANG_TEMPLATES[lang]) == 10
+            assert "SRS Independent" in LANG_CONFIG[lang]["all_fields"]
+            for template in LANG_TEMPLATES[lang][2:]:
+                html = template()
+                assert html.startswith("{{#SRS Independent}}")
+                assert 'data-srs-layout="independent"' in html
+
+    def test_independent_typed_recall_has_matching_answer_filter(self):
+        from mode.templates import (
+            tmpl_ja_vn_q, tmpl_ja_vn_a, tmpl_zh_vn_q, tmpl_zh_vn_a,
+            tmpl_ko_vn_q, tmpl_ko_vn_a,
+        )
+        for question, answer in (
+            (tmpl_ja_vn_q, tmpl_ja_vn_a),
+            (tmpl_zh_vn_q, tmpl_zh_vn_a),
+            (tmpl_ko_vn_q, tmpl_ko_vn_a),
+        ):
+            assert "{{type:Front}}" in question()
+            assert "{{type:Front}}" in answer()
 
 
 class TestOverviewModeSelector:
     def test_set_and_get_study_mode(self):
         from unittest.mock import patch
         from hooks.overview_mode import get_study_mode, set_study_mode, CONF_KEY, MODES
-        conf = MagicMock()
+        conf = {}
         mw_mock = MagicMock()
         mw_mock.col.conf = conf
         # set_study_mode với mode hợp lệ
         with patch("aqt.mw", mw_mock):
             assert set_study_mode("vn") is True
             # set với mode không hợp lệ → fallback qa
-            conf.get = MagicMock(return_value="bad_mode")
+            conf[CONF_KEY] = "bad_mode"
             assert get_study_mode() == "qa"
-            conf.get = MagicMock(return_value="pron")
+            conf[CONF_KEY] = "pron"
             assert get_study_mode() == "pron"
         # set_study_mode với mode không hợp lệ → fallback qa + vẫn lưu
         with patch("aqt.mw", mw_mock):
             assert set_study_mode("unknown_mode") is True
-            conf.get = MagicMock(return_value="unknown_mode")
+            conf[CONF_KEY] = "unknown_mode"
             assert get_study_mode() == "qa"
         assert CONF_KEY == "ai_factory_study_mode"
         assert set(MODES) == {"qa", "vn", "wb", "pron", "lg"}
@@ -154,11 +175,28 @@ class TestOverviewModeSelector:
         from hooks.overview_mode import _on_js_message
         with patch("hooks.overview_mode.set_study_mode") as set_mock:
             handled = _on_js_message((False, None), "ai_factory_set_mode:wb", None)
-            set_mock.assert_called_once_with("wb")
+            set_mock.assert_called_once_with("wb", None)
             assert handled == (True, None)
         # message không phải của add-on → giữ nguyên handled
         result = _on_js_message((False, None), "onigiri_study", None)
         assert result == (False, None)
+
+    def test_mode_and_srs_layout_are_stable_per_deck(self):
+        from unittest.mock import patch
+        from hooks.overview_mode import (
+            get_srs_layout, get_study_mode, set_srs_layout, set_study_mode,
+        )
+        mw_mock = MagicMock()
+        mw_mock.col.conf = {}
+        with patch("aqt.mw", mw_mock):
+            assert get_srs_layout(10) == "combo"
+            assert set_study_mode("pron", 10) is True
+            assert set_study_mode("vn", 20) is True
+            assert set_srs_layout("independent", 10) is True
+            assert get_study_mode(10) == "pron"
+            assert get_study_mode(20) == "vn"
+            assert get_srs_layout(10) == "independent"
+            assert get_srs_layout(20) == "combo"
 
     def test_register_overview_hook_falls_back_when_api_is_missing(self):
         from unittest.mock import patch
@@ -182,6 +220,27 @@ class TestOverviewModeSelector:
 
 
 class TestReviewerHookCompatibility:
+    def test_combo_uses_deck_default_but_independent_card_is_fixed(self):
+        from unittest.mock import patch
+        import hooks.reviewer as reviewer
+
+        review = MagicMock()
+        review.card.did = 42
+        review.card.q.return_value = (
+            '<div id="combo-mode-bar"></div><div data-srs-layout="combo"></div>'
+        )
+        with patch.object(reviewer, "get_study_mode", return_value="pron") as get_mode:
+            reviewer._on_reviewer_question(review)
+        get_mode.assert_called_once_with(42)
+        assert "_aiFactoryMode='pron'" in review.web.eval.call_args[0][0]
+
+        review.web.eval.reset_mock()
+        review.card.q.return_value = (
+            '<div id="combo-mode-bar"></div><div data-srs-layout="independent"></div>'
+        )
+        reviewer._on_reviewer_question(review)
+        review.web.eval.assert_not_called()
+
     def test_missing_reviewer_hook_does_not_disable_available_hook(self):
         from unittest.mock import patch
         import hooks.reviewer as reviewer

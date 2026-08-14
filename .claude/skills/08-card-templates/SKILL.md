@@ -5,7 +5,7 @@ description: Giao diện thẻ — mode/ (templates.py HTML, css.py CSS, shared.
 
 # 🃏 SKILL-08: CARD TEMPLATES (`mode/`)
 
-> 3 file: `templates.py` (573) HTML, `css.py` (173) CSS, `shared.py` JS engines + CSS dùng chung. Registry tại `mode/__init__.py`.
+> Card HTML/CSS/JS nằm trong `mode/`; lifecycle template ở `utils/model_lifecycle.py` và policy migration SRS ở `utils/srs_policy.py`.
 
 ## REGISTRY (`mode/__init__.py`)
 
@@ -17,12 +17,15 @@ from .shared import _HW_CSS, _WB_JS_BODY, _HW_JS_BODY, WB_POOLS, _SHARED_UI_CSS,
 
 ## TEMPLATES (`mode/templates.py`)
 
-- **V16.1: COMBO MODE** — mỗi từ = **1 card duy nhất** (1 từ = 1 card, deck đếm đúng số từ).
-  - `LANG_TEMPLATES` mỗi ngôn ngữ chỉ còn 1 cặp combo: `tmpl_{lang}_combo_q/a` (thay cho 5 cặp cũ).
+- **V17.1: COMBO + SRS INDEPENDENT** (`mode/templates.py:569`, registry `:1272`).
+  - `LANG_TEMPLATES` có 5 cặp: ord=0 là Combo/Nhận diện; ord=1..4 là Sản xuất, Chính tả, Phát âm, Nhớ mặt chữ.
+  - 4 cặp phụ bắt buộc bọc `{{#SRS Independent}}...{{/SRS Independent}}`; field blank nên Combo mặc định vẫn chỉ sinh **1 card/từ**.
+  - Khi opt-in, ord=0 đổi nghĩa thành Nhận diện cố định và giữ scheduling/history cũ; 4 ord mới có lịch riêng.
   - Card combo chứa **thanh chọn mode** (`#combo-mode-bar`) + 5 panel (`#mode-panel-qa/vn/wb/pron/lg`).
   - Mode qa (Ngôn ngữ→Việt) dùng `{{type:Meaning}}` chuẩn Anki; vn/pron tự kiểm tra bằng JS.
-  - JS chuyển mode: `_COMBO_MODE_JS` (`mode/shared.py`) — đọc `window._aiFactoryMode` (reviewer hook) hoặc `localStorage`.
-  - Mode đồng bộ: `mw.col.conf["ai_factory_study_mode"]` qua `pycmd('ai_factory_set_mode:...')`.
+  - Banner `.srs-scope` phải nói rõ lần chấm cập nhật lịch chung hay kỹ năng độc lập (`mode/css.py:69`).
+  - JS chuyển mode: `_COMBO_MODE_JS` (`mode/shared.py:335`) — independent luôn khóa `qa`; Combo đọc default theo deck từ reviewer hook rồi mới fallback `localStorage`.
+  - Mode đồng bộ theo deck qua `pycmd('ai_factory_set_mode:...')`; layout note mới và migration nằm ở `hooks/overview_mode.py` + `utils/srs_policy.py`.
 - Các hàm template cũ (`tmpl_ja_q/a`, `tmpl_ja_vn_*`, `tmpl_ja_wb_*`, `tmpl_ja_pron_*`, `tmpl_ja_lg_*`) vẫn giữ làm tham chiếu.
 - `LANG_GRAMMAR_TEMPLATES` = `{"japanese": (ja_g_q,a, ja_g_rev_q,a), ...}` — 2 chiều (Cấu trúc→Nghĩa, Nghĩa→Cấu trúc).
 
@@ -68,7 +71,7 @@ css_korean_grammar()      # :16x
 | `_SHARED_UI_CSS` | CSS speed bar overlay |
 | `_SPEED_CTRL_JS` | Speed control (0.25-4.0×) — dùng `window._ankiDefaultSpeed` set bởi reviewer hook |
 | `_LG_JS_BODY` | Letter Gap JS |
-| `_COMBO_MODE_JS` | JS card gộp: chuyển mode qa/vn/wb/pron/lg, đọc `window._aiFactoryMode`/localStorage, self-check vn/pron, gọi `pycmd('ai_factory_set_mode:...')` |
+| `_COMBO_MODE_JS` | JS card gộp: Combo chuyển qa/vn/wb/pron/lg; SRS independent khóa Nhận diện; đọc reviewer default/localStorage, self-check vn/pron |
 
 ## LUỒNG INJECT (reviewer)
 
@@ -80,7 +83,7 @@ hooks/reviewer.py:21 _on_reviewer_answer → detect lang → get_default_speed �
 ## THÊM 1 LOẠI THẺ MỚI (checklist)
 
 1. Thêm 2 hàm `tmpl_{lang}_{type}_q/a` trong `templates.py`
-2. Thêm vào `LANG_TEMPLATES` registry (`templates.py:546`) cho CẢ 2 ngôn ngữ (hoặc grammar registry)
+2. Thêm vào `LANG_TEMPLATES` registry (`templates.py:1272`) cho CẢ 3 ngôn ngữ (hoặc grammar registry); hướng SRS phụ phải conditional theo `SRS Independent`
 3. Thêm CSS class vào `css.py` (vào phần `_SHARED`/specific)
 4. Nếu có JS game → thêm vào `shared.py` + export ở `mode/__init__.py`
 5. Cập nhật `template_names` trong `Language/{lang}.py` nếu đổi tên loại thẻ
@@ -91,6 +94,7 @@ hooks/reviewer.py:21 _on_reviewer_answer → detect lang → get_default_speed �
 2. Thêm CSS class → phải tồn tại trong CSS của CẢ nightMode (`.card.nightMode .xxx`).
 3. `id="lg-display"` là điều kiện kích hoạt JS letter gap — không đổi tên id.
 4. `_SPEED_CTRL_JS` phụ thuộc `window._ankiDefaultSpeed` — JS không được tự set cứng speed.
+5. Không xóa template/card khi đổi layout SRS. Migration phải giữ ord=0, dùng Anki checkpoint và idempotent.
 
 ## VERIFY
 

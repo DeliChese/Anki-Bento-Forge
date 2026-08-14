@@ -673,6 +673,62 @@ _TRANSLATIONS = {
         "vi": "🎯 Mode:",
         "en": "🎯 Mode:",
     },
+    "srs_layout_label": {
+        "vi": "🧠 Lịch SRS:",
+        "en": "🧠 SRS schedule:",
+    },
+    "srs_layout_combo": {
+        "vi": "Combo · 1 lịch chung",
+        "en": "Combo · one shared schedule",
+    },
+    "srs_layout_independent": {
+        "vi": "Độc lập · 5 lịch",
+        "en": "Independent · five schedules",
+    },
+    "srs_layout_tip": {
+        "vi": "Áp dụng cho note nhập mới trong deck này. Combo tạo 1 card; Độc lập tạo 5 card, mỗi kỹ năng có lịch riêng. Note hiện có không tự đổi.",
+        "en": "Applies to new notes imported into this deck. Combo creates one card; Independent creates five separately scheduled skills. Existing notes are not changed automatically.",
+    },
+    "srs_layout_changed": {
+        "vi": "Đã đổi mặc định cho note nhập mới; card hiện có và lịch sử học không bị thay đổi.",
+        "en": "Default changed for new imports; existing cards and review history were not modified.",
+    },
+    "srs_migrate_btn": {
+        "vi": "Chuyển card cũ",
+        "en": "Migrate existing",
+    },
+    "srs_migrate_tip": {
+        "vi": "Chuyển tường minh các note Combo hiện có trong deck sang 5 lịch độc lập. Có thể hoàn tác ngay bằng Undo của Anki.",
+        "en": "Explicitly migrate existing Combo notes in this deck to five schedules. The operation can be reverted immediately with Anki Undo.",
+    },
+    "srs_migrate_confirm": {
+        "vi": "Chuyển các note Combo hiện có trong deck này sang SRS độc lập?\n\nCard Nhận diện cũ (ord=0) và toàn bộ lịch sử của nó được giữ nguyên; Anki chỉ sinh thêm 4 card có lịch riêng. Thao tác có checkpoint và có thể Undo ngay.",
+        "en": "Migrate existing Combo notes in this deck to independent SRS?\n\nThe existing Recognition card (ord=0) and all of its history are preserved; Anki only generates four new separately scheduled cards. A checkpoint is created for immediate Undo.",
+    },
+    "srs_migrate_checkpoint": {
+        "vi": "Bento Forge: chuyển deck sang SRS độc lập",
+        "en": "Bento Forge: migrate deck to independent SRS",
+    },
+    "srs_legacy_checkpoint": {
+        "vi": "Bento Forge: bảo toàn lịch SRS card cũ",
+        "en": "Bento Forge: preserve legacy SRS cards",
+    },
+    "srs_migrate_done": {
+        "vi": "✅ Đã chuyển {count} note. Card Nhận diện cũ giữ nguyên lịch sử; 4 lịch kỹ năng mới đã được tạo. Có thể dùng Undo của Anki ngay nếu cần.",
+        "en": "✅ Migrated {count} notes. Existing Recognition history was preserved and four new skill schedules were created. Use Anki Undo immediately if needed.",
+    },
+    "srs_migrate_none": {
+        "vi": "Không có note Combo nào cần chuyển; thao tác chạy lại không tạo card trùng.",
+        "en": "No Combo notes needed migration; running migration again does not create duplicate cards.",
+    },
+    "srs_migrate_no_deck": {
+        "vi": "Chưa chọn được deck để chuyển.",
+        "en": "No deck is selected for migration.",
+    },
+    "srs_migrate_failed": {
+        "vi": "Không thể chuyển SRS: {error}",
+        "en": "Could not migrate SRS: {error}",
+    },
     "voice_tooltip": {
         "vi": "🎤 Sử dụng Edge TTS Online (cần internet, fallback gTTS)",
         "en": "🎤 Uses Edge TTS Online (needs internet, falls back to gTTS)",
@@ -708,8 +764,12 @@ _TRANSLATIONS = {
         "en": "⏸️ Stopping...",
     },
     "status_reading_file": {
-        "vi": "📖 Đang đọc nội dung file... (lần đầu có thể tự cài thư viện đọc file)",
-        "en": "📖 Reading file content... (first time may auto-install file reading libs)",
+        "vi": "📖 Đang đọc nội dung file...",
+        "en": "📖 Reading file content...",
+    },
+    "status_document_dependency_missing": {
+        "vi": "Thiếu {package}. Add-on không tự cài dependency. Hãy sao chép và chạy thủ công: {command}",
+        "en": "Missing {package}. The add-on does not install dependencies. Copy and run manually: {command}",
     },
     "status_no_file_content": {
         "vi": "⚠️ Không đọc được nội dung file nào.\n\n{errors}",

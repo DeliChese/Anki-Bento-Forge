@@ -1,12 +1,18 @@
 # Compatibility Matrix
 
-Bento Forge 17.1.0 is currently release-scoped to the matrix below. A version
+`manifest.json` is the authoritative source for the Bento Forge version and the
+minimum/maximum Anki versions. For 17.1.0 it declares exactly Anki 2.1.50; this
+document explains that scope without widening it. A version
 outside this matrix may run because the add-on detects missing public hooks and
 disables only the affected feature, but it is not a supported release target.
 
+Publication status is separate from the declared compatibility scope. The
+17.1.0 release record remains pending until CI and real-Anki smoke evidence are
+recorded in `RELEASE_CHECKLIST.md`.
+
 | Anki | Bundled Python | Status | Evidence |
 | --- | --- | --- | --- |
-| 2.1.50 | 3.9 | Supported release target | Isolated unit/harness tests; manual smoke test required before publishing. |
+| 2.1.50 | 3.9 | Supported release target | Local isolated harness: four rounds × 383 tests passed on 2026-08-14; CI 3.9/3.11 and real-Anki smoke remain pending. |
 
 ## Not yet supported
 

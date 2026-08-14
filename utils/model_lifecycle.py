@@ -70,6 +70,7 @@ def ensure_model(
     build_afmt: Callable,
     *,
     rename_primary_template: bool,
+    prune_extra_templates: bool = True,
 ) -> ModelLifecycleResult:
     """Create or update a model while preserving existing field data.
 
@@ -102,11 +103,13 @@ def ensure_model(
         else:
             template = model_manager.new_template(cfg["template_names"][index])
             model_manager.add_template(model, template)
+        template["name"] = cfg["template_names"][index]
         template["qfmt"] = build_qfmt(cfg, templates, index * 2)
         template["afmt"] = build_afmt(cfg, templates, index * 2 + 1)
     if had_extra and rename_primary_template and cfg.get("template_names"):
         model["tmpls"][0]["name"] = cfg["template_names"][0]
-    while len(model["tmpls"]) > template_count:
-        model_manager.remove_template(model, model["tmpls"][-1])
+    if prune_extra_templates:
+        while len(model["tmpls"]) > template_count:
+            model_manager.remove_template(model, model["tmpls"][-1])
     model_manager.save(model)
     return ModelLifecycleResult(model=model, existed=True, had_extra_templates=had_extra)

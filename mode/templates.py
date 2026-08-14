@@ -55,6 +55,7 @@ def tmpl_ja_vn_a():
           '<div style="font-size:11px;font-weight:700;color:var(--muted);letter-spacing:2px;text-transform:uppercase;margin-bottom:8px;">Đáp án</div>'
           '<div class="furi">{{Furigana}}</div><div class="kanji">{{Front}}</div>'
         '</div>'
+        '<div class="az"><div class="typewrite">{{type:Front}}</div></div>'
         '<div class="ir">'
           '<span class="mn">{{Meaning}}</span>'
           '{{#Sino-Vietnamese}}<span class="sv">{{Sino-Vietnamese}}</span>{{/Sino-Vietnamese}}'
@@ -240,6 +241,7 @@ def tmpl_zh_vn_a():
           '<div class="pinyin">{{Pinyin}}</div><div class="hanzi">{{Front}}</div>'
           '{{#Traditional}}<div class="trad">Phồn thể: {{Traditional}}</div>{{/Traditional}}'
         '</div>'
+        '<div class="az"><div class="typewrite">{{type:Front}}</div></div>'
         '<div class="ir">'
           '<span class="mn">{{Meaning}}</span>'
           '{{#Sino-Vietnamese}}<span class="sv">{{Sino-Vietnamese}}</span>{{/Sino-Vietnamese}}'
@@ -566,6 +568,34 @@ def tmpl_zh_g_rev_a():
 #  (1 từ = 1 card; deck đếm đúng số từ vựng, không nhân 5)
 # ═══════════════════════════════════════════════════════════
 
+def _srs_scope_banner():
+    """Explain exactly which memory signal the current card updates."""
+    return (
+        '{{^SRS Independent}}'
+        '<div class="srs-scope" data-srs-layout="combo">'
+        'Luyện Combo · 1 lịch chung — đổi bài tập không tạo lịch SRS riêng.'
+        '</div>{{/SRS Independent}}'
+        '{{#SRS Independent}}'
+        '<div class="srs-scope srs-independent" data-srs-layout="independent" '
+        'data-srs-skill="recognition">'
+        'SRS độc lập · Nhận diện — lần chấm này chỉ cập nhật lịch Nhận diện.'
+        '</div>{{/SRS Independent}}'
+    )
+
+
+def _independent_template(template, skill, label):
+    """Wrap a legacy direction so it only generates for independent notes."""
+    def render():
+        return (
+            '{{#SRS Independent}}'
+            f'<div class="srs-scope srs-independent" data-srs-layout="independent" '
+            f'data-srs-skill="{skill}">SRS độc lập · {label} — '
+            f'lần chấm này chỉ cập nhật lịch {label}.</div>'
+            + template()
+            + '{{/SRS Independent}}'
+        )
+    return render
+
 # ── Mode bar chung cho cả front & back ──────────────────────
 def _combo_mode_bar_japanese():
     return (
@@ -656,6 +686,7 @@ def tmpl_ja_combo_q():
     return (
         '<div class="cw">'
         '<div class="ch"><span class="badge">{{JLPT Level}}</span><span class="topic">{{Topic}}</span></div>'
+        + _srs_scope_banner()
         + _combo_mode_bar_japanese()
         + _combo_data_block(japanese=True)
         # Mode qa — Nhật→Việt (type answer chuẩn Anki)
@@ -721,6 +752,7 @@ def tmpl_ja_combo_a():
     return (
         '<div class="cw">'
         '<div class="ch"><span class="badge">{{JLPT Level}}</span><span class="topic">{{Topic}}</span></div>'
+        + _srs_scope_banner()
         + _combo_mode_bar_japanese()
         + _combo_data_block(japanese=True)
         # Mode qa — đáp án đầy đủ + type result
@@ -762,6 +794,7 @@ def tmpl_zh_combo_q():
     return (
         '<div class="cw">'
         '<div class="ch"><span class="badge">{{HSK Level}}</span><span class="topic">{{Topic}}</span></div>'
+        + _srs_scope_banner()
         + _combo_mode_bar_chinese()
         + _combo_data_block(japanese=False)
         # Mode qa
@@ -829,6 +862,7 @@ def tmpl_zh_combo_a():
     return (
         '<div class="cw">'
         '<div class="ch"><span class="badge">{{HSK Level}}</span><span class="topic">{{Topic}}</span></div>'
+        + _srs_scope_banner()
         + _combo_mode_bar_chinese()
         + _combo_data_block(japanese=False)
         # Mode qa
@@ -928,6 +962,7 @@ def tmpl_ko_combo_q():
     return (
         '<div class="cw">'
         '<div class="ch"><span class="badge">{{TOPIK Level}}</span><span class="topic">{{Topic}}</span></div>'
+        + _srs_scope_banner()
         + _combo_mode_bar_korean()
         + _combo_data_block_korean()
         # Mode qa — Hàn→Việt (type answer chuẩn Anki)
@@ -993,6 +1028,7 @@ def tmpl_ko_combo_a():
     return (
         '<div class="cw">'
         '<div class="ch"><span class="badge">{{TOPIK Level}}</span><span class="topic">{{Topic}}</span></div>'
+        + _srs_scope_banner()
         + _combo_mode_bar_korean()
         + _combo_data_block_korean()
         # Mode qa
@@ -1030,6 +1066,94 @@ def tmpl_ko_combo_a():
 
 
 # ── Grammar templates tiếng Hàn ────────────────────────────
+# Base templates for Korean independent SRS directions.
+def tmpl_ko_vn_q():
+    return (
+        '<div class="fqw"><div class="fql">Từ vựng tiếng Hàn là gì?</div>'
+        '<div class="fqm">{{Meaning}}</div>'
+        '<div style="margin-top:24px;font-size:15px;color:var(--muted);">'
+        '<div class="typewrite">{{type:Front}}</div></div></div>'
+    )
+
+
+def tmpl_ko_vn_a():
+    return (
+        '<div class="cw"><div class="ch"><span class="badge">{{TOPIK Level}}</span>'
+        '<span class="topic">{{Topic}}</span></div><div class="vb">'
+        '<div class="pinyin">{{Romanization}}</div><div class="hanzi">{{Front}}</div></div>'
+        '<div class="az"><div class="typewrite">{{type:Front}}</div></div>'
+        + _combo_answer_common_ko() + '</div>'
+    )
+
+
+def tmpl_ko_wb_q():
+    return (
+        '<div class="cw"><div class="ch"><span class="badge">{{TOPIK Level}}</span>'
+        '<span class="topic">{{Topic}}</span></div><div class="wb-wrap">'
+        '<div class="wb-meaning">{{Meaning}}</div>'
+        '{{#Sino-Vietnamese}}<div class="wb-sub">{{Sino-Vietnamese}}</div>{{/Sino-Vietnamese}}'
+        '<div class="wb-label">✍️ Ghép chữ thành từ tiếng Hàn</div>'
+        '<div class="wb-ans-area" id="wb-ans"></div><div class="wb-bank-area" id="wb-bank"></div>'
+        '<div class="wb-actions"><button class="wb-btn-clear" onclick="wbClear()">✕ Xóa</button>'
+        '<button class="wb-btn-check" onclick="wbCheck()">✓ Kiểm tra</button></div>'
+        '<div class="wb-result" id="wb-result"></div></div></div>'
+        '<script>var _wbWord="{{Front}}",_wbPool=' + WB_POOLS["korean"] + ';' + _WB_JS_BODY + '</script>'
+    )
+
+
+def tmpl_ko_wb_a():
+    return (
+        '<div class="cw"><div class="ch"><span class="badge">{{TOPIK Level}}</span>'
+        '<span class="topic">{{Topic}}</span></div><div class="vb">'
+        '<div class="pinyin">{{Romanization}}</div><div class="hanzi">{{Front}}</div></div>'
+        + _combo_answer_common_ko() + '</div>'
+    )
+
+
+def tmpl_ko_pron_q():
+    return (
+        '<div class="cw"><div class="ch"><span class="badge">{{TOPIK Level}}</span>'
+        '<span class="topic">{{Topic}}</span></div><div class="vb" style="padding-bottom:4px;">'
+        '<div class="hanzi" style="margin-top:12px;">{{Front}}</div>'
+        '<div style="font-size:13px;color:var(--muted);margin-top:8px;">{{Meaning}}</div></div>'
+        '<div class="pron-wrap"><div class="pron-lbl">Nhập Romanization</div>'
+        '<div class="az"><div class="typewrite">{{type:Romanization}}</div></div></div></div>'
+    )
+
+
+def tmpl_ko_pron_a():
+    return (
+        '<div class="cw"><div class="ch"><span class="badge">{{TOPIK Level}}</span>'
+        '<span class="topic">{{Topic}}</span></div><div class="vb">'
+        '<div class="pinyin">{{Romanization}}</div><div class="hanzi">{{Front}}</div></div>'
+        '<div class="az"><div class="typewrite">{{type:Romanization}}</div></div>'
+        '<div class="ir"><span class="mn">{{Meaning}}</span>'
+        '<span class="au">{{Vocab Audio}}</span></div></div>'
+    )
+
+
+def tmpl_ko_lg_q():
+    return (
+        '<div id="lg-word-src" style="display:none">{{Front}}</div><div class="cw">'
+        '<div class="ch"><span class="badge">{{TOPIK Level}}</span><span class="topic">{{Topic}}</span></div>'
+        '<div class="lg-wrap"><span class="lg-diff-badge" id="lg-diff"></span>'
+        '{{#Romanization}}<div style="font-size:14px;color:var(--muted);margin-bottom:6px;">'
+        '{{Romanization}}</div>{{/Romanization}}<div class="lg-display" id="lg-display"></div>'
+        '<div class="lg-hint" id="lg-hint"></div><div class="lg-clue">💡 Nghĩa: <b>{{Meaning}}</b></div></div>'
+        '<div class="az"><div class="typewrite">{{type:Front}}</div></div></div>'
+    )
+
+
+def tmpl_ko_lg_a():
+    return (
+        '<div id="lg-word-src" style="display:none">{{Front}}</div><div class="cw">'
+        '<div class="ch"><span class="badge">{{TOPIK Level}}</span><span class="topic">{{Topic}}</span></div>'
+        '<div class="vb"><div class="pinyin">{{Romanization}}</div><div class="hanzi">{{Front}}</div></div>'
+        '<div class="az">{{type:Front}}</div>' + _combo_answer_common_ko() + '</div>'
+    )
+
+
+# Korean grammar templates.
 def tmpl_ko_g_q():
     return (
         '<div class="cw">'
@@ -1118,16 +1242,58 @@ def tmpl_ko_g_rev_a():
     )
 
 
-# LANG_TEMPLATES Registry — mỗi ngôn ngữ chỉ 1 cặp template gộp (1 card/từ)
+# Four conditional directions complement ord=0.  Blank ``SRS Independent``
+# keeps the historical Combo behavior at exactly one card per note.
+_ja_srs_vn_q = _independent_template(tmpl_ja_vn_q, "production", "Sản xuất")
+_ja_srs_vn_a = _independent_template(tmpl_ja_vn_a, "production", "Sản xuất")
+_ja_srs_wb_q = _independent_template(tmpl_ja_wb_q, "spelling", "Chính tả")
+_ja_srs_wb_a = _independent_template(tmpl_ja_wb_a, "spelling", "Chính tả")
+_ja_srs_pron_q = _independent_template(tmpl_ja_pron_q, "pronunciation", "Phát âm")
+_ja_srs_pron_a = _independent_template(tmpl_ja_pron_a, "pronunciation", "Phát âm")
+_ja_srs_lg_q = _independent_template(tmpl_ja_lg_q, "letter-gap", "Nhớ mặt chữ")
+_ja_srs_lg_a = _independent_template(tmpl_ja_lg_a, "letter-gap", "Nhớ mặt chữ")
+
+_zh_srs_vn_q = _independent_template(tmpl_zh_vn_q, "production", "Sản xuất")
+_zh_srs_vn_a = _independent_template(tmpl_zh_vn_a, "production", "Sản xuất")
+_zh_srs_wb_q = _independent_template(tmpl_zh_wb_q, "spelling", "Chính tả")
+_zh_srs_wb_a = _independent_template(tmpl_zh_wb_a, "spelling", "Chính tả")
+_zh_srs_pron_q = _independent_template(tmpl_zh_pron_q, "pronunciation", "Phát âm")
+_zh_srs_pron_a = _independent_template(tmpl_zh_pron_a, "pronunciation", "Phát âm")
+_zh_srs_lg_q = _independent_template(tmpl_zh_lg_q, "letter-gap", "Nhớ mặt chữ")
+_zh_srs_lg_a = _independent_template(tmpl_zh_lg_a, "letter-gap", "Nhớ mặt chữ")
+
+_ko_srs_vn_q = _independent_template(tmpl_ko_vn_q, "production", "Sản xuất")
+_ko_srs_vn_a = _independent_template(tmpl_ko_vn_a, "production", "Sản xuất")
+_ko_srs_wb_q = _independent_template(tmpl_ko_wb_q, "spelling", "Chính tả")
+_ko_srs_wb_a = _independent_template(tmpl_ko_wb_a, "spelling", "Chính tả")
+_ko_srs_pron_q = _independent_template(tmpl_ko_pron_q, "pronunciation", "Phát âm")
+_ko_srs_pron_a = _independent_template(tmpl_ko_pron_a, "pronunciation", "Phát âm")
+_ko_srs_lg_q = _independent_template(tmpl_ko_lg_q, "letter-gap", "Nhớ mặt chữ")
+_ko_srs_lg_a = _independent_template(tmpl_ko_lg_a, "letter-gap", "Nhớ mặt chữ")
+
+
+# LANG_TEMPLATES Registry — one Combo card by default, five cards when opted in.
 LANG_TEMPLATES = {
     "japanese": (
         tmpl_ja_combo_q, tmpl_ja_combo_a,
+        _ja_srs_vn_q, _ja_srs_vn_a,
+        _ja_srs_wb_q, _ja_srs_wb_a,
+        _ja_srs_pron_q, _ja_srs_pron_a,
+        _ja_srs_lg_q, _ja_srs_lg_a,
     ),
     "chinese": (
         tmpl_zh_combo_q, tmpl_zh_combo_a,
+        _zh_srs_vn_q, _zh_srs_vn_a,
+        _zh_srs_wb_q, _zh_srs_wb_a,
+        _zh_srs_pron_q, _zh_srs_pron_a,
+        _zh_srs_lg_q, _zh_srs_lg_a,
     ),
     "korean": (
         tmpl_ko_combo_q, tmpl_ko_combo_a,
+        _ko_srs_vn_q, _ko_srs_vn_a,
+        _ko_srs_wb_q, _ko_srs_wb_a,
+        _ko_srs_pron_q, _ko_srs_pron_a,
+        _ko_srs_lg_q, _ko_srs_lg_a,
     ),
 }
 

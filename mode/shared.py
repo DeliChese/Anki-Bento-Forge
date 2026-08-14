@@ -336,8 +336,12 @@ _COMBO_MODE_JS = r"""
 (function(){
   var MODES=['qa','vn','wb','pron','lg'];
   var mode='qa';
-  if(window._aiFactoryMode && MODES.indexOf(window._aiFactoryMode)>=0) mode=window._aiFactoryMode;
-  try{ var ls=localStorage.getItem('ai_factory_mode'); if(ls && MODES.indexOf(ls)>=0) mode=ls; }catch(e){}
+  var independent=!!document.querySelector('[data-srs-layout="independent"]');
+  var injected=window._aiFactoryMode && MODES.indexOf(window._aiFactoryMode)>=0;
+  if(!independent && injected) mode=window._aiFactoryMode;
+  if(!independent && !injected){
+    try{ var ls=localStorage.getItem('ai_factory_mode'); if(ls && MODES.indexOf(ls)>=0) mode=ls; }catch(e){}
+  }
   // Dữ liệu tham chiếu (đọc từ hidden spans do Python render)
   function txt(id){ var el=document.getElementById(id); return el?el.textContent.trim():''; }
   var refFront=txt('combo-front');
@@ -345,6 +349,7 @@ _COMBO_MODE_JS = r"""
   var refPron=txt('combo-pron');
   // ── Hiển thị panel theo mode ──────────────────────────
   function show(m){
+    if(independent) m='qa';
     MODES.forEach(function(x){
       var p=document.getElementById('mode-panel-'+x);
       if(p) p.style.display=(x===m)?'':'none';
@@ -354,6 +359,8 @@ _COMBO_MODE_JS = r"""
       var b=btns[i];
       b.classList.toggle('active', b.getAttribute('data-mode')===m);
     }
+    var bar=document.getElementById('combo-mode-bar');
+    if(bar && independent) bar.style.display='none';
     // Type answer của Anki (type-answer) chỉ nên "sống" ở mode qa.
     // Ở mode khác: tự động điền đúng đáp án để Anki không đánh sai khi Show Answer.
     // (Không dùng disabled — một số phiên bản Anki bỏ qua input disabled khi type answer)
@@ -368,6 +375,7 @@ _COMBO_MODE_JS = r"""
   for(var j=0;j<switcher.length;j++){
     (function(btn){
       btn.addEventListener('click', function(){
+        if(independent) return;
         mode=btn.getAttribute('data-mode');
         try{ localStorage.setItem('ai_factory_mode', mode); }catch(e){}
         // Đồng bộ mode với Anki config qua bridge (nếu có)
@@ -409,6 +417,7 @@ _COMBO_MODE_JS = r"""
   if(mode==='lg' && window._lgInit) window._lgInit();
   // Lắng nghe hook reviewer inject mode mới (nếu đổi giữa chừng)
   window.addEventListener('ai-factory-mode', function(ev){
+    if(independent) return;
     var m=ev.detail;
     if(MODES.indexOf(m)>=0){ mode=m; show(m); if(m==='wb'&&window._wbInit)window._wbInit(); if(m==='lg'&&window._lgInit)window._lgInit(); }
   });

@@ -66,6 +66,9 @@ body{background:var(--bg);margin:0;padding:12px;}
 .card.nightMode .wb-result.wb-err{background:#2e0a0a;color:#ff6b6b;}
 .pron-wrap{text-align:center;padding:0 24px 16px;}
 .pron-lbl{font-size:11px;font-weight:700;color:var(--muted);letter-spacing:1.5px;text-transform:uppercase;margin-bottom:8px;}
+.srs-scope{margin:10px 16px 0;padding:8px 12px;border:1px solid var(--border);border-radius:9px;background:var(--accent-soft);color:var(--muted);font-size:12px;font-weight:700;line-height:1.45;text-align:center;}
+.srs-scope.srs-independent{border-color:var(--accent2);color:var(--accent2);}
+.card.nightMode .srs-scope{background:var(--ex-bg);}
 .mode-bar{display:flex;flex-wrap:wrap;gap:6px;justify-content:center;padding:12px 16px 6px;}
 .mode-btn{padding:6px 12px;border:1.5px solid var(--border);border-radius:16px;background:var(--card-bg);color:var(--muted);font-size:12px;font-weight:700;cursor:pointer;transition:all .18s;}
 .mode-btn:hover{border-color:var(--accent2);color:var(--accent2);}

@@ -13,15 +13,17 @@ import re
 import hashlib
 import time
 import base64
-import http.client
-import ssl
-import threading
 from typing import Optional, Callable, List
-from urllib.parse import urlparse
 
 from .credentials import delete_api_key, get_secret_store_status, load_api_key, save_api_key
 from .logger import get_logger
 from .ai_session_policy import get_ai_session_policy
+from .ai_http_client import (
+    abortable_wait as _abortable_wait,
+    get_rate_limit_delay as _get_rate_limit_delay,
+    is_openrouter as _is_openrouter_api,
+    post_json as _http_post_json,
+)
 from .user_data import (
     atomic_write_json,
     clear_cache_dir,
@@ -104,219 +106,12 @@ def _decrypt_legacy_api_key(encrypted_text: str) -> str:
         pass
     return encrypted_text
 
-# ═══════════════════════════════════════════════════════════
-#  HTTP HELPER — Connection reuse + chunked reading
-# ═══════════════════════════════════════════════════════════
-# SSL context MẶC ĐỊNH: verify đầy đủ (dùng cho cloud API như
-# DeepSeek/OpenAI/OpenRouter — bảo vệ API key khỏi MITM).
-_SSL_CONTEXT_SECURE = ssl.create_default_context()
-
-# SSL context KHÔNG verify: CHỈ dùng khi host là localhost/127.0.0.1
-# (Ollama, LM Studio thường tự ký chứng chỉ hoặc chạy HTTP thuần).
-_SSL_CONTEXT_LOCAL = ssl.create_default_context()
-_SSL_CONTEXT_LOCAL.check_hostname = False
-_SSL_CONTEXT_LOCAL.verify_mode = ssl.CERT_NONE
-
-_LOCAL_HOSTS = {"localhost", "127.0.0.1", "::1", "0.0.0.0"}
-
-# OpenRouter — phát hiện để áp dụng rate limit phù hợp (free tier ~20 req/phút)
-_OPENROUTER_MARKERS = ("openrouter.ai", "openrouter")
-
-
 def is_openrouter(api_base: str = None) -> bool:
-    """Kiểm tra xem API base có phải OpenRouter không (để áp dụng rate limit phù hợp)."""
+    """Compatibility wrapper for callers that rely on configured API base."""
     if not api_base:
         cfg = get_api_config()
         api_base = cfg.get("api_base", "")
-    base = (api_base or "").lower()
-    return any(m in base for m in _OPENROUTER_MARKERS)
-
-
-def _pick_ssl_context(host: str) -> ssl.SSLContext:
-    """Chọn SSL context: không verify chỉ khi host thực sự là local."""
-    if (host or "").lower() in _LOCAL_HOSTS:
-        return _SSL_CONTEXT_LOCAL
-    return _SSL_CONTEXT_SECURE
-
-# Connection pool cache theo thread — mỗi thread có connection riêng
-# (tránh race condition khi nhiều QThread/ThreadPoolExecutor gọi API song song)
-_conn_pool_local = threading.local()
-
-
-def _create_conn(host: str, port: int, use_ssl: bool, timeout: int, ssl_context=None):
-    """Tạo connection mới."""
-    if use_ssl:
-        return http.client.HTTPSConnection(host, port, timeout=timeout, context=ssl_context)
-    return http.client.HTTPConnection(host, port, timeout=timeout)
-
-
-def _get_thread_conn(pool_key: str, host: str, port: int, use_ssl: bool,
-                     timeout: int, ssl_context=None, force_new: bool = False):
-    """Lấy (hoặc tạo) connection từ pool của thread hiện tại."""
-    pool = getattr(_conn_pool_local, "pool", None)
-    if pool is None:
-        pool = {}
-        _conn_pool_local.pool = pool
-    conn = pool.get(pool_key)
-    if force_new or conn is None:
-        conn = _create_conn(host, port, use_ssl, timeout, ssl_context)
-        pool[pool_key] = conn
-    return conn
-
-
-# Rate limit state — theo dõi số lần gặp 429 để tự giảm tốc
-_rate_limit_state = threading.local()
-
-
-def _get_rate_limit_delay() -> float:
-    """Lấy delay hiện tại giữa các request (tự tăng khi gặp 429)."""
-    return getattr(_rate_limit_state, "delay", 0.0)
-
-
-def _bump_rate_limit_delay():
-    """Tăng delay khi gặp rate limit (429) — tự giảm tốc dần."""
-    current = getattr(_rate_limit_state, "delay", 0.0)
-    if current == 0.0:
-        _rate_limit_state.delay = 3.2  # OpenRouter free ~20 req/phút → ~3s/request
-    else:
-        _rate_limit_state.delay = min(10.0, current * 1.5)  # 3.2 → 4.8 → 7.2 → 10
-
-
-def _reset_rate_limit_delay():
-    """Reset delay về 0 khi không còn gặp 429 (thành công liên tục)."""
-    _rate_limit_state.delay = 0.0
-
-
-def _abortable_wait(seconds: float, should_abort: Optional[Callable[[], bool]] = None):
-    """Wait in short increments so cancellation is observed promptly."""
-    deadline = time.monotonic() + max(0.0, seconds)
-    while time.monotonic() < deadline:
-        if should_abort and should_abort():
-            raise RuntimeError("⏹ Đã hủy bởi người dùng")
-        before = time.monotonic()
-        time.sleep(min(0.1, deadline - before))
-        # Test doubles often replace sleep() with a no-op. Do not spin for the
-        # real-time duration in that case.
-        if time.monotonic() <= before:
-            return
-
-
-def _http_post_json(url: str, payload: dict, headers: dict,
-                    timeout: int = 300,
-                    progress_callback: Optional[Callable[[str], None]] = None,
-                    should_abort: Optional[Callable[[], bool]] = None,
-                    total_timeout: int = 900) -> str:
-    """Gửi POST request với JSON body, trả về response body dạng string.
-
-    Dùng http.client thay vì urllib.request để:
-    - Connection reuse (HTTP/1.1 keep-alive) theo thread
-    - Đọc response theo chunk → progress callback
-    - Timeout thực sự hoạt động
-    - Xử lý HTTP 429 (Rate Limit) chuyên biệt: đọc Retry-After, retry mạnh hơn
-    """
-    parsed = urlparse(url)
-    host = parsed.hostname or "localhost"
-    port = parsed.port or (443 if parsed.scheme == "https" else 80)
-    path = parsed.path + ("?" + parsed.query if parsed.query else "")
-    use_ssl = parsed.scheme == "https"
-    ssl_context = _pick_ssl_context(host)
-
-    if should_abort and should_abort():
-        raise RuntimeError("⏹ Đã hủy bởi người dùng")
-    deadline = time.monotonic() + total_timeout
-    # Lấy hoặc tạo connection từ pool của thread hiện tại (không cần lock)
-    pool_key = f"{host}:{port}"
-    conn = _get_thread_conn(pool_key, host, port, use_ssl, timeout, ssl_context)
-
-    body_bytes = json.dumps(payload).encode("utf-8")
-    headers["Content-Length"] = str(len(body_bytes))
-
-    # Nếu đang bị rate limit (từ lần trước), chờ trước khi gửi
-    rate_delay = _get_rate_limit_delay()
-    if rate_delay > 0:
-        if progress_callback:
-            progress_callback(f"⏳ Đang chờ {rate_delay:.1f}s (tránh rate limit)...")
-        _abortable_wait(rate_delay, should_abort)
-
-    last_error = None
-    # Retry nhiều hơn cho 429 (rate limit thường tạm thời) — tối đa 5 lần
-    max_retries = 5
-    for attempt in range(max_retries + 1):
-        try:
-            if should_abort and should_abort():
-                raise RuntimeError("⏹ Đã hủy bởi người dùng")
-            if time.monotonic() >= deadline:
-                raise RuntimeError("⏱ Đã hết thời gian chờ tổng cho yêu cầu AI")
-            if attempt > 0:
-                # Tạo connection MỚI khi retry (connection cũ có thể đã hỏng)
-                conn = _get_thread_conn(pool_key, host, port, use_ssl, timeout, ssl_context,
-                                        force_new=True)
-
-            conn.request("POST", path, body=body_bytes, headers=headers)
-            resp = conn.getresponse()
-
-            if resp.status == 429:
-                # Rate limit — đọc Retry-After nếu có, chờ đúng thời gian
-                retry_after = resp.getheader("Retry-After")
-                err_body = resp.read().decode("utf-8", errors="replace")[:300]
-                _bump_rate_limit_delay()
-                if retry_after:
-                    try:
-                        wait = float(retry_after)
-                    except ValueError:
-                        wait = 30.0
-                else:
-                    wait = 30.0
-                if progress_callback:
-                    progress_callback(
-                        f"⚠️ Rate limit (429) — chờ {wait:.0f}s rồi thử lại...\n"
-                        f"💡 OpenRouter free giới hạn ~20 req/phút. Đang tự chậm lại."
-                    )
-                _abortable_wait(min(wait, max(0.0, deadline - time.monotonic())), should_abort)
-                last_error = http.client.HTTPException(
-                    f"HTTP 429 Rate Limit: {err_body}"
-                )
-                continue
-
-            if resp.status >= 400:
-                err_body = resp.read().decode("utf-8", errors="replace")[:500]
-                raise http.client.HTTPException(
-                    f"HTTP {resp.status} {resp.reason}: {err_body}"
-                )
-
-            # Đọc response theo chunk
-            chunks = []
-            total_read = 0
-            content_length = int(resp.getheader("Content-Length", 0))
-            while True:
-                if should_abort and should_abort():
-                    conn.close()
-                    raise RuntimeError("⏹ Đã hủy bởi người dùng")
-                chunk = resp.read(8192)
-                if not chunk:
-                    break
-                chunks.append(chunk)
-                total_read += len(chunk)
-                if progress_callback and content_length > 0 and total_read % 65536 < 8192:
-                    pct = min(99, total_read * 100 // content_length)
-                    progress_callback(f"⏳ Đang nhận dữ liệu... {pct}%")
-
-            body = b"".join(chunks).decode("utf-8")
-            # Thành công → reset rate limit delay (nếu có)
-            _reset_rate_limit_delay()
-            return body
-
-        except (http.client.HTTPException, ConnectionError, TimeoutError, OSError) as e:
-            last_error = e
-            if attempt < max_retries:
-                delay = 2.0 * (2 ** attempt)
-                if progress_callback:
-                    progress_callback(f"🔄 Retry {attempt + 1}/{max_retries} sau {delay:.0f}s...")
-                _abortable_wait(min(delay, max(0.0, deadline - time.monotonic())), should_abort)
-                continue
-            raise RuntimeError(f"❌ Lỗi kết nối sau {max_retries + 1} lần thử: {last_error}")
-
-    raise RuntimeError(f"❌ Không thể kết nối: {last_error}")
+    return _is_openrouter_api(api_base)
 
 # ═══════════════════════════════════════════════════════════
 #  PATHS
@@ -1164,202 +959,19 @@ def get_grammar_json_template(lang: str) -> str:
 #  Lưu ý: DeepSeek/OpenAI chat chỉ nhận TEXT → trích text tại máy.
 # ═══════════════════════════════════════════════════════════
 
-def _pip_install(package: str) -> bool:
-    """Tự động cài đặt thư viện Python bằng pip (giống pattern TTS)."""
-    import subprocess
-    import sys
-    try:
-        subprocess.check_call([sys.executable, "-m", "pip", "install", "--quiet", package])
-        return True
-    except Exception:
-        try:
-            subprocess.check_call([sys.executable, "-m", "pip", "install", package])
-            return True
-        except Exception:
-            logger.warning("Không thể tự cài %s — cài thủ công: pip install %s", package, package)
-            return False
-
-
-def _install_docx() -> bool:
-    try:
-        import docx  # noqa: F401
-        return True
-    except ImportError:
-        return _pip_install("python-docx")
-
-
-def _install_openpyxl() -> bool:
-    try:
-        import openpyxl  # noqa: F401
-        return True
-    except ImportError:
-        return _pip_install("openpyxl")
-
-
-def extract_text_from_file(filepath: str) -> str:
-    """Đọc nội dung text từ file. Hỗ trợ txt/md/csv/pdf/docx/doc/xlsx/xls.
-
-    Trả về "" (không raise) nếu không đọc được / file không tồn tại.
-    """
-    if not filepath or not os.path.exists(filepath):
-        return ""
-
-    ext = os.path.splitext(filepath)[1].lower()
-
-    if ext == ".txt":
-        try:
-            with open(filepath, "r", encoding="utf-8") as f:
-                return f.read()
-        except Exception:
-            return ""
-
-    if ext in (".md", ".markdown"):
-        try:
-            with open(filepath, "r", encoding="utf-8") as f:
-                return f.read()
-        except Exception:
-            pass
-
-    if ext == ".csv":
-        return _extract_csv_text(filepath)
-
-    if ext == ".pdf":
-        return _extract_pdf_text(filepath)
-
-    if ext == ".docx":
-        return _extract_docx_text(filepath)
-
-    if ext == ".doc":
-        # .doc (Word cũ) không đọc bằng python-docx → thử, nếu fail trả message
-        result = _extract_docx_text(filepath)
-        if result:
-            return result
-        return "⚠️ File .doc (Word cũ) chưa hỗ trợ. Vui lòng lưu lại thành .docx hoặc .txt rồi thử lại."
-
-    if ext in (".xlsx", ".xls"):
-        return _extract_sheet_text(filepath)
-
-    # Fallback: thử đọc như text thuần
-    try:
-        with open(filepath, "r", encoding="utf-8") as f:
-            return f.read()
-    except Exception:
-        pass
-
-    return ""
-
-
-def extract_text_from_files(filepaths) -> list:
-    """Đọc text từ NHIỀU file. Trả về list [(name, text), ...] — bỏ file không đọc được."""
-    results = []
-    for filepath in filepaths or []:
-        try:
-            text = extract_text_from_file(filepath)
-            if text and text.strip():
-                results.append((os.path.basename(filepath), text))
-        except Exception as e:
-            logger.warning("Lỗi đọc file %s: %s", filepath, e)
-    return results
-
-
-def _extract_csv_text(filepath: str) -> str:
-    """Đọc file CSV — nối các ô bằng dấu phẩy, mỗi dòng 1 hàng."""
-    try:
-        import csv as _csv
-        rows = []
-        with open(filepath, "r", encoding="utf-8-sig", newline="") as f:
-            for row in _csv.reader(f):
-                cells = [c.strip() for c in row if c and str(c).strip()]
-                if cells:
-                    rows.append(", ".join(cells))
-        return "\n".join(rows)
-    except Exception:
-        try:
-            with open(filepath, "r", encoding="utf-8-sig") as f:
-                return f.read()
-        except Exception:
-            return ""
-
-
-def _extract_sheet_text(filepath: str) -> str:
-    """Đọc file Excel (xlsx/xls) — mỗi sheet + mỗi ô trên 1 dòng."""
-    # Ưu tiên openpyxl (auto-install nếu thiếu)
-    if _install_openpyxl():
-        try:
-            import openpyxl
-            wb = openpyxl.load_workbook(filepath, read_only=True, data_only=True)
-            parts = []
-            for ws in wb.worksheets:
-                parts.append(f"### Sheet: {ws.title}")
-                for row in ws.iter_rows(values_only=True):
-                    cells = [str(c).strip() for c in row if c is not None and str(c).strip()]
-                    if cells:
-                        parts.append(" | ".join(cells))
-            wb.close()
-            if parts:
-                return "\n".join(parts)
-        except Exception as e:
-            logger.warning("openpyxl đọc lỗi %s: %s", filepath, e)
-
-    # Fallback: pandas (nếu có)
-    try:
-        import pandas as pd
-        parts = []
-        xl = pd.ExcelFile(filepath)
-        for sheet in xl.sheet_names:
-            df = xl.parse(sheet, header=None)
-            parts.append(f"### Sheet: {sheet}")
-            parts.append(df.to_string(index=False, header=False))
-        if parts:
-            return "\n".join(parts)
-    except ImportError:
-        pass
-    except Exception as e:
-        logger.warning("pandas đọc lỗi %s: %s", filepath, e)
-
-    return ""
-
-
-def _extract_pdf_text(filepath: str) -> str:
-    for lib in ["pdfplumber", "PyPDF2", "fitz"]:
-        try:
-            if lib == "pdfplumber":
-                import pdfplumber
-                parts = []
-                with pdfplumber.open(filepath) as pdf:
-                    for page in pdf.pages:
-                        t = page.extract_text()
-                        if t: parts.append(t)
-                return "\n".join(parts)
-            elif lib == "PyPDF2":
-                from PyPDF2 import PdfReader
-                parts = []
-                for page in PdfReader(filepath).pages:
-                    t = page.extract_text()
-                    if t: parts.append(t)
-                return "\n".join(parts)
-            elif lib == "fitz":
-                import fitz
-                doc = fitz.open(filepath)
-                parts = [page.get_text() for page in doc if page.get_text()]
-                doc.close()
-                return "\n".join(parts)
-        except ImportError:
-            continue
-    return ""
-
-
-def _extract_docx_text(filepath: str) -> str:
-    if not _install_docx():
-        return ""
-    try:
-        from docx import Document
-        parts = [p.text for p in Document(filepath).paragraphs if p.text.strip()]
-        return "\n".join(parts)
-    except Exception as e:
-        logger.warning("python-docx đọc lỗi %s: %s", filepath, e)
-        return ""
-
+# Compatibility re-exports: callers may keep importing these names from
+# utils.ai_extractor for this release while the implementation has one owner.
+from .document_extractors import (  # noqa: E402
+    MissingDocumentDependencyError,
+    _document_dependency_available,
+    _extract_csv_text,
+    _extract_docx_text,
+    _extract_pdf_text,
+    _extract_sheet_text,
+    extract_text_from_file,
+    extract_text_from_files,
+    get_document_install_command,
+)
 
 # ═══════════════════════════════════════════════════════════
 #  AI API CALL (cache + existing_words context)

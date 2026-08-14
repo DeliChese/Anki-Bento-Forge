@@ -3,6 +3,9 @@
 ## [Unreleased]
 
 ### Quality
+- Làm rõ semantics Combo/SRS: Combo mặc định giữ một lịch chung; opt-in theo deck tạo 5 lịch kỹ năng độc lập. Card hiển thị phạm vi chấm, migration có checkpoint/Undo, giữ lịch sử `ord=0`, không xóa card cũ và idempotent.
+- Chuẩn hóa version/compatibility theo `manifest.json`; isolated harness chạy hai vòng với profile/temp riêng, cleanup bắt buộc và CI Python 3.9/3.11 dùng chung harness.
+- Loại bỏ auto-install `python-docx`/`openpyxl` khi đọc file; dependency thiếu được báo bằng thông điệp VI/EN với phiên bản pin và lệnh cài thủ công, không bị đưa vào prompt AI.
 - Chuẩn hóa diagnostic event code, che exception message có thể chứa dữ liệu người dùng, và lưu log theo Anki profile.
 - Bổ sung `DEBUGGING.md`, `COMPATIBILITY.md` và `RELEASE_CHECKLIST.md` để phát hành có bằng chứng kiểm thử và phạm vi tương thích rõ ràng.
 - Thêm AI session policy: hiển thị ước lượng token/chi phí, giới hạn input/token/chi phí theo phiên và chỉ lưu usage tổng hợp.

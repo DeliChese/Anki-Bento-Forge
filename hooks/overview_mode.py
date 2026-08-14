@@ -22,18 +22,33 @@ _REGISTERED_HOOKS = set()
 
 # Key lưu chế độ học trong mw.col.conf
 CONF_KEY = "ai_factory_study_mode"
+CONF_DECK_MODES_KEY = "ai_factory_study_mode_by_deck"
+CONF_SRS_LAYOUT_KEY = "ai_factory_srs_layout"
+CONF_DECK_SRS_LAYOUTS_KEY = "ai_factory_srs_layout_by_deck"
 # Key lưu cấu hình lựa chọn ngôn ngữ hiện tại (dùng để hiển thị label đúng)
 CONF_LANG_KEY = "ai_factory_active_lang"
 
 # Các chế độ học (khớp với _COMBO_MODE_JS trong mode/shared.py)
 MODES = ("qa", "vn", "wb", "pron", "lg")
+SRS_LAYOUTS = ("combo", "independent")
 
 
-def get_study_mode():
-    """Đọc mode hiện tại từ mw.col.conf."""
+def _deck_value(conf, mapping_key, deck_id):
+    if deck_id is None:
+        return None
+    mapping = conf.get(mapping_key, {})
+    if not isinstance(mapping, dict):
+        return None
+    return mapping.get(str(deck_id))
+
+
+def get_study_mode(deck_id=None):
+    """Read a stable default direction for one deck, with legacy fallback."""
     try:
         from aqt import mw
-        mode = mw.col.conf.get(CONF_KEY, "qa")
+        mode = _deck_value(mw.col.conf, CONF_DECK_MODES_KEY, deck_id)
+        if mode is None:
+            mode = mw.col.conf.get(CONF_KEY, "qa")
         if mode not in MODES:
             mode = "qa"
         return mode
@@ -41,18 +56,66 @@ def get_study_mode():
         return "qa"
 
 
-def set_study_mode(mode):
-    """Lưu mode vào mw.col.conf (persist giữa các phiên học)."""
+def set_study_mode(mode, deck_id=None):
+    """Persist a mode globally and, when known, for the selected deck."""
     if mode not in MODES:
         mode = "qa"
     try:
         from aqt import mw
-        mw.col.conf[CONF_KEY] = mode
+        if deck_id is None:
+            mw.col.conf[CONF_KEY] = mode
+        else:
+            mapping = mw.col.conf.get(CONF_DECK_MODES_KEY, {})
+            mapping = dict(mapping) if isinstance(mapping, dict) else {}
+            mapping[str(deck_id)] = mode
+            mw.col.conf[CONF_DECK_MODES_KEY] = mapping
         mw.col.setMod()
         return True
     except Exception as e:
         logger.warning("Không lưu được study mode: %s", e)
         return False
+
+
+def get_srs_layout(deck_id=None):
+    """Return combo by default so upgrades never create surprise cards."""
+    try:
+        from aqt import mw
+        layout = _deck_value(mw.col.conf, CONF_DECK_SRS_LAYOUTS_KEY, deck_id)
+        if layout is None:
+            layout = mw.col.conf.get(CONF_SRS_LAYOUT_KEY, "combo")
+        return layout if layout in SRS_LAYOUTS else "combo"
+    except Exception:
+        return "combo"
+
+
+def set_srs_layout(layout, deck_id=None):
+    """Persist creation policy; existing notes are intentionally untouched."""
+    if layout not in SRS_LAYOUTS:
+        layout = "combo"
+    try:
+        from aqt import mw
+        if deck_id is None:
+            mw.col.conf[CONF_SRS_LAYOUT_KEY] = layout
+        else:
+            mapping = mw.col.conf.get(CONF_DECK_SRS_LAYOUTS_KEY, {})
+            mapping = dict(mapping) if isinstance(mapping, dict) else {}
+            mapping[str(deck_id)] = layout
+            mw.col.conf[CONF_DECK_SRS_LAYOUTS_KEY] = mapping
+        mw.col.setMod()
+        return True
+    except Exception as exc:
+        logger.warning("Không lưu được SRS layout: %s", exc)
+        return False
+
+
+def _context_deck_id(context):
+    try:
+        card = getattr(context, "card", None)
+        if card is None:
+            card = getattr(getattr(context, "reviewer", None), "card", None)
+        return getattr(card, "did", None)
+    except Exception:
+        return None
 
 
 def _on_js_message(handled, message, context):
@@ -63,7 +126,7 @@ def _on_js_message(handled, message, context):
     try:
         if message and message.startswith("ai_factory_set_mode:"):
             mode = message.split(":", 1)[1].strip()
-            set_study_mode(mode)
+            set_study_mode(mode, _context_deck_id(context))
             return (True, None)
         if message and message.startswith("ai_grammar_sentence:"):
             return _handle_grammar_sentence(message, context)

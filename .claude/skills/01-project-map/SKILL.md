@@ -26,8 +26,10 @@ mode/css.py (236)        ← css_japanese, css_chinese, css_korean, *_grammar
 mode/templates.py (1,149) ← tmpl_*_q/a + COMBO (tmpl_{lang}_combo_q/a), LANG_TEMPLATES, LANG_GRAMMAR_TEMPLATES
 mode/shared.py (497)     ← _WB_JS_BODY, _HW_JS_BODY, WB_POOLS, _SPEED_CTRL_JS, _LG_JS_BODY, _COMBO_MODE_JS
 mode/card_render.py      ← build_qfmt/build_afmt (tự append field tùy chỉnh lên thẻ)
-utils/ai_extractor.py (2,720) ← AI core (xem SKILL-02)
-utils/batch_processor.py (1,033) ← batch (xem SKILL-03)
+utils/ai_extractor.py (2,455) ← AI core (xem SKILL-02); re-export API đọc tài liệu/HTTP để tương thích
+utils/ai_http_client.py (243) ← HTTP transport AI thuần: TLS/pool/retry/rate-limit/cancel; không phụ thuộc Anki/UI/config
+utils/document_extractors.py (242) ← đọc TXT/CSV/PDF/DOCX/XLSX cục bộ; không phụ thuộc Anki/AI
+utils/batch_processor.py (1,061) ← batch (xem SKILL-03)
 utils/prompt_config.py   ← prompt/schema/field_map override (utils/ai_prompts.json)
 utils/deck_cache.py (258) ← get_existing_vocab_from_deck, invalidate
 utils/json_parser.py (78) ← safe_parse_json
@@ -50,7 +52,7 @@ ui/prompt_editor.py      ← sửa prompt/schema/field map
 ui/theme.py (539)        ← apply_theme, ThemeDialog, snap_maximize
 hooks/reviewer.py        ← register_hooks (inject combo mode + LG + speed)
 hooks/overview_mode.py   ← register_overview_hooks, patch Overview._table (wrap Onigiri), webview message handler
-tests/                   ← 344 tests (17 file) — xem SKILL-10
+tests/                   ← 390 tests (28 file) — xem SKILL-10
 ```
 
 ## DEPENDENCY GRAPH (imports chính)
@@ -58,7 +60,9 @@ tests/                   ← 344 tests (17 file) — xem SKILL-10
 ```
 __init__.py → Language, mode, audio.engine, utils(safe_parse_json,logger,ai_extractor)
             → workers (7 thread), ui (dialogs), ui.theme, hooks.reviewer
-ai_extractor → utils.logger, utils.json_parser(ko trực tiếp—dùng batch), deck_cache(qua utils)
+ai_extractor → utils.logger, utils.ai_http_client, utils.document_extractors, utils.json_parser(ko trực tiếp—dùng batch), deck_cache(qua utils)
+ai_http_client → Python stdlib; không phụ thuộc aqt/mw/config/prompt/parser
+document_extractors → utils.logger + parser tùy chọn đã cài; không phụ thuộc aqt/mw/AI/network
 batch_processor → ai_extractor (get_api_config, prompts, _parse_ai_json_with_comment, _apply_reasoning_effort)
 workers/* → aqt.qt, utils.ai_extractor / batch_processor / deck_cache
 hooks/reviewer → audio.engine (detect_lang_from_model), mode (_SPEED_CTRL_JS, _LG_JS_BODY)

@@ -10,7 +10,6 @@ Test:
 import os
 import sys
 import types
-import tempfile
 from unittest.mock import MagicMock
 
 _addon_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -136,139 +135,106 @@ def _make_factory(state_path):
 
 
 class TestFactoryState:
-    def test_roundtrip_text_per_flow(self):
-        with tempfile.TemporaryDirectory() as d:
-            p = os.path.join(d, "state.json")
-            f = _make_factory(p)
+    def test_roundtrip_text_per_flow(self, tmp_path):
+        p = str(tmp_path / "state.json")
+        f = _make_factory(p)
 
-            f.ai_text_input.setPlainText("VOCAB TEXT JA")
-            f._save_current_flow()
+        f.ai_text_input.setPlainText("VOCAB TEXT JA")
+        f._save_current_flow()
 
-            f._is_grammar = True
-            f.ai_text_input.setPlainText("GRAMMAR TEXT JA")
-            f._save_current_flow()
+        f._is_grammar = True
+        f.ai_text_input.setPlainText("GRAMMAR TEXT JA")
+        f._save_current_flow()
 
-            f._is_grammar = False
-            f.ai_text_input.clear()
-            f._restore_current_flow()
-            assert f.ai_text_input.toPlainText() == "VOCAB TEXT JA"
+        f._is_grammar = False
+        f.ai_text_input.clear()
+        f._restore_current_flow()
+        assert f.ai_text_input.toPlainText() == "VOCAB TEXT JA"
 
-            f._is_grammar = True
-            f.ai_text_input.clear()
-            f._restore_current_flow()
-            assert f.ai_text_input.toPlainText() == "GRAMMAR TEXT JA"
+        f._is_grammar = True
+        f.ai_text_input.clear()
+        f._restore_current_flow()
+        assert f.ai_text_input.toPlainText() == "GRAMMAR TEXT JA"
 
-    def test_lang_separated(self):
-        with tempfile.TemporaryDirectory() as d:
-            p = os.path.join(d, "state.json")
-            f = _make_factory(p)
+    def test_lang_separated(self, tmp_path):
+        p = str(tmp_path / "state.json")
+        f = _make_factory(p)
 
-            f.ai_text_input.setPlainText("JA")
-            f._save_current_flow()
+        f.ai_text_input.setPlainText("JA")
+        f._save_current_flow()
 
-            f._current_lang = "chinese"
-            f.ai_text_input.setPlainText("ZH")
-            f._save_current_flow()
+        f._current_lang = "chinese"
+        f.ai_text_input.setPlainText("ZH")
+        f._save_current_flow()
 
-            f._current_lang = "japanese"
-            f.ai_text_input.clear()
-            f._restore_current_flow()
-            assert f.ai_text_input.toPlainText() == "JA"
+        f._current_lang = "japanese"
+        f.ai_text_input.clear()
+        f._restore_current_flow()
+        assert f.ai_text_input.toPlainText() == "JA"
 
-    def test_clear_text_saves_empty(self):
-        with tempfile.TemporaryDirectory() as d:
-            p = os.path.join(d, "state.json")
-            f = _make_factory(p)
+    def test_clear_text_saves_empty(self, tmp_path):
+        p = str(tmp_path / "state.json")
+        f = _make_factory(p)
 
-            f.ai_text_input.setPlainText("ABC")
-            f._save_current_flow()
+        f.ai_text_input.setPlainText("ABC")
+        f._save_current_flow()
 
-            # Giả lập "Xóa Text"
-            f.ai_text_input.clear()
-            f._ai_attached_paths = []
-            f._save_current_flow()
+        # Giả lập "Xóa Text"
+        f.ai_text_input.clear()
+        f._ai_attached_paths = []
+        f._save_current_flow()
 
-            f.ai_text_input.setPlainText("ABC")
-            f._restore_current_flow()
-            assert f.ai_text_input.toPlainText() == ""   # đã xóa
+        f.ai_text_input.setPlainText("ABC")
+        f._restore_current_flow()
+        assert f.ai_text_input.toPlainText() == ""   # đã xóa
 
-    def test_files_persisted_per_flow(self):
-        with tempfile.TemporaryDirectory() as d:
-            p = os.path.join(d, "state.json")
-            ref = os.path.join(d, "ref.txt")
-            with open(ref, "w", encoding="utf-8") as fh:
-                fh.write("tài liệu tham khảo")
+    def test_files_persisted_per_flow(self, tmp_path):
+        p = str(tmp_path / "state.json")
+        ref = str(tmp_path / "ref.txt")
+        with open(ref, "w", encoding="utf-8") as fh:
+            fh.write("tài liệu tham khảo")
 
-            f = _make_factory(p)
-            f._ai_attached_paths = [ref]
-            f.ai_text_input.setPlainText("text+file")
-            f._save_current_flow()
+        f = _make_factory(p)
+        f._ai_attached_paths = [ref]
+        f.ai_text_input.setPlainText("text+file")
+        f._save_current_flow()
 
-            f._is_grammar = True
-            f._ai_attached_paths = []
-            f.ai_text_input.setPlainText("grammar")
-            f._save_current_flow()
+        f._is_grammar = True
+        f._ai_attached_paths = []
+        f.ai_text_input.setPlainText("grammar")
+        f._save_current_flow()
 
-            f._is_grammar = False
-            f._ai_attached_paths = []
-            f._ai_attached_files = []
-            f.ai_text_input.clear()
-            f._restore_current_flow()
-            assert f._ai_attached_paths == [ref]
-            assert f.ai_text_input.toPlainText() == "text+file"
+        f._is_grammar = False
+        f._ai_attached_paths = []
+        f._ai_attached_files = []
+        f.ai_text_input.clear()
+        f._restore_current_flow()
+        assert f._ai_attached_paths == [ref]
+        assert f.ai_text_input.toPlainText() == "text+file"
 
 
 class TestComboMigration:
-    """Migration combo: chỉ xóa card thừa (ord>=keep_count), giữ card mode chính."""
+    """Card model references every field required by safe SRS migration."""
 
     def test_collect_template_fields_captures_all(self):
         """Phải thu thập đủ field template tham chiếu (tránh CardTypeError khi save)."""
-        import __init__ as addon
         from mode import LANG_TEMPLATES, LANG_GRAMMAR_TEMPLATES
-        fields = addon.AnkiSmartFactory._collect_template_fields(LANG_TEMPLATES["japanese"])
+        from utils.model_lifecycle import collect_template_fields
+        fields = collect_template_fields(LANG_TEMPLATES["japanese"])
         for f in ("Front", "Meaning", "Furigana", "JLPT Level", "Topic",
                   "Sino-Vietnamese", "Vocab Audio", "Example", "Example Audio",
                   "Example in Vietnamese", "Example2", "Example2 in Vietnamese"):
             assert f in fields, f"Thiếu field {f}"
-        zh = addon.AnkiSmartFactory._collect_template_fields(LANG_TEMPLATES["chinese"])
+        zh = collect_template_fields(LANG_TEMPLATES["chinese"])
         for f in ("Front", "Pinyin", "HSK Level", "Traditional"):
             assert f in zh, f"Thiếu field {f}"
-        ko = addon.AnkiSmartFactory._collect_template_fields(LANG_TEMPLATES["korean"])
+        ko = collect_template_fields(LANG_TEMPLATES["korean"])
         for f in ("Front", "Romanization", "TOPIK Level", "Sino-Vietnamese",
                   "Vocab Audio", "Example", "Example Romanization",
                   "Example in Vietnamese", "Example2", "Example2 in Vietnamese"):
             assert f in ko, f"Thiếu field {f}"
-        g = addon.AnkiSmartFactory._collect_template_fields(LANG_GRAMMAR_TEMPLATES["japanese"])
+        g = collect_template_fields(LANG_GRAMMAR_TEMPLATES["japanese"])
         assert "Pattern" in g
-        gko = addon.AnkiSmartFactory._collect_template_fields(LANG_GRAMMAR_TEMPLATES["korean"])
+        gko = collect_template_fields(LANG_GRAMMAR_TEMPLATES["korean"])
         assert "Pattern" in gko
         assert "Romanization" in gko
-
-    def test_drop_extra_combo_cards_keeps_first(self):
-        import __init__ as addon
-        from unittest.mock import patch
-        # Mock addon.mw.col cho migration
-        mw_mock = MagicMock()
-        mw_mock.col.find_notes = MagicMock(return_value=[1, 2])
-        mw_mock.col.db.list = MagicMock(
-            side_effect=lambda sql, nid, k: [100 + nid * 10, 200 + nid * 10]
-        )
-        mw_mock.col.remCards = MagicMock()
-        with patch.object(addon, "mw", mw_mock):
-            addon.AnkiSmartFactory._drop_extra_combo_cards(None, mid=42, keep_count=1)
-        # find_notes gọi với query đúng mid
-        mw_mock.col.find_notes.assert_called_once()
-        # remCards được gọi với các card thừa (ord>=1)
-        mw_mock.col.remCards.assert_called()
-        removed = mw_mock.col.remCards.call_args[0][0]
-        assert len(removed) >= 2
-
-    def test_drop_extra_no_notes(self):
-        import __init__ as addon
-        from unittest.mock import patch
-        mw_mock = MagicMock()
-        mw_mock.col.find_notes = MagicMock(return_value=[])
-        mw_mock.col.remCards = MagicMock()
-        with patch.object(addon, "mw", mw_mock):
-            addon.AnkiSmartFactory._drop_extra_combo_cards(None, mid=42, keep_count=1)
-        mw_mock.col.remCards.assert_not_called()
