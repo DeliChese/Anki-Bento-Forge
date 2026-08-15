@@ -105,7 +105,7 @@
 
 ### B6. Collocation/Usage Notes
 
-**Trạng thái:** `Có điều kiện — field map tùy chỉnh đã hỗ trợ; chỉ thêm mặc định khi có nhu cầu đã xác nhận`
+**Trạng thái:** `Hoàn thành — Usage Note mặc định cho vocab; Usage hiện có cho grammar`
 
 **Vấn đề:** Không thêm ghi chú cách dùng, collocation, register.
 
@@ -157,3 +157,11 @@ B1/B2 structural validation → đánh giá mẫu thủ công → B3 (nếu có 
 - Thay đổi: Phát hiện placeholder, nghĩa lặp mặt thẻ, ví dụ sai hệ chữ, từ Trung không có trong ví dụ, mẫu ngữ pháp nguyên văn không có trong ví dụ, và ví dụ chỉ lặp target; hiển thị chi tiết bằng tooltip ở hàng preview.
 - Kiểm chứng: `python -m pytest --rootdir=tests -p no:cacheprovider -q tests/test_import_quality.py`.
 - Rủi ro còn lại / bước kế tiếp: Không thể xác nhận độ đúng của dịch nghĩa, ngữ pháp, tính tự nhiên hay cấp độ nếu không có corpus/dataset được cấp phép hoặc quy trình review thủ công.
+
+### 2026-08-15 — Phase B / B6 collocation & usage notes
+
+- Trạng thái: `Hoàn thành`
+- Phạm vi: `Language/*.py`, `utils/prompts/*.py`, `mode/card_render.py`, `utils/ai_result_cache.py`, `tests/test_prompt_config.py`, `tests/test_card_render.py`
+- Thay đổi: Vocab Nhật/Trung/Hàn có field `Usage Note` trên mặt sau, tự ẩn khi trống. Prompt chỉ yêu cầu ghi chú collocation/register khi thực sự làm rõ cách dùng (≤8 từ); Grammar tái sử dụng field `Usage` hiện có cho ghi chú ngắn này, không thêm schema/output field mới. Sửa renderer để nội suy giá trị thực của mọi custom field.
+- Kiểm chứng: `scripts/test_isolated.ps1 -Python python` — 468 passed, chạy 2 vòng.
+- Rủi ro còn lại / bước kế tiếp: Chất lượng, độ hữu ích của ghi chú cần được đánh giá trên mẫu thẻ thật; không có corpus/dataset được cấp phép thì không tự chấm đúng-sai ngữ nghĩa.

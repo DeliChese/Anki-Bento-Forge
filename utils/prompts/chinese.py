@@ -9,6 +9,7 @@ _CHINESE_JSON_TEMPLATE = """{
   "traditional": "學習",
   "pinyin": "xuéxí",
   "meaning": "học tập",
+  "usage_note": "Thường đi với 中文",
   "sino_vietnamese": "học tập",
   "hsk_level": "HSK1",
   "topic": "Động từ",
@@ -27,7 +28,7 @@ MẪU:
 {_CHINESE_JSON_TEMPLATE}
 
 LUẬT:
-1. Đủ 13 trường; thiếu → "". example_pinyin & example_2_pinyin LUÔN phải có, pinyin chuẩn có dấu thanh; thiếu → từ không hợp lệ.
+1. Đủ 13 trường cốt lõi + usage_note khi cần (collocation/register, ≤8 từ); pinyin có dấu thanh.
 2. VÍ DỤ CÓ HỒN + ĐÚNG CẤP ĐỘ (quan trọng nhất):
    - Ex1: khẩu ngữ đời thực (cà phê, nhắn tin, than thở, MXH...), cảm xúc thật.
    - Ex2: trang trọng, lịch sự, formal (công việc, hội họp, thư từ).
@@ -45,6 +46,7 @@ _CHINESE_JSON_TEMPLATE_EN = """{
   "traditional": "學習",
   "pinyin": "xuéxí",
   "meaning": "to study",
+  "usage_note": "Often used with 中文",
   "sino-vietnamese": "",
   "hsk_level": "HSK1",
   "topic": "Verb",
@@ -63,7 +65,7 @@ TEMPLATE:
 {_CHINESE_JSON_TEMPLATE_EN}
 
 RULES:
-1. Fill all 13 fields; missing → "". example_pinyin & example_2_pinyin ALWAYS required, standard tone-marked pinyin; missing → invalid entry.
+1. Fill 13 core fields + usage_note only when useful (collocation/register, ≤8 words); example pinyin is always tone-marked.
 2. VIVID EXAMPLES MATCHING THE LEVEL (most important):
    - Ex1: real-life casual speech (coffee, texting, venting, social media...), genuine emotion.
    - Ex2: formal, polite (work, meetings, letters).
@@ -102,7 +104,7 @@ LUẬT:
 1. Đủ 13 trường; thiếu → "". example_pinyin & example_2_pinyin LUÔN phải có, pinyin chuẩn có dấu thanh.
 2. pattern: cấu trúc CHÍNH — LUÔN viết bằng HÁN TỰ gốc, ghi rõ chỗ điền bằng ký hiệu loại từ (N/V/Adj). KHÔNG viết pattern bằng pinyin (VD viết "把字句", không viết "bǎ zì jù").
 3. pinyin: phiên âm phần cấu trúc.
-4. usage: CÔNG THỨC ghép dễ nhớ (VD: "Chủ ngữ + 把 + 宾语 + V + 结果").
+4. usage: CÔNG THỨC ghép dễ nhớ; thêm collocation/register chỉ khi làm rõ cách dùng (≤12 từ).
 5. explanation: TỐI ĐA 2 câu — cách dùng + sắc thái + lỗi người Việt hay mắc + đồng nghĩa (nếu có). Gọn.
 6. VÍ DỤ CÓ HỒN + ĐÚNG CẤP ĐỘ:
    - Ex1: khẩu ngữ đời thực, cảm xúc thật. Ex2: trang trọng, formal.
@@ -142,7 +144,7 @@ RULES:
 1. Fill all 13 fields; missing → "". example_pinyin & example_2_pinyin ALWAYS required, standard tone-marked pinyin.
 2. pattern: the MAIN structure — ALWAYS in original Han characters, mark slots with word-type symbols (N/V/Adj). NEVER write pattern in pinyin (write "把字句", not "bǎ zì jù").
 3. pinyin: romanization of the structure part.
-4. usage: a memorable formula (e.g. "Subject + 把 + Object + V + Result").
+4. usage: a memorable formula; add a collocation/register note only when it clarifies use (≤12 words).
 5. explanation: MAX 2 sentences — usage + nuance + common learner mistakes + synonyms (if any). Concise.
 6. VIVID EXAMPLES MATCHING THE LEVEL:
    - Ex1: real-life casual speech, genuine emotion. Ex2: formal.

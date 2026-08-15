@@ -98,6 +98,7 @@ from workers import ImportWorker, PreviewThread, AiExtractThread, AiChatThread
 # Import UI dialogs (đã tách ra ui/)
 from ui import AiChatDialog, show_ai_settings_dialog, show_diff_meaning_dialog, show_ai_preview_dialog
 from ui.deck_manager_dialog import DeckManagerDialog
+from ui.usage_history_dialog import AiUsageHistoryDialog
 from ui.accessibility import configure_keyboard_navigation
 from utils.deck_manager import refresh_anki
 
@@ -788,9 +789,18 @@ class AnkiSmartFactory(QDialog):
 
         # ── 💰 Thanh chi phí AI (góc dưới) — theo dõi ngân sách ──
         cost_bar = QHBoxLayout()
-        self.lbl_cost = QLabel("")
+        # Giữ nguyên giao diện dạng text nhưng dùng nút thật để click luôn ổn định.
+        self.lbl_cost = QPushButton("")
         self.lbl_cost.setProperty("class", "dim")
-        self.lbl_cost.setStyleSheet("color:#95a5a6;font-size:11px;padding:2px 4px;")
+        self.lbl_cost.setFlat(True)
+        self.lbl_cost.setStyleSheet(
+            "QPushButton { color:#95a5a6;font-size:11px;padding:2px 4px;"
+            "border:none;background:transparent;text-align:left; }"
+            "QPushButton:hover { color:#3498db;text-decoration:underline; }"
+        )
+        self.lbl_cost.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.lbl_cost.setToolTip(t("usage_history_open_tip"))
+        self.lbl_cost.clicked.connect(self._show_usage_history)
         cost_bar.addWidget(self.lbl_cost, 1)
         self.btn_reset_cost = QPushButton(t("btn_reset_cost"))
         self.btn_reset_cost.setStyleSheet(
@@ -856,6 +866,11 @@ class AnkiSmartFactory(QDialog):
             )
         except Exception:
             pass
+
+    def _show_usage_history(self, _link=""):
+        """Open the persistent per-request AI usage details."""
+        dialog = AiUsageHistoryDialog(self)
+        dialog.exec()
 
     def _reset_cost(self):
         """Đặt lại bộ đếm chi phí AI."""

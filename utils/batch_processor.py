@@ -27,6 +27,8 @@ from .ai_extractor import (
     get_api_config,
     _make_existing_hash,
     _apply_reasoning_effort,
+    _calculate_cost,
+    _record_token_info,
     get_existing_vocab_from_deck,
     is_openrouter,
 )
@@ -432,6 +434,8 @@ def _call_ai_for_batch(
     }
 
     _timeout = 600 if "reasoner" in cfg.get("model", "") else 300
+    request_started_at = time.time()
+    request_started_monotonic = time.monotonic()
     try:
         body = _http_post_json(url, payload, headers, timeout=_timeout,
                                progress_callback=progress_callback, should_abort=should_abort)
@@ -441,6 +445,18 @@ def _call_ai_for_batch(
     result = json.loads(body)
     if "choices" not in result or len(result["choices"]) == 0:
         raise RuntimeError(t("error_api_no_result", details=body[:500]))
+
+    usage = result.get("usage", {})
+    if usage and usage.get("total_tokens"):
+        token_info = _calculate_cost(
+            cfg["model"], usage.get("prompt_tokens", 0), usage.get("completion_tokens", 0), usage.get("cost")
+        )
+        _record_token_info(
+            token_info,
+            operation="batch_grammar" if grammar else "batch_vocabulary",
+            started_at=request_started_at,
+            duration_seconds=time.monotonic() - request_started_monotonic,
+        )
     
     content = get_final_model_content(result["choices"][0])
     
@@ -877,6 +893,8 @@ Tên deck bằng tiếng Việt, ngắn gọn, dễ hiểu.
     if progress_callback:
         progress_callback(t("organizer_status_waiting"))
 
+    request_started_at = time.time()
+    request_started_monotonic = time.monotonic()
     try:
         body = _http_post_json(url, payload, headers, timeout=300,
                                progress_callback=progress_callback, should_abort=should_abort)
@@ -888,6 +906,18 @@ Tên deck bằng tiếng Việt, ngắn gọn, dễ hiểu.
     result = json.loads(body)
     if "choices" not in result or len(result["choices"]) == 0:
         return _fallback_deck_organization(vocab_list, lang)
+
+    usage = result.get("usage", {})
+    if usage and usage.get("total_tokens"):
+        token_info = _calculate_cost(
+            cfg["model"], usage.get("prompt_tokens", 0), usage.get("completion_tokens", 0), usage.get("cost")
+        )
+        _record_token_info(
+            token_info,
+            operation="deck_organization",
+            started_at=request_started_at,
+            duration_seconds=time.monotonic() - request_started_monotonic,
+        )
     
     content = result["choices"][0]["message"].get("content", "") or ""
     

@@ -1,8 +1,8 @@
-# 🌐 Bento Forge — AnkiTool Multi-Language V17.1.0
+# 🌐 Bento Forge — AnkiTool Multi-Language V17.2.0
 
 > **Vocabulary Factory cho Anki** — Tạo thẻ từ vựng tiếng Nhật, Trung & Hàn với AI, TTS, và interactive templates.
 
-[![Version](https://img.shields.io/badge/version-17.1.0-blue)](manifest.json)
+[![Version](https://img.shields.io/badge/version-17.2.0-blue)](manifest.json)
 [![Anki](https://img.shields.io/badge/anki-2.1.50-green)](COMPATIBILITY.md)
 [![Python](https://img.shields.io/badge/python-%3E%3D3.9-yellow)](manifest.json)
 [![Tests](https://github.com/DeliChese/Anki-Bento-Forge/actions/workflows/ci.yml/badge.svg)](https://github.com/DeliChese/Anki-Bento-Forge/actions/workflows/ci.yml)

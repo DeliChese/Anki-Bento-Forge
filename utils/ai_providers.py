@@ -21,19 +21,33 @@ AI_PROVIDERS = [
         "name": "DeepSeek",
         "base": "https://api.deepseek.com/v1",
         "models": [
+            "deepseek-v4-flash",
+            "deepseek-v4-pro",
+            # Legacy aliases are retained so existing saved configurations keep working.
             "deepseek-chat",
             "deepseek-reasoner",
         ],
-        "default": "deepseek-chat",
+        "default": "deepseek-v4-flash",
         "color": "#4D6BFE",
         "key_hint": "sk-... (platform.deepseek.com/api_keys)",
-        "note": "deepseek-chat = nhanh/rẻ; deepseek-reasoner = suy nghĩ sâu (đắt hơn, chậm hơn).",
+        "note": "DeepSeek V4 Flash = nhanh/tiết kiệm; V4 Pro = chất lượng cao hơn. Các alias cũ vẫn được giữ để tương thích cấu hình đã lưu.",
     },
     {
         "id": "openai",
         "name": "OpenAI",
         "base": "https://api.openai.com/v1",
         "models": [
+            "gpt-5.6-luna",
+            "gpt-5.6-terra",
+            "gpt-5.6-sol",
+            "gpt-5.6",
+            "gpt-5.5",
+            "gpt-5.5-pro",
+            "gpt-5.4",
+            "gpt-5.4-pro",
+            "gpt-5.4-mini",
+            "gpt-5.4-nano",
+            # Previous models remain selectable for existing configurations.
             "gpt-5",
             "gpt-5-mini",
             "gpt-4.1",
@@ -47,7 +61,7 @@ AI_PROVIDERS = [
             "o4-mini",
             "gpt-3.5-turbo",
         ],
-        "default": "gpt-4o-mini",
+        "default": "gpt-5.6-luna",
         "color": "#10A37F",
         "key_hint": "sk-... (https://platform.openai.com/api-keys)",
         "note": "Mô hình GPT + o-series chính thức của OpenAI.",
@@ -58,18 +72,21 @@ AI_PROVIDERS = [
         "base": "https://generativelanguage.googleapis.com/v1beta/openai",
         "models": [
             "gemini-3.6-flash",
-            "gemini-3.6-pro",
             "gemini-3.5-flash",
-            "gemini-3.5-pro",
-            "gemini-3-flash",
-            "gemini-3-pro",
+            "gemini-3.5-flash-lite",
+            "gemini-3.1-flash-lite",
+            "gemini-3.1-pro-preview",
+            "gemini-3-flash-preview",
+            "gemini-2.5-pro",
+            "gemini-2.5-flash",
+            "gemini-2.5-flash-lite",
         ],
         "default": "gemini-3.6-flash",
         "color": "#4285F4",
         "key_hint": "AIza... (https://aistudio.google.com/apikey)",
         "note": (
             "Gemini API — dùng endpoint OpenAI-compatible chính thức của Google.\n"
-            "Cập nhật các model Gemini thế hệ 3.x mới nhất (gemini-3.6-flash, gemini-3.6-pro...).\n"
+            "Preset gồm Gemini 3.6/3.5/3.1 hiện hành và các model Gemini 2.5 ổn định.\n"
             "Lấy API key tại: https://aistudio.google.com/apikey (bắt đầu bằng AIza...)"
         ),
     },
@@ -78,6 +95,11 @@ AI_PROVIDERS = [
         "name": "Anthropic Claude",
         "base": "https://api.anthropic.com/v1",
         "models": [
+            "claude-fable-5",
+            "claude-opus-5",
+            "claude-sonnet-5",
+            "claude-haiku-4-5",
+            # Previous models remain selectable for existing proxy configurations.
             "claude-opus-4-1",
             "claude-sonnet-4-5",
             "claude-3-7-sonnet",
@@ -85,7 +107,7 @@ AI_PROVIDERS = [
             "claude-3-5-haiku",
             "claude-3-haiku",
         ],
-        "default": "claude-sonnet-4-5",
+        "default": "claude-sonnet-5",
         "color": "#D97757",
         "key_hint": "sk-ant-... (https://console.anthropic.com/settings/keys)",
         "note": (
@@ -99,6 +121,15 @@ AI_PROVIDERS = [
         "name": "OpenRouter",
         "base": "https://openrouter.ai/api/v1",
         "models": [
+            "~openai/gpt-latest",
+            "openai/gpt-5.5",
+            "anthropic/claude-opus-5",
+            "anthropic/claude-sonnet-5",
+            "google/gemini-3.6-flash",
+            "google/gemini-3.5-flash",
+            "deepseek/deepseek-v4-flash",
+            "deepseek/deepseek-v4-pro",
+            # Popular previous slugs are retained for existing configurations.
             "openai/gpt-4o-mini",
             "openai/gpt-4o",
             "anthropic/claude-sonnet-4.5",
@@ -111,16 +142,19 @@ AI_PROVIDERS = [
             "mistralai/mistral-small-3.2-24b-instruct",
             "qwen/qwen-3-235b-a22b",
         ],
-        "default": "openai/gpt-4o-mini",
+        "default": "~openai/gpt-latest",
         "color": "#835AF9",
         "key_hint": "sk-or-... (https://openrouter.ai/settings/keys)",
-        "note": "Một key dùng được ĐỦ model từ nhiều hãng (OpenAI, Claude, Gemini, DeepSeek, Llama...).\nChú ý định dạng model: vendor/ten-model.",
+        "note": "Một key dùng được ĐỦ model từ nhiều hãng (OpenAI, Claude, Gemini, DeepSeek, Llama...).\n`~openai/gpt-latest` tự theo flagship OpenAI mới nhất; model khác dùng định dạng vendor/ten-model.",
     },
     {
         "id": "ollama",
         "name": "Ollama (local)",
         "base": "http://localhost:11434/v1",
         "models": [
+            "qwen3.5",
+            "gemma4",
+            # Các model dưới đây vẫn phổ biến và được giữ cho máy đã cài sẵn.
             "llama3.1",
             "llama3.2",
             "gemma3",
@@ -129,10 +163,10 @@ AI_PROVIDERS = [
             "qwen2.5",
             "qwen3",
         ],
-        "default": "llama3.1",
+        "default": "qwen3.5",
         "color": "#A3E635",
         "key_hint": "(không cần — máy local)",
-        "note": "Chạy hoàn toàn local — không cần API Key. Cài model bằng `ollama pull llama3.1`.",
+        "note": "Chạy hoàn toàn local — không cần API Key. Cài một model đã chọn, ví dụ `ollama pull qwen3.5`.",
     },
     {
         "id": "lmstudio",
@@ -140,6 +174,8 @@ AI_PROVIDERS = [
         "base": "http://localhost:1234/v1",
         "models": [
             "local-model",
+            "qwen3.5",
+            "gemma4",
             "llama-3.1-8b-instruct",
             "qwen2.5-7b-instruct",
             "gemma-3-12b-it",

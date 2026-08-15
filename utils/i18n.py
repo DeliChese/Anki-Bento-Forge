@@ -348,8 +348,8 @@ _TRANSLATIONS = {
         "en": "No API Key configured.\n\nFor DeepSeek/OpenAI/OpenRouter: API Key required.\nFor Ollama/LM Studio local: can be empty.\n\nOpen AI Settings?",
     },
     "msg_reasoner_warning": {
-        "vi": "⚠️ Bạn đang dùng model '{model}'.\nModel này suy nghĩ rất kỹ trước khi trả lời,\ncó thể mất 3-10 phút. Hãy kiên nhẫn chờ đợi.\n\n💡 Mẹo: Chuyển sang 'deepseek-chat' để nhanh hơn.",
-        "en": "⚠️ You are using model '{model}'.\nThis model thinks carefully before responding,\nmay take 3-10 minutes. Please be patient.\n\n💡 Tip: Switch to 'deepseek-chat' for faster results.",
+        "vi": "⚠️ Bạn đang dùng model '{model}'.\nModel này suy nghĩ rất kỹ trước khi trả lời,\ncó thể mất 3-10 phút. Hãy kiên nhẫn chờ đợi.\n\n💡 Mẹo: Chuyển sang 'deepseek-v4-flash' để nhanh hơn.",
+        "en": "⚠️ You are using model '{model}'.\nThis model thinks carefully before responding,\nmay take 3-10 minutes. Please be patient.\n\n💡 Tip: Switch to 'deepseek-v4-flash' for faster results.",
     },
     "msg_history_count": {
         "vi": "📚 Lịch sử: {count} từ vựng đã có",
@@ -744,6 +744,162 @@ _TRANSLATIONS = {
     "cost_label": {
         "vi": "💰 Chi phí AI: {cost} USD · {calls} lượt gọi",
         "en": "💰 AI cost: {cost} USD · {calls} calls",
+    },
+    "usage_history_open_tip": {
+        "vi": "Bấm để xem chi tiết từng lần gọi AI",
+        "en": "Click to inspect each AI request",
+    },
+    "usage_history_title": {
+        "vi": "Chi tiết sử dụng AI",
+        "en": "AI usage details",
+    },
+    "usage_history_header": {
+        "vi": "📊 Chi tiết sử dụng AI",
+        "en": "📊 AI usage details",
+    },
+    "usage_history_desc": {
+        "vi": "Lịch sử chỉ lưu metadata sử dụng; không lưu prompt, phản hồi, API key hoặc URL API.",
+        "en": "This history keeps usage metadata only; prompts, responses, API keys, and API URLs are never stored.",
+    },
+    "usage_filter_model": {
+        "vi": "Model:",
+        "en": "Model:",
+    },
+    "usage_filter_operation": {
+        "vi": "Công việc:",
+        "en": "Task:",
+    },
+    "usage_filter_date": {
+        "vi": "Ngày:",
+        "en": "Date:",
+    },
+    "usage_filter_all": {
+        "vi": "Tất cả",
+        "en": "All",
+    },
+    "usage_date_all": {
+        "vi": "Mọi ngày",
+        "en": "All dates",
+    },
+    "usage_date_today": {
+        "vi": "Hôm nay",
+        "en": "Today",
+    },
+    "usage_date_7d": {
+        "vi": "7 ngày qua",
+        "en": "Last 7 days",
+    },
+    "usage_date_30d": {
+        "vi": "30 ngày qua",
+        "en": "Last 30 days",
+    },
+    "usage_date_custom": {
+        "vi": "Khoảng tùy chọn",
+        "en": "Custom range",
+    },
+    "usage_sort_label": {
+        "vi": "Sắp xếp:",
+        "en": "Sort:",
+    },
+    "usage_sort_newest": {
+        "vi": "Mới nhất",
+        "en": "Newest first",
+    },
+    "usage_sort_oldest": {
+        "vi": "Cũ nhất",
+        "en": "Oldest first",
+    },
+    "usage_sort_cost_high": {
+        "vi": "Chi phí cao → thấp",
+        "en": "Cost: high to low",
+    },
+    "usage_sort_cost_low": {
+        "vi": "Chi phí thấp → cao",
+        "en": "Cost: low to high",
+    },
+    "usage_sort_input_high": {
+        "vi": "Input nhiều → ít",
+        "en": "Input: most first",
+    },
+    "usage_sort_input_low": {
+        "vi": "Input ít → nhiều",
+        "en": "Input: least first",
+    },
+    "usage_sort_output_high": {
+        "vi": "Output nhiều → ít",
+        "en": "Output: most first",
+    },
+    "usage_sort_output_low": {
+        "vi": "Output ít → nhiều",
+        "en": "Output: least first",
+    },
+    "usage_col_model": {
+        "vi": "Model",
+        "en": "Model",
+    },
+    "usage_col_time": {
+        "vi": "Thời gian",
+        "en": "Time",
+    },
+    "usage_col_duration": {
+        "vi": "Xử lý",
+        "en": "Duration",
+    },
+    "usage_col_operation": {
+        "vi": "Công việc",
+        "en": "Task",
+    },
+    "usage_col_input": {
+        "vi": "Input",
+        "en": "Input",
+    },
+    "usage_col_output": {
+        "vi": "Output",
+        "en": "Output",
+    },
+    "usage_col_cost": {
+        "vi": "Chi phí thực tế",
+        "en": "Actual cost",
+    },
+    "usage_total": {
+        "vi": "Tổng: {calls} lượt · Input {input_tokens:,} · Output {output_tokens:,} · ${total_cost:.8f}",
+        "en": "Total: {calls} calls · Input {input_tokens:,} · Output {output_tokens:,} · ${total_cost:.8f}",
+    },
+    "usage_clear_history": {
+        "vi": "🗑 Xóa lịch sử",
+        "en": "🗑 Clear history",
+    },
+    "usage_clear_confirm": {
+        "vi": "Xóa toàn bộ lịch sử chi tiết sử dụng AI? Không thể hoàn tác.",
+        "en": "Clear all detailed AI usage history? This cannot be undone.",
+    },
+    "usage_operation_vocab_extraction": {
+        "vi": "Trích từ vựng",
+        "en": "Vocabulary extraction",
+    },
+    "usage_operation_grammar_extraction": {
+        "vi": "Trích ngữ pháp",
+        "en": "Grammar extraction",
+    },
+    "usage_operation_ai_chat": {
+        "vi": "AI chat",
+        "en": "AI chat",
+    },
+    "usage_operation_batch_vocabulary": {
+        "vi": "Xử lý batch từ vựng",
+        "en": "Batch vocabulary processing",
+    },
+    "usage_operation_batch_grammar": {
+        "vi": "Xử lý batch ngữ pháp",
+        "en": "Batch grammar processing",
+    },
+    "usage_operation_deck_organization": {
+        "vi": "Tổ chức deck AI",
+        "en": "AI deck organization",
+    },
+    "usage_operation_unknown": {
+        "vi": "Không xác định",
+        "en": "Unknown",
     },
     "preview_quality_complete": {
         "vi": "✓ Kiểm tra tự động: {total}/{total} thẻ không có cảnh báo xác định được · {score}/100. Độ đúng nghĩa, ngữ pháp và độ tự nhiên vẫn cần bạn rà soát.",
@@ -1595,6 +1751,10 @@ _TRANSLATIONS = {
         "vi": "🔑 API Key:",
         "en": "🔑 API Key:",
     },
+    "ai_set_provider_key_note": {
+        "vi": "Mỗi nhà cung cấp/endpoint tùy chỉnh có API Key riêng; đổi provider sẽ tự nạp key đã lưu của provider đó.",
+        "en": "Each provider/custom endpoint has its own API key; switching provider automatically loads that provider's saved key.",
+    },
     "ai_set_show_key": {
         "vi": "👁 Hiện API Key",
         "en": "👁 Show API Key",
@@ -1670,11 +1830,11 @@ _TRANSLATIONS = {
     "ai_set_effort_tip": {
         "vi": "Mức độ nỗ lực suy nghĩ của model.\n"
              "Chỉ áp dụng với model hỗ trợ (OpenAI o1/o3/o4...).\n"
-             "DeepSeek: deepseek-chat = nhanh/rẻ; deepseek-reasoner = suy nghĩ sâu (đắt hơn).\n"
+             "DeepSeek: deepseek-v4-flash = nhanh/tiết kiệm; deepseek-v4-pro = chất lượng cao hơn.\n"
              "Mức càng cao → chất lượng tốt hơn nhưng tốn NHIỀU token output.",
         "en": "Model reasoning effort level.\n"
               "Only applies to supporting models (OpenAI o1/o3/o4...).\n"
-              "DeepSeek: deepseek-chat = fast/cheap; deepseek-reasoner = deep thinking (more expensive).\n"
+              "DeepSeek: deepseek-v4-flash = fast/economical; deepseek-v4-pro = higher quality.\n"
               "Higher level → better quality but uses MANY more output tokens.",
     },
     "ai_set_chunk_tip": {
@@ -2215,8 +2375,8 @@ _TRANSLATIONS = {
         "en": "Could not delete the deck. Please try again.",
     },
     "ai_provider_deepseek_note": {
-        "vi": "deepseek-chat = nhanh/rẻ; deepseek-reasoner = suy nghĩ sâu (đắt hơn, chậm hơn).",
-        "en": "deepseek-chat is fast and economical; deepseek-reasoner reasons more deeply but is slower and costs more.",
+        "vi": "DeepSeek V4 Flash = nhanh/tiết kiệm; V4 Pro = chất lượng cao hơn. Alias cũ vẫn có để tương thích cấu hình đã lưu.",
+        "en": "DeepSeek V4 Flash is fast and economical; V4 Pro targets higher quality. Legacy aliases remain for saved configurations.",
     },
     "ai_provider_openai_note": {
         "vi": "Các model GPT và o-series chính thức của OpenAI.",
@@ -2231,12 +2391,12 @@ _TRANSLATIONS = {
         "en": "Bento Forge uses an OpenAI-compatible API. For Anthropic, use a compatible proxy (such as LiteLLM / 1Backend) or set the API Base URL to your proxy.",
     },
     "ai_provider_openrouter_note": {
-        "vi": "Một key dùng được model từ nhiều hãng. Chú ý định dạng tên model: vendor/model-name.",
-        "en": "One key provides models from many vendors. Use the vendor/model-name format.",
+        "vi": "Một key dùng được model từ nhiều hãng. `~openai/gpt-latest` tự theo flagship OpenAI mới nhất; model khác dùng vendor/model-name.",
+        "en": "One key provides models from many vendors. `~openai/gpt-latest` tracks the newest OpenAI flagship; other models use vendor/model-name.",
     },
     "ai_provider_ollama_note": {
-        "vi": "Chạy hoàn toàn trên máy — không cần API Key. Cài model bằng `ollama pull llama3.1`.",
-        "en": "Runs entirely on your computer — no API Key required. Install a model with `ollama pull llama3.1`.",
+        "vi": "Chạy hoàn toàn trên máy — không cần API Key. Cài model bằng `ollama pull qwen3.5`.",
+        "en": "Runs entirely on your computer — no API Key required. Install a model with `ollama pull qwen3.5`.",
     },
     "ai_provider_lmstudio_note": {
         "vi": "Mở LM Studio → Start Server. Bạn có thể đổi tên model trong ô Model thành model đã tải.",

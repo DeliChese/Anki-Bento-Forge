@@ -81,7 +81,7 @@ def extra_fields_block(cfg: dict, base_fields=None, side: str = "back") -> str:
             'border-top:1px dashed rgba(127,140,141,.35);">'
             '<div class="ef-label" style="font-size:10px;font-weight:700;color:#95a5a6;'
             'letter-spacing:1px;text-transform:uppercase;margin-bottom:4px;">%s</div>'
-            '<div class="ef-value" style="font-size:15px;line-height:1.6;color:inherit;">%s</div>'
+            '<div class="ef-value" style="font-size:15px;line-height:1.6;color:inherit;">{{%s}}</div>'
             '</div>'
             '{{/%s}}' % (f, f, f, f)
         )

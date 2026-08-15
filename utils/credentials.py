@@ -24,10 +24,16 @@ def get_secret_store_install_command() -> str:
     return f"python -m pip install {_KEYRING_REQUIREMENT}"
 
 
-def _account_name() -> str:
-    """Keep profile credentials separate without exposing a profile path."""
+def _account_name(provider: Optional[str] = None) -> str:
+    """Keep credentials isolated by profile and provider without exposing either."""
     fingerprint = hashlib.sha256(get_user_data_dir().encode("utf-8")).hexdigest()
-    return f"api-key:{fingerprint[:24]}"
+    account = f"api-key:{fingerprint[:24]}"
+    # ``None`` deliberately retains the pre-V17.2 account name for one-time
+    # migration. Every newly saved credential always gets a provider suffix.
+    if provider is not None:
+        provider_fingerprint = hashlib.sha256(str(provider).encode("utf-8")).hexdigest()
+        account += f":{provider_fingerprint[:20]}"
+    return account
 
 
 def _get_keyring():
@@ -51,39 +57,39 @@ def get_secret_store_status() -> Dict[str, object]:
     }
 
 
-def load_api_key() -> Optional[str]:
-    """Read a profile-scoped API key, returning ``None`` on any safe failure."""
+def load_api_key(provider: Optional[str] = None) -> Optional[str]:
+    """Read one profile/provider API key, returning ``None`` on safe failure."""
     keyring = _get_keyring()
     if keyring is None:
         return None
     try:
-        return keyring.get_password(_SERVICE_NAME, _account_name()) or ""
+        return keyring.get_password(_SERVICE_NAME, _account_name(provider)) or ""
     except Exception:
         logger.warning("OS credential store could not read the Bento Forge API key")
         return None
 
 
-def save_api_key(api_key: str) -> bool:
-    """Persist an API key only through the OS credential store."""
+def save_api_key(api_key: str, provider: Optional[str] = None) -> bool:
+    """Persist one provider API key only through the OS credential store."""
     keyring = _get_keyring()
     if keyring is None:
         logger.warning("No OS credential store is available; API key was not persisted")
         return False
     try:
-        keyring.set_password(_SERVICE_NAME, _account_name(), api_key)
+        keyring.set_password(_SERVICE_NAME, _account_name(provider), api_key)
         return True
     except Exception:
         logger.warning("OS credential store could not save the Bento Forge API key")
         return False
 
 
-def delete_api_key() -> bool:
-    """Delete the profile-scoped key; an absent key is already a success."""
+def delete_api_key(provider: Optional[str] = None) -> bool:
+    """Delete one provider key; an absent key is already a success."""
     keyring = _get_keyring()
     if keyring is None:
         return False
     try:
-        keyring.delete_password(_SERVICE_NAME, _account_name())
+        keyring.delete_password(_SERVICE_NAME, _account_name(provider))
     except Exception:
         # Keyring backends do not share a portable "not found" exception type.
         return True

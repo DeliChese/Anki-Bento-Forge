@@ -8,6 +8,7 @@ _KOREAN_JSON_TEMPLATE = """{
   "front": "먹다",
   "romanization": "meokda",
   "meaning": "ăn",
+  "usage_note": "Cụm quen: 밥을 먹다",
   "sino_vietnamese": "",
   "topik_level": "TOPIK I",
   "topic": "Động từ",
@@ -26,7 +27,7 @@ MẪU:
 {_KOREAN_JSON_TEMPLATE}
 
 LUẬT:
-1. Đủ 12 trường; thiếu → "". example_romanization & example_2_romanization LUÔN phải có, romanization chuẩn (Revised Romanization); thiếu → từ không hợp lệ.
+1. Đủ 12 trường cốt lõi + usage_note khi cần (collocation/register, ≤8 từ); romanization ví dụ chuẩn.
 2. VÍ DỤ CÓ HỒN + ĐÚNG CẤP ĐỘ (quan trọng nhất):
    - Ex1: khẩu ngữ đời thực (cà phê, nhắn tin, than thở, MXH...), cảm xúc thật, kết thúc câu tự nhiên (어요/아요/거야/잖아).
    - Ex2: trang trọng, lịch sự (습니다/존댓말).
@@ -43,6 +44,7 @@ _KOREAN_JSON_TEMPLATE_EN = """{
   "front": "먹다",
   "romanization": "meokda",
   "meaning": "to eat",
+  "usage_note": "Common phrase: 밥을 먹다",
   "sino-vietnamese": "",
   "topik_level": "TOPIK I",
   "topic": "Verb",
@@ -61,7 +63,7 @@ TEMPLATE:
 {_KOREAN_JSON_TEMPLATE_EN}
 
 RULES:
-1. Fill all 12 fields; missing → "". example_romanization & example_2_romanization ALWAYS required, standard Revised Romanization; missing → invalid entry.
+1. Fill 12 core fields + usage_note only when useful (collocation/register, ≤8 words); example romanization is standard Revised Romanization.
 2. VIVID EXAMPLES MATCHING THE LEVEL (most important):
    - Ex1: real-life casual speech (coffee, texting, venting, social media...), genuine emotion, natural endings (어요/아요/거야/잖아).
    - Ex2: formal, polite (습니다/존댓말).
@@ -100,7 +102,7 @@ LUẬT:
 1. Đủ 13 trường; thiếu → "". example_romanization & example_2_romanization LUÔN phải có, romanization chuẩn (Revised Romanization).
 2. pattern: cấu trúc CHÍNH — LUÔN viết bằng HANGUL gốc, ghi rõ chỗ điền bằng "~" hoặc ký hiệu loại từ (V/A/N). KHÔNG dùng romanization làm pattern (VD viết "~아/어요", không viết "a/eoyo").
 3. romanization: phiên âm phần cấu trúc.
-4. usage: CÔNG THỨC ghép dễ nhớ (VD: "Động từ + 아요/어요").
+4. usage: CÔNG THỨC ghép dễ nhớ; thêm collocation/register chỉ khi làm rõ cách dùng (≤12 từ).
 5. explanation: TỐI ĐA 2 câu — cách dùng + sắc thái + lỗi người Việt hay mắc + đồng nghĩa (nếu có). Gọn.
 6. VÍ DỤ CÓ HỒN + ĐÚNG CẤP ĐỘ:
    - Ex1: khẩu ngữ đời thực, cảm xúc thật. Ex2: trang trọng, lịch sự.
@@ -140,7 +142,7 @@ RULES:
 1. Fill all 13 fields; missing → "". example_romanization & example_2_romanization ALWAYS required, standard Revised Romanization.
 2. pattern: the MAIN structure — ALWAYS in original Hangul, mark slots with "~" or word-type symbols (V/A/N). NEVER use romanization as pattern (write "~아/어요", not "a/eoyo").
 3. romanization: romanization of the structure part.
-4. usage: a memorable formula (e.g. "Verb + 아요/어요").
+4. usage: a memorable formula; add a collocation/register note only when it clarifies use (≤12 words).
 5. explanation: MAX 2 sentences — usage + nuance + common learner mistakes + synonyms (if any). Concise.
 6. VIVID EXAMPLES MATCHING THE LEVEL:
    - Ex1: real-life casual speech, genuine emotion. Ex2: formal, polite.

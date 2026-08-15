@@ -13,6 +13,7 @@ import re
 import hashlib
 import time
 import base64
+from urllib.parse import urlparse
 from typing import Optional, Callable, List
 
 from .credentials import delete_api_key, get_secret_store_status, load_api_key, save_api_key
@@ -36,6 +37,7 @@ from .ai_result_cache import (
 )
 from .ai_response_parser import parse_ai_json_with_comment as _parse_ai_json_with_comment
 from .ai_response_guard import enable_deepseek_json_output, get_final_model_content
+from .ai_usage_history import record_usage as _record_usage
 from .user_data import (
     atomic_write_json,
     get_user_data_path,
@@ -186,7 +188,14 @@ def ensure_ai_session_budget(text: str) -> dict:
     return estimate
 
 
-def _record_token_info(token_info: dict) -> None:
+def _record_token_info(
+    token_info: dict,
+    *,
+    operation: str = "unknown",
+    started_at: Optional[float] = None,
+    duration_seconds: Optional[float] = None,
+) -> None:
+    """Update session counters and retain safe metadata for the usage dialog."""
     if not token_info:
         return
     get_ai_session_policy().record(token_info)
@@ -198,6 +207,12 @@ def _record_token_info(token_info: dict) -> None:
         _COST_STATE["last"] = dict(token_info)
     except (AttributeError, TypeError, ValueError):
         pass
+    _record_usage(
+        token_info,
+        operation=operation,
+        started_at=started_at,
+        duration_seconds=duration_seconds,
+    )
 
 
 # ═══════════════════════════════════════════════════════════
@@ -218,14 +233,29 @@ def get_api_key_storage_status() -> dict:
     return get_secret_store_status()
 
 
-def _migrate_legacy_api_key(cfg: dict) -> str:
+def _api_key_scope(provider: str = "", api_base: str = "") -> str:
+    """Build a stable credential scope; custom endpoints stay separate too."""
+    provider_id = (provider or "").strip().lower()
+    if provider_id and provider_id != "__custom__":
+        return provider_id
+    host = urlparse(api_base or "").netloc.lower()
+    return f"custom:{host}" if host else "default"
+
+
+def get_api_key_for_provider(provider: str = "", api_base: str = "") -> str:
+    """Read the key owned by one provider without changing the active config."""
+    return load_api_key(_api_key_scope(provider, api_base)) or ""
+
+
+def _migrate_legacy_api_key(cfg: dict, provider_scope: str) -> str:
     """Move a historical plaintext/Fernet/XOR value out of JSON exactly once."""
     legacy_value = cfg.pop("api_key", "")
     if not legacy_value:
         return ""
     api_key = _decrypt_legacy_api_key(legacy_value)
-    if api_key and save_api_key(api_key):
+    if api_key and save_api_key(api_key, provider_scope):
         cfg["api_key_storage"] = "keyring"
+        cfg["api_key_provider_migration_done"] = True
         logger.info("Migrated API key from legacy configuration to OS credential store")
         _save_config(cfg)
         return api_key
@@ -277,10 +307,21 @@ def get_api_config() -> dict:
         cfg["session_max_input_chars"] = 90_000
         cfg["session_max_tokens"] = 120_000
         cfg["session_max_cost_usd"] = 2.0
+    provider_scope = _api_key_scope(cfg.get("provider", ""), cfg.get("api_base", ""))
     if "api_key" in cfg:
-        resolved_api_key = _migrate_legacy_api_key(cfg)
+        resolved_api_key = _migrate_legacy_api_key(cfg, provider_scope)
     elif cfg.get("api_key_storage") == "keyring":
-        resolved_api_key = load_api_key() or ""
+        resolved_api_key = load_api_key(provider_scope) or ""
+        # Move the one pre-V17.2 generic key into the provider that was active
+        # when the user upgrades. It is never used as a fallback afterwards,
+        # so selecting another provider cannot expose the previous key.
+        if not resolved_api_key and not cfg.get("api_key_provider_migration_done"):
+            legacy_key = load_api_key() or ""
+            if legacy_key and save_api_key(legacy_key, provider_scope):
+                delete_api_key()
+                resolved_api_key = legacy_key
+            cfg["api_key_provider_migration_done"] = True
+            _save_config(cfg)
     else:
         resolved_api_key = ""
     # Keep the returned runtime value separate from the persisted dictionary.
@@ -310,18 +351,21 @@ def save_api_config(api_key: str, api_base: str, model: str, temperature: float 
 
     api_key = api_key.strip()
     key_saved = True
+    provider_id = (provider or "").strip()
+    provider_scope = _api_key_scope(provider_id, api_base)
     if api_key:
-        key_saved = save_api_key(api_key)
+        key_saved = save_api_key(api_key, provider_scope)
         key_storage = "keyring" if key_saved else "unavailable"
     else:
-        delete_api_key()
+        delete_api_key(provider_scope)
         key_storage = "none"
 
     cfg = {
         "api_key_storage": key_storage,
         "api_base": api_base,
         "model": model,
-        "provider": (provider or "").strip(),
+        "provider": provider_id,
+        "api_key_provider_migration_done": True,
         "temperature": temperature,
         "max_tokens": 8192,
         "max_chars": max_chars,
@@ -366,17 +410,34 @@ def _check_truncated_output(content: str, progress_callback: Optional[Callable[[
 
 # DeepSeek pricing per 1M tokens (USD)
 _DEEPSEEK_PRICING = {
+    "deepseek-v4-flash": (0.14, 0.28),   # current price as of 2026-08-15
+    "deepseek-v4-pro":   (0.435, 0.87),
     "deepseek-chat":      (0.14, 0.28),   # input, output
     "deepseek-reasoner":  (0.55, 2.19),
 }
 
 
-def _calculate_cost(model: str, prompt_tokens: int, completion_tokens: int) -> dict:
-    """Tính chi phí USD từ token usage. Trả về dict đầy đủ thông tin."""
+def _calculate_cost(
+    model: str, prompt_tokens: int, completion_tokens: int, provider_cost=None
+) -> dict:
+    """Calculate cost from configured pricing, preferring provider-reported cost."""
     input_price, output_price = _DEEPSEEK_PRICING.get(model, (0.14, 0.28))
     input_cost = (prompt_tokens / 1_000_000) * input_price
     output_cost = (completion_tokens / 1_000_000) * output_price
     total = input_cost + output_cost
+    cost_source = "configured_price"
+    try:
+        reported_cost = float(provider_cost)
+        if reported_cost >= 0:
+            if total > 0:
+                input_cost = reported_cost * input_cost / total
+                output_cost = reported_cost - input_cost
+            else:
+                input_cost, output_cost = reported_cost, 0.0
+            total = reported_cost
+            cost_source = "provider_reported"
+    except (TypeError, ValueError):
+        pass
     return {
         "model": model,
         "prompt_tokens": prompt_tokens,
@@ -385,6 +446,7 @@ def _calculate_cost(model: str, prompt_tokens: int, completion_tokens: int) -> d
         "input_cost": round(input_cost, 6),
         "output_cost": round(output_cost, 6),
         "total_cost": round(total, 6),
+        "cost_source": cost_source,
     }
 
 
@@ -683,6 +745,8 @@ def extract_vocabulary_with_ai(
         progress_callback(t("status_waiting_ai"))
 
     _timeout = 600 if "reasoner" in cfg.get("model", "") else 300
+    request_started_at = time.time()
+    request_started_monotonic = time.monotonic()
     body = _http_post_json(url, payload, headers, timeout=_timeout,
                            progress_callback=progress_callback, should_abort=should_abort)
 
@@ -698,8 +762,14 @@ def extract_vocabulary_with_ai(
             cfg["model"],
             usage.get("prompt_tokens", 0),
             usage.get("completion_tokens", 0),
+            usage.get("cost"),
         )
-        _record_token_info(token_info)
+        _record_token_info(
+            token_info,
+            operation="vocab_extraction",
+            started_at=request_started_at,
+            duration_seconds=time.monotonic() - request_started_monotonic,
+        )
         if token_callback:
             try:
                 token_callback(token_info)
@@ -1036,6 +1106,8 @@ def chat_with_ai(
         progress_callback(t("status_waiting_ai"))
 
     _timeout = 600 if "reasoner" in cfg.get("model", "") else 300
+    request_started_at = time.time()
+    request_started_monotonic = time.monotonic()
     try:
         body = _http_post_json(url, payload, headers, timeout=_timeout,
                                progress_callback=progress_callback, should_abort=should_abort)
@@ -1055,8 +1127,14 @@ def chat_with_ai(
             cfg["model"],
             usage.get("prompt_tokens", 0),
             usage.get("completion_tokens", 0),
+            usage.get("cost"),
         )
-        _record_token_info(token_info)
+        _record_token_info(
+            token_info,
+            operation="ai_chat",
+            started_at=request_started_at,
+            duration_seconds=time.monotonic() - request_started_monotonic,
+        )
     
     msg = result["choices"][0]["message"]
     content = msg.get("content", "") or ""
@@ -1300,6 +1378,8 @@ def extract_grammar_with_ai(
         progress_callback(t("status_waiting_ai"))
 
     _timeout = 600 if "reasoner" in cfg.get("model", "") else 300
+    request_started_at = time.time()
+    request_started_monotonic = time.monotonic()
     body = _http_post_json(url, payload, headers, timeout=_timeout,
                            progress_callback=progress_callback, should_abort=should_abort)
 
@@ -1315,8 +1395,14 @@ def extract_grammar_with_ai(
             cfg["model"],
             usage.get("prompt_tokens", 0),
             usage.get("completion_tokens", 0),
+            usage.get("cost"),
         )
-        _record_token_info(token_info)
+        _record_token_info(
+            token_info,
+            operation="grammar_extraction",
+            started_at=request_started_at,
+            duration_seconds=time.monotonic() - request_started_monotonic,
+        )
         if token_callback:
             try:
                 token_callback(token_info)

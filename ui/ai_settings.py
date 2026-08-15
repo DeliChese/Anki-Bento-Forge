@@ -60,6 +60,7 @@ except ImportError:
 from utils.ai_extractor import (
     clear_cache,
     get_api_config,
+    get_api_key_for_provider,
     get_api_key_storage_status,
     save_api_config,
 )
@@ -378,7 +379,11 @@ def show_ai_settings_dialog(parent):
         if secret_store["available"]
         else "ai_set_secret_store_unavailable"
     )
-    secret_store_text = t(secret_store_key, command=secret_store["install_command"])
+    secret_store_text = (
+        t(secret_store_key, command=secret_store["install_command"])
+        + "<br>"
+        + t("ai_set_provider_key_note")
+    )
     secret_store_note = QLabel(secret_store_text)
     secret_store_note.setWordWrap(True)
     secret_store_note.setStyleSheet(
@@ -541,6 +546,10 @@ def show_ai_settings_dialog(parent):
         else:
             txt_key.setPlaceholderText(t("ai_set_api_key_placeholder"))
             lbl_provider_note.setText(t("ai_set_provider_custom_note"))
+
+        # Credentials are stored per provider, not in the active provider's
+        # config. Switching provider must therefore swap the visible key too.
+        txt_key.setText(get_api_key_for_provider(provider_id, txt_base.text().strip()))
 
         # Model combo: chỉ model của provider
         cbo_model.blockSignals(True)

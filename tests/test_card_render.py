@@ -96,6 +96,7 @@ class TestExtraFieldsBlock:
         assert "English Meaning" in block
         assert "{{#English Meaning}}" in block
         assert "{{/English Meaning}}" in block
+        assert "{{English Meaning}}" in block
         assert "class=\"ef\"" in block
 
     def test_front_block_empty_by_default(self):
@@ -142,3 +143,13 @@ class TestBuildQfmtAfmt:
         tmpls = ['<div>{{Front}}</div>', '<div>{{Meaning}}</div>']
         a = build_afmt(_cfg(), tmpls, 1)
         assert "English Meaning" in a
+
+    def test_default_vocab_usage_note_renders_on_back(self):
+        """B6: field mặc định được renderer thêm vào mặt sau và rỗng thì tự ẩn."""
+        from Language import LANG_CONFIG
+        from mode.templates import LANG_TEMPLATES
+
+        for lang, cfg in LANG_CONFIG.items():
+            back = build_afmt(cfg, LANG_TEMPLATES[lang], 1)
+            assert "{{#Usage Note}}" in back
+            assert "{{Usage Note}}" in back

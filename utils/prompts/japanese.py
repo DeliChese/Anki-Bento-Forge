@@ -8,6 +8,7 @@ _JAPANESE_JSON_TEMPLATE = """{
   "front": "食べる",
   "furigana": "たべる",
   "meaning": "ăn",
+  "usage_note": "Thường đi với ご飯",
   "sino-vietnamese": "thực",
   "jlptlevel": "N5",
   "topic": "Động từ",
@@ -24,7 +25,7 @@ MẪU:
 {_JAPANESE_JSON_TEMPLATE}
 
 LUẬT:
-1. Đủ 10 trường; thiếu → "".
+1. Đủ 10 trường cốt lõi + usage_note khi cần (collocation/register, ≤8 từ).
 2. VÍ DỤ CÓ HỒN + ĐÚNG CẤP ĐỘ (quan trọng nhất):
    - Ex1: khẩu ngữ đời thực (quán cà phê, LINE, than thở, MXH...), cảm xúc thật, trợ từ cuối câu tự nhiên (よ/ね/よね/じゃん).
    - Ex2: trang trọng, lịch sự (です・ます/敬語).
@@ -41,6 +42,7 @@ _JAPANESE_JSON_TEMPLATE_EN = """{
   "front": "食べる",
   "furigana": "たべる",
   "meaning": "to eat",
+  "usage_note": "Often used with ご飯",
   "sino-vietnamese": "",
   "jlptlevel": "N5",
   "topic": "Verb",
@@ -57,7 +59,7 @@ TEMPLATE:
 {_JAPANESE_JSON_TEMPLATE_EN}
 
 RULES:
-1. Fill all 10 fields; leave missing → "".
+1. Fill 10 core fields + usage_note only when useful (collocation/register, ≤8 words).
 2. VIVID EXAMPLES MATCHING THE LEVEL (most important):
    - Ex1: real-life casual speech (café, texting, venting, social media...), genuine emotion, natural sentence-final particles (よ/ね/よね/じゃん).
    - Ex2: formal, polite (です・ます/keigo).
@@ -94,7 +96,7 @@ LUẬT:
 1. Đủ 11 trường; thiếu → "".
 2. pattern: cấu trúc CHÍNH — LUÔN viết bằng CHỮ GỐC (kanji + kana), ghi rõ chỗ điền bằng "〜" hoặc ký hiệu loại từ (V/イA/ナA/N). KHÔNG dùng romaji (VD viết "〜てもいい", không viết "te mo ii").
 3. reading: cách đọc nếu là từ/trợ từ cụ thể; bỏ trống nếu cấu trúc có biến tố.
-4. usage: CÔNG THỨC ghép dễ nhớ (VD: "Vて + もいいです").
+4. usage: CÔNG THỨC ghép dễ nhớ; thêm collocation/register chỉ khi làm rõ cách dùng (≤12 từ).
 5. explanation: TỐI ĐA 2 câu — cách dùng + sắc thái + lỗi người Việt hay mắc + đồng nghĩa/trái nghĩa (nếu có). Gọn, không lan man.
 6. VÍ DỤ CÓ HỒN + ĐÚNG CẤP ĐỘ:
    - Ex1: khẩu ngữ đời thực (普通体), cảm xúc thật, trợ từ よ/ね/よね.
@@ -132,7 +134,7 @@ RULES:
 1. Fill all 11 fields; missing → "".
 2. pattern: the MAIN structure — ALWAYS in original characters (kanji + kana), mark slots with "〜" or word-type symbols (V/イA/ナA/N). NEVER romaji (write "〜てもいい", not "te mo ii").
 3. reading: how to read if a concrete word/particle; leave empty for inflected structures.
-4. usage: a memorable formula (e.g. "Vて + もいいです").
+4. usage: a memorable formula; add a collocation/register note only when it clarifies use (≤12 words).
 5. explanation: MAX 2 sentences — usage + nuance + common learner mistakes + synonyms/antonyms (if any). Concise.
 6. VIVID EXAMPLES MATCHING THE LEVEL:
    - Ex1: real-life casual speech (普通体), genuine emotion, particles よ/ね/よね.

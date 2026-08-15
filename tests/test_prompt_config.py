@@ -231,6 +231,18 @@ class TestFieldMap:
         assert fm["meaning"] == "Meaning"
         assert fm["jlptlevel"] == "JLPT Level"
 
+    def test_vocab_usage_note_is_a_default_mapped_field(self, clean_config):
+        """B6: ghi chú cách dùng có schema + field Anki ở cả ba ngôn ngữ."""
+        for lang in LANGS:
+            base = _lang_base(lang, "vocab")
+            template = json.loads(pc.get_json_template(lang, "vocab"))
+            field_map = pc.get_field_map(lang, "vocab", base["json_field_map"])
+
+            assert "usage_note" in template
+            assert field_map["usage_note"] == "Usage Note"
+            assert "Usage Note" in base["all_fields"]
+            assert "usage_note khi cần" in pc.get_system_prompt(lang, "vocab")
+
     def test_override_changes_field_map(self, clean_config):
         pc.save_config({}, field_map={
             "vocab": {"japanese": {"front": "Mặt chữ", "english_meaning": "Nghĩa Anh"}},

@@ -85,3 +85,47 @@ def test_get_api_config_keyring_branch_not_blocked_by_empty_api_key():
         cfg = get_api_config()
 
     assert cfg["api_key"] == "sk-live"
+
+
+def test_provider_keys_use_distinct_credential_scopes():
+    """Saving OpenAI never overwrites the credential belonging to DeepSeek."""
+    from utils.ai_extractor import save_api_config
+
+    with patch("utils.ai_extractor.save_api_key", return_value=True) as save, patch(
+        "utils.ai_extractor._save_config"
+    ):
+        save_api_config("deepseek-key", "https://api.deepseek.com/v1", "deepseek-chat", provider="deepseek")
+        save_api_config("openai-key", "https://api.openai.com/v1", "gpt-4o-mini", provider="openai")
+
+    assert save.call_args_list[0].args == ("deepseek-key", "deepseek")
+    assert save.call_args_list[1].args == ("openai-key", "openai")
+
+
+def test_get_api_key_for_provider_reads_only_its_own_key():
+    from utils.ai_extractor import get_api_key_for_provider
+
+    with patch("utils.ai_extractor.load_api_key", side_effect=lambda scope: {
+        "deepseek": "deepseek-key", "openai": "openai-key",
+    }.get(scope, "")):
+        assert get_api_key_for_provider("deepseek", "https://api.deepseek.com/v1") == "deepseek-key"
+        assert get_api_key_for_provider("openai", "https://api.openai.com/v1") == "openai-key"
+
+
+def test_generic_key_migrates_once_to_the_active_provider():
+    from utils.ai_extractor import get_api_config
+
+    stored = {
+        "api_key_storage": "keyring", "provider": "deepseek",
+        "api_base": "https://api.deepseek.com/v1", "model": "deepseek-chat",
+    }
+    with patch("utils.ai_extractor._load_config", return_value=stored), patch(
+        "utils.ai_extractor.load_api_key", side_effect=["", "legacy-key"]
+    ), patch("utils.ai_extractor.save_api_key", return_value=True) as save, patch(
+        "utils.ai_extractor.delete_api_key"
+    ) as delete, patch("utils.ai_extractor._save_config") as save_config:
+        cfg = get_api_config()
+
+    assert cfg["api_key"] == "legacy-key"
+    assert save.call_args.args == ("legacy-key", "deepseek")
+    delete.assert_called_once_with()
+    assert save_config.call_args.args[0]["api_key_provider_migration_done"] is True

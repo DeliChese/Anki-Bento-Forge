@@ -44,8 +44,9 @@ def test_gemini_models_are_accurate():
     gemini = get_provider("gemini")
     assert gemini is not None
     assert "gemini-3.6-flash" in gemini["models"]
-    assert "gemini-3.6-pro" in gemini["models"]
     assert "gemini-3.5-flash" in gemini["models"]
+    assert "gemini-3.5-flash-lite" in gemini["models"]
+    assert "gemini-3.1-pro-preview" in gemini["models"]
     # OpenAI/DeepSeek models must NOT appear in Gemini list
     assert "gpt-4o-mini" not in gemini["models"]
     assert "deepseek-chat" not in gemini["models"]
@@ -56,6 +57,9 @@ def test_gemini_models_are_accurate():
 def test_deepseek_models_are_accurate():
     provider = get_provider("deepseek")
     assert provider is not None
+    assert "deepseek-v4-flash" in provider["models"]
+    assert "deepseek-v4-pro" in provider["models"]
+    assert provider["default"] == "deepseek-v4-flash"
     assert "deepseek-chat" in provider["models"]
     assert "deepseek-reasoner" in provider["models"]
     assert "gpt-4o-mini" not in provider["models"]
@@ -64,6 +68,7 @@ def test_deepseek_models_are_accurate():
 def test_anthropic_models_are_accurate():
     provider = get_provider("anthropic")
     assert provider is not None
+    assert {"claude-fable-5", "claude-opus-5", "claude-sonnet-5", "claude-haiku-4-5"}.issubset(provider["models"])
     assert any("claude" in m for m in provider["models"]), "All Anthropic models contain 'claude'"
     assert any("gpt-" in m for m in provider["models"]) is False
 
@@ -72,7 +77,21 @@ def test_openrouter_models_vendor_prefixed():
     provider = get_provider("openrouter")
     assert provider is not None
     for model in provider["models"]:
-        assert "/" in model, "OpenRouter models must be vendor/model"
+        assert "/" in model, "OpenRouter models must be vendor/model or a documented latest alias"
+    assert "~openai/gpt-latest" in provider["models"]
+    assert "deepseek/deepseek-v4-flash" in provider["models"]
+
+
+def test_openai_current_models_are_listed():
+    provider = get_provider("openai")
+    assert provider is not None
+    assert provider["default"] == "gpt-5.6-luna"
+    assert {"gpt-5.6-sol", "gpt-5.6-terra", "gpt-5.6-luna"}.issubset(provider["models"])
+
+
+def test_local_provider_presets_include_current_families():
+    assert {"qwen3.5", "gemma4"}.issubset(get_provider("ollama")["models"])
+    assert {"qwen3.5", "gemma4"}.issubset(get_provider("lmstudio")["models"])
 
 
 def test_detect_provider():
