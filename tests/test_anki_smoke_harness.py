@@ -115,6 +115,140 @@ def test_import_and_undo_use_the_managed_collection_operation(monkeypatch):
     assert report["added_note_ids"] == [42]
 
 
+def _install_fake_operations(monkeypatch, op_class):
+    from utils import anki_ops
+
+    aqt_module = types.ModuleType("aqt")
+    aqt_module.__path__ = []
+    operations_module = types.ModuleType("aqt.operations")
+    operations_module.QueryOp = op_class
+    operations_module.CollectionOp = _Operation
+    monkeypatch.setitem(sys.modules, "aqt", aqt_module)
+    monkeypatch.setitem(sys.modules, "aqt.operations", operations_module)
+    importlib.reload(anki_ops)
+    return anki_ops
+
+
+def test_run_query_supports_new_anki_signature(monkeypatch):
+    """Anki >= 25.09: QueryOp.__init__ requires `success` as keyword-only.
+
+    Regression: older code used QueryOp(...).success(...).failure(...), which
+    raises TypeError: missing 1 required keyword-only argument: 'success'.
+    """
+
+    class _NewQueryOp:
+        def __init__(self, *, parent, op, success):
+            self.parent = parent
+            self.op = op
+            self.success_callback = success
+            self.failure_callback = None
+            self.ran = False
+
+        def failure(self, callback):
+            self.failure_callback = callback
+            return self
+
+        def run_in_background(self):
+            self.ran = True
+            return self
+
+    anki_ops = _install_fake_operations(monkeypatch, _NewQueryOp)
+    op = anki_ops.run_query(
+        "parent", lambda col: {"n": 1}, lambda result: None, lambda exc: None
+    )
+
+    assert op.ran is True
+    assert op.parent == "parent"
+    assert op.op(MagicMock()) == {"n": 1}
+    assert op.success_callback is not None
+    assert op.failure_callback is not None
+
+
+def test_run_query_falls_back_to_legacy_chained_success(monkeypatch):
+    """Older Anki: QueryOp exposes .success() as a chained method."""
+
+    class _LegacyQueryOp:
+        def __init__(self, *, parent, op):
+            self.parent = parent
+            self.op = op
+            self.success_callback = None
+            self.failure_callback = None
+            self.ran = False
+
+        def success(self, callback):
+            self.success_callback = callback
+            return self
+
+        def failure(self, callback):
+            self.failure_callback = callback
+            return self
+
+        def run_in_background(self):
+            self.ran = True
+            return self
+
+    anki_ops = _install_fake_operations(monkeypatch, _LegacyQueryOp)
+    op = anki_ops.run_query(
+        "parent", lambda col: {"n": 1}, lambda result: None, lambda exc: None
+    )
+
+    assert op.ran is True
+    assert op.success_callback is not None
+    assert op.failure_callback is not None
+
+
+def test_run_collection_wraps_dict_result_with_changes(monkeypatch):
+    """Anki >= 25: CollectionOp kết quả dict phải được bọc `.changes`.
+
+    Regression: Anki 25.09+ gọi `on_op_finished` → `result.changes`; op cũ trả
+    dict → AttributeError: 'dict' object has no attribute 'changes'.
+    """
+    from utils import anki_ops
+
+    captured = {}
+
+    class _CollectionOp:
+        def __init__(self, *, parent, op):
+            captured["op"] = op
+
+        def success(self, cb):
+            captured["success"] = cb
+            return self
+
+        def failure(self, cb):
+            captured["failure"] = cb
+            return self
+
+        def run_in_background(self):
+            captured["ran"] = True
+            return self
+
+    class _FakeOpChanges:
+        pass
+
+    aqt_module = types.ModuleType("aqt")
+    aqt_module.__path__ = []
+    ops_module = types.ModuleType("aqt.operations")
+    ops_module.CollectionOp = _CollectionOp
+    ops_module.QueryOp = object
+    monkeypatch.setitem(sys.modules, "aqt", aqt_module)
+    monkeypatch.setitem(sys.modules, "aqt.operations", ops_module)
+
+    anki_module = types.ModuleType("anki")
+    coll_module = types.ModuleType("anki.collection")
+    coll_module.OpChanges = _FakeOpChanges
+    monkeypatch.setitem(sys.modules, "anki", anki_module)
+    monkeypatch.setitem(sys.modules, "anki.collection", coll_module)
+
+    importlib.reload(anki_ops)
+    anki_ops.run_collection("p", lambda col: {"added": 1}, lambda _: None, lambda _: None)
+
+    result = captured["op"](MagicMock())
+    assert dict(result) == {"added": 1}
+    assert hasattr(result, "changes")
+    assert isinstance(result.changes, _FakeOpChanges)
+
+
 def test_combo_and_reviewer_hooks_register_through_public_gui_hooks(monkeypatch):
     """Reviewer and WebView enhancements must be independently optional."""
     from hooks import overview_mode, reviewer

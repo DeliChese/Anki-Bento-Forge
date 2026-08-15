@@ -53,3 +53,35 @@ def test_failed_legacy_migration_removes_reversible_value():
     persisted = save.call_args.args[0]
     assert persisted["api_key_storage"] == "unavailable"
     assert "api_key" not in persisted
+
+
+def test_get_api_config_loads_key_from_credential_store():
+    """Khi config khai báo keyring, key phải được đọc lại từ credential store.
+
+    Regression: "api_key" từng nằm trong `defaults` của get_api_config(), khiến
+    `if "api_key" in cfg` luôn đúng và keyring branch không bao giờ chạy → key
+    đã lưu biến mất khi mở lại cài đặt.
+    """
+    from utils.ai_extractor import get_api_config
+
+    stored = {"api_key_storage": "keyring", "model": "model", "api_base": "https://x/v1"}
+    with patch("utils.ai_extractor._load_config", return_value=stored), patch(
+        "utils.ai_extractor.load_api_key", return_value="sk-stored"
+    ):
+        cfg = get_api_config()
+
+    assert cfg["api_key"] == "sk-stored"
+    assert cfg["api_key_storage"] == "keyring"
+
+
+def test_get_api_config_keyring_branch_not_blocked_by_empty_api_key():
+    """Đảm bảo khóa `api_key` không bị defaults chèn vào khiến nhánh keyring bị bỏ qua."""
+    from utils.ai_extractor import get_api_config
+
+    stored = {"api_key_storage": "keyring", "model": "model"}
+    with patch("utils.ai_extractor._load_config", return_value=stored), patch(
+        "utils.ai_extractor.load_api_key", return_value="sk-live"
+    ):
+        cfg = get_api_config()
+
+    assert cfg["api_key"] == "sk-live"

@@ -236,9 +236,13 @@ def _migrate_legacy_api_key(cfg: dict) -> str:
 
 def get_api_config() -> dict:
     defaults = {
-        "api_key": "",
+        # NOTE: "api_key" is intentionally NOT a default here.  The API key is
+        # stored only in the OS credential store; injecting it into `cfg` via
+        # setdefault() made `if "api_key" in cfg` always true, so the keyring
+        # branch below was never reached and a saved key appeared to vanish.
         "api_base": "https://api.openai.com/v1",
         "model": "gpt-4o-mini",
+        "provider": "",
         "temperature": 0.3,
         "max_tokens": 8192,
         # Độ dài nội dung tối đa gửi trong 1 request (ký tự) — DeepSeek 64k context
@@ -286,7 +290,8 @@ def get_api_config() -> dict:
 def save_api_config(api_key: str, api_base: str, model: str, temperature: float = 0.3,
                     max_chars: int = 45000, chunk_size: int = 8000,
                     reasoning_effort: str = "", session_max_input_chars: int = 90000,
-                    session_max_tokens: int = 120000, session_max_cost_usd: float = 2.0):
+                    session_max_tokens: int = 120000, session_max_cost_usd: float = 2.0,
+                    provider: str = ""):
     # Sanitize input
     api_base = api_base.strip().rstrip("/")
     if api_base and not api_base.startswith(("http://", "https://")):
@@ -313,6 +318,7 @@ def save_api_config(api_key: str, api_base: str, model: str, temperature: float 
         "api_key_storage": key_storage,
         "api_base": api_base,
         "model": model,
+        "provider": (provider or "").strip(),
         "temperature": temperature,
         "max_tokens": 8192,
         "max_chars": max_chars,

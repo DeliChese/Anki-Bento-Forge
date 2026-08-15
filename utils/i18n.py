@@ -1305,6 +1305,44 @@ _TRANSLATIONS = {
         "vi": "✅ Kết nối thành công!\n\nModel: {model}\nPhản hồi: {reply}",
         "en": "✅ Connection successful!\n\nModel: {model}\nReply: {reply}",
     },
+    "ai_test_error_timeout": {
+        "vi": (
+            "❌ Lỗi kết nối: Máy chủ phản hồi quá chậm (timeout sau {timeout}s).\n\n"
+            "Nguyên nhân thường gặp:\n"
+            "• Model đang chọn quá chậm (vd model reasoner suy nghĩ lâu)\n"
+            "• Đường truyền mạng chậm hoặc bị chặn\n"
+            "• API Base URL sai hoặc không truy cập được\n\n"
+            "💡 Gợi ý: thử chọn model nhanh hơn, kiểm tra API Base URL, "
+            "hoặc tăng thời gian chờ ở phần Cài Đặt Nâng Cao."
+        ),
+        "en": (
+            "❌ Connection error: Server response timed out (after {timeout}s).\n\n"
+            "Common causes:\n"
+            "• Selected model is too slow (e.g. reasoner models think longer)\n"
+            "• Slow or blocked network connection\n"
+            "• Wrong or unreachable API Base URL\n\n"
+            "💡 Tip: try a faster model, check the API Base URL, "
+            "or increase the timeout in Advanced Settings."
+        ),
+    },
+    "ai_test_error_conn": {
+        "vi": (
+            "❌ Không thể kết nối: {error}\n\n"
+            "Nguyên nhân thường gặp:\n"
+            "• Sai API Base URL hoặc thiếu /v1 ở cuối\n"
+            "• Không có internet hoặc tường lửa/Proxy chặn\n"
+            "• API Key sai hoặc hết hạn\n\n"
+            "💡 Gợi ý: kiểm tra lại Base URL và Key trong mục Provider."
+        ),
+        "en": (
+            "❌ Cannot connect: {error}\n\n"
+            "Common causes:\n"
+            "• Wrong API Base URL or missing /v1 at the end\n"
+            "• No internet, or blocked by firewall/Proxy\n"
+            "• Invalid or expired API Key\n\n"
+            "💡 Tip: double-check the Base URL and Key in the Provider section."
+        ),
+    },
 
     # ── Verify Dialog ────────────────────────────────────
     "verify_new_box": {
@@ -1552,6 +1590,62 @@ _TRANSLATIONS = {
     "ai_set_preset_lm": {
         "vi": "LM Studio (local)",
         "en": "LM Studio (local)",
+    },
+    "ai_set_provider_label": {
+        "vi": "🏭 Nhà cung cấp AI (Preset):",
+        "en": "🏭 AI Provider (Preset):",
+    },
+    "ai_set_provider_tip": {
+        "vi": "Chọn nhà cung cấp AI. Model sẽ tự động hiển thị đúng theo nhà cung cấp.",
+        "en": "Choose an AI provider. Models auto-match the selected provider.",
+    },
+    "ai_set_provider_custom": {
+        "vi": "Tùy chỉnh (Custom)",
+        "en": "Custom",
+    },
+    "ai_set_provider_custom_note": {
+        "vi": "Bạn tự nhập API Base URL + Model tương thích OpenAI (VD: proxy/private gateway).",
+        "en": "Enter an API Base URL + model compatible with OpenAI (e.g. proxy/private gateway).",
+    },
+    "ai_set_glow_tip": {
+        "vi": "✨ Hover vào dropdown (hoặc đổi nhà cung cấp) để xem viền phát sáng chạy quanh 5 giây!",
+        "en": "✨ Hover the dropdown (or switch provider) to see a glow border sweep for 5 seconds!",
+    },
+    "ai_set_effort_tip": {
+        "vi": "Mức độ nỗ lực suy nghĩ của model.\n"
+             "Chỉ áp dụng với model hỗ trợ (OpenAI o1/o3/o4...).\n"
+             "DeepSeek: deepseek-chat = nhanh/rẻ; deepseek-reasoner = suy nghĩ sâu (đắt hơn).\n"
+             "Mức càng cao → chất lượng tốt hơn nhưng tốn NHIỀU token output.",
+        "en": "Model reasoning effort level.\n"
+              "Only applies to supporting models (OpenAI o1/o3/o4...).\n"
+              "DeepSeek: deepseek-chat = fast/cheap; deepseek-reasoner = deep thinking (more expensive).\n"
+              "Higher level → better quality but uses MANY more output tokens.",
+    },
+    "ai_set_chunk_tip": {
+        "vi": "Số ký tự tối đa gửi trong 1 request AI (càng nhỏ càng mịn, chất lượng cao hơn).\n"
+             "Văn bản DÀI HƠN vẫn được xử lý hết (tự chia đoạn) — con số này chỉ là kích thước mỗi lần gọi.\n"
+             "⚠️ ĐỪNG để quá lớn: DeepSeek giới hạn OUTPUT ~8192 token/lần, "
+             "chunk lớn → JSON dễ bị CẮT giữa chừng. Khuyên 6k-8k.",
+        "en": "Max characters sent per AI request (smaller = finer, higher quality).\n"
+              "LONGER text is still fully handled (auto-chunked) — this is just the per-call size.\n"
+              "⚠️ Do NOT set too large: DeepSeek caps OUTPUT at ~8192 tokens/call; "
+              "large chunks → JSON may get CUT. Recommended 6k-8k.",
+    },
+    "ai_set_conn_grp": {
+        "vi": "🔌 Kết nối API",
+        "en": "🔌 API Connection",
+    },
+    "ai_set_gen_grp": {
+        "vi": "⚙️ Tham số sinh",
+        "en": "⚙️ Generation",
+    },
+    "ai_set_session_grp": {
+        "vi": "📊 Chính sách phiên",
+        "en": "📊 Session policy",
+    },
+    "ai_set_cache_grp": {
+        "vi": "🧹 Bộ nhớ đệm",
+        "en": "🧹 Cache",
     },
     "tooltip_cache_cleared": {
         "vi": "✅ Đã xóa toàn bộ cache AI!",
