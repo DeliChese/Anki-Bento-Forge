@@ -5,6 +5,7 @@
 > Các thay đổi đã merge sau 17.1.0. Chỉ chuyển mục này thành bản phát hành khi `manifest.json`, bằng chứng CI và smoke Anki đã sẵn sàng.
 
 ### ✨ Added
+- Bộ benchmark AI có phiên bản hóa cho cùng một danh sách 20 từ tiếng Nhật: đo coverage, cấu trúc có thể đưa vào Xưởng, cảnh báo xác định được, token/chi phí/thời gian mỗi thẻ và rubric review thủ công. Báo cáo local không chứa API key hoặc dữ liệu benchmark riêng.
 - Dữ liệu người dùng (cấu hình, trạng thái Factory, lịch sử import và cache) được lưu theo Anki profile, ghi JSON atomic, có migration/backup và giới hạn dung lượng hoặc TTL.
 - API key sử dụng OS credential store; log tự che API key, token và Authorization header. AI, batch và import có cancellation xuyên suốt để dừng tác vụ dài an toàn hơn.
 - Giới hạn phiên AI theo ký tự đầu vào, token và chi phí; UI hiển thị ước lượng trước khi chạy nhưng chỉ lưu số liệu tổng hợp.

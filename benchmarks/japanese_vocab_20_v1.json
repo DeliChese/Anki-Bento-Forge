@@ -1,0 +1,17 @@
+{
+  "id": "japanese_vocab_20_v1",
+  "language": "japanese",
+  "grammar": false,
+  "expected_terms": [
+    "食べる", "飲む", "見る", "行く", "来る",
+    "学校", "先生", "友達", "大きい", "新しい",
+    "面白い", "速い", "今日", "明日", "時間",
+    "勉強する", "読む", "書く", "聞く", "約束"
+  ],
+  "source_items": [
+    {"front": "食べる"}, {"front": "飲む"}, {"front": "見る"}, {"front": "行く"}, {"front": "来る"},
+    {"front": "学校"}, {"front": "先生"}, {"front": "友達"}, {"front": "大きい"}, {"front": "新しい"},
+    {"front": "面白い"}, {"front": "速い"}, {"front": "今日"}, {"front": "明日"}, {"front": "時間"},
+    {"front": "勉強する"}, {"front": "読む"}, {"front": "書く"}, {"front": "聞く"}, {"front": "約束"}
+  ]
+}

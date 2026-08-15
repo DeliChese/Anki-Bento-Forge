@@ -99,7 +99,7 @@ body = _http_post_json(url, payload, headers, timeout=_timeout, progress_callbac
 ## TRAPS (lỗi thường gặp)
 
 1. **JSON output bị cắt** (DeepSeek ~8192 token): chunk mặc định 8k, cap 15k. `_check_truncated_output`:346 cảnh báo. → Đừng tăng chunk >15k.
-2. **Reasoner model content rỗng**: fallback lấy `reasoning_content` (711, 1069, 1328). Giữ logic này.
+2. **Reasoner model content rỗng**: `reasoning_content` là chuỗi suy luận, không dùng làm dữ liệu thẻ. Card flow phải chỉ dùng final `content` qua `utils/ai_response_guard.py`; báo lỗi rõ nếu chỉ có reasoning hoặc `finish_reason == "length"`.
 3. **API key encryption**: `save_api_config` mã hóa `f:`/`x:`; `get_api_config` decrypt. Không lưu plaintext mới.
 4. **max_chars sàn 10k / chunk sàn 3k** — bị clamp trong `get_api_config` (257-263). Test `test_length_and_reasoning.py` kiểm tra.
 5. **Retry/timeout**: `_http_post_json` có retry; model reasoner timeout 600s.

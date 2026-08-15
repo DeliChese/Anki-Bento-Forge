@@ -1,7 +1,7 @@
 # Phase A — Tối ưu chi phí AI
 
 > **Nguồn:** `ACADEMIC_ASSESSMENT.md` — Phase A (Ưu tiên #1 — SỐNG CÒN)
-> **Trạng thái:** `Đã rà soát 2026-08-15` — một số cơ chế đã có; chỉ tiếp tục các hạng mục đo được bằng benchmark thực tế.
+> **Trạng thái:** `Đang benchmark 2026-08-15` — có bộ mẫu phiên bản hóa để so sánh model trước khi thay đổi chi phí hoặc routing.
 > **Mục tiêu:** Giảm token/chi phí tối đa cho free tier
 
 ## Bối cảnh
@@ -145,6 +145,14 @@ Free tier rất hạn chế — tối ưu token/chi phí là ưu tiên #1, khôn
 ## Thứ tự thực hiện bắt buộc
 
 Benchmark → A3/A4 có bằng chứng → A1 (nếu người dùng bật routing) → A5 health-check → A7 theo provider. A2 không thực hiện.
+
+### 2026-08-15 — Phase A / benchmark nền tảng
+
+- Trạng thái: `Hoàn thành` — sẵn sàng thu dữ liệu thực tế từng model.
+- Phạm vi: `utils/ai_benchmark.py`, `scripts/benchmark_ai_models.py`, `benchmarks/`.
+- Thay đổi: cố định case 20 từ Nhật; tách điểm tự động (factory readiness) khỏi review nghĩa và ví dụ thủ công; ghi chi phí theo delta và cache hit/miss.
+- Kiểm chứng: `tests/test_ai_benchmark.py`.
+- Rủi ro còn lại / bước kế tiếp: chạy Gemini Flash, DeepSeek Chat, DeepSeek Reasoner trên đúng case/cache miss rồi mới quyết định routing hoặc nén prompt.
 
 ## Mẫu cập nhật cho phiên tiếp theo
 
