@@ -31,6 +31,7 @@ from .ai_extractor import (
     is_openrouter,
 )
 from .ai_response_parser import parse_ai_json_with_comment as _parse_ai_json_with_comment
+from .ai_response_guard import enable_deepseek_json_output, get_final_model_content
 from .ai_http_client import (
     get_rate_limit_delay as _get_rate_limit_delay,
     post_json as _http_post_json,
@@ -421,6 +422,7 @@ def _call_ai_for_batch(
         "max_tokens": cfg.get("max_tokens", 8192),
     }
     _apply_reasoning_effort(payload, cfg)
+    enable_deepseek_json_output(payload, cfg)
     
     api_base = cfg["api_base"].rstrip("/")
     url = f"{api_base}/chat/completions"
@@ -440,13 +442,7 @@ def _call_ai_for_batch(
     if "choices" not in result or len(result["choices"]) == 0:
         raise RuntimeError(t("error_api_no_result", details=body[:500]))
     
-    content = result["choices"][0]["message"].get("content", "") or ""
-    
-    # DeepSeek Reasoner fallback
-    if not content.strip():
-        reasoning = result["choices"][0]["message"].get("reasoning_content", "") or ""
-        if reasoning.strip():
-            content = reasoning.strip()
+    content = get_final_model_content(result["choices"][0])
     
     vocab_list, comment = _parse_ai_json_with_comment(
         content, lambda preview: t("error_ai_json_parse", content=preview)

@@ -2336,6 +2336,14 @@ _TRANSLATIONS = {
         "vi": "❌ Model không trả về nội dung (content rỗng).",
         "en": "❌ The model returned no content.",
     },
+    "error_model_final_empty": {
+        "vi": "❌ Model chỉ trả về phần suy luận, không có câu trả lời cuối cùng để tạo thẻ. Hãy dùng model chat hoặc giảm số mục mỗi lượt.",
+        "en": "❌ The model returned reasoning only, without a final answer to create cards. Use a chat model or reduce the items per request.",
+    },
+    "error_model_output_truncated": {
+        "vi": "❌ Model đã chạm giới hạn token đầu ra; JSON chưa hoàn chỉnh. Hãy giảm số mục hoặc độ dài xử lý mỗi lượt rồi thử lại.",
+        "en": "❌ The model hit its output-token limit, so the JSON is incomplete. Reduce the items or chunk size per request and try again.",
+    },
     "status_parsing_json": {
         "vi": "🔍 Đang phân tích JSON...",
         "en": "🔍 Parsing JSON...",

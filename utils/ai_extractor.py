@@ -35,6 +35,7 @@ from .ai_result_cache import (
     set_cached_result as _set_cached_ai_result,
 )
 from .ai_response_parser import parse_ai_json_with_comment as _parse_ai_json_with_comment
+from .ai_response_guard import enable_deepseek_json_output, get_final_model_content
 from .user_data import (
     atomic_write_json,
     get_user_data_path,
@@ -669,6 +670,7 @@ def extract_vocabulary_with_ai(
         "max_tokens": cfg.get("max_tokens", 8192),
     }
     _apply_reasoning_effort(payload, cfg)
+    enable_deepseek_json_output(payload, cfg)
 
     api_base = cfg["api_base"].rstrip("/")
     url = f"{api_base}/chat/completions"
@@ -704,18 +706,7 @@ def extract_vocabulary_with_ai(
             except Exception:
                 pass
 
-    msg = result["choices"][0]["message"]
-    content = msg.get("content", "") or ""
-
-    # DeepSeek Reasoner: nếu content rỗng, thử lấy reasoning_content
-    if not content.strip():
-        reasoning = msg.get("reasoning_content", "") or ""
-        if reasoning.strip():
-            content = reasoning.strip()
-            if progress_callback:
-                progress_callback(t("status_reasoning_fallback"))
-        else:
-            raise RuntimeError(t("error_model_empty"))
+    content = get_final_model_content(result["choices"][0])
 
     if progress_callback:
         progress_callback(t("status_parsing_json"))
@@ -1296,6 +1287,7 @@ def extract_grammar_with_ai(
         "max_tokens": cfg.get("max_tokens", 8192),
     }
     _apply_reasoning_effort(payload, cfg)
+    enable_deepseek_json_output(payload, cfg)
 
     api_base = cfg["api_base"].rstrip("/")
     url = f"{api_base}/chat/completions"
@@ -1331,18 +1323,7 @@ def extract_grammar_with_ai(
             except Exception:
                 pass
 
-    msg = result["choices"][0]["message"]
-    content = msg.get("content", "") or ""
-
-    # DeepSeek Reasoner: nếu content rỗng, thử lấy reasoning_content
-    if not content.strip():
-        reasoning = msg.get("reasoning_content", "") or ""
-        if reasoning.strip():
-            content = reasoning.strip()
-            if progress_callback:
-                progress_callback(t("status_reasoning_fallback"))
-        else:
-            raise RuntimeError(t("error_model_empty"))
+    content = get_final_model_content(result["choices"][0])
 
     if progress_callback:
         progress_callback(t("status_parsing_json"))
