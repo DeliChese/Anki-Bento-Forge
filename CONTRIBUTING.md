@@ -25,7 +25,8 @@ Cảm ơn bạn quan tâm đóng góp! Dự án này được tổ chức để 
 ## Cấu trúc nhanh
 
 ```
-__init__.py   → AnkiSmartFactory (dialog chính) + entry start_smart_factory()
+__init__.py   → compatibility facade (re-export API công khai)
+ui/factory_dialog.py → AnkiSmartFactory + entry start_smart_factory()
 Language/     → config từng ngôn ngữ (Nhật/Trung/Hàn + ngữ pháp)
 mode/         → template thẻ (HTML/CSS/JS games) + card_render.py
 utils/        → AI extractor, batch, prompt_config, i18n, logger...

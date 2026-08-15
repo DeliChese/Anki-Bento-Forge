@@ -44,7 +44,7 @@ class DeckManagerDialog(QDialog):
 
         header = QHBoxLayout()
         header.addWidget(QLabel(
-            "<h3>🗂️ Quản Lý Deck</h3>"
+            f"<h3>{t('deck_manage_header')}</h3>"
             f"<p style='color:#555;font-size:11px;'>{t('deck_manage_desc')}</p>"
         ))
         header.addStretch()
@@ -137,7 +137,7 @@ class DeckManagerDialog(QDialog):
             self._reload_tree()
             tooltip(t("deck_created", name=name.strip()))
         else:
-            QMessageBox.warning(self, t("deck_add_parent_title"), t("err_file_read", error="create"))
+            QMessageBox.warning(self, t("deck_add_parent_title"), t("deck_create_failed"))
 
     def _add_sub(self):
         parent_name = self._selected_deck_name()
@@ -157,7 +157,7 @@ class DeckManagerDialog(QDialog):
             self._reload_tree()
             tooltip(t("deck_created", name=full_name))
         else:
-            QMessageBox.warning(self, t("deck_add_sub_title"), t("err_file_read", error="create"))
+            QMessageBox.warning(self, t("deck_add_sub_title"), t("deck_create_failed"))
 
     def _rename(self):
         old_name = self._selected_deck_name()
@@ -174,7 +174,7 @@ class DeckManagerDialog(QDialog):
             self._reload_tree()
             tooltip(t("deck_renamed", old=old_name, new=new_name.strip()))
         else:
-            QMessageBox.warning(self, t("deck_rename_title"), t("err_file_read", error="rename"))
+            QMessageBox.warning(self, t("deck_rename_title"), t("deck_rename_failed"))
 
     def _delete(self):
         name = self._selected_deck_name()
@@ -193,7 +193,7 @@ class DeckManagerDialog(QDialog):
             self._reload_tree()
             tooltip(t("deck_deleted", name=name))
         else:
-            QMessageBox.warning(self, t("deck_delete_title"), t("err_file_read", error="delete"))
+            QMessageBox.warning(self, t("deck_delete_title"), t("deck_delete_failed"))
 
     def _on_context_menu(self, pos):
         """Menu chuột phải nhanh."""

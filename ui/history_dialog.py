@@ -12,7 +12,7 @@ from aqt.qt import (
 )
 from aqt.utils import tooltip
 
-from utils.ai_extractor import get_import_history_items
+from utils.import_history import get_import_history_items
 from utils.i18n import t
 
 
@@ -92,7 +92,7 @@ class HistoryBrowserDialog(QDialog):
         self.cbo_kind = QComboBox()
         for label, _ in _kind_options():
             self.cbo_kind.addItem(label)
-        self.cbo_kind.setToolTip("Lọc Từ vựng / Ngữ pháp riêng")
+        self.cbo_kind.setToolTip(t("history_kind_tip"))
         self.cbo_kind.currentIndexChanged.connect(self._reload_data)
         bar.addWidget(self.cbo_kind, 0)
         vl.addLayout(bar)

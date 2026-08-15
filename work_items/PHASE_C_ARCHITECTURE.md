@@ -19,9 +19,9 @@ Nếu không tách trước khi mở rộng 12 ngôn ngữ, file 2.461 dòng s�
 
 ### C1. Tách `__init__.py`
 
-**Trạng thái:** `Đang làm` — P1-D còn orchestration UI
+**Trạng thái:** `Hoàn thành` (2026-08-15)
 
-**Vấn đề:** `__init__.py` vẫn là "god object" — orchestration UI chưa tách (P1-D còn dang dở).
+**Kết quả:** Package root là compatibility facade 26 dòng; Qt/Anki orchestration thuộc `ui/factory_dialog.py`, còn state/import/model tiếp tục thuộc các use-case/adapter module riêng.
 
 - **Độ khó:** 🟠 Khó
 - **Ưu tiên:** 🔥 Cao
@@ -38,13 +38,13 @@ Nếu không tách trước khi mở rộng 12 ngôn ngữ, file 2.461 dòng s�
 
 ### C2. Tách `ai_extractor.py`
 
-**Trạng thái:** `Đang làm` — document extractors và HTTP/AI client hoàn thành
+**Trạng thái:** `Hoàn thành` (2026-08-15)
 
-**Vấn đề:** `ai_extractor.py` vẫn là "god module" — trách nhiệm prompt + cache + API + parse.
+**Kết quả:** `ai_extractor.py` còn 1.489 dòng; HTTP, document extraction, cache, prompt defaults, response parser và import history đều có owner/ràng buộc dependency riêng, với compatibility re-export cho release hiện tại.
 
 - **Độ khó:** 🟠 Khó
 - **Ưu tiên:** 🔥 Cao
-- **Phạm vi dự kiến:** `utils/ai_extractor.py`, `utils/ai_http_client.py`, `utils/document_extractors.py`, `utils/prompt_config.py`, `tests/`
+- **Phạm vi:** `utils/ai_extractor.py`, `utils/ai_http_client.py`, `utils/ai_result_cache.py`, `utils/ai_prompt_defaults.py`, `utils/ai_response_parser.py`, `utils/import_history.py`, `utils/document_extractors.py`, `utils/prompt_config.py`, `tests/`
 - **Thay đổi yêu cầu:**
   - Tách prompt/cache/parse thành module riêng
   - Mỗi PR/phiên chỉ tách một responsibility
@@ -139,6 +139,46 @@ Nếu không tách trước khi mở rộng 12 ngôn ngữ, file 2.461 dòng s�
 ## Thứ tự thực hiện bắt buộc
 
 C1/C2 theo từng responsibility → C3/C5 khi quyết định mở rộng ngôn ngữ → C4/C6 chỉ khi có nhu cầu thực tế.
+
+### 2026-08-15 — Phase C / C1
+
+- Trạng thái: `Đang làm` → `Hoàn thành`
+- Phạm vi: `__init__.py`, `ui/factory_dialog.py`, `tests/test_factory_architecture.py`, factory regression tests và project map.
+- Thay đổi: Chuyển `AnkiSmartFactory`, Qt/`mw`, hooks và menu wiring sang owner UI; giữ `AnkiSmartFactory`/`start_smart_factory` tại package root qua compatibility facade. Các use case state/import/model và adapter Anki không đổi owner hoặc hành vi.
+- Kiểm chứng: `py_compile` đạt; regression hẹp `45 passed`; harness cô lập chạy hai vòng, mỗi vòng `423 passed`; `git diff --check` đạt. Architecture gate khóa giới hạn `< 1.500` dòng, public re-export và cấm dependency Anki/Qt trực tiếp tại package root.
+- Rủi ro còn lại / bước kế tiếp: `ui/factory_dialog.py` vẫn lớn nhưng đã bị cô lập đúng layer; chỉ tách tiếp từng responsibility khi có seam hành vi và regression test cụ thể. Tiếp tục C2 độc lập, không trộn refactor AI vào C1.
+
+### 2026-08-15 — Phase C / C2 — AI result cache
+
+- Trạng thái: lát cắt cache `Đang làm` → `Hoàn thành`; C2 tổng thể giữ `Đang làm`.
+- Phạm vi: `utils/ai_result_cache.py`, compatibility wiring trong `utils/ai_extractor.py`, `tests/test_ai_result_cache.py` và tài liệu AI extraction.
+- Thay đổi: Chuyển cache key, prompt signature/version dimension, TTL provider 7/14 ngày, migration/pruning, persistence và clear sang owner thuần riêng. Config/provider/prompt được inject; module mới không phụ thuộc Anki, UI hoặc AI workflow. Các tên `_PROMPT_VERSION`, `_ai_cache_*` và `clear_cache` tiếp tục hoạt động qua lớp tương thích.
+- Kiểm chứng: `py_compile` đạt; regression AI/prompt/grammar `100 passed`; harness cô lập chạy hai vòng, mỗi vòng `428 passed`; `git diff --check` đạt.
+- Rủi ro còn lại / bước kế tiếp: `ai_extractor.py` còn 2.455 dòng; tách prompt defaults ở lát kế tiếp, sau đó parse/history theo từng responsibility có regression riêng.
+
+### 2026-08-15 — Phase C / C2 — prompt defaults
+
+- Trạng thái: lát cắt prompt defaults `Đang làm` → `Hoàn thành`; C2 tổng thể giữ `Đang làm`.
+- Phạm vi: `utils/ai_prompt_defaults.py`, `utils/prompt_config.py`, compatibility re-export trong `utils/ai_extractor.py`, `tests/test_ai_prompt_defaults.py` và tài liệu AI extraction.
+- Thay đổi: Chuyển nguyên văn 32 symbol schema/prompt mặc định VI/EN cho vocab/grammar sang owner dữ liệu thuần, không có dependency runtime. `prompt_config` phụ thuộc trực tiếp owner mới nên loại circular lazy-import; `ai_extractor` vẫn re-export toàn bộ symbol cũ và API template trong release hiện tại.
+- Kiểm chứng: đối chiếu tự động `32/32` symbol với source trước refactor cho `changed=[]`; `py_compile` đạt; regression prompt/grammar/batch `145 passed`; harness cô lập chạy hai vòng, mỗi vòng `432 passed`; `git diff --check` đạt.
+- Rủi ro còn lại / bước kế tiếp: `ai_extractor.py` giảm 2.455 → 2.006 dòng, chưa đạt `< 1.500`; tách parse ở lát kế tiếp rồi tách history độc lập.
+
+### 2026-08-15 — Phase C / C2 — AI response parser
+
+- Trạng thái: lát cắt parse `Đang làm` → `Hoàn thành`; C2 tổng thể giữ `Đang làm`.
+- Phạm vi: `utils/ai_response_parser.py`, compatibility re-export trong `utils/ai_extractor.py`, direct consumer trong `utils/batch_processor.py`, `tests/test_ai_response_parser.py` và tài liệu AI extraction.
+- Thay đổi: Chuyển parse code fence/list/dict/`_comment`/embedded JSON/fallback và lỗi truncation sang owner thuần chỉ phụ thuộc stdlib + `safe_parse_json`. Vocab, grammar và batch dùng cùng implementation; tên `_parse_ai_json_with_comment` tiếp tục được re-export từ `ai_extractor` trong release hiện tại.
+- Kiểm chứng: corpus đối chiếu với hàm cũ gồm 7 nhóm đầu vào cho `changed=[]`; `py_compile` đạt; regression parser/batch/grammar `139 passed`; harness cô lập chạy hai vòng, mỗi vòng `438 passed`; `git diff --check` đạt.
+- Rủi ro còn lại / bước kế tiếp: `ai_extractor.py` giảm 2.006 → 1.951 dòng, chưa đạt `< 1.500`; tách import history ở lát C2 kế tiếp.
+
+### 2026-08-15 — Phase C / C2 — import history và hoàn tất
+
+- Trạng thái: lát cắt import history `Đang làm` → `Hoàn thành`; C2 tổng thể `Đang làm` → `Hoàn thành`.
+- Phạm vi: `utils/import_history.py`, compatibility/injection boundary trong `utils/ai_extractor.py`, direct consumers trong `utils/`, `ui/`, `tests/test_import_history.py`, `tests/test_history_items.py` và project map.
+- Thay đổi: Chuyển storage/migration, TTL, deck-scan aggregation, add/query/reconstruction/search/summary/clear sang owner riêng. Owner không import Anki/UI/AI orchestration; collection và language config được inject lazy từ compatibility wrapper chỉ khi TTL yêu cầu scan. Các API history công khai tiếp tục được re-export trong release hiện tại.
+- Kiểm chứng: `py_compile` đạt; regression history/AI `134 passed`; harness cô lập chạy hai vòng, mỗi vòng `444 passed`; `git diff --check` đạt.
+- Kết quả: `ai_extractor.py` giảm 1.951 → 1.489 dòng và đạt tiêu chí `< 1.500`; prompt/cache/parse/history có test và owner rõ ràng. C2 hoàn thành, không thay đổi version hoặc hành vi sản phẩm.
 
 ## Mẫu cập nhật cho phiên tiếp theo
 

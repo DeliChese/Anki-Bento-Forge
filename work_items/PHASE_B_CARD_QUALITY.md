@@ -31,7 +31,7 @@
 
 ### B2. Error Detection
 
-**Trạng thái:** `Hoàn thành một phần — cảnh báo thiếu trường bắt buộc, không chặn import; xác minh ngữ pháp/ngữ nghĩa cần nguồn dữ liệu hoặc đánh giá thủ công`
+**Trạng thái:** `Hoàn thành (phạm vi deterministic) — cảnh báo lỗi quan sát được, không chặn import; xác minh ngữ pháp/ngữ nghĩa cần nguồn dữ liệu hoặc đánh giá thủ công`
 
 **Vấn đề:** Không phát hiện lỗi ngữ pháp/ngữ nghĩa trong thẻ AI tạo.
 
@@ -149,3 +149,11 @@ B1/B2 structural validation → đánh giá mẫu thủ công → B3 (nếu có 
 - Thay đổi: Chấm completeness 0-100 theo Front/Pattern, Meaning, Example; preview cảnh báo thẻ thiếu trường và vẫn cho phép sửa/import.
 - Kiểm chứng: `scripts/test_isolated.ps1 -Python python` — 419 passed, chạy 2 vòng.
 - Rủi ro còn lại / bước kế tiếp: Không đánh giá độ đúng nghĩa, ngữ pháp, độ tự nhiên hay cấp độ; chỉ tiếp tục khi có corpus/dataset hoặc quy trình review phù hợp.
+
+### 2026-08-15 — Phase B / B2 deterministic error detection
+
+- Trạng thái: `Hoàn thành` trong phạm vi có thể xác minh bằng quy tắc, không dùng AI để “chấm AI”.
+- Phạm vi: `utils/import_quality.py`, `ui/ai_preview.py`, `utils/i18n.py`, `tests/test_import_quality.py`
+- Thay đổi: Phát hiện placeholder, nghĩa lặp mặt thẻ, ví dụ sai hệ chữ, từ Trung không có trong ví dụ, mẫu ngữ pháp nguyên văn không có trong ví dụ, và ví dụ chỉ lặp target; hiển thị chi tiết bằng tooltip ở hàng preview.
+- Kiểm chứng: `python -m pytest --rootdir=tests -p no:cacheprovider -q tests/test_import_quality.py`.
+- Rủi ro còn lại / bước kế tiếp: Không thể xác nhận độ đúng của dịch nghĩa, ngữ pháp, tính tự nhiên hay cấp độ nếu không có corpus/dataset được cấp phép hoặc quy trình review thủ công.

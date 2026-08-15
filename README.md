@@ -193,6 +193,7 @@ MIT License — Xem file `LICENSE`
 
 ## ⚠️ Bảo mật
 
+- Xem [SECURITY.md](SECURITY.md) để biết threat model, dữ liệu được xử lý và cách báo cáo lỗ hổng.
 - **Không commit `utils/ai_config.json`** — file này đã được thêm vào `.gitignore`
 - Dùng `utils/ai_config.example.json` làm mẫu
 - Các dữ liệu cá nhân (`utils/import_history.json`, `utils/ai_cache/`, `utils/factory_state.json`) cũng nằm trong `.gitignore`

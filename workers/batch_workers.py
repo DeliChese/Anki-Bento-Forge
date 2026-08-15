@@ -51,11 +51,12 @@ class BatchProcessThread(QThread):
             # Báo cáo ước tính
             word_count = len(self.raw_text.split("\n"))
             estimate = estimate_batch_cost(word_count, self.lang, self.batch_size)
-            self.progress.emit(
-                f"📊 Ước tính: ~{estimate['estimated_batches']} batch, "
-                f"~${estimate['estimated_cost_usd']:.4f} USD, "
-                f"~{estimate['estimated_time_seconds']}s"
-            )
+            self.progress.emit(t(
+                "batch_worker_estimate",
+                batches=estimate["estimated_batches"],
+                cost=estimate["estimated_cost_usd"],
+                seconds=estimate["estimated_time_seconds"],
+            ))
 
             vocab_list = process_large_word_list(
                 raw_text=self.raw_text,
@@ -73,12 +74,12 @@ class BatchProcessThread(QThread):
                 return
 
             if not vocab_list:
-                label = "cấu trúc ngữ pháp" if self.grammar else "từ vựng"
-                self.error.emit(f"⚠️ AI không trích xuất được {label} nào.")
+                label = t("batch_item_pattern") if self.grammar else t("item_label_vocab_lower")
+                self.error.emit(t("batch_worker_empty", label=label))
                 return
 
-            label = "cấu trúc ngữ pháp" if self.grammar else "từ vựng"
-            self.progress.emit(f"✅ Hoàn tất! {len(vocab_list)} {label} đã được xử lý.")
+            label = t("batch_item_pattern") if self.grammar else t("item_label_vocab_lower")
+            self.progress.emit(t("batch_worker_done", count=len(vocab_list), label=label))
             self.finished.emit(vocab_list)
 
         except Exception as e:

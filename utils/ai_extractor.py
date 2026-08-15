@@ -17,6 +17,7 @@ from typing import Optional, Callable, List
 
 from .credentials import delete_api_key, get_secret_store_status, load_api_key, save_api_key
 from .logger import get_logger
+from .i18n import t
 from .ai_session_policy import get_ai_session_policy
 from .ai_http_client import (
     abortable_wait as _abortable_wait,
@@ -24,13 +25,20 @@ from .ai_http_client import (
     is_openrouter as _is_openrouter_api,
     post_json as _http_post_json,
 )
+from .ai_result_cache import (
+    DEFAULT_MAX_BYTES as _DEFAULT_AI_CACHE_MAX_BYTES,
+    DEFAULT_MAX_FILES as _DEFAULT_AI_CACHE_MAX_FILES,
+    DEFAULT_PROMPT_VERSION as _DEFAULT_PROMPT_VERSION,
+    build_cache_key as _build_ai_cache_key,
+    clear_result_cache as _clear_ai_result_cache,
+    get_cached_result as _get_cached_ai_result,
+    set_cached_result as _set_cached_ai_result,
+)
+from .ai_response_parser import parse_ai_json_with_comment as _parse_ai_json_with_comment
 from .user_data import (
     atomic_write_json,
-    clear_cache_dir,
     get_user_data_path,
-    migrate_legacy_directory,
     migrate_legacy_json,
-    prune_cache_dir,
     read_json,
 )
 
@@ -123,8 +131,8 @@ _CACHE_DIR = get_user_data_path("cache")
 _LEGACY_CONFIG_PATH = os.path.join(_LEGACY_CONFIG_DIR, "ai_config.json")
 _LEGACY_CACHE_DIR = os.path.join(_LEGACY_CONFIG_DIR, "ai_cache")
 _DECK_VOCAB_CACHE_TTL = 30 * 60  # 30 phút
-_AI_CACHE_MAX_BYTES = 25 * 1024 * 1024
-_AI_CACHE_MAX_FILES = 200
+_AI_CACHE_MAX_BYTES = _DEFAULT_AI_CACHE_MAX_BYTES
+_AI_CACHE_MAX_FILES = _DEFAULT_AI_CACHE_MAX_FILES
 
 # ── Chi phí AI tích lũy (theo dõi ngân sách) ──
 _COST_STATE = {"total_usd": 0.0, "calls": 0, "last": None}
@@ -170,9 +178,10 @@ def ensure_ai_session_budget(text: str) -> dict:
     """Reject unsafe runs without logging or retaining their content."""
     estimate = get_ai_session_estimate(text)
     if estimate["input_truncated"]:
-        raise ValueError("AI input exceeds the configured session input limit")
+        raise ValueError(t("error_ai_input_limit"))
     if estimate["blocked_reason"]:
-        raise ValueError("AI session budget exceeded: " + estimate["blocked_reason"])
+        reason_key = {"estimated token use exceeds the session token limit": "ai_budget_reason_estimate", "remaining session token budget is too small": "ai_budget_reason_tokens", "remaining session cost budget is too small": "ai_budget_reason_cost"}.get(estimate["blocked_reason"])
+        raise ValueError(t("error_ai_budget_exceeded", reason=t(reason_key) if reason_key else estimate["blocked_reason"]))
     return estimate
 
 
@@ -188,13 +197,6 @@ def _record_token_info(token_info: dict) -> None:
         _COST_STATE["last"] = dict(token_info)
     except (AttributeError, TypeError, ValueError):
         pass
-
-
-def _ensure_cache_dir():
-    migrate_legacy_directory(_LEGACY_CACHE_DIR, _CACHE_DIR)
-    os.makedirs(_CACHE_DIR, exist_ok=True)
-    prune_cache_dir(_CACHE_DIR, max_age_seconds=14 * 24 * 3600,
-                    max_bytes=_AI_CACHE_MAX_BYTES, max_files=_AI_CACHE_MAX_FILES)
 
 
 # ═══════════════════════════════════════════════════════════
@@ -354,11 +356,7 @@ def _check_truncated_output(content: str, progress_callback: Optional[Callable[[
     c = content.strip()
     if c and not (c.endswith("]") or c.endswith("}")):
         if progress_callback:
-            progress_callback(
-                "⚠️ Kết quả bị CẮT do giới hạn token output (max_tokens).\n"
-                "💡 Giảm 'Độ dài xử lý mỗi lần gọi' trong Cài Đặt AI (VD 6k-10k) "
-                "hoặc chia nhỏ văn bản."
-            )
+            progress_callback(t("warning_output_truncated"))
 
 
 # ═══════════════════════════════════════════════════════════
@@ -392,65 +390,57 @@ def _calculate_cost(model: str, prompt_tokens: int, completion_tokens: int) -> d
 def _format_token_report(token_info: dict) -> str:
     """Format token + cost thành text hiển thị."""
     tc = token_info
-    return (
-        f"🔢 Token: {tc['prompt_tokens']:,} in + {tc['completion_tokens']:,} out "
-        f"= {tc['total_tokens']:,} total | "
-        f"💰 ${tc['total_cost']:.6f} "
-        f"(in: ${tc['input_cost']:.6f} / out: ${tc['output_cost']:.6f})"
-    )
+    return t("token_report", input_tokens=tc["prompt_tokens"], output_tokens=tc["completion_tokens"],
+             total_tokens=tc["total_tokens"], total_cost=tc["total_cost"],
+             input_cost=tc["input_cost"], output_cost=tc["output_cost"])
 
 
 # ═══════════════════════════════════════════════════════════
 #  CACHE (AI results)
 # ═══════════════════════════════════════════════════════════
-# Bump version mỗi khi thay đổi prompt/chiến lược → invalidate cache cũ
-_PROMPT_VERSION = 5
+# Bump version mỗi khi thay đổi prompt/chiến lược → invalidate cache cũ.
+# Re-exported here for one-release compatibility.
+_PROMPT_VERSION = _DEFAULT_PROMPT_VERSION
+
+
+def _ai_cache_options(kind: str) -> dict:
+    return {
+        "cache_dir": _CACHE_DIR,
+        "legacy_cache_dir": _LEGACY_CACHE_DIR,
+        "prompt_signature": get_prompt_signature(),
+        "kind": kind,
+        "prompt_version": _PROMPT_VERSION,
+        "max_bytes": _AI_CACHE_MAX_BYTES,
+        "max_files": _AI_CACHE_MAX_FILES,
+    }
 
 
 def _ai_cache_key(text: str, lang: str, instruction: str, existing_hash: str, kind: str = "vocab") -> str:
     # get_prompt_signature() = md5 phần ghi đè prompt (utils/ai_prompts.json)
     # → người dùng sửa prompt/schema trong editor → cache tự invalidate (quy tắc #9)
-    sig = get_prompt_signature()
-    raw = f"{_PROMPT_VERSION}|{sig}|{kind}|{lang}|{instruction}|{existing_hash}|{text}"
-    return hashlib.md5(raw.encode("utf-8")).hexdigest()
+    return _build_ai_cache_key(
+        text, lang, instruction, existing_hash, kind=kind,
+        prompt_version=_PROMPT_VERSION, prompt_signature=get_prompt_signature(),
+    )
 
 
 def _ai_cache_get(text: str, lang: str, instruction: str, existing_hash: str, kind: str = "vocab") -> Optional[list]:
-    _ensure_cache_dir()
-    key = _ai_cache_key(text, lang, instruction, existing_hash, kind=kind)
-    cache_file = os.path.join(_CACHE_DIR, f"ai_{key}.json")
-    if os.path.exists(cache_file):
-        try:
-            data = read_json(cache_file, {}, lambda value: isinstance(value, dict))
-            # TTL cache: 14 ngày nếu dùng OpenRouter (giảm request lặp lại do rate limit),
-            # 7 ngày cho provider khác
-            ttl = 14 * 24 * 3600 if is_openrouter() else 7 * 24 * 3600
-            if time.time() - data.get("_cached_at", 0) < ttl:
-                return data.get("vocab", [])
-        except Exception:
-            pass
-    return None
+    return _get_cached_ai_result(
+        text, lang, instruction, existing_hash,
+        is_openrouter=is_openrouter, **_ai_cache_options(kind),
+    )
 
 
 def _ai_cache_set(text: str, lang: str, instruction: str, existing_hash: str, vocab_list: list, kind: str = "vocab"):
-    _ensure_cache_dir()
-    key = _ai_cache_key(text, lang, instruction, existing_hash, kind=kind)
-    cache_file = os.path.join(_CACHE_DIR, f"ai_{key}.json")
-    try:
-        atomic_write_json(cache_file, {
-            "vocab": vocab_list,
-            "_kind": kind,
-            "_cached_at": time.time(),
-            "_lang": lang,
-        })
-    except Exception:
-        pass
+    _set_cached_ai_result(
+        text, lang, instruction, existing_hash, vocab_list,
+        **_ai_cache_options(kind),
+    )
 
 
 def clear_cache():
     """Xóa toàn bộ cache"""
-    if os.path.exists(_CACHE_DIR):
-        clear_cache_dir(_CACHE_DIR)
+    _clear_ai_result_cache(_CACHE_DIR)
 
 
 # ═══════════════════════════════════════════════════════════
@@ -462,497 +452,48 @@ from .deck_cache import (
     make_existing_hash as _make_existing_hash,
 )
 
-
 # ═══════════════════════════════════════════════════════════
-#  SYSTEM PROMPTS NÂNG CAO
+#  PROMPT DEFAULTS (compatibility re-exports)
 # ═══════════════════════════════════════════════════════════
-
-_CHINESE_JSON_TEMPLATE = """{
-  "simplified": "学习",
-  "traditional": "學習",
-  "pinyin": "xuéxí",
-  "meaning": "học tập",
-  "sino_vietnamese": "học tập",
-  "hsk_level": "HSK1",
-  "topic": "Động từ",
-  "example": "我每天学习中文。",
-  "example_pinyin": "Wǒ měitiān xuéxí zhōngwén.",
-  "example_vn": "Mỗi ngày tôi học tiếng Trung.",
-  "example_2": "他在图书馆认真学习。",
-  "example_2_pinyin": "Tā zài túshūguǎn rènzhēn xuéxí.",
-  "example_2_vn": "Anh ấy học tập chăm chỉ ở thư viện."
-}"""
-
-_CHINESE_SYSTEM_PROMPT = f"""Bạn là chuyên gia tiếng Trung. Trích xuất TẤT CẢ từ vựng từ văn bản → mảng JSON chính xác.
-
-MẪU:
-{_CHINESE_JSON_TEMPLATE}
-
-LUẬT:
-1. Đủ 13 trường; thiếu → "". example_pinyin & example_2_pinyin LUÔN phải có, pinyin chuẩn có dấu thanh; thiếu → từ không hợp lệ.
-2. VÍ DỤ CÓ HỒN + ĐÚNG CẤP ĐỘ (quan trọng nhất):
-   - Ex1: khẩu ngữ đời thực (cà phê, nhắn tin, than thở, MXH...), cảm xúc thật.
-   - Ex2: trang trọng, lịch sự, formal (công việc, hội họp, thư từ).
-   - Cấp độ ví dụ khớp HSK: HSK1 → câu cực ngắn; HSK2-3 → đơn giản; HSK4 → trung bình; HSK5-6 → phức tạp, thành ngữ. TUYỆT ĐỐI không nhồi từ khó vào từ cấp thấp.
-   - TRÁNH câu SGK vô hồn ("我是学生"). Từ đa nghĩa → 2 nghĩa khác nhau ở 2 ví dụ. Ví dụ ngắn gọn, 5-12 từ.
-3. CHỐNG TRÙNG: bỏ qua mọi từ trong "TỪ ĐÃ CÓ".
-4. CHÍNH XÁC: pinyin, ngữ pháp, từ vựng chuẩn. topic ngắn, đúng HSK.
-5. Xuất theo thứ tự xuất hiện trong văn bản.
-
-ĐẦU RA: CHỈ mảng JSON thuần, không markdown, không giải thích thừa. Cuối: {{"_comment":"≤15 từ"}}"""
-
-_JAPANESE_JSON_TEMPLATE = """{
-  "front": "食べる",
-  "furigana": "たべる",
-  "meaning": "ăn",
-  "sino-vietnamese": "thực",
-  "jlptlevel": "N5",
-  "topic": "Động từ",
-  "example": "毎日ご飯を食べるよ。",
-  "example_vn": "Hàng ngày tớ ăn cơm đó.",
-  "example_2": "お客様とご一緒に夕食を召し上がりました。",
-  "example_2_vn": "Tôi đã dùng bữa tối cùng với quý khách."
-}"""
-
-_JAPANESE_SYSTEM_PROMPT = f"""Bạn là chuyên gia tiếng Nhật. Trích xuất TẤT CẢ từ vựng từ văn bản → mảng JSON chính xác.
-
-MẪU:
-{_JAPANESE_JSON_TEMPLATE}
-
-LUẬT:
-1. Đủ 10 trường; thiếu → "".
-2. VÍ DỤ CÓ HỒN + ĐÚNG CẤP ĐỘ (quan trọng nhất):
-   - Ex1: khẩu ngữ đời thực (quán cà phê, LINE, than thở, MXH...), cảm xúc thật, trợ từ cuối câu tự nhiên (よ/ね/よね/じゃん).
-   - Ex2: trang trọng, lịch sự (です・ます/敬語).
-   - Cấp độ ví dụ khớp JLPT: N5 → câu cực ngắn; N4 → đơn giản; N3 → trung bình; N2-N1 → phức tạp, thành ngữ. TUYỆT ĐỐI không nhồi từ khó vào từ cấp thấp.
-   - TRÁNH câu SGK vô hồn. Từ đa nghĩa → 2 nghĩa khác nhau ở 2 ví dụ. Ví dụ ngắn gọn, 5-12 từ.
-3. CHỐNG TRÙNG: bỏ qua mọi từ trong "TỪ ĐÃ CÓ".
-4. CHÍNH XÁC: furigana, ngữ pháp, từ vựng chuẩn. topic ngắn, đúng JLPT.
-5. Xuất theo thứ tự xuất hiện trong văn bản.
-
-ĐẦU RA: CHỈ mảng JSON thuần, không markdown, không giải thích thừa. Cuối: {{"_comment":"≤15 từ"}}"""
-
-_KOREAN_JSON_TEMPLATE = """{
-  "front": "먹다",
-  "romanization": "meokda",
-  "meaning": "ăn",
-  "sino_vietnamese": "",
-  "topik_level": "TOPIK I",
-  "topic": "Động từ",
-  "example": "아침에 밥을 먹어요.",
-  "example_romanization": "achime babeul meogeoyo.",
-  "example_vn": "Buổi sáng tôi ăn cơm.",
-  "example_2": "친구와 함께 저녁을 먹었어요.",
-  "example_2_romanization": "chin-guwa hamkke jeonyeogeul meogeosseoyo.",
-  "example_2_vn": "Tôi đã ăn tối cùng bạn bè."
-}"""
-
-_KOREAN_SYSTEM_PROMPT = f"""Bạn là chuyên gia tiếng Hàn. Trích xuất TẤT CẢ từ vựng từ văn bản → mảng JSON chính xác.
-
-MẪU:
-{_KOREAN_JSON_TEMPLATE}
-
-LUẬT:
-1. Đủ 12 trường; thiếu → "". example_romanization & example_2_romanization LUÔN phải có, romanization chuẩn (Revised Romanization); thiếu → từ không hợp lệ.
-2. VÍ DỤ CÓ HỒN + ĐÚNG CẤP ĐỘ (quan trọng nhất):
-   - Ex1: khẩu ngữ đời thực (cà phê, nhắn tin, than thở, MXH...), cảm xúc thật, kết thúc câu tự nhiên (어요/아요/거야/잖아).
-   - Ex2: trang trọng, lịch sự (습니다/존댓말).
-   - Cấp độ ví dụ khớp TOPIK: TOPIK I → câu cực ngắn, đơn giản; TOPIK II → trung bình/phức tạp. TUYỆT ĐỐI không nhồi từ khó vào từ cấp thấp.
-   - TRÁNH câu SGK vô hồn. Từ đa nghĩa → 2 nghĩa khác nhau ở 2 ví dụ. Ví dụ ngắn gọn, 5-12 từ.
-3. CHỐNG TRÙNG: bỏ qua mọi từ trong "TỪ ĐÃ CÓ".
-4. CHÍNH XÁC: Hangul, romanization, ngữ pháp, từ vựng chuẩn. topic ngắn, đúng TOPIK.
-5. Xuất theo thứ tự xuất hiện trong văn bản.
-
-ĐẦU RA: CHỈ mảng JSON thuần, không markdown, không giải thích thừa. Cuối: {{"_comment":"≤15 từ"}}"""
-
-# ═══════════════════════════════════════════════════════════
-#  ENGLISH VARIANTS (UI = English → AI sinh nghĩa/dịch bằng tiếng Anh)
-# ═══════════════════════════════════════════════════════════
-
-_JAPANESE_JSON_TEMPLATE_EN = """{
-  "front": "食べる",
-  "furigana": "たべる",
-  "meaning": "to eat",
-  "sino-vietnamese": "",
-  "jlptlevel": "N5",
-  "topic": "Verb",
-  "example": "毎日ご飯を食べるよ。",
-  "example_vn": "I eat rice every day.",
-  "example_2": "お客様とご一緒に夕食を召し上がりました。",
-  "example_2_vn": "I had dinner together with the guest."
-}"""
-
-_JAPANESE_SYSTEM_PROMPT_EN = f"""You are a Japanese language expert. Extract ALL vocabulary from the text → precise JSON array.
-
-TEMPLATE:
-{_JAPANESE_JSON_TEMPLATE_EN}
-
-RULES:
-1. Fill all 10 fields; leave missing → "".
-2. VIVID EXAMPLES MATCHING THE LEVEL (most important):
-   - Ex1: real-life casual speech (café, texting, venting, social media...), genuine emotion, natural sentence-final particles (よ/ね/よね/じゃん).
-   - Ex2: formal, polite (です・ます/keigo).
-   - Example level must match JLPT: N5 → very short; N4 → simple; N3 → intermediate; N2-N1 → complex, idioms. NEVER cram hard words into low-level entries.
-   - AVOID lifeless textbook sentences. Polysemous words → 2 different meanings in 2 examples. Keep examples short, 5-12 words.
-3. DEDUP: skip every word listed in "EXISTING WORDS".
-4. ACCURACY: correct furigana, grammar, vocabulary. topic short, matching JLPT.
-5. Output in order of appearance in the text.
-
-OUTPUT: ONLY a plain JSON array, no markdown, no extra explanation. End with: {{"_comment":"≤15 words"}}"""
-
-_CHINESE_JSON_TEMPLATE_EN = """{
-  "simplified": "学习",
-  "traditional": "學習",
-  "pinyin": "xuéxí",
-  "meaning": "to study",
-  "sino-vietnamese": "",
-  "hsk_level": "HSK1",
-  "topic": "Verb",
-  "example": "我每天学习中文。",
-  "example_pinyin": "Wǒ měitiān xuéxí zhōngwén.",
-  "example_vn": "I study Chinese every day.",
-  "example_2": "他在图书馆认真学习。",
-  "example_2_pinyin": "Tā zài túshūguǎn rènzhēn xuéxí.",
-  "example_2_vn": "He studies hard in the library."
-}"""
-
-_CHINESE_SYSTEM_PROMPT_EN = f"""You are a Chinese language expert. Extract ALL vocabulary from the text → precise JSON array.
-
-TEMPLATE:
-{_CHINESE_JSON_TEMPLATE_EN}
-
-RULES:
-1. Fill all 13 fields; missing → "". example_pinyin & example_2_pinyin ALWAYS required, standard tone-marked pinyin; missing → invalid entry.
-2. VIVID EXAMPLES MATCHING THE LEVEL (most important):
-   - Ex1: real-life casual speech (coffee, texting, venting, social media...), genuine emotion.
-   - Ex2: formal, polite (work, meetings, letters).
-   - Level matches HSK: HSK1 → very short; HSK2-3 → simple; HSK4 → intermediate; HSK5-6 → complex, idioms. NEVER cram hard words into low-level entries.
-   - AVOID lifeless textbook sentences ("我是学生"). Polysemous words → 2 different meanings in 2 examples. Keep examples short, 5-12 words.
-3. DEDUP: skip every word listed in "EXISTING WORDS".
-4. ACCURACY: correct pinyin, grammar, vocabulary. topic short, matching HSK.
-5. Output in order of appearance in the text.
-
-OUTPUT: ONLY a plain JSON array, no markdown, no extra explanation. End with: {{"_comment":"≤15 words"}}"""
-
-_KOREAN_JSON_TEMPLATE_EN = """{
-  "front": "먹다",
-  "romanization": "meokda",
-  "meaning": "to eat",
-  "sino-vietnamese": "",
-  "topik_level": "TOPIK I",
-  "topic": "Verb",
-  "example": "아침에 밥을 먹어요.",
-  "example_romanization": "achime babeul meogeoyo.",
-  "example_vn": "I eat rice in the morning.",
-  "example_2": "친구와 함께 저녁을 먹었어요.",
-  "example_2_romanization": "chin-guwa hamkke jeonyeogeul meogeosseoyo.",
-  "example_2_vn": "I had dinner with my friend."
-}"""
-
-_KOREAN_SYSTEM_PROMPT_EN = f"""You are a Korean language expert. Extract ALL vocabulary from the text → precise JSON array.
-
-TEMPLATE:
-{_KOREAN_JSON_TEMPLATE_EN}
-
-RULES:
-1. Fill all 12 fields; missing → "". example_romanization & example_2_romanization ALWAYS required, standard Revised Romanization; missing → invalid entry.
-2. VIVID EXAMPLES MATCHING THE LEVEL (most important):
-   - Ex1: real-life casual speech (coffee, texting, venting, social media...), genuine emotion, natural endings (어요/아요/거야/잖아).
-   - Ex2: formal, polite (습니다/존댓말).
-   - Level matches TOPIK: TOPIK I → very short, simple; TOPIK II → intermediate/complex. NEVER cram hard words into low-level entries.
-   - AVOID lifeless textbook sentences. Polysemous words → 2 different meanings in 2 examples. Keep examples short, 5-12 words.
-3. DEDUP: skip every word listed in "EXISTING WORDS".
-4. ACCURACY: correct Hangul, romanization, grammar, vocabulary. topic short, matching TOPIK.
-5. Output in order of appearance in the text.
-
-OUTPUT: ONLY a plain JSON array, no markdown, no extra explanation. End with: {{"_comment":"≤15 words"}}"""
-
-_SYSTEM_PROMPTS = {
-    "japanese": _JAPANESE_SYSTEM_PROMPT,
-    "chinese": _CHINESE_SYSTEM_PROMPT,
-    "korean": _KOREAN_SYSTEM_PROMPT,
-}
-
-_JSON_TEMPLATES = {
-    "japanese": _JAPANESE_JSON_TEMPLATE,
-    "chinese": _CHINESE_JSON_TEMPLATE,
-    "korean": _KOREAN_JSON_TEMPLATE,
-}
-
-# Bản tiếng Anh (chọn khi get_language() == "en")
-_SYSTEM_PROMPTS_EN = {
-    "japanese": _JAPANESE_SYSTEM_PROMPT_EN,
-    "chinese": _CHINESE_SYSTEM_PROMPT_EN,
-    "korean": _KOREAN_SYSTEM_PROMPT_EN,
-}
-
-_JSON_TEMPLATES_EN = {
-    "japanese": _JAPANESE_JSON_TEMPLATE_EN,
-    "chinese": _CHINESE_JSON_TEMPLATE_EN,
-    "korean": _KOREAN_JSON_TEMPLATE_EN,
-}
+from .ai_prompt_defaults import (
+    _CHINESE_JSON_TEMPLATE,
+    _CHINESE_SYSTEM_PROMPT,
+    _JAPANESE_JSON_TEMPLATE,
+    _JAPANESE_SYSTEM_PROMPT,
+    _KOREAN_JSON_TEMPLATE,
+    _KOREAN_SYSTEM_PROMPT,
+    _JAPANESE_JSON_TEMPLATE_EN,
+    _JAPANESE_SYSTEM_PROMPT_EN,
+    _CHINESE_JSON_TEMPLATE_EN,
+    _CHINESE_SYSTEM_PROMPT_EN,
+    _KOREAN_JSON_TEMPLATE_EN,
+    _KOREAN_SYSTEM_PROMPT_EN,
+    _SYSTEM_PROMPTS,
+    _JSON_TEMPLATES,
+    _SYSTEM_PROMPTS_EN,
+    _JSON_TEMPLATES_EN,
+    _JAPANESE_GRAMMAR_JSON_TEMPLATE,
+    _JAPANESE_GRAMMAR_SYSTEM_PROMPT,
+    _CHINESE_GRAMMAR_JSON_TEMPLATE,
+    _CHINESE_GRAMMAR_SYSTEM_PROMPT,
+    _KOREAN_GRAMMAR_JSON_TEMPLATE,
+    _KOREAN_GRAMMAR_SYSTEM_PROMPT,
+    _JAPANESE_GRAMMAR_JSON_TEMPLATE_EN,
+    _JAPANESE_GRAMMAR_SYSTEM_PROMPT_EN,
+    _CHINESE_GRAMMAR_JSON_TEMPLATE_EN,
+    _CHINESE_GRAMMAR_SYSTEM_PROMPT_EN,
+    _KOREAN_GRAMMAR_JSON_TEMPLATE_EN,
+    _KOREAN_GRAMMAR_SYSTEM_PROMPT_EN,
+    _GRAMMAR_SYSTEM_PROMPTS,
+    _GRAMMAR_JSON_TEMPLATES,
+    _GRAMMAR_SYSTEM_PROMPTS_EN,
+    _GRAMMAR_JSON_TEMPLATES_EN,
+)
 
 
 def get_json_template(lang: str, kind: str = "vocab") -> str:
     """Template JSON hiệu lực — tôn trọng ghi đè trong prompt_config (ai_prompts.json)."""
     return get_effective_json_template(lang, kind)
-
-
-# ═══════════════════════════════════════════════════════════
-#  GRAMMAR SYSTEM PROMPTS — Note Type ngữ pháp riêng
-# ═══════════════════════════════════════════════════════════
-
-_JAPANESE_GRAMMAR_JSON_TEMPLATE = """{
-  "pattern": "〜てもいい",
-  "reading": "てもいい",
-  "meaning": "được phép làm gì đó",
-  "jlptlevel": "N5",
-  "topic": "Cho phép / Xin phép",
-  "usage": "Vて + もいいです",
-  "explanation": "Dùng để xin phép hoặc cho phép ai làm gì. Thân mật: 〜てもいいよ",
-  "example": "ここで写真を撮ってもいいですか。",
-  "example_vn": "Tôi chụp ảnh ở đây được không?",
-  "example_2": "明日は休んでもいいよ。",
-  "example_2_vn": "Mai nghỉ cũng được nhé."
-}"""
-
-_JAPANESE_GRAMMAR_SYSTEM_PROMPT = f"""Bạn là chuyên gia NGỮ PHÁP tiếng Nhật (文法). Trích xuất TẤT CẢ cấu trúc ngữ pháp từ văn bản → mảng JSON chính xác.
-
-MẪU:
-{_JAPANESE_GRAMMAR_JSON_TEMPLATE}
-
-LUẬT:
-1. Đủ 11 trường; thiếu → "".
-2. pattern: cấu trúc CHÍNH — LUÔN viết bằng CHỮ GỐC (kanji + kana), ghi rõ chỗ điền bằng "〜" hoặc ký hiệu loại từ (V/イA/ナA/N). KHÔNG dùng romaji (VD viết "〜てもいい", không viết "te mo ii").
-3. reading: cách đọc nếu là từ/trợ từ cụ thể; bỏ trống nếu cấu trúc có biến tố.
-4. usage: CÔNG THỨC ghép dễ nhớ (VD: "Vて + もいいです").
-5. explanation: TỐI ĐA 2 câu — cách dùng + sắc thái + lỗi người Việt hay mắc + đồng nghĩa/trái nghĩa (nếu có). Gọn, không lan man.
-6. VÍ DỤ CÓ HỒN + ĐÚNG CẤP ĐỘ:
-   - Ex1: khẩu ngữ đời thực (普通体), cảm xúc thật, trợ từ よ/ね/よね.
-   - Ex2: trang trọng, lịch sự (です・ます/敬語).
-   - Cấp độ ví dụ khớp JLPT của pattern; KHÔNG nhồi từ khó. Ví dụ 5-12 từ.
-7. CHÍNH XÁC: ngữ pháp, cách dùng, từ vựng chuẩn. topic ngắn, đúng trọng tâm.
-8. NHƯ GIẢNG VIÊN ĐỌC GIÁO TRÌNH: Đọc kỹ TOÀN BỘ văn bản, hiểu ngữ cảnh + từ vựng đi kèm rồi mới trích. Ví dụ phải bám ngữ cảnh thực của bài, dùng từ vựng ĐA DẠNG (không lặp cùng 1 cụm từ trong mọi ví dụ).
-9. CÙNG PATTERN – KHÁC NGHĨA: Nếu 1 pattern xuất hiện nhiều lần với từ đi kèm khác nhau tạo NGHĨA/CÁCH DÙNG khác nhau → tạo NHIỀU entry riêng (meaning khác nhau, ví dụ khác nhau) thay vì gộp. Không tạo trùng lặp máy móc nếu thực sự giống nghĩa.
-10. ĐÁNH DẤU PATTERN: Trong example/example_2, BỌC phần thể hiện pattern bằng <b>…</b> để nổi bật trên thẻ (Anki render HTML, ví dụ: "ここで写真を撮<b>ってもいい</b>ですか。").
-
-ĐẦU RA: CHỈ mảng JSON thuần, không markdown, không giải thích thừa. Cuối: {{"_comment":"≤15 từ"}}"""
-
-_CHINESE_GRAMMAR_JSON_TEMPLATE = """{
-  "pattern": "把 + N + V",
-  "pinyin": "bǎ + N + V",
-  "meaning": "đem/ làm gì đó với ... (nhấn mạnh kết quả)",
-  "hsk_level": "HSK3",
-  "topic": "Cấu trúc câu",
-  "usage": "Chủ ngữ + 把 + 宾语 + Động từ + Kết quả",
-  "explanation": "Dùng khi nhấn mạnh việc tác động lên vật và kết quả. Lỗi người Việt hay quên: câu 把 bắt buộc có kết quả (了/补语).",
-  "example": "我把作业做完了。",
-  "example_pinyin": "Wǒ bǎ zuòyè zuò wán le.",
-  "example_vn": "Tôi đã làm xong bài tập.",
-  "example_2": "请把门关上。",
-  "example_2_pinyin": "Qǐng bǎ mén guān shàng.",
-  "example_2_vn": "Làm ơn đóng cửa lại."
-}"""
-
-_CHINESE_GRAMMAR_SYSTEM_PROMPT = f"""Bạn là chuyên gia NGỮ PHÁP tiếng Trung (语法). Trích xuất TẤT CẢ cấu trúc ngữ pháp từ văn bản → mảng JSON chính xác.
-
-MẪU:
-{_CHINESE_GRAMMAR_JSON_TEMPLATE}
-
-LUẬT:
-1. Đủ 13 trường; thiếu → "". example_pinyin & example_2_pinyin LUÔN phải có, pinyin chuẩn có dấu thanh.
-2. pattern: cấu trúc CHÍNH — LUÔN viết bằng HÁN TỰ gốc, ghi rõ chỗ điền bằng ký hiệu loại từ (N/V/Adj). KHÔNG viết pattern bằng pinyin (VD viết "把字句", không viết "bǎ zì jù").
-3. pinyin: phiên âm phần cấu trúc.
-4. usage: CÔNG THỨC ghép dễ nhớ (VD: "Chủ ngữ + 把 + 宾语 + V + 结果").
-5. explanation: TỐI ĐA 2 câu — cách dùng + sắc thái + lỗi người Việt hay mắc + đồng nghĩa (nếu có). Gọn.
-6. VÍ DỤ CÓ HỒN + ĐÚNG CẤP ĐỘ:
-   - Ex1: khẩu ngữ đời thực, cảm xúc thật. Ex2: trang trọng, formal.
-   - Cấp độ ví dụ khớp HSK của pattern; KHÔNG nhồi từ khó. Ví dụ 5-12 từ.
-   - MỌI ví dụ PHẢI kèm pinyin đầy đủ, có dấu thanh.
-7. CHÍNH XÁC: ngữ pháp, pinyin, cách dùng chuẩn. topic ngắn, đúng trọng tâm.
-8. NHƯ GIẢNG VIÊN ĐỌC GIÁO TRÌNH: Đọc kỹ TOÀN BỘ văn bản, hiểu ngữ cảnh + từ vựng đi kèm rồi mới trích. Ví dụ phải bám ngữ cảnh thực của bài, dùng từ vựng ĐA DẠNG (không lặp cùng 1 cụm từ trong mọi ví dụ).
-9. CÙNG PATTERN – KHÁC NGHĨA: Nếu 1 pattern xuất hiện nhiều lần với từ đi kèm khác nhau tạo NGHĨA/CÁCH DÙNG khác nhau → tạo NHIỀU entry riêng (meaning khác nhau, ví dụ khác nhau) thay vì gộp. Không tạo trùng lặp máy móc nếu thực sự giống nghĩa.
-10. ĐÁNH DẤU PATTERN: Trong example/example_2, BỌC phần thể hiện pattern bằng <b>…</b> để nổi bật trên thẻ (Anki render HTML, ví dụ: "我把作业做<b>完了</b>。").
-
-ĐẦU RA: CHỈ mảng JSON thuần, không markdown, không giải thích thừa. Cuối: {{"_comment":"≤15 từ"}}"""
-
-_KOREAN_GRAMMAR_JSON_TEMPLATE = """{
-  "pattern": "~아/어요",
-  "romanization": "a/eoyo",
-  "meaning": "dạng lịch sự thân mật (hiện tại)",
-  "topik_level": "TOPIK I",
-  "topic": "Kết thúc câu",
-  "usage": "Động từ/tính từ + 아요 (âm cuối 양/ㅗ/ㅏ) hoặc + 어요 (các âm còn lại)",
-  "explanation": "Dạng kết thúc câu lịch sự thông dụng nhất trong giao tiếp. Lỗi người Việt hay nhầm giữa 아요 và 어요.",
-  "example": "지금 학교에 가요.",
-  "example_romanization": "jigeum hakgyoe gayo.",
-  "example_vn": "Bây giờ tôi đi học.",
-  "example_2": "밥을 맛있게 먹어요.",
-  "example_2_romanization": "babeul masitge meogeoyo.",
-  "example_2_vn": "Tôi ăn cơm ngon lành."
-}"""
-
-_KOREAN_GRAMMAR_SYSTEM_PROMPT = f"""Bạn là chuyên gia NGỮ PHÁP tiếng Hàn (한국어 문법). Trích xuất TẤT CẢ cấu trúc ngữ pháp từ văn bản → mảng JSON chính xác.
-
-MẪU:
-{_KOREAN_GRAMMAR_JSON_TEMPLATE}
-
-LUẬT:
-1. Đủ 13 trường; thiếu → "". example_romanization & example_2_romanization LUÔN phải có, romanization chuẩn (Revised Romanization).
-2. pattern: cấu trúc CHÍNH — LUÔN viết bằng HANGUL gốc, ghi rõ chỗ điền bằng "~" hoặc ký hiệu loại từ (V/A/N). KHÔNG dùng romanization làm pattern (VD viết "~아/어요", không viết "a/eoyo").
-3. romanization: phiên âm phần cấu trúc.
-4. usage: CÔNG THỨC ghép dễ nhớ (VD: "Động từ + 아요/어요").
-5. explanation: TỐI ĐA 2 câu — cách dùng + sắc thái + lỗi người Việt hay mắc + đồng nghĩa (nếu có). Gọn.
-6. VÍ DỤ CÓ HỒN + ĐÚNG CẤP ĐỘ:
-   - Ex1: khẩu ngữ đời thực, cảm xúc thật. Ex2: trang trọng, lịch sự.
-   - Cấp độ ví dụ khớp TOPIK của pattern; KHÔNG nhồi từ khó. Ví dụ 5-12 từ.
-   - MỌI ví dụ PHẢI kèm romanization đầy đủ.
-7. CHÍNH XÁC: ngữ pháp, romanization, cách dùng chuẩn. topic ngắn, đúng trọng tâm.
-8. NHƯ GIẢNG VIÊN ĐỌC GIÁO TRÌNH: Đọc kỹ TOÀN BỘ văn bản, hiểu ngữ cảnh + từ vựng đi kèm rồi mới trích. Ví dụ phải bám ngữ cảnh thực của bài, dùng từ vựng ĐA DẠNG (không lặp cùng 1 cụm từ trong mọi ví dụ).
-9. CÙNG PATTERN – KHÁC NGHĨA: Nếu 1 pattern xuất hiện nhiều lần với từ đi kèm khác nhau tạo NGHĨA/CÁCH DÙNG khác nhau → tạo NHIỀU entry riêng (meaning khác nhau, ví dụ khác nhau) thay vì gộp. Không tạo trùng lặp máy móc nếu thực sự giống nghĩa.
-10. ĐÁNH DẤU PATTERN: Trong example/example_2, BỌC phần thể hiện pattern bằng <b>…</b> để nổi bật trên thẻ (Anki render HTML, ví dụ: "지금 학교에 <b>가요</b>.").
-
-ĐẦU RA: CHỈ mảng JSON thuần, không markdown, không giải thích thừa. Cuối: {{"_comment":"≤15 từ"}}"""
-
-# ═══════════════════════════════════════════════════════════
-#  ENGLISH GRAMMAR VARIANTS (UI = English)
-# ═══════════════════════════════════════════════════════════
-
-_JAPANESE_GRAMMAR_JSON_TEMPLATE_EN = """{
-  "pattern": "〜てもいい",
-  "reading": "てもいい",
-  "meaning": "may / allowed to do something",
-  "jlptlevel": "N5",
-  "topic": "Permission",
-  "usage": "Vて + もいいです",
-  "explanation": "Used to ask for or give permission. Casual: 〜てもいいよ",
-  "example": "ここで写真を撮ってもいいですか。",
-  "example_vn": "May I take a photo here?",
-  "example_2": "明日は休んでもいいよ。",
-  "example_2_vn": "You may take tomorrow off."
-}"""
-
-_JAPANESE_GRAMMAR_SYSTEM_PROMPT_EN = f"""You are a Japanese GRAMMAR expert (文法). Extract ALL grammar patterns from the text → precise JSON array.
-
-TEMPLATE:
-{_JAPANESE_GRAMMAR_JSON_TEMPLATE_EN}
-
-RULES:
-1. Fill all 11 fields; missing → "".
-2. pattern: the MAIN structure — ALWAYS in original characters (kanji + kana), mark slots with "〜" or word-type symbols (V/イA/ナA/N). NEVER romaji (write "〜てもいい", not "te mo ii").
-3. reading: how to read if a concrete word/particle; leave empty for inflected structures.
-4. usage: a memorable formula (e.g. "Vて + もいいです").
-5. explanation: MAX 2 sentences — usage + nuance + common learner mistakes + synonyms/antonyms (if any). Concise.
-6. VIVID EXAMPLES MATCHING THE LEVEL:
-   - Ex1: real-life casual speech (普通体), genuine emotion, particles よ/ね/よね.
-   - Ex2: formal, polite (です・ます/keigo).
-   - Example level matches the pattern's JLPT; NEVER cram hard words. Examples 5-12 words.
-7. ACCURACY: correct grammar, usage, vocabulary. topic short and on point.
-8. LIKE A LECTURER READING A TEXTBOOK: read the WHOLE text carefully, understand context + accompanying vocabulary before extracting. Examples must follow the text's real context and use DIVERSE vocabulary (don't repeat the same phrase in every example).
-9. SAME PATTERN – DIFFERENT MEANING: if a pattern appears multiple times with different accompanying words producing DIFFERENT meanings/usages → create MULTIPLE entries (different meaning, different examples) instead of merging. Don't create mechanical duplicates when meanings are truly the same.
-10. MARK THE PATTERN: in example/example_2, WRAP the pattern instance in <b>…</b> to highlight on the card (Anki renders HTML, e.g. "ここで写真を撮<b>ってもいい</b>ですか。").
-
-OUTPUT: ONLY a plain JSON array, no markdown, no extra explanation. End with: {{"_comment":"≤15 words"}}"""
-
-_CHINESE_GRAMMAR_JSON_TEMPLATE_EN = """{
-  "pattern": "把 + N + V",
-  "pinyin": "bǎ + N + V",
-  "meaning": "to do something with ... (emphasizing the result)",
-  "hsk_level": "HSK3",
-  "topic": "Sentence structure",
-  "usage": "Subject + 把 + Object + Verb + Result",
-  "explanation": "Used to emphasize the result of an action on an object. Common mistake: a 把 sentence must include a result (了/complement).",
-  "example": "我把作业做完了。",
-  "example_pinyin": "Wǒ bǎ zuòyè zuò wán le.",
-  "example_vn": "I finished my homework.",
-  "example_2": "请把门关上。",
-  "example_2_pinyin": "Qǐng bǎ mén guān shàng.",
-  "example_2_vn": "Please close the door."
-}"""
-
-_CHINESE_GRAMMAR_SYSTEM_PROMPT_EN = f"""You are a Chinese GRAMMAR expert (语法). Extract ALL grammar patterns from the text → precise JSON array.
-
-TEMPLATE:
-{_CHINESE_GRAMMAR_JSON_TEMPLATE_EN}
-
-RULES:
-1. Fill all 13 fields; missing → "". example_pinyin & example_2_pinyin ALWAYS required, standard tone-marked pinyin.
-2. pattern: the MAIN structure — ALWAYS in original Han characters, mark slots with word-type symbols (N/V/Adj). NEVER write pattern in pinyin (write "把字句", not "bǎ zì jù").
-3. pinyin: romanization of the structure part.
-4. usage: a memorable formula (e.g. "Subject + 把 + Object + V + Result").
-5. explanation: MAX 2 sentences — usage + nuance + common learner mistakes + synonyms (if any). Concise.
-6. VIVID EXAMPLES MATCHING THE LEVEL:
-   - Ex1: real-life casual speech, genuine emotion. Ex2: formal.
-   - Example level matches the pattern's HSK; NEVER cram hard words. Examples 5-12 words.
-   - EVERY example must include full tone-marked pinyin.
-7. ACCURACY: correct grammar, pinyin, usage. topic short and on point.
-8. LIKE A LECTURER READING A TEXTBOOK: read the WHOLE text carefully, understand context + accompanying vocabulary before extracting. Examples must follow the text's real context and use DIVERSE vocabulary.
-9. SAME PATTERN – DIFFERENT MEANING: if a pattern appears multiple times with different accompanying words producing DIFFERENT meanings/usages → create MULTIPLE entries instead of merging.
-10. MARK THE PATTERN: in example/example_2, WRAP the pattern instance in <b>…</b> (Anki renders HTML, e.g. "我把作业做<b>完了</b>。").
-
-OUTPUT: ONLY a plain JSON array, no markdown, no extra explanation. End with: {{"_comment":"≤15 words"}}"""
-
-_KOREAN_GRAMMAR_JSON_TEMPLATE_EN = """{
-  "pattern": "~아/어요",
-  "romanization": "a/eoyo",
-  "meaning": "polite informal ending (present tense)",
-  "topik_level": "TOPIK I",
-  "topic": "Sentence ending",
-  "usage": "Verb/Adjective + 아요 or 어요",
-  "explanation": "The most common polite informal sentence ending. Common mistake: confusing 아요 and 어요.",
-  "example": "지금 학교에 가요.",
-  "example_romanization": "jigeum hakgyoe gayo.",
-  "example_vn": "I am going to school now.",
-  "example_2": "밥을 맛있게 먹어요.",
-  "example_2_romanization": "babeul masitge meogeoyo.",
-  "example_2_vn": "I am eating the meal deliciously."
-}"""
-
-_KOREAN_GRAMMAR_SYSTEM_PROMPT_EN = f"""You are a Korean GRAMMAR expert (한국어 문법). Extract ALL grammar patterns from the text → precise JSON array.
-
-TEMPLATE:
-{_KOREAN_GRAMMAR_JSON_TEMPLATE_EN}
-
-RULES:
-1. Fill all 13 fields; missing → "". example_romanization & example_2_romanization ALWAYS required, standard Revised Romanization.
-2. pattern: the MAIN structure — ALWAYS in original Hangul, mark slots with "~" or word-type symbols (V/A/N). NEVER use romanization as pattern (write "~아/어요", not "a/eoyo").
-3. romanization: romanization of the structure part.
-4. usage: a memorable formula (e.g. "Verb + 아요/어요").
-5. explanation: MAX 2 sentences — usage + nuance + common learner mistakes + synonyms (if any). Concise.
-6. VIVID EXAMPLES MATCHING THE LEVEL:
-   - Ex1: real-life casual speech, genuine emotion. Ex2: formal, polite.
-   - Example level matches the pattern's TOPIK; NEVER cram hard words. Examples 5-12 words.
-   - EVERY example must include full romanization.
-7. ACCURACY: correct grammar, romanization, usage. topic short and on point.
-8. LIKE A LECTURER READING A TEXTBOOK: read the WHOLE text carefully, understand context + accompanying vocabulary before extracting. Examples must follow the text's real context and use DIVERSE vocabulary.
-9. SAME PATTERN – DIFFERENT MEANING: if a pattern appears multiple times with different accompanying words producing DIFFERENT meanings/usages → create MULTIPLE entries instead of merging.
-10. MARK THE PATTERN: in example/example_2, WRAP the pattern instance in <b>…</b> (Anki renders HTML, e.g. "지금 학교에 <b>가요</b>.").
-
-OUTPUT: ONLY a plain JSON array, no markdown, no extra explanation. End with: {{"_comment":"≤15 words"}}"""
-
-_GRAMMAR_SYSTEM_PROMPTS = {
-    "japanese": _JAPANESE_GRAMMAR_SYSTEM_PROMPT,
-    "chinese": _CHINESE_GRAMMAR_SYSTEM_PROMPT,
-    "korean": _KOREAN_GRAMMAR_SYSTEM_PROMPT,
-}
-
-_GRAMMAR_JSON_TEMPLATES = {
-    "japanese": _JAPANESE_GRAMMAR_JSON_TEMPLATE,
-    "chinese": _CHINESE_GRAMMAR_JSON_TEMPLATE,
-    "korean": _KOREAN_GRAMMAR_JSON_TEMPLATE,
-}
-
-_GRAMMAR_SYSTEM_PROMPTS_EN = {
-    "japanese": _JAPANESE_GRAMMAR_SYSTEM_PROMPT_EN,
-    "chinese": _CHINESE_GRAMMAR_SYSTEM_PROMPT_EN,
-    "korean": _KOREAN_GRAMMAR_SYSTEM_PROMPT_EN,
-}
-
-_GRAMMAR_JSON_TEMPLATES_EN = {
-    "japanese": _JAPANESE_GRAMMAR_JSON_TEMPLATE_EN,
-    "chinese": _CHINESE_GRAMMAR_JSON_TEMPLATE_EN,
-    "korean": _KOREAN_GRAMMAR_JSON_TEMPLATE_EN,
-}
 
 
 def get_grammar_json_template(lang: str) -> str:
@@ -1077,19 +618,19 @@ def extract_vocabulary_with_ai(
     """
     existing_hash = _make_existing_hash(existing_words or [])
     if should_abort and should_abort():
-        raise RuntimeError("⏹ Đã hủy bởi người dùng")
+        raise RuntimeError(t("error_cancelled_by_user"))
 
     # Cache
     if not force_refresh:
         cached = _ai_cache_get(text, lang, custom_instruction, existing_hash)
         if cached is not None:
             if progress_callback:
-                progress_callback(f"📦 Cache: {len(cached)} từ vựng!")
+                progress_callback(t("status_cache_vocab", count=len(cached)))
             return cached
 
     cfg = get_api_config()
     if not cfg.get("api_key") and "localhost" not in cfg.get("api_base", ""):
-        raise ValueError("⚠️ Chưa cấu hình API Key. Vào Cài đặt AI để nhập key.")
+        raise ValueError(t("error_api_key_missing"))
 
     system_prompt = get_effective_system_prompt(lang, "vocab")
 
@@ -1097,20 +638,24 @@ def extract_vocabulary_with_ai(
     max_chars = cfg.get("max_chars", 45000)
     if len(text) > max_chars:
         if progress_callback:
-            progress_callback(f"📝 Văn bản {len(text)} ký tự → cắt còn {max_chars}")
+            progress_callback(t("status_text_truncated", length=len(text), limit=max_chars))
         text = text[:max_chars]
 
     if progress_callback:
-        progress_callback(f"🤖 Đang gọi {cfg['model']}...")
+        progress_callback(t("status_calling_model", model=cfg["model"]))
 
     # User message: text + existing words context (đã lọc gọn để tiết kiệm token)
-    user_msg = f"Hãy trích xuất tất cả từ vựng từ văn bản sau:\n\n{text}"
+    request = "Extract all vocabulary from the following text:" if _ui_lang_en() \
+        else "Hãy trích xuất tất cả từ vựng từ văn bản sau:"
+    user_msg = f"{request}\n\n{text}"
 
     if existing_words and len(existing_words) > 0:
-        user_msg += _format_existing_context(existing_words, text, label="TỪ")
+        user_msg += _format_existing_context(existing_words, text, label="WORDS" if _ui_lang_en() else "TỪ")
 
     if custom_instruction.strip():
-        user_msg += f"\n\nYÊU CẦU BỔ SUNG (ưu tiên cao nhất):\n{custom_instruction.strip()}"
+        heading = "ADDITIONAL REQUIREMENT (highest priority)" if _ui_lang_en() \
+            else "YÊU CẦU BỔ SUNG (ưu tiên cao nhất)"
+        user_msg += f"\n\n{heading}:\n{custom_instruction.strip()}"
 
     messages = [
         {"role": "system", "content": system_prompt},
@@ -1133,7 +678,7 @@ def extract_vocabulary_with_ai(
     }
 
     if progress_callback:
-        progress_callback("⏳ Đang chờ AI phản hồi...")
+        progress_callback(t("status_waiting_ai"))
 
     _timeout = 600 if "reasoner" in cfg.get("model", "") else 300
     body = _http_post_json(url, payload, headers, timeout=_timeout,
@@ -1141,7 +686,7 @@ def extract_vocabulary_with_ai(
 
     result = json.loads(body)
     if "choices" not in result or len(result["choices"]) == 0:
-        raise RuntimeError(f"❌ API không có kết quả.\n{body[:500]}")
+        raise RuntimeError(t("error_api_no_result", details=body[:500]))
 
     # Parse token usage & cost
     token_info = None
@@ -1168,15 +713,15 @@ def extract_vocabulary_with_ai(
         if reasoning.strip():
             content = reasoning.strip()
             if progress_callback:
-                progress_callback("⚠️ Dùng reasoning_content (model không có content)...")
+                progress_callback(t("status_reasoning_fallback"))
         else:
-            raise RuntimeError("❌ Model không trả về nội dung (content rỗng).")
+            raise RuntimeError(t("error_model_empty"))
 
     if progress_callback:
-        progress_callback("🔍 Đang parse JSON...")
+        progress_callback(t("status_parsing_json"))
 
     _check_truncated_output(content, progress_callback)
-    vocab_list, comment = _parse_ai_json_with_comment(content)
+    vocab_list, comment = _parse_ai_json_with_comment(content, lambda p: t("error_ai_json_parse", content=p))
 
     # Lọc bỏ từ trùng với existing_words (safety net)
     if existing_words:
@@ -1187,10 +732,10 @@ def extract_vocabulary_with_ai(
             if (v.get("front") or v.get("simplified") or "").lower().strip() not in existing_set
         ]
         if len(vocab_list) < original_count and progress_callback:
-            progress_callback(f"🔍 Đã lọc {original_count - len(vocab_list)} từ trùng deck")
+            progress_callback(t("status_filtered_vocab", count=original_count - len(vocab_list)))
 
     if progress_callback:
-        msg = f"✅ {len(vocab_list)} từ vựng mới!"
+        msg = t("status_new_vocab", count=len(vocab_list))
         if comment:
             msg += f"\n💬 {comment[:100]}"
         if token_info:
@@ -1202,62 +747,6 @@ def extract_vocabulary_with_ai(
         _ai_cache_set(text, lang, custom_instruction, existing_hash, vocab_list)
 
     return vocab_list
-
-
-def _parse_ai_json_with_comment(content: str) -> tuple:
-    """Parse JSON, tách _comment"""
-    comment = ""
-    content = content.strip()
-
-    if content.startswith("```"):
-        lines = content.split("\n")
-        if lines[0].startswith("```"):
-            lines = lines[1:]
-        if lines and lines[-1].strip() == "```":
-            lines = lines[:-1]
-        content = "\n".join(lines).strip()
-
-    try:
-        data = json.loads(content)
-        if isinstance(data, list):
-            if data and isinstance(data[-1], dict) and "_comment" in data[-1] and len(data[-1]) == 1:
-                comment = data[-1]["_comment"]
-                data = data[:-1]
-            return data, comment
-        if isinstance(data, dict):
-            if "_comment" in data:
-                comment = data.pop("_comment")
-            for v in data.values():
-                if isinstance(v, list):
-                    return v, comment
-            return [data], comment
-    except json.JSONDecodeError:
-        pass
-
-    array_match = re.search(r'\[.*\]', content, re.DOTALL)
-    if array_match:
-        try:
-            data = json.loads(array_match.group(0))
-            if isinstance(data, list):
-                if data and isinstance(data[-1], dict) and "_comment" in data[-1] and len(data[-1]) == 1:
-                    comment = data[-1]["_comment"]
-                    data = data[:-1]
-                return data, comment
-        except json.JSONDecodeError:
-            pass
-
-    from .json_parser import safe_parse_json
-    results = safe_parse_json(content)
-    if results:
-        return results, comment
-
-    raise RuntimeError(
-        "⚠️ Không parse được JSON — thường do KẾT QUẢ BỊ CẮT vì vượt giới hạn "
-        "token output (DeepSeek ~8192/response).\n"
-        "💡 Cách khắc phục: Vào Cài Đặt AI → giảm 'Độ dài xử lý mỗi lần gọi' "
-        "xuống 8k-12k, rồi thử lại. Văn bản dài vẫn được xử lý hết (tự chia đoạn).\n"
-        f"Nội dung nhận được:\n{content[:400]}"
-    )
 
 
 # ═══════════════════════════════════════════════════════════
@@ -1345,30 +834,34 @@ def query_anki_context(user_message: str, lang: str = "japanese", collection=Non
                 pass
     
     except Exception as e:
-        context["note"] = f"(Không thể truy vấn Anki: {e})"
+        context["note"] = t("ai_context_query_failed", error=e)
     
     return context
 
 
 def _build_anki_context_text(context: dict) -> str:
     """Xây dựng text mô tả ngữ cảnh Anki để gửi cho AI, kèm lịch sử import"""
-    parts = []
-    parts.append(f"🌐 Ngôn ngữ hiện tại: {context.get('language', 'japanese')}")
+    parts = [t("ai_context_language", language=context.get("language", "japanese"))]
     
     decks = context.get("decks", [])
     if decks:
-        parts.append(f"\n📦 Danh sách Deck ({len(decks)} deck):")
+        parts.append("\n" + t("ai_context_deck_list", count=len(decks)))
         for d in decks[:20]:  # Giới hạn 20 deck
-            parts.append(f"   - {d['name']} ({d['card_count']} thẻ)")
+            count = t("ai_context_card_count", count=d["card_count"])
+            parts.append(f"   - {d['name']} ({count})")
         if len(decks) > 20:
-            parts.append(f"   ... và {len(decks) - 20} deck khác")
+            parts.append("   " + t("ai_context_other_decks", count=len(decks) - 20))
     
     stats = context.get("current_deck_stats", {})
     if stats:
-        parts.append(f"\n📊 Deck hiện tại ({stats.get('name', '?')}):")
-        parts.append(f"   - Tổng: {stats.get('total_cards', '?')} thẻ")
-        parts.append(f"   - Đến hạn: {stats.get('due_cards', '?')} thẻ")
-        parts.append(f"   - Mới: {stats.get('new_cards', '?')} thẻ")
+        parts.append("\n" + t("ai_context_current_deck", name=stats.get("name", "?")))
+        for label_key, value_key in (
+            ("ai_context_total", "total_cards"),
+            ("ai_context_due", "due_cards"),
+            ("ai_context_new", "new_cards"),
+        ):
+            count = stats.get(value_key, "?")
+            parts.append(f"   - {t(label_key)}: {t('ai_context_card_count', count=count)}")
     
     note = context.get("note", "")
     if note:
@@ -1495,7 +988,7 @@ def chat_with_ai(
     """
     cfg = get_api_config()
     if not cfg.get("api_key") and "localhost" not in cfg.get("api_base", ""):
-        return {"reply": "", "vocab_json": None, "error": "⚠️ Chưa cấu hình API Key. Vào Cài đặt AI để nhập key."}
+        return {"reply": "", "vocab_json": None, "error": t("error_api_key_missing")}
     try:
         ensure_ai_session_budget(user_message)
     except ValueError as error:
@@ -1510,14 +1003,14 @@ def chat_with_ai(
             "Answer exactly what is asked, no extra commentary."
         )
         if progress_callback:
-            progress_callback(f"🤖 Đang gọi {cfg['model']}...")
+            progress_callback(t("status_calling_model", model=cfg["model"]))
     else:
         if progress_callback:
-            progress_callback("🔍 Đang thu thập ngữ cảnh Anki...")
+            progress_callback(t("worker_progress_context"))
         context = anki_context if anki_context is not None else query_anki_context(user_message, lang)
         context_text = _build_anki_context_text(context)
         if progress_callback:
-            progress_callback(f"🤖 Đang gọi {cfg['model']}...")
+            progress_callback(t("status_calling_model", model=cfg["model"]))
         system_content = _get_chat_system_prompt() + "\n\n" + "═" * 50 + "\n"
         system_content += (
             "ANKI SYSTEM CONTEXT (use only this data):\n" if _ui_lang_en()
@@ -1549,7 +1042,7 @@ def chat_with_ai(
     }
     
     if progress_callback:
-        progress_callback("⏳ Đang chờ AI phản hồi...")
+        progress_callback(t("status_waiting_ai"))
 
     _timeout = 600 if "reasoner" in cfg.get("model", "") else 300
     try:
@@ -1560,7 +1053,8 @@ def chat_with_ai(
     
     result = json.loads(body)
     if "choices" not in result or len(result["choices"]) == 0:
-        return {"reply": "", "vocab_json": None, "token_info": None, "error": f"❌ API không có kết quả.\n{body[:500]}"}
+        return {"reply": "", "vocab_json": None, "token_info": None,
+                "error": t("error_api_no_result", details=body[:500])}
     
     # Parse token usage & cost
     token_info = None
@@ -1581,11 +1075,12 @@ def chat_with_ai(
         reasoning = msg.get("reasoning_content", "") or ""
         if reasoning.strip():
             # Dùng reasoning_content làm phản hồi (thường là quá trình suy nghĩ)
-            content = f"[Model suy nghĩ]\n{reasoning.strip()}\n\n⚠️ Model không trả về kết quả cuối cùng."
+            content = t("chat_reasoning_only", reasoning=reasoning.strip())
             if progress_callback:
-                progress_callback("⚠️ Model chỉ trả về reasoning, không có kết quả.")
+                progress_callback(t("status_reasoning_only"))
         else:
-            return {"reply": "", "vocab_json": None, "token_info": None, "error": "❌ Model không trả về nội dung (content rỗng)."}
+            return {"reply": "", "vocab_json": None, "token_info": None,
+                    "error": t("error_model_empty")}
     
     # Tách JSON từ vựng nếu có
     reply_text = content
@@ -1619,7 +1114,7 @@ def chat_with_ai(
                 pass
     
     if progress_callback:
-        end_msg = "✅ Hoàn tất!"
+        end_msg = t("status_complete")
         if token_info:
             end_msg += f"\n{_format_token_report(token_info)}"
         progress_callback(end_msg)
@@ -1654,7 +1149,7 @@ def extract_vocabulary_long_text(
 
     chunks = [text[i:i + chunk_size] for i in range(0, len(text), chunk_size)]
     if progress_callback:
-        progress_callback(f"📦 {len(chunks)} đoạn, đang xử lý...")
+        progress_callback(t("status_chunks_vocab", count=len(chunks)))
 
     all_vocab = []
     seen = set()
@@ -1679,9 +1174,9 @@ def extract_vocabulary_long_text(
 
     for idx, chunk in enumerate(chunks):
         if should_abort and should_abort():
-            raise RuntimeError("⏹ Đã hủy bởi người dùng")
+            raise RuntimeError(t("error_cancelled_by_user"))
         if progress_callback:
-            progress_callback(f"🔄 Đoạn {idx + 1}/{len(chunks)}...")
+            progress_callback(t("status_chunk", current=idx + 1, total=len(chunks)))
 
         try:
             combined_existing = (existing_words or []) + prior_fronts
@@ -1704,17 +1199,16 @@ def extract_vocabulary_long_text(
                 prior_fronts = prior_fronts[-400:]
         except Exception as e:
             if progress_callback:
-                progress_callback(f"⚠️ Lỗi đoạn {idx + 1}: {e}")
+                progress_callback(t("status_chunk_error", current=idx + 1, error=e))
 
     if progress_callback:
+        summary = t("status_total_vocab", count=len(all_vocab))
         if agg["total_tokens"] > 0:
-            progress_callback(
-                f"✅ Tổng: {len(all_vocab)} từ mới | "
-                f"🔢 {agg['total_tokens']:,} tokens (in {agg['prompt_tokens']:,} + out {agg['completion_tokens']:,}) | "
-                f"💰 ${agg['total_cost']:.4f}"
-            )
+            progress_callback(t("status_total_with_tokens", summary=summary,
+                                tokens=agg["total_tokens"], input_tokens=agg["prompt_tokens"],
+                                output_tokens=agg["completion_tokens"], cost=agg["total_cost"]))
         else:
-            progress_callback(f"✅ Tổng: {len(all_vocab)} từ mới")
+            progress_callback(summary)
 
     return all_vocab
 
@@ -1750,19 +1244,19 @@ def extract_grammar_with_ai(
     """
     existing_hash = _make_existing_hash(existing_patterns or [])
     if should_abort and should_abort():
-        raise RuntimeError("⏹ Đã hủy bởi người dùng")
+        raise RuntimeError(t("error_cancelled_by_user"))
 
     # Cache
     if not force_refresh:
         cached = _ai_cache_get(text, lang, custom_instruction, existing_hash, kind="grammar")
         if cached is not None:
             if progress_callback:
-                progress_callback(f"📦 Cache: {len(cached)} cấu trúc ngữ pháp!")
+                progress_callback(t("status_cache_grammar", count=len(cached)))
             return cached
 
     cfg = get_api_config()
     if not cfg.get("api_key") and "localhost" not in cfg.get("api_base", ""):
-        raise ValueError("⚠️ Chưa cấu hình API Key. Vào Cài đặt AI để nhập key.")
+        raise ValueError(t("error_api_key_missing"))
 
     system_prompt = get_effective_system_prompt(lang, "grammar")
 
@@ -1770,20 +1264,25 @@ def extract_grammar_with_ai(
     max_chars = cfg.get("max_chars", 45000)
     if len(text) > max_chars:
         if progress_callback:
-            progress_callback(f"📝 Văn bản {len(text)} ký tự → cắt còn {max_chars}")
+            progress_callback(t("status_text_truncated", length=len(text), limit=max_chars))
         text = text[:max_chars]
 
     if progress_callback:
-        progress_callback(f"🤖 Đang gọi {cfg['model']}...")
+        progress_callback(t("status_calling_model", model=cfg["model"]))
 
     # User message: text + existing patterns context (đã lọc gọn để tiết kiệm token)
-    user_msg = f"Hãy trích xuất tất cả cấu trúc ngữ pháp từ văn bản sau:\n\n{text}"
+    request = "Extract all grammar patterns from the following text:" if _ui_lang_en() \
+        else "Hãy trích xuất tất cả cấu trúc ngữ pháp từ văn bản sau:"
+    user_msg = f"{request}\n\n{text}"
 
     if existing_patterns and len(existing_patterns) > 0:
-        user_msg += _format_existing_context(existing_patterns, text, label="CẤU TRÚC NGỮ PHÁP")
+        label = "GRAMMAR PATTERNS" if _ui_lang_en() else "CẤU TRÚC NGỮ PHÁP"
+        user_msg += _format_existing_context(existing_patterns, text, label=label)
 
     if custom_instruction.strip():
-        user_msg += f"\n\nYÊU CẦU BỔ SUNG (ưu tiên cao nhất):\n{custom_instruction.strip()}"
+        heading = "ADDITIONAL REQUIREMENT (highest priority)" if _ui_lang_en() \
+            else "YÊU CẦU BỔ SUNG (ưu tiên cao nhất)"
+        user_msg += f"\n\n{heading}:\n{custom_instruction.strip()}"
 
     messages = [
         {"role": "system", "content": system_prompt},
@@ -1806,7 +1305,7 @@ def extract_grammar_with_ai(
     }
 
     if progress_callback:
-        progress_callback("⏳ Đang chờ AI phản hồi...")
+        progress_callback(t("status_waiting_ai"))
 
     _timeout = 600 if "reasoner" in cfg.get("model", "") else 300
     body = _http_post_json(url, payload, headers, timeout=_timeout,
@@ -1814,7 +1313,7 @@ def extract_grammar_with_ai(
 
     result = json.loads(body)
     if "choices" not in result or len(result["choices"]) == 0:
-        raise RuntimeError(f"❌ API không có kết quả.\n{body[:500]}")
+        raise RuntimeError(t("error_api_no_result", details=body[:500]))
 
     # Parse token usage & cost
     token_info = None
@@ -1841,15 +1340,15 @@ def extract_grammar_with_ai(
         if reasoning.strip():
             content = reasoning.strip()
             if progress_callback:
-                progress_callback("⚠️ Dùng reasoning_content (model không có content)...")
+                progress_callback(t("status_reasoning_fallback"))
         else:
-            raise RuntimeError("❌ Model không trả về nội dung (content rỗng).")
+            raise RuntimeError(t("error_model_empty"))
 
     if progress_callback:
-        progress_callback("🔍 Đang parse JSON...")
+        progress_callback(t("status_parsing_json"))
 
     _check_truncated_output(content, progress_callback)
-    grammar_list, comment = _parse_ai_json_with_comment(content)
+    grammar_list, comment = _parse_ai_json_with_comment(content, lambda p: t("error_ai_json_parse", content=p))
 
     # Chỉ giữ các item có pattern
     grammar_list = [
@@ -1866,10 +1365,10 @@ def extract_grammar_with_ai(
             if (g.get("pattern") or "").strip().lower() not in existing_set
         ]
         if len(grammar_list) < original_count and progress_callback:
-            progress_callback(f"🔍 Đã lọc {original_count - len(grammar_list)} cấu trúc trùng deck")
+            progress_callback(t("status_filtered_grammar", count=original_count - len(grammar_list)))
 
     if progress_callback:
-        msg2 = f"✅ {len(grammar_list)} cấu trúc ngữ pháp mới!"
+        msg2 = t("status_new_grammar", count=len(grammar_list))
         if comment:
             msg2 += f"\n💬 {comment[:100]}"
         if token_info:
@@ -1906,7 +1405,7 @@ def extract_grammar_long_text(
 
     chunks = [text[i:i + chunk_size] for i in range(0, len(text), chunk_size)]
     if progress_callback:
-        progress_callback(f"📦 {len(chunks)} đoạn, đang xử lý ngữ pháp...")
+        progress_callback(t("status_chunks_grammar", count=len(chunks)))
 
     all_grammar = []
     seen = set()
@@ -1928,9 +1427,9 @@ def extract_grammar_long_text(
 
     for idx, chunk in enumerate(chunks):
         if should_abort and should_abort():
-            raise RuntimeError("⏹ Đã hủy bởi người dùng")
+            raise RuntimeError(t("error_cancelled_by_user"))
         if progress_callback:
-            progress_callback(f"🔄 Đoạn {idx + 1}/{len(chunks)}...")
+            progress_callback(t("status_chunk", current=idx + 1, total=len(chunks)))
 
         try:
             grammar_chunk = extract_grammar_with_ai(
@@ -1950,512 +1449,49 @@ def extract_grammar_long_text(
                     all_grammar.append(item)
         except Exception as e:
             if progress_callback:
-                progress_callback(f"⚠️ Lỗi đoạn {idx + 1}: {e}")
+                progress_callback(t("status_chunk_error", current=idx + 1, error=e))
 
     if progress_callback:
+        summary = t("status_total_grammar", count=len(all_grammar))
         if agg["total_tokens"] > 0:
-            progress_callback(
-                f"✅ Tổng: {len(all_grammar)} cấu trúc ngữ pháp mới | "
-                f"🔢 {agg['total_tokens']:,} tokens (in {agg['prompt_tokens']:,} + out {agg['completion_tokens']:,}) | "
-                f"💰 ${agg['total_cost']:.4f}"
-            )
+            progress_callback(t("status_total_with_tokens", summary=summary,
+                                tokens=agg["total_tokens"], input_tokens=agg["prompt_tokens"],
+                                output_tokens=agg["completion_tokens"], cost=agg["total_cost"]))
         else:
-            progress_callback(f"✅ Tổng: {len(all_grammar)} cấu trúc ngữ pháp mới")
+            progress_callback(summary)
 
     return all_grammar
 
 
 # ═══════════════════════════════════════════════════════════
-#  IMPORT HISTORY — Lịch sử nhập JSON/tài liệu
-#  Lưu cache từ vựng đã import để AI truy cập mà không cần
-#  quét toàn bộ database Anki. Tiết kiệm token.
+#  IMPORT HISTORY (compatibility re-exports)
 # ═══════════════════════════════════════════════════════════
+from . import import_history as _import_history
 
-_HISTORY_PATH = get_user_data_path("import_history.json")
-_LEGACY_HISTORY_PATH = os.path.join(_LEGACY_CONFIG_DIR, "import_history.json")
-_HISTORY_VERSION = 1
-_HISTORY_SCAN_TTL = 24 * 3600  # TTL 24h cho full scan
-
-
-def _load_history() -> dict:
-    """Đọc file lịch sử import"""
-    migrate_legacy_json(_LEGACY_HISTORY_PATH, _HISTORY_PATH, lambda value: isinstance(value, dict))
-    data = read_json(_HISTORY_PATH, {}, lambda value: isinstance(value, dict))
-    if data.get("version") == _HISTORY_VERSION:
-        return data
-    return {
-        "version": _HISTORY_VERSION,
-        "last_full_scan": None,
-        "entries": {},       # {lang: {front_lower: {meaning, furigana/pinyin, level, deck, imported_at, source}}}
-        "import_sessions": [],  # [{timestamp, count, deck, source, lang}]
-    }
+_HISTORY_PATH = _import_history._HISTORY_PATH
+_LEGACY_HISTORY_PATH = _import_history._LEGACY_HISTORY_PATH
+_HISTORY_VERSION = _import_history._HISTORY_VERSION
+_HISTORY_SCAN_TTL = _import_history._HISTORY_SCAN_TTL
+_load_history = _import_history._load_history
+_save_history = _import_history._save_history
+clear_import_history = _import_history.clear_import_history
+add_to_import_history = _import_history.add_to_import_history
+get_import_history = _import_history.get_import_history
+get_import_history_items = _import_history.get_import_history_items
+search_import_history = _import_history.search_import_history
+get_history_summary_text = _import_history.get_history_summary_text
+_build_single_lang_summary = _import_history._build_single_lang_summary
 
 
-def _save_history(data: dict):
-    """Ghi file lịch sử import"""
-    try:
-        atomic_write_json(_HISTORY_PATH, data)
-    except Exception as e:
-        logger.warning("Lỗi ghi import_history: %s", e)
-
-
-def clear_import_history():
-    """Xóa toàn bộ lịch sử import từ vựng"""
-    if os.path.exists(_HISTORY_PATH):
-        try:
-            os.remove(_HISTORY_PATH)
-            return True
-        except Exception as e:
-            logger.warning("Lỗi xóa import_history: %s", e)
-            return False
-    return True
+def _anki_history_scan_context():
+    from aqt import mw
+    from Language import LANG_CONFIG
+    return mw.col, LANG_CONFIG
 
 
 def init_import_history(force_rescan: bool = False) -> dict:
-    """
-    Khởi tạo lịch sử import: quét toàn bộ deck Anki để thu thập
-    từ vựng hiện có. Chỉ quét nếu:
-    - File lịch sử chưa tồn tại
-    - TTL đã hết (24h)
-    - force_rescan = True
-
-    Returns:
-        dict lịch sử sau khi khởi tạo
-    """
-    data = _load_history()
-    last_scan = data.get("last_full_scan")
-
-    # Kiểm tra có cần rescan không
-    need_scan = force_rescan
-    if not need_scan and last_scan:
-        try:
-            if time.time() - last_scan > _HISTORY_SCAN_TTL:
-                need_scan = True
-        except Exception:
-            need_scan = True
-    if not need_scan and not last_scan:
-        need_scan = True
-
-    # Nếu đã có entries, chỉ rescan nếu cần
-    if not need_scan and data.get("entries"):
-        return data
-
-    if need_scan:
-        try:
-            from aqt import mw
-            from Language import LANG_CONFIG
-
-            if not data.get("entries"):
-                data["entries"] = {}
-
-            total_scanned = 0
-            for lang_key, cfg in LANG_CONFIG.items():
-                model_name = cfg.get("model_name", "")
-                front_field = cfg.get("front_field", "")
-
-                if not model_name or not front_field:
-                    continue
-
-                if lang_key not in data["entries"]:
-                    data["entries"][lang_key] = {}
-
-                try:
-                    note_ids = mw.col.find_notes(f'"note:{model_name}"')
-                    if not note_ids:
-                        continue
-
-                    existing_keys = set(data["entries"][lang_key].keys())
-                    # Lấy field index từ model (1 lần)
-                    model = mw.col.models.by_name(model_name)
-                    if not model:
-                        continue
-                    field_names = [f["name"] for f in model["flds"]]
-                    front_idx = field_names.index(front_field) if front_field in field_names else 0
-                    meaning_idx = field_names.index("Meaning") if "Meaning" in field_names else -1
-                    furi_idx = field_names.index(cfg.get("furi_label", "")) if cfg.get("furi_label", "") in field_names else -1
-                    level_idx = field_names.index(cfg.get("level_field", "")) if cfg.get("level_field", "") in field_names else -1
-
-                    # Batch query: lấy flds trực tiếp từ SQL (tránh N+1 get_note)
-                    batch_size = 200
-                    for i in range(0, len(note_ids), batch_size):
-                        batch = note_ids[i:i + batch_size]
-                        try:
-                            placeholders = ",".join("?" * len(batch))
-                            rows = mw.col.db.all(
-                                f"SELECT id, flds FROM notes WHERE id IN ({placeholders})", *batch
-                            )
-                        except Exception:
-                            rows = []
-                            for nid in batch:
-                                try:
-                                    note = mw.col.get_note(nid)
-                                    rows.append((nid, "\x1f".join(str(note[f]) for f in field_names)))
-                                except Exception:
-                                    continue
-
-                        for nid, flds_raw in rows:
-                            try:
-                                fields = flds_raw.split("\x1f")
-                                if front_idx >= len(fields):
-                                    continue
-                                front = fields[front_idx].strip()
-                                if not front:
-                                    continue
-
-                                front_lower = front.lower()
-                                # Nếu đã có trong lịch sử, bỏ qua
-                                if front_lower in existing_keys:
-                                    continue
-
-                                # Thu thập thông tin
-                                entry = {
-                                    "front": front,
-                                    "front_lower": front_lower,
-                                    "meaning": "",
-                                    "level": "",
-                                    "deck": "",
-                                    "imported_at": time.time(),
-                                    "source": "deck_scan",
-                                }
-
-                                # Lấy meaning
-                                if meaning_idx >= 0 and meaning_idx < len(fields):
-                                    entry["meaning"] = fields[meaning_idx].strip()
-
-                                # Lấy furigana/pinyin
-                                if furi_idx >= 0 and furi_idx < len(fields):
-                                    val = fields[furi_idx].strip()
-                                    if val:
-                                        if lang_key == "japanese":
-                                            entry["furigana"] = val
-                                        else:
-                                            entry["pinyin"] = val
-
-                                # Lấy cấp độ
-                                if level_idx >= 0 and level_idx < len(fields):
-                                    entry["level"] = fields[level_idx].strip()
-
-                                data["entries"][lang_key][front_lower] = entry
-                                total_scanned += 1
-                            except Exception:
-                                continue
-                except Exception as e:
-                    logger.warning("Lỗi quét deck %s: %s", lang_key, e)
-
-            data["last_full_scan"] = time.time()
-            data["_scan_summary"] = {
-                "total_words_scanned": total_scanned,
-                "languages": list(data["entries"].keys()),
-                "word_counts": {k: len(v) for k, v in data["entries"].items()},
-            }
-            _save_history(data)
-            logger.info("Import history initialized: %s words scanned", total_scanned)
-        except Exception as e:
-            logger.warning("Lỗi init_import_history: %s", e)
-
-    return data
-
-
-def add_to_import_history(vocab_list: list, lang: str, deck_name: str = "", source: str = "manual",
-                          kind: str = "vocab"):
-    """
-    Ghi nhận từ vựng / ngữ pháp mới vào lịch sử sau mỗi lần import.
-
-    Args:
-        vocab_list: Danh sách dict item (từ vựng hoặc cấu trúc ngữ pháp)
-        lang: "japanese" / "chinese" / "korean"
-        deck_name: Tên deck được import vào
-        source: Nguồn gốc ("manual", "ai_extract", "ai_chat", "file_import")
-        kind: "vocab" hoặc "grammar" — lưu riêng 2 mục trong lịch sử
-    """
-    if not vocab_list:
-        return
-
-    data = _load_history()
-    if not data.get("entries"):
-        data["entries"] = {}
-    if lang not in data["entries"]:
-        data["entries"][lang] = {}
-
-    now = time.time()
-    added_count = 0
-
-    for item in vocab_list:
-        if not isinstance(item, dict):
-            continue
-
-        # Grammar dùng key "pattern" thay cho "front"
-        front = (item.get("front") or item.get("simplified") or item.get("pattern") or "").strip()
-        if not front:
-            continue
-
-        front_lower = front.lower()
-
-        entry = {
-            "front": front,
-            "front_lower": front_lower,
-            "meaning": str(item.get("meaning", "")).strip(),
-            "level": str(item.get("jlptlevel") or item.get("hsk_level") or "").strip(),
-            "deck": deck_name,
-            "imported_at": now,
-            "source": source,
-            "kind": kind,
-            # Lưu toàn bộ item gốc để có thể đưa lại vào xưởng và import lại
-            "item": item,
-        }
-
-        # Furigana / Pinyin
-        if lang == "japanese":
-            entry["furigana"] = str(item.get("furigana", "")).strip()
-        else:
-            entry["pinyin"] = str(item.get("pinyin", "")).strip()
-            entry["traditional"] = str(item.get("traditional", "")).strip()
-
-        # Topic
-        entry["topic"] = str(item.get("topic", "")).strip()
-
-        data["entries"][lang][front_lower] = entry
-        added_count += 1
-
-    # Ghi phiên import
-    if not data.get("import_sessions"):
-        data["import_sessions"] = []
-    data["import_sessions"].append({
-        "timestamp": now,
-        "count": added_count,
-        "deck": deck_name,
-        "source": source,
-        "lang": lang,
-    })
-    # Giới hạn 100 phiên gần nhất
-    if len(data["import_sessions"]) > 100:
-        data["import_sessions"] = data["import_sessions"][-100:]
-
-    _save_history(data)
-    logger.info("Import history: +%s words (%s, %s)", added_count, lang, source)
-
-
-def get_import_history(lang: str = None, limit: int = 2000) -> dict:
-    """
-    Lấy lịch sử từ vựng đã import để cung cấp cho AI.
-
-    Args:
-        lang: Lọc theo ngôn ngữ (None = tất cả)
-        limit: Giới hạn số từ trả về (để tiết kiệm token)
-
-    Returns:
-        dict với keys: total_count, words (list), sessions, summary
-    """
-    data = _load_history()
-    entries = data.get("entries", {})
-
-    result = {
-        "total_count": 0,
-        "words": [],
-        "sessions": data.get("import_sessions", [])[-20:],  # 20 phiên gần nhất
-        "summary": {},
-    }
-
-    # Tổng hợp
-    for l, words in entries.items():
-        if lang and l != lang:
-            continue
-        result["summary"][l] = {
-            "count": len(words),
-            "levels": {},
-            "topics": {},
-        }
-        result["total_count"] += len(words)
-
-        # Thống kê cấp độ & chủ đề
-        for w in words.values():
-            lvl = w.get("level", "")
-            if lvl:
-                result["summary"][l]["levels"][lvl] = result["summary"][l]["levels"].get(lvl, 0) + 1
-            topic = w.get("topic", "")
-            if topic:
-                result["summary"][l]["topics"][topic] = result["summary"][l]["topics"].get(topic, 0) + 1
-
-    # Lấy danh sách từ (có giới hạn)
-    all_words = []
-    for l, words in entries.items():
-        if lang and l != lang:
-            continue
-        for w in words.values():
-            all_words.append({
-                "front": w.get("front", ""),
-                "meaning": w.get("meaning", ""),
-                "level": w.get("level", ""),
-                "deck": w.get("deck", ""),
-                "lang": l,
-                "imported_at": w.get("imported_at", 0),
-            })
-
-    # Sắp xếp theo thời gian import (mới nhất trước)
-    all_words.sort(key=lambda x: x.get("imported_at", 0), reverse=True)
-    result["words"] = all_words[:limit]
-
-    return result
-
-
-def get_import_history_items(lang: str = None, limit: int = 5000, kind: str = None) -> list:
-    """
-    Lấy từ vựng / ngữ pháp trong lịch sử import dưới dạng item dict tương thích
-    với xưởng (để đưa lại vào xưởng và import lại). Mới nhất trước.
-
-    Args:
-        lang: Lọc theo ngôn ngữ (None = tất cả)
-        limit: Giới hạn số mục trả về
-        kind: Lọc theo loại ("vocab" / "grammar"; None = tất cả)
-
-    Returns:
-        List [(lang, item_dict), ...] — ưu tiên item gốc đã lưu trong lịch sử;
-        nếu entry cũ chưa có item thì dựng lại từ các field đã lưu.
-    """
-    data = _load_history()
-    entries = data.get("entries", {})
-    result = []
-    for l, words in entries.items():
-        if lang and l != lang:
-            continue
-        for w in words.values():
-            if kind and w.get("kind", "vocab") != kind:
-                continue
-            item = w.get("item")
-            if not isinstance(item, dict):
-                item = {
-                    "front": w.get("front", ""),
-                    "meaning": w.get("meaning", ""),
-                    "topic": w.get("topic", ""),
-                }
-                level = w.get("level", "")
-                if level:
-                    if l == "japanese":
-                        item["jlptlevel"] = level
-                    else:
-                        item["hsk_level"] = level
-                if w.get("furigana"):
-                    item["furigana"] = w["furigana"]
-                if w.get("pinyin"):
-                    item["pinyin"] = w["pinyin"]
-                if w.get("traditional"):
-                    item["traditional"] = w["traditional"]
-            else:
-                item = dict(item)  # tránh mutate dữ liệu gốc trong file
-                if not item.get("front"):
-                    item["front"] = w.get("front", "")
-            item.setdefault("kind", w.get("kind", "vocab"))
-            if not item.get("front"):
-                continue
-            result.append((l, w.get("imported_at", 0), item))
-    result.sort(key=lambda x: x[1], reverse=True)
-    return [(l, it) for l, _, it in result[:limit]]
-
-
-def search_import_history(query: str, lang: str = None, limit: int = 50) -> list:
-    """
-    Tìm kiếm trong lịch sử import.
-
-    Args:
-        query: Từ khóa tìm kiếm
-        lang: Lọc theo ngôn ngữ
-        limit: Giới hạn kết quả
-
-    Returns:
-        List các từ khớp
-    """
-    query_lower = query.lower().strip()
-    if not query_lower:
-        return []
-
-    data = _load_history()
-    entries = data.get("entries", {})
-    results = []
-
-    for l, words in entries.items():
-        if lang and l != lang:
-            continue
-        for w in words.values():
-            front = w.get("front", "").lower()
-            meaning = w.get("meaning", "").lower()
-            furi = w.get("furigana", "").lower()
-            pinyin = w.get("pinyin", "").lower()
-
-            if (query_lower in front or query_lower in meaning
-                    or query_lower in furi or query_lower in pinyin):
-                results.append({
-                    "front": w.get("front", ""),
-                    "meaning": w.get("meaning", ""),
-                    "level": w.get("level", ""),
-                    "deck": w.get("deck", ""),
-                    "lang": l,
-                })
-
-        if len(results) >= limit:
-            break
-
-    return results[:limit]
-
-
-def get_history_summary_text(lang: str = None, max_words_for_ai: int = 50) -> str:
-    """
-    Tạo text tóm tắt lịch sử để gửi cho AI (tiết kiệm token).
-    Tách biệt rõ ràng Japanese và Chinese.
-
-    Args:
-        lang: Ngôn ngữ cần tóm tắt (None = cả hai)
-        max_words_for_ai: Số từ tối đa gửi cho AI
-
-    Returns:
-        Text mô tả lịch sử
-    """
-    if lang:
-        # Chỉ lấy 1 ngôn ngữ
-        history = get_import_history(lang=lang, limit=max_words_for_ai)
-        return _build_single_lang_summary(history, lang)
-    else:
-        # Lấy cả hai, tách biệt rõ ràng
-        parts = []
-        parts.append("📚 TỔNG QUAN LỊCH SỬ IMPORT (TÁCH BIỆT THEO NGÔN NGỮ)")
-        parts.append("═" * 50)
-
-        for l in ["japanese", "chinese"]:
-            h = get_import_history(lang=l, limit=max_words_for_ai // 2)
-            summary_text = _build_single_lang_summary(h, l)
-            if summary_text:
-                parts.append(summary_text)
-                parts.append("")  # blank line between languages
-
-        return "\n".join(parts)
-
-
-def _build_single_lang_summary(history: dict, lang: str) -> str:
-    """Xây dựng text tóm tắt cho MỘT ngôn ngữ"""
-    parts = []
-
-    if lang == "japanese":
-        parts.append("🇯🇵 TIẾNG NHẬT (Japanese)")
-    else:
-        parts.append("🇨🇳 TIẾNG TRUNG (Chinese)")
-
-    summary = history.get("summary", {}).get(lang, {})
-    parts.append(f"   📊 Tổng: {summary.get('count', 0)} từ đã import")
-
-    if summary.get("levels"):
-        levels_str = ", ".join(f"{k}:{v}" for k, v in sorted(summary["levels"].items()))
-        parts.append(f"   🎓 Cấp độ: {levels_str}")
-
-    if summary.get("topics"):
-        top_topics = sorted(summary["topics"].items(), key=lambda x: -x[1])[:5]
-        topics_str = ", ".join(f"{k}({v})" for k, v in top_topics)
-        parts.append(f"   🏷 Chủ đề: {topics_str}")
-
-    # Từ gần đây
-    words = history.get("words", [])
-    if words:
-        parts.append(f"   📝 {min(len(words), 30)} từ gần nhất:")
-        for w in words[:30]:
-            lvl = f" [{w.get('level', '')}]" if w.get("level") else ""
-            parts.append(f"      • {w['front']} = {w['meaning']}{lvl}")
-
-    return "\n".join(parts)
+    """Compatibility entry point that injects the Anki scan boundary lazily."""
+    return _import_history.init_import_history(
+        force_rescan=force_rescan,
+        scan_context_factory=_anki_history_scan_context,
+    )

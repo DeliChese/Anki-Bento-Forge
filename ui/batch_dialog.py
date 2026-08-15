@@ -60,8 +60,9 @@ class BatchWordListDialog(QDialog):
             "korean": t("lang_korean"),
         }.get(self.lang, t("lang_japanese"))
         item_label = t("item_label_grammar") if self.grammar else t("item_label_vocab")
+        header_key = "batch_header_grammar" if self.grammar else "batch_header_vocab"
         header.addWidget(QLabel(
-            f"<h3>{t('batch_header_grammar') if self.grammar else t('batch_header_vocab')} ({lang_label})</h3>"
+            f"<h3>{t(header_key, language=lang_label)}</h3>"
             + (f"<p style='color:#555;font-size:11px;'>{t('batch_desc_grammar')}</p>"
                if self.grammar else
                f"<p style='color:#555;font-size:11px;'>{t('batch_desc_vocab')}</p>")

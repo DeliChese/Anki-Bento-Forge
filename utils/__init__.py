@@ -12,6 +12,8 @@ from .ai_extractor import (
     chat_with_ai,
     query_anki_context,
     init_import_history,
+)
+from .import_history import (
     add_to_import_history,
     get_import_history,
     get_import_history_items,

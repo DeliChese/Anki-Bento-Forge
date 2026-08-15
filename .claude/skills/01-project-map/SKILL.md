@@ -14,7 +14,8 @@ description: Bản đồ toàn bộ dự án AnkiTool — cấu trúc, dependenc
 ```
 > Số dòng file cập nhật theo code hiện tại (V17.1). Số dòng hàm nội bộ nên tự verify bằng `search_files` trước khi dùng.
 
-__init__.py (2,620)      ← AnkiSmartFactory QDialog + entry `start_smart_factory()`:2610
+__init__.py (26)         ← compatibility facade; re-export AnkiSmartFactory/start_smart_factory
+ui/factory_dialog.py (2,830) ← AnkiSmartFactory QDialog + Qt/Anki orchestration; entry:2801
 audio/engine.py (136)    ← VOICE_OPTIONS, router get_audio_multilang, speed_to_edge_rate
 audio/tts.py (263)       ← Edge / gTTS / VoiceVox providers
 Language/__init__.py     ← LANG_CONFIG, LANG_GRAMMAR_CONFIG, LANG_SELECTOR_INFO
@@ -26,8 +27,12 @@ mode/css.py (236)        ← css_japanese, css_chinese, css_korean, *_grammar
 mode/templates.py (1,149) ← tmpl_*_q/a + COMBO (tmpl_{lang}_combo_q/a), LANG_TEMPLATES, LANG_GRAMMAR_TEMPLATES
 mode/shared.py (497)     ← _WB_JS_BODY, _HW_JS_BODY, WB_POOLS, _SPEED_CTRL_JS, _LG_JS_BODY, _COMBO_MODE_JS
 mode/card_render.py      ← build_qfmt/build_afmt (tự append field tùy chỉnh lên thẻ)
-utils/ai_extractor.py (2,455) ← AI core (xem SKILL-02); re-export API đọc tài liệu/HTTP để tương thích
+utils/ai_extractor.py (1,489) ← AI extraction/chat orchestration (xem SKILL-02); compatibility facade cho responsibility đã tách
+utils/ai_prompt_defaults.py (528) ← schema + prompt defaults VI/EN thuần; không dependency runtime
+utils/ai_response_parser.py (64) ← parse AI JSON/comment thuần; dùng chung vocab/grammar/batch
+utils/import_history.py (522) ← history storage/query/summary + scan aggregation; Anki context được inject
 utils/ai_http_client.py (243) ← HTTP transport AI thuần: TLS/pool/retry/rate-limit/cancel; không phụ thuộc Anki/UI/config
+utils/ai_result_cache.py (160) ← AI result cache thuần: key/TTL/persistence/pruning; dependency được inject
 utils/ai_workflow.py ← lifecycle worker AI: cancellation/token/signal; stdlib-only, worker/UI callbacks được inject
 utils/document_extractors.py (242) ← đọc TXT/CSV/PDF/DOCX/XLSX cục bộ; không phụ thuộc Anki/AI
 utils/batch_processor.py (1,061) ← batch (xem SKILL-03)
@@ -53,16 +58,21 @@ ui/prompt_editor.py      ← sửa prompt/schema/field map
 ui/theme.py (539)        ← apply_theme, ThemeDialog, snap_maximize
 hooks/reviewer.py        ← register_hooks (inject combo mode + LG + speed)
 hooks/overview_mode.py   ← register_overview_hooks, patch Overview._table (wrap Onigiri), webview message handler
-tests/                   ← 390 tests (28 file) — xem SKILL-10
+tests/                   ← 444 tests (36 file) — xem SKILL-10
 ```
 
 ## DEPENDENCY GRAPH (imports chính)
 
 ```
-__init__.py → Language, mode, audio.engine, utils(safe_parse_json,logger,ai_extractor)
-            → workers (7 thread), ui (dialogs), ui.theme, hooks.reviewer
+__init__.py → ui.factory_dialog (compatibility facade only)
+ui.factory_dialog → Language, mode, audio.engine, utils(safe_parse_json,logger,ai_extractor)
+                  → workers (7 thread), ui (dialogs), ui.theme, hooks.reviewer
 ai_extractor → utils.logger, utils.ai_http_client, utils.document_extractors, utils.json_parser(ko trực tiếp—dùng batch), deck_cache(qua utils)
+ai_prompt_defaults → pure data; prompt_config phụ thuộc trực tiếp, ai_extractor re-export compatibility
+ai_response_parser → utils.json_parser; ai_extractor re-export compatibility, batch import owner trực tiếp
+import_history → utils.user_data + logger; không import aqt/Language, scan context do ai_extractor inject lazy
 ai_http_client → Python stdlib; không phụ thuộc aqt/mw/config/prompt/parser
+ai_result_cache → utils.user_data; không phụ thuộc aqt/mw/AI workflow/prompt config
 ai_workflow → Python stdlib; Factory inject `AiExtractThread`/`AiChatThread` và UI callbacks
 document_extractors → utils.logger + parser tùy chọn đã cài; không phụ thuộc aqt/mw/AI/network
 batch_processor → ai_extractor (get_api_config, prompts, _parse_ai_json_with_comment, _apply_reasoning_effort)
@@ -77,23 +87,23 @@ ui/* → aqt.qt, utils (batch_processor, ai_extractor, i18n)
 
 ```
 [A] Import JSON thủ công:
-    json_input → _analyze_content:887 → safe_parse_json
-    → _verify_batch_impl:911 (query Anki, phân loại add/update/dup/dup_diff)
-    → _process_import:1118 → ImportWorker (thread) → get_audio_multilang → add_to_import_history
+    json_input → ui/factory_dialog.py::_analyze_content:1463 → safe_parse_json
+    → _verify_batch_impl:1484 (query Anki, phân loại add/update/dup/dup_diff)
+    → _process_import:1897 → ImportWorker (thread) → get_audio_multilang → add_to_import_history
 
 [B] AI Extract:
-    _ai_extract:1421 → DeckScanWorker (lấy existing words, cache 30p)
-    → _start_ai_extract:1498 → AiExtractThread → extract_vocabulary_long_text
-    → _show_ai_preview:1836 → ui/ai_preview → _finalize_ai_vocab:1850
+    ui/factory_dialog.py::_ai_extract:2284 → DeckScanWorker (lấy existing words, cache 30p)
+    → _start_ai_extract:2364 → AiExtractThread → extract_vocabulary_long_text
+    → _show_ai_preview:2719 → ui/ai_preview → _finalize_ai_vocab:2733
 
 [C] Batch:
-    _ai_batch_process:1561 → ui/batch_dialog (BatchWordListDialog)
+    ui/factory_dialog.py::_ai_batch_process:2432 → ui/batch_dialog (BatchWordListDialog)
     → BatchProcessThread → process_large_word_list → AI per batch
     → DeckOrganizerThread → organize_decks_with_ai → create_decks_from_organization
 
 [D] Chat:
-    _ai_chat:1616 → AiChatThread → chat_with_ai (query_anki_context)
-    → _show_ai_chat_dialog:1794 → AiChatDialog
+    ui/factory_dialog.py::_ai_chat:2492 → AiChatThread → chat_with_ai (query_anki_context)
+    → _show_ai_chat_dialog:2680 → AiChatDialog
 ```
 
 ## CRITICAL PATHS (cấm phá vỡ)
@@ -103,7 +113,7 @@ ui/* → aqt.qt, utils (batch_processor, ai_extractor, i18n)
 | `get_audio_multilang` → `_install_edge_tts` | Audio = tính năng chính |
 | `safe_parse_json` | Mọi input JSON đi qua |
 | `get_api_config` encryption round-trip | API key mã hóa; break = mất key |
-| `get_or_create_model` (`__init__.py:1251`) | Sai = hỏng Note Type/template |
+| `get_or_create_model` (`ui/factory_dialog.py:2115`) | Sai = hỏng Note Type/template |
 | `register_hooks` (`hooks/reviewer.py:45`) | Speed control + Letter Gap khi review |
 | `_PROMPT_VERSION` bump | Quên bump = cache cũ sai |
 
@@ -112,7 +122,7 @@ ui/* → aqt.qt, utils (batch_processor, ai_extractor, i18n)
 | Việc | Đọc skill + source |
 |------|--------------------|
 | Sửa audio | SKILL-04 + `audio/engine.py` (~1k token) |
-| Sửa prompt AI | SKILL-02 + `ai_extractor.py` vùng prompt (~1.5k) |
+| Sửa prompt AI | SKILL-02 + `ai_prompt_defaults.py` + `prompt_config.py` |
 | Sửa template thẻ | SKILL-08 + `mode/templates.py` 1 hàm (~0.8k) |
 | Sửa UI dialog | SKILL-06 + file ui/ tương ứng |
 | Thêm ngôn ngữ mới | SKILL-07 + SKILL-08 + SKILL-04 (3 skill, ~3.5k) |

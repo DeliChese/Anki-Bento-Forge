@@ -61,6 +61,7 @@ DEFAULT_CONFIG = {
 PRESETS = {
     "glass_dark": {
         "name": "🌑 Glass Dark",
+        "name_key": "theme_preset_glass_dark",
         "bg1": "#0b1b2a",
         "bg2": "#172a45",
         "bg3": "#1f3a5f",
@@ -69,6 +70,7 @@ PRESETS = {
     },
     "glass_light": {
         "name": "🌕 Glass Light",
+        "name_key": "theme_preset_glass_light",
         "bg1": "#dfe9f3",
         "bg2": "#c3d7ec",
         "bg3": "#a9c4e4",
@@ -77,6 +79,7 @@ PRESETS = {
     },
     "midnight": {
         "name": "🌌 Midnight",
+        "name_key": "theme_preset_midnight",
         "bg1": "#05070f",
         "bg2": "#0c1220",
         "bg3": "#171f38",
@@ -86,13 +89,13 @@ PRESETS = {
 }
 
 ACCENT_PRESETS = [
-    ("🔵 Xanh dương", "#6aa7ff"),
-    ("🟣 Tím", "#a78bfa"),
-    ("🟢 Xanh lá", "#34d399"),
-    ("🟠 Cam", "#fbbf24"),
-    ("🌸 Hồng", "#f472b6"),
-    ("🔴 Đỏ", "#f87171"),
-    ("🩵 Cyan", "#22d3ee"),
+    ("theme_accent_blue", "#6aa7ff"),
+    ("theme_accent_purple", "#a78bfa"),
+    ("theme_accent_green", "#34d399"),
+    ("theme_accent_orange", "#fbbf24"),
+    ("theme_accent_pink", "#f472b6"),
+    ("theme_accent_red", "#f87171"),
+    ("theme_accent_cyan", "#22d3ee"),
 ]
 
 
@@ -421,14 +424,14 @@ class ThemeDialog(QDialog):
         gl.addWidget(QLabel(t("theme_preset_label")), 0, 0)
         self.cbo_preset = QComboBox()
         for key, p in PRESETS.items():
-            self.cbo_preset.addItem(p["name"], key)
+            self.cbo_preset.addItem(t(p["name_key"]), key)
         gl.addWidget(self.cbo_preset, 0, 1)
 
         gl.addWidget(QLabel(t("theme_accent_label")), 1, 0)
         self.cbo_accent = QComboBox()
-        for label, hexv in ACCENT_PRESETS:
-            self.cbo_accent.addItem(f"{label}  ({hexv})", hexv)
-        self.cbo_accent.addItem("🌈 Tùy chỉnh...", "__custom__")
+        for label_key, hexv in ACCENT_PRESETS:
+            self.cbo_accent.addItem(f"{t(label_key)}  ({hexv})", hexv)
+        self.cbo_accent.addItem(t("theme_accent_custom"), "__custom__")
         gl.addWidget(self.cbo_accent, 1, 1)
 
         gl.addWidget(QLabel(t("theme_alpha_label")), 2, 0)
@@ -469,7 +472,12 @@ class ThemeDialog(QDialog):
         row.addWidget(b3)
         pv.addLayout(row)
         inp = QComboBox()
-        inp.addItems([t("theme_combo_sample"), t("item_label_grammar"), "Topic A", "Topic B"])
+        inp.addItems([
+            t("theme_combo_sample"),
+            t("item_label_grammar"),
+            t("theme_topic_a"),
+            t("theme_topic_b"),
+        ])
         pv.addWidget(inp)
         self.preview.setLayout(pv)
         vl.addWidget(self.preview, 1)

@@ -26,8 +26,6 @@
 
 | Khía cạnh | Vấn đề | Mức độ |
 |-----------|--------|--------|
-| **`__init__.py` quá lớn** | 2.835 dòng — điểm tập trung thay đổi lớn | 🔴 Cao |
-| **`ai_extractor.py` quá lớn** | 2.461 dòng — trách nhiệm quá nhiều | 🔴 Cao |
 | **`i18n.py` quá lớn** | 2.016 dòng — translation dict khổng lồ | 🟡 Trung bình |
 | **`templates.py` quá lớn** | 1.315 dòng — HTML template cứng | 🟡 Trung bình |
 | **`batch_processor.py` quá lớn** | 1.061 dòng | 🟡 Trung bình |
@@ -48,10 +46,10 @@
 - ✅ Thread-safe state (`threading.Lock` trong `audio/engine.py`)
 - ✅ Cancellation event xuyên suốt (không `QThread.terminate()`)
 - ✅ CollectionOp/QueryOp cho Anki collection access
+- ✅ `__init__.py` là compatibility facade; orchestration UI thuộc `ui/factory_dialog.py` (C1 hoàn thành 2026-08-15)
+- ✅ `ai_extractor.py` còn 1.489 dòng; HTTP/document/cache/prompt/parser/history có owner riêng (C2 hoàn thành 2026-08-15)
 
 **Điểm yếu:**
-- ❌ `__init__.py` vẫn là "god object" — orchestration UI chưa tách (P1-D còn dang dở)
-- ❌ `ai_extractor.py` vẫn là "god module" — trách nhiệm prompt + cache + API + parse
 - ❌ `i18n.py` translation dict nên tách thành file JSON riêng
 - ❌ `templates.py` HTML nên tách thành file template riêng (không hardcode trong Python)
 
@@ -119,7 +117,7 @@
 |--------|-------|------------|
 | ✅ **Chỉ gửi từ trùng nội dung** | `_format_existing_context()` — chỉ liệt kê từ ĐÃ CÓ trong deck mà THỰC SỰ xuất hiện trong văn bản đang xử lý, không gửi toàn bộ deck | `ai_extractor.py:1000-1051` |
 | ✅ **Giới hạn số từ hiển thị** | `_MAX_EXISTING_SHOWN` — chỉ hiển thị tối đa N từ trùng, phần còn lại chỉ báo số lượng | `ai_extractor.py:1034-1047` |
-| ✅ **Cache AI 7-14 ngày** | Cache kết quả AI theo `_PROMPT_VERSION + prompt_signature + lang + instruction + existing_hash + text` — tránh gọi lại cùng nội dung | `ai_extractor.py:410-447` |
+| ✅ **Cache AI 7-14 ngày** | Cache kết quả AI theo `_PROMPT_VERSION + prompt_signature + lang + instruction + existing_hash + text` — tránh gọi lại cùng nội dung | `ai_result_cache.py:30-160` |
 | ✅ **Cache deck vocab 30 phút** | `get_existing_vocab_from_deck()` — cache danh sách từ đã có, không quét lại mỗi lần | `utils/deck_cache.py` |
 | ✅ **Chunking 8k ký tự** | Tự chia văn bản dài thành chunk 8k — tránh tràn output token (~8192) | `ai_extractor.py:252` |
 | ✅ **Session policy** | Giới hạn input/token/chi phí theo phiên, ước lượng trước khi chạy | `ai_extractor.py:146-176` |
@@ -159,14 +157,14 @@
 
 | Cơ chế | Mô tả | Bằng chứng |
 |--------|-------|------------|
-| ✅ **Prompt rất chi tiết** | "VÍ DỤ CÓ HỒN + ĐÚNG CẤP ĐỘ" — yêu cầu ví dụ khẩu ngữ đời thực, cảm xúc thật, tránh câu SGK vô hồn | `ai_extractor.py:517-533` |
-| ✅ **2 ví dụ đa dạng** | Ex1: khẩu ngữ đời thực (よ/ね/よね, 어요/아요) — Ex2: trang trọng (です・ます/敬語, 습니다) | `ai_extractor.py:524-528` |
-| ✅ **Cấp độ khớp chuẩn** | JLPT N5→câu cực ngắn, N2-N1→phức tạp; HSK1→cực ngắn, HSK5-6→thành ngữ; TOPIK I→đơn giản | `ai_extractor.py:527` |
-| ✅ **Chống trùng lặp** | "CHỐNG TRÙNG: bỏ qua mọi từ trong TỪ ĐÃ CÓ" + safety net lọc lại | `ai_extractor.py:529, 1181-1190` |
-| ✅ **Grammar đánh dấu pattern** | Bọc `<b>...</b>` quanh pattern trong ví dụ — nổi bật trên thẻ | `ai_extractor.py:737` |
-| ✅ **Cùng pattern - khác nghĩa** | Tạo nhiều entry riêng khi pattern có nghĩa khác nhau | `ai_extractor.py:736` |
-| ✅ **Như giảng viên đọc giáo trình** | Đọc toàn bộ văn bản, hiểu ngữ cảnh, ví dụ bám ngữ cảnh thực | `ai_extractor.py:735` |
-| ✅ **Parse JSON robust** | `_parse_ai_json_with_comment()` — xử lý markdown, dict, array, comment | `ai_extractor.py:1207-1260` |
+| ✅ **Prompt rất chi tiết** | "VÍ DỤ CÓ HỒN + ĐÚNG CẤP ĐỘ" — yêu cầu ví dụ khẩu ngữ đời thực, cảm xúc thật, tránh câu SGK vô hồn | `ai_prompt_defaults.py:28-108` |
+| ✅ **2 ví dụ đa dạng** | Ex1: khẩu ngữ đời thực (よ/ね/よね, 어요/아요) — Ex2: trang trọng (です・ます/敬語, 습니다) | `ai_prompt_defaults.py:28-108` |
+| ✅ **Cấp độ khớp chuẩn** | JLPT N5→câu cực ngắn, N2-N1→phức tạp; HSK1→cực ngắn, HSK5-6→thành ngữ; TOPIK I→đơn giản | `ai_prompt_defaults.py:28-108` |
+| ✅ **Chống trùng lặp** | "CHỐNG TRÙNG: bỏ qua mọi từ trong TỪ ĐÃ CÓ" + safety net lọc lại | `ai_prompt_defaults.py:28-108`, `ai_extractor.py:727-736` |
+| ✅ **Grammar đánh dấu pattern** | Bọc `<b>...</b>` quanh pattern trong ví dụ — nổi bật trên thẻ | `ai_prompt_defaults.py:256-352` |
+| ✅ **Cùng pattern - khác nghĩa** | Tạo nhiều entry riêng khi pattern có nghĩa khác nhau | `ai_prompt_defaults.py:256-352` |
+| ✅ **Như giảng viên đọc giáo trình** | Đọc toàn bộ văn bản, hiểu ngữ cảnh, ví dụ bám ngữ cảnh thực | `ai_prompt_defaults.py:256-352` |
+| ✅ **Parse JSON robust** | `parse_ai_json_with_comment()` — xử lý markdown, dict, array, comment | `ai_response_parser.py:9-61` |
 | ✅ **Truncated output detection** | Phát hiện JSON bị cắt, gợi ý giảm chunk | `ai_extractor.py:346-361` |
 | ✅ **Prompt editor** | Người dùng tự sửa prompt/schema/field map không cần code | `ui/prompt_editor.py` |
 | ✅ **Field map editor** | Map key JSON → field Anki, tự thêm field mới vào Note Type | `mode/card_render.py` |
@@ -434,8 +432,8 @@
 - [ ] A2: Semantic Caching
 - [ ] A3: Prompt Compression — giảm 30-50% input token
 - [ ] A5: Local Model Priority
-- [ ] C1: Tách `__init__.py` (hoàn thành P1-D)
-- [ ] C2: Tách `ai_extractor.py`
+- [x] C1: Tách `__init__.py` (hoàn thành P1-D)
+- [x] C2: Tách `ai_extractor.py`
 - [ ] C3: Tách `templates.py` → `templates/{lang}.py`
 - [ ] C4: Tách `i18n.py` → `i18n/{lang}.json`
 - [ ] C5: Tách `prompts` → `prompts/{lang}.py`

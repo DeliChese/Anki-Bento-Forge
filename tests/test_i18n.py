@@ -2,8 +2,11 @@
 Unit tests for utils/i18n.py — translation system.
 """
 
+import ast
+import string
 import sys
 import os
+from pathlib import Path
 import pytest
 
 _addon_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -158,3 +161,61 @@ class TestI18nAllKeys:
             if not entry.get("en", "").strip():
                 empty.append(f"{key}: empty en")
         assert not empty, f"Empty translations: {empty}"
+
+    def test_vi_en_format_placeholders_match(self):
+        """Switching languages must not break ``str.format`` call sites."""
+        from utils.i18n import _TRANSLATIONS
+
+        formatter = string.Formatter()
+
+        def fields(text):
+            return {
+                field.split(".")[0].split("[")[0]
+                for _, field, _, _ in formatter.parse(text)
+                if field
+            }
+
+        mismatched = {
+            key: (fields(entry["vi"]), fields(entry["en"]))
+            for key, entry in _TRANSLATIONS.items()
+            if fields(entry["vi"]) != fields(entry["en"])
+        }
+        assert not mismatched, f"Placeholder mismatch: {mismatched}"
+
+        reserved = {
+            key: fields(entry["vi"]) & {"key", "lang"}
+            for key, entry in _TRANSLATIONS.items()
+            if fields(entry["vi"]) & {"key", "lang"}
+        }
+        assert not reserved, f"Placeholders collide with t() parameters: {reserved}"
+
+    def test_every_static_t_call_has_a_catalog_entry(self):
+        """Catch a new ``t('key')`` call before it falls back to the raw key."""
+        from utils.i18n import _TRANSLATIONS
+
+        missing = []
+        for path in _addon_python_files():
+            tree = ast.parse(path.read_text(encoding="utf-8-sig"))
+            for node in ast.walk(tree):
+                if not (
+                    isinstance(node, ast.Call)
+                    and isinstance(node.func, ast.Name)
+                    and node.func.id == "t"
+                    and node.args
+                    and isinstance(node.args[0], ast.Constant)
+                    and isinstance(node.args[0].value, str)
+                ):
+                    continue
+                key = node.args[0].value
+                if key not in _TRANSLATIONS:
+                    missing.append(f"{path.relative_to(Path(_addon_root))}:{node.lineno}: {key}")
+
+        assert not missing, "Missing i18n keys:\n" + "\n".join(missing)
+
+
+def _addon_python_files():
+    root = Path(_addon_root)
+    for path in root.rglob("*.py"):
+        if "tests" in path.parts or ".git" in path.parts or "__pycache__" in path.parts:
+            continue
+        yield path

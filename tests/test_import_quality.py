@@ -1,6 +1,10 @@
 """Tests for advisory, deterministic AI-card quality checks."""
 
-from utils.import_quality import evaluate_card_completeness
+from utils.import_quality import (
+    detect_card_warnings,
+    evaluate_card_candidate,
+    evaluate_card_completeness,
+)
 
 
 def test_vocab_completeness_accepts_chinese_front_and_html_example():
@@ -36,3 +40,49 @@ def test_invalid_candidate_is_advisory_and_never_raises():
     result = evaluate_card_completeness(None)
 
     assert result == {"score": 0, "issues": ("invalid_card",), "complete": False}
+
+
+def test_detect_card_warnings_flags_placeholder_and_wrong_example_script():
+    warnings = detect_card_warnings({
+        "front": "食べる",
+        "meaning": "unknown",
+        "example": "I eat at home.",
+    }, lang="japanese")
+
+    assert warnings == ("placeholder_meaning", "example_wrong_script")
+
+
+def test_chinese_target_check_is_exact_and_advisory():
+    candidate = evaluate_card_candidate({
+        "simplified": "学习",
+        "meaning": "học",
+        "example": "我每天读书。",
+    }, lang="chinese")
+
+    assert candidate["score"] == 100
+    assert candidate["complete"] is True
+    assert candidate["warnings"] == ("target_not_in_example",)
+    assert candidate["issues"] == ("target_not_in_example",)
+    assert candidate["has_warnings"] is True
+
+
+def test_literal_grammar_pattern_must_appear_but_formula_pattern_is_not_guessed():
+    valid = detect_card_warnings({
+        "pattern": "ながら",
+        "meaning": "while",
+        "example": "音楽を聞きながら勉強する。",
+    }, lang="japanese", grammar=True)
+    literal = detect_card_warnings({
+        "pattern": "ながら",
+        "meaning": "while",
+        "example": "音楽を聞いて勉強する。",
+    }, lang="japanese", grammar=True)
+    formula = detect_card_warnings({
+        "pattern": "V-ながら",
+        "meaning": "while",
+        "example": "音楽を聞いて勉強する。",
+    }, lang="japanese", grammar=True)
+
+    assert valid == ()
+    assert literal == ("pattern_not_in_example",)
+    assert formula == ()

@@ -4,7 +4,7 @@ JSON chỉnh được (utils/ai_prompts.json) → người dùng đổi LUẬT /
 cần sửa code. (Đề xuất cải thiện #1 của đánh giá 66/100)
 
 Thiết kế:
-- DEFAULT (chân lý cuối cùng) vẫn nằm trong code (utils/ai_extractor.py):
+- DEFAULT (chân lý cuối cùng) nằm trong code thuần (utils/ai_prompt_defaults.py):
   - _JSON_TEMPLATES / _GRAMMAR_JSON_TEMPLATES: mẫu schema.
   - _SYSTEM_PROMPTS / _GRAMMAR_SYSTEM_PROMPTS: prompt đã interpolate mẫu.
 - utils/ai_prompts.json: file GHI ĐÈ lên defaults (gitignored, tự tạo khi người
@@ -14,9 +14,8 @@ Thiết kế:
 - get_signature(): md5 của phần ghi đè → đưa vào cache key → sửa prompt tự
   invalidate cache (đúng quy tắc vàng #9: "Sửa prompt → bump để invalidate").
 
-Lazy import ai_extractor (trong hàm, không ở top-level) để tránh circular import:
-ai_extractor import prompt_config ở top → prompt_config chỉ import ai_extractor
-khi có lời gọi hàm (lúc runtime).
+``prompt_config`` phụ thuộc trực tiếp owner defaults thuần; ``ai_extractor`` chỉ
+re-export các symbol cũ trong release hiện tại để giữ tương thích.
 """
 
 import json
@@ -26,6 +25,7 @@ import hashlib
 import threading
 
 from .logger import get_logger
+from . import ai_prompt_defaults as defaults
 from .user_data import atomic_write_json, get_user_data_path, migrate_legacy_json, read_json
 
 logger = get_logger()
@@ -88,7 +88,7 @@ def _write_overrides(cfg: dict):
 
 
 # ═══════════════════════════════════════════════════════════
-#  DEFAULTS (lazy từ ai_extractor — không trùng lặp nội dung)
+#  DEFAULTS (owner ai_prompt_defaults — không circular dependency)
 # ═══════════════════════════════════════════════════════════
 
 def _ui_is_english() -> bool:
@@ -101,27 +101,25 @@ def _ui_is_english() -> bool:
 
 
 def _default_json_template(lang: str, kind: str) -> str:
-    from . import ai_extractor
     en = _ui_is_english()
     if kind == "grammar":
-        table = ai_extractor._GRAMMAR_JSON_TEMPLATES_EN if en else ai_extractor._GRAMMAR_JSON_TEMPLATES
-        fallback = ai_extractor._JAPANESE_GRAMMAR_JSON_TEMPLATE_EN if en else ai_extractor._JAPANESE_GRAMMAR_JSON_TEMPLATE
+        table = defaults._GRAMMAR_JSON_TEMPLATES_EN if en else defaults._GRAMMAR_JSON_TEMPLATES
+        fallback = defaults._JAPANESE_GRAMMAR_JSON_TEMPLATE_EN if en else defaults._JAPANESE_GRAMMAR_JSON_TEMPLATE
         return table.get(lang, fallback)
-    table = ai_extractor._JSON_TEMPLATES_EN if en else ai_extractor._JSON_TEMPLATES
-    fallback = ai_extractor._JAPANESE_JSON_TEMPLATE_EN if en else ai_extractor._JAPANESE_JSON_TEMPLATE
+    table = defaults._JSON_TEMPLATES_EN if en else defaults._JSON_TEMPLATES
+    fallback = defaults._JAPANESE_JSON_TEMPLATE_EN if en else defaults._JAPANESE_JSON_TEMPLATE
     return table.get(lang, fallback)
 
 
 def _default_system_prompt(lang: str, kind: str) -> str:
     """System prompt mặc định (đã interpolate mẫu)."""
-    from . import ai_extractor
     en = _ui_is_english()
     if kind == "grammar":
-        table = ai_extractor._GRAMMAR_SYSTEM_PROMPTS_EN if en else ai_extractor._GRAMMAR_SYSTEM_PROMPTS
-        fallback = ai_extractor._GRAMMAR_SYSTEM_PROMPTS_EN["japanese"] if en else ai_extractor._GRAMMAR_SYSTEM_PROMPTS["japanese"]
+        table = defaults._GRAMMAR_SYSTEM_PROMPTS_EN if en else defaults._GRAMMAR_SYSTEM_PROMPTS
+        fallback = defaults._GRAMMAR_SYSTEM_PROMPTS_EN["japanese"] if en else defaults._GRAMMAR_SYSTEM_PROMPTS["japanese"]
         return table.get(lang, fallback)
-    table = ai_extractor._SYSTEM_PROMPTS_EN if en else ai_extractor._SYSTEM_PROMPTS
-    fallback = ai_extractor._JAPANESE_SYSTEM_PROMPT_EN if en else ai_extractor._JAPANESE_SYSTEM_PROMPT
+    table = defaults._SYSTEM_PROMPTS_EN if en else defaults._SYSTEM_PROMPTS
+    fallback = defaults._JAPANESE_SYSTEM_PROMPT_EN if en else defaults._JAPANESE_SYSTEM_PROMPT
     return table.get(lang, fallback)
 
 
@@ -146,15 +144,17 @@ def validate_json_template(template: str):
     Returns:
         (ok: bool, error: str | None, fields: list[str])
     """
+    from .i18n import t
+
     template = (template or "").strip()
     if not template:
-        return False, "Template rỗng.", []
+        return False, t("prompt_validation_empty"), []
     try:
         data = json.loads(template)
     except Exception as e:
-        return False, f"JSON không hợp lệ: {e}", []
+        return False, t("prompt_validation_invalid_json", error=e), []
     if not isinstance(data, dict):
-        return False, "Template phải là một object JSON duy nhất (không phải mảng).", []
+        return False, t("prompt_validation_not_object"), []
     fields = [str(k) for k in data.keys()]
     return True, None, fields
 

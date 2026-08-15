@@ -104,14 +104,15 @@ sys.modules["audio.engine"] = audio_engine_mock
 audio_mock.engine = audio_engine_mock
 
 import __init__ as addon
+from ui import factory_dialog
 
 
 @pytest.fixture(autouse=True)
 def _isolate_state(tmp_path, monkeypatch):
     """Mỗi test dùng file state riêng trong temp — không đụng state thật."""
-    monkeypatch.setattr(addon, "_STATE_PATH", str(tmp_path / "factory_state.json"))
-    monkeypatch.setattr(addon, "QMessageBox", MagicMock())
-    monkeypatch.setattr(addon, "tooltip", lambda *a, **k: None)
+    monkeypatch.setattr(factory_dialog, "_STATE_PATH", str(tmp_path / "factory_state.json"))
+    monkeypatch.setattr(factory_dialog, "QMessageBox", MagicMock())
+    monkeypatch.setattr(factory_dialog, "tooltip", lambda *a, **k: None)
     yield
 
 
@@ -345,8 +346,8 @@ class FakeMessageBox:
 
 
 # Dùng enum + QListWidgetItem thật cho logic (mock aqt.qt chỉ là MagicMock)
-addon.Qt = _QtFake
-addon.QListWidgetItem = FakeListItem
+factory_dialog.Qt = _QtFake
+factory_dialog.QListWidgetItem = FakeListItem
 
 
 def _cfg_ja():
@@ -642,7 +643,7 @@ class TestLoadHistoryToFactory:
 
 class TestCancelOrder:
     def test_delete_all(self):
-        addon.QMessageBox = FakeMessageBox
+        factory_dialog.QMessageBox = FakeMessageBox
         f = _make_factory()
         f.raw_data = [c["item"] for c in _sample_cards()]
         f.prepared_data = _sample_cards()
@@ -653,7 +654,7 @@ class TestCancelOrder:
         assert f.raw_data == []
 
     def test_delete_selected(self):
-        addon.QMessageBox = FakeMessageBox
+        factory_dialog.QMessageBox = FakeMessageBox
         f = _make_factory()
         f.raw_data = [c["item"] for c in _sample_cards()]
         f.prepared_data = _sample_cards()
@@ -666,7 +667,7 @@ class TestCancelOrder:
         assert f.prepared_data[0]["item"]["front"] == "飲む"
 
     def test_cancel_keeps_everything(self):
-        addon.QMessageBox = FakeMessageBox
+        factory_dialog.QMessageBox = FakeMessageBox
         f = _make_factory()
         f.raw_data = [c["item"] for c in _sample_cards()]
         f.prepared_data = _sample_cards()
@@ -676,9 +677,9 @@ class TestCancelOrder:
         assert len(f.prepared_data) == 4
 
     def test_empty_factory_tooltip(self):
-        addon.QMessageBox = FakeMessageBox
+        factory_dialog.QMessageBox = FakeMessageBox
         called = []
-        addon.tooltip = lambda *a, **k: called.append(a)
+        factory_dialog.tooltip = lambda *a, **k: called.append(a)
         f = _make_factory()
         f._cancel_order()
         assert len(called) == 1

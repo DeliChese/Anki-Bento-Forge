@@ -59,11 +59,11 @@ except ImportError:
 
 from utils.ai_extractor import (
     clear_cache,
-    clear_import_history,
     get_api_config,
     get_api_key_storage_status,
     save_api_config,
 )
+from utils.import_history import clear_import_history
 from utils.ai_providers import AI_PROVIDERS, detect_provider, get_provider
 from utils.i18n import t
 from ui.prompt_editor import show_prompt_editor_dialog
@@ -527,8 +527,16 @@ def show_ai_settings_dialog(parent):
 
         if prow:
             txt_base.setText((prow["base"]).rstrip("/"))
-            txt_key.setPlaceholderText(prow.get("key_hint", ""))
-            note_text = f"<b>{prow['name']}</b> — {prow.get('note', '')}"
+            key_hint = (
+                t("ai_provider_local_key_hint")
+                if prow["id"] in ("ollama", "lmstudio")
+                else prow.get("key_hint", "")
+            )
+            txt_key.setPlaceholderText(key_hint)
+            note_text = (
+                f"<b>{prow['name']}</b> — "
+                f"{t('ai_provider_{}_note'.format(prow['id']))}"
+            )
             lbl_provider_note.setText(note_text)
         else:
             txt_key.setPlaceholderText(t("ai_set_api_key_placeholder"))
@@ -655,14 +663,14 @@ def show_ai_settings_dialog(parent):
 def _test_ai_connection(api_key, api_base, model, parent_dlg):
     """Test kết nối đến AI API"""
     if not api_base:
-        tooltip("⚠️ Vui lòng nhập API Base URL.")
+        tooltip(t("ai_test_missing_base"))
         return
 
     try:
         url = api_base.rstrip("/") + "/chat/completions"
         payload = json.dumps({
             "model": model,
-            "messages": [{"role": "user", "content": "Say 'OK' in Vietnamese."}],
+            "messages": [{"role": "user", "content": "Return exactly: OK"}],
             "max_tokens": 10,
         }).encode("utf-8")
 
@@ -690,7 +698,12 @@ def _test_ai_connection(api_key, api_base, model, parent_dlg):
                 err_body = e.read().decode("utf-8")[:300]
             except Exception:
                 pass
-            showInfo(f"❌ Lỗi HTTP {e.code}: {e.reason}\n\n{err_body}")
+            showInfo(t(
+                "ai_test_http_error",
+                code=e.code,
+                reason=e.reason,
+                details=err_body,
+            ))
         except (socket.timeout, TimeoutError) as e:
             showInfo(t("ai_test_error_timeout", timeout=test_timeout))
         except urllib.error.URLError as e:
@@ -702,4 +715,4 @@ def _test_ai_connection(api_key, api_base, model, parent_dlg):
             parent_dlg.setEnabled(True)
 
     except Exception as e:
-        showInfo(f"❌ Lỗi: {e}")
+        showInfo(t("ai_test_error", error=e))

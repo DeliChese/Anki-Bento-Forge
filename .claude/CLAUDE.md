@@ -33,28 +33,29 @@ Bước 4: Chạy tests liên quan (xem skill 10)
 ## 🧭 SƠ ĐỒ TỔNG QUAN (TỐI GIẢN)
 
 ```
-__init__.py (~2.8k dòng)      ← AnkiSmartFactory QDialog (MAIN)
+__init__.py (26 dòng)         ← compatibility facade (public re-export)
+├── ui/factory_dialog.py      ← AnkiSmartFactory QDialog + Qt/Anki orchestration (MAIN)
 ├── Language/    LANG_CONFIG, LANG_GRAMMAR_CONFIG, LANG_SELECTOR_INFO  (japanese, chinese, korean)
 ├── mode/        LANG_TEMPLATES, LANG_CSS, LANG_GRAMMAR_*, card_render.py, shared.py (JS)
 ├── audio/       engine.py (router) + tts.py (Edge/gTTS/VoiceVox)
-├── utils/       ai_extractor, batch_processor, prompt_config, deck_cache, json_parser, logger, i18n, deck_manager
+├── utils/       ai_extractor, ai_prompt_defaults, ai_response_parser, ai_result_cache, import_history, batch_processor, prompt_config, deck_cache, json_parser, logger, i18n, deck_manager
 ├── workers/     ImportWorker, PreviewThread, AiExtractThread, AiChatThread, DeckScanWorker, BatchProcessThread, DeckOrganizerThread
 ├── ui/          AiChatDialog, ai_settings, ai_preview, batch_dialog, verify_dialog, history_dialog, prompt_editor, theme
 ├── hooks/       reviewer.py (register_hooks) + overview_mode.py (mode selector)
-└── tests/       411 tests (29 file)
+└── tests/       444 tests (36 file)
 ```
 
 ## 🔒 QUY TẮC VÀNG (BẮT BUỘC)
 
 1. **Đọc skill trước, đọc source sau** — không mở file 2000 dòng vô tội vạ.
 2. **`file:line` là chân lý** — mọi line number trong skill đã được xác minh; nếu code thay đổi, cập nhật line number trong skill.
-3. **Không import Anki modules (aqt) ở top-level ngoài `__init__.py`** — dùng try/except khi gọi Anki API.
+3. **Không import Anki modules (aqt) trong domain module thuần** — direct integration chỉ thuộc `ui/`, `workers/`, `hooks/` hoặc adapter Anki có chủ đích.
 4. **Mọi UI đều qua i18n `t()`** — không hardcode string tiếng Việt trong UI.
 5. **Mọi log qua `get_logger()`** — không dùng `print()`.
 6. **Bare `except:` cấm** — luôn `except Exception:` + log.
 7. **Thread-safe cho mọi state chia sẻ** — dùng `threading.Lock` (xem audio/engine.py làm mẫu).
 8. **Không commit `utils/ai_config.json`** (API key mã hóa) — chỉ commit `.example`.
-9. **Sửa prompt → Bump `_PROMPT_VERSION`** trong `utils/ai_extractor.py:371` để invalidate cache.
+9. **Sửa prompt → Bump `_PROMPT_VERSION`** trong `utils/ai_extractor.py:408` để invalidate cache.
 10. **Sau khi sửa → chạy pytest** (skill 10) trước khi báo xong.
 
 ## 🏷️ NGÔN NGỮ & THUẬT NGỮ
@@ -62,7 +63,7 @@ __init__.py (~2.8k dòng)      ← AnkiSmartFactory QDialog (MAIN)
 - `vocab` = chế độ Từ vựng; `grammar` = chế độ Ngữ pháp (Note Type riêng).
 - `lang` = `"japanese"` | `"chinese"` | `"korean"`.
 - Model names: `"AnkiTool Japanese/Chinese/Korean [Grammar] V17.0 (Add-on)"`.
-- Entry: `start_smart_factory()` (`__init__.py:2806`), shortcut `Ctrl+Shift+I`. Menu Tools hiển thị **"🧪 Bento Forge"**.
+- Entry: `start_smart_factory()` (`ui/factory_dialog.py:2801`, re-export tại `__init__.py`), shortcut `Ctrl+Shift+I`. Menu Tools hiển thị **"🧪 Bento Forge"**.
 - Version hiện tại: **17.1.0** (`manifest.json`).
 - **Combo mode**: mỗi từ = 1 card duy nhất, 5 chế độ (qa/vn/wb/pron/lg) chuyển đổi trong card qua `_COMBO_MODE_JS`; mode lưu `mw.col.conf["ai_factory_study_mode"]`; Overview patch qua `hooks/overview_mode.py`.
 - **Prompt/Schema/Field Map/Card Render có thể GHI ĐÈ ngoài**: `utils/ai_prompts.json` (gitignored) qua `utils/prompt_config.py` + `mode/card_render.py` — xem skill 02 (ai-extraction) và 08 (card-templates).

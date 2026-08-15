@@ -94,7 +94,8 @@ class TestLongTextChunkConfig:
 
 class TestChatCap:
     def test_chat_cap_reads_from_config(self):
-        with open(os.path.join(_addon_root, "__init__.py"), "r", encoding="utf-8") as f:
+        factory_path = os.path.join(_addon_root, "ui", "factory_dialog.py")
+        with open(factory_path, "r", encoding="utf-8") as f:
             src = f.read()
         # Cap chat phải đọc max_chars từ config (không cứng 30k)
         assert 'get("max_chars", 45000)' in src

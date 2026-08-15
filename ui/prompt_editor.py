@@ -32,23 +32,31 @@ from mode.card_render import build_qfmt as _build_qfmt, build_afmt as _build_afm
 
 logger = get_logger()
 
-_LANG_LABELS = {
-    "japanese": "🇯🇵 Nhật Bản",
-    "chinese": "🇨🇳 Trung Quốc",
-    "korean": "🇰🇷 Hàn Quốc",
+_LANG_LABEL_KEYS = {
+    "japanese": "lang_japanese",
+    "chinese": "lang_chinese",
+    "korean": "lang_korean",
 }
-_KIND_LABELS = {
-    "vocab": "Từ Vựng",
-    "grammar": "Ngữ Pháp",
+_KIND_LABEL_KEYS = {
+    "vocab": "prompt_kind_vocab",
+    "grammar": "prompt_kind_grammar",
 }
 _KINDS = ("vocab", "grammar")
 _LANGS = ("japanese", "chinese", "korean")
 # Vị trí hiển thị field tuỳ chỉnh trên thẻ (Mức 2)
-_SIDE_LABELS = [
-    ("back", "Chỉ mặt sau"),
-    ("both", "Cả hai mặt"),
-    ("front", "Chỉ mặt trước"),
+_SIDE_LABEL_KEYS = [
+    ("back", "prompt_side_back"),
+    ("both", "prompt_side_both"),
+    ("front", "prompt_side_front"),
 ]
+
+
+def _lang_label(lang):
+    return t(_LANG_LABEL_KEYS[lang])
+
+
+def _kind_label(kind):
+    return t(_KIND_LABEL_KEYS[kind])
 
 
 class PromptEditorDialog(QDialog):
@@ -78,9 +86,7 @@ class PromptEditorDialog(QDialog):
         header = QLabel(
             f"<h3>{t('prompt_editor_header')}</h3>"
             f"<p style='color:#555;'>{t('prompt_editor_sub')}</p>"
-            "<p style='color:#7f8c8d;font-size:12px;'>"
-            "Trong System Prompt, dùng <code>{{JSON_TEMPLATE}}</code> để chèn mẫu vào \"MẪU:\". "
-            "Sửa xong → cache AI tự làm mới. Field mới trong Field Map sẽ được thêm vào Note Type khi Lưu.</p>"
+            f"<p style='color:#7f8c8d;font-size:12px;'>{t('prompt_editor_help')}</p>"
         )
         vl.addWidget(header)
 
@@ -95,8 +101,8 @@ class PromptEditorDialog(QDialog):
             lang_row = QHBoxLayout()
             lang_row.addWidget(QLabel(f"<b>{t('prompt_lang_label')}</b>"))
             cbo_lang = QComboBox()
-            for lang, label in _LANG_LABELS.items():
-                cbo_lang.addItem(label, lang)
+            for lang in _LANGS:
+                cbo_lang.addItem(_lang_label(lang), lang)
             cbo_lang.currentIndexChanged.connect(lambda *_, k=kind: self._on_prompt_lang_change(k))
             lang_row.addWidget(cbo_lang)
             lang_row.addStretch()
@@ -115,13 +121,13 @@ class PromptEditorDialog(QDialog):
 
             page_layout.addWidget(QLabel(
                 f"<b>{t('prompt_system_label')}</b> "
-                f"<span style='color:#7f8c8d;'>(dùng <code>{TEMPLATE_PLACEHOLDER}</code> để chèn mẫu)</span>"
+                f"<span style='color:#7f8c8d;'>{t('prompt_template_hint', placeholder=TEMPLATE_PLACEHOLDER)}</span>"
             ))
             txt_prompt = QPlainTextEdit()
             txt_prompt.setPlaceholderText(t("prompt_placeholder"))
             page_layout.addWidget(txt_prompt, stretch=1)
 
-            self.tabs.addTab(page, f"Prompt {_KIND_LABELS[kind]}")
+            self.tabs.addTab(page, t("prompt_tab_title", kind=_kind_label(kind)))
             self._tab_widgets[kind] = {
                 "cbo_lang": cbo_lang, "txt_json": txt_json,
                 "txt_prompt": txt_prompt, "info": info,
@@ -135,14 +141,14 @@ class PromptEditorDialog(QDialog):
         fm_row.addWidget(QLabel(f"<b>{t('prompt_kind_label')}</b>"))
         self.fm_cbo_kind = QComboBox()
         for kind in _KINDS:
-            self.fm_cbo_kind.addItem(_KIND_LABELS[kind], kind)
+            self.fm_cbo_kind.addItem(_kind_label(kind), kind)
         self.fm_cbo_kind.currentIndexChanged.connect(lambda *_: self._on_fm_change())
         fm_row.addWidget(self.fm_cbo_kind)
 
         fm_row.addWidget(QLabel(f"<b>{t('prompt_lang_label')}</b>"))
         self.fm_cbo_lang = QComboBox()
-        for lang, label in _LANG_LABELS.items():
-            self.fm_cbo_lang.addItem(label, lang)
+        for lang in _LANGS:
+            self.fm_cbo_lang.addItem(_lang_label(lang), lang)
         self.fm_cbo_lang.currentIndexChanged.connect(lambda *_: self._on_fm_change())
         fm_row.addWidget(self.fm_cbo_lang)
         fm_row.addStretch()
@@ -216,10 +222,16 @@ class PromptEditorDialog(QDialog):
         lang = w["cbo_lang"].currentData()
         ok, err, fields = validate_json_template(w["txt_json"].toPlainText())
         if ok:
-            mod = " ✏️ (đã chỉnh)" if (kind in self._edits and lang in self._edits[kind]) else ""
+            mod = t("prompt_modified_suffix") if (
+                kind in self._edits and lang in self._edits[kind]
+            ) else ""
             self._tab_widgets[kind]["info"].setText(
-                f"<span style='color:#27ae60;font-weight:bold;'>✅ Schema hợp lệ — {len(fields)} trường:</span> "
-                f"<code>{', '.join(fields)}</code>{mod}"
+                t(
+                    "prompt_schema_valid",
+                    count=len(fields),
+                    fields=", ".join(fields),
+                    modified=mod,
+                )
             )
         else:
             self._tab_widgets[kind]["info"].setText(
@@ -274,8 +286,11 @@ class PromptEditorDialog(QDialog):
         ok, err, keys = validate_json_template(tpl)
         if not ok:
             self.fm_info.setText(
-                f"<span style='color:#e74c3c;font-weight:bold;'>❌ Mẫu JSON chưa hợp lệ — "
-                f"sửa ở tab Prompt {_KIND_LABELS[kind]} trước. {err}</span>"
+                t(
+                    "prompt_field_map_invalid",
+                    tab=t("prompt_tab_title", kind=_kind_label(kind)),
+                    error=err,
+                )
             )
             self.fm_table.setRowCount(0)
             return
@@ -297,8 +312,8 @@ class PromptEditorDialog(QDialog):
             self.fm_table.setCellWidget(r, 1, cell)
             # Cột "Hiển thị" — nơi field xuất hiện trên thẻ (Mức 2)
             side_cbo = QComboBox()
-            for side, label in _SIDE_LABELS:
-                side_cbo.addItem(label, side)
+            for side, label_key in _SIDE_LABEL_KEYS:
+                side_cbo.addItem(t(label_key), side)
             side = cur_show.get(val, saved_show.get(val, "back"))
             idx_side = side_cbo.findData(side)
             if idx_side >= 0:
@@ -306,12 +321,12 @@ class PromptEditorDialog(QDialog):
             self.fm_table.setCellWidget(r, 2, side_cbo)
 
         new_keys = [k for k in keys if k not in default_map]
-        note = f"<br><span style='color:#8e44ad;'>🆕 Key mới: {', '.join(new_keys) or 'không có'} — "
-        note += "tự suy tên field, bạn có thể đổi.</span>"
+        note = t(
+            "prompt_new_keys_note",
+            keys=", ".join(new_keys) or t("prompt_none"),
+        )
         self.fm_info.setText(
-            f"<span style='color:#27ae60;font-weight:bold;'>✅ {len(keys)} key JSON → Field Anki.</span>"
-            f" Field chưa có trong Note Type sẽ được <b>thêm tự động khi Lưu</b>, "
-            f"và field mới sẽ <b>tự hiện trên thẻ</b> (theo cột Hiển thị).{note}"
+            t("prompt_field_map_summary", count=len(keys), note=note)
         )
 
     def _on_fm_change(self):
@@ -328,20 +343,32 @@ class PromptEditorDialog(QDialog):
         tpl = e["json_template"]
         ok, err, _ = validate_json_template(tpl)
         if not ok:
-            QMessageBox.warning(self, "Lỗi JSON", f"Mẫu JSON không hợp lệ:\n{err}")
+            QMessageBox.warning(
+                self,
+                t("prompt_json_error_title"),
+                t("prompt_json_error_message", error=err),
+            )
             return
         raw = e["system_prompt"]
         full = raw.replace(TEMPLATE_PLACEHOLDER, tpl) if TEMPLATE_PLACEHOLDER in raw else raw
         dlg = QDialog(self)
-        dlg.setWindowTitle(f"👁 Prompt Đầy Đủ — {_LANG_LABELS[lang]} ({_KIND_LABELS[kind]})")
+        dlg.setWindowTitle(t(
+            "prompt_preview_title",
+            language=_lang_label(lang),
+            kind=_kind_label(kind),
+        ))
         dlg.setMinimumSize(640, 480)
         lay = QVBoxLayout(dlg)
-        lay.addWidget(QLabel(f"<b>Độ dài:</b> {len(full)} ký tự — <b>{len(tpl.splitlines())}</b> dòng mẫu"))
+        lay.addWidget(QLabel(t(
+            "prompt_preview_metrics",
+            chars=len(full),
+            lines=len(tpl.splitlines()),
+        )))
         txt = QPlainTextEdit()
         txt.setPlainText(full)
         txt.setReadOnly(True)
         lay.addWidget(txt)
-        btn = QPushButton("Đóng")
+        btn = QPushButton(t("btn_close"))
         btn.clicked.connect(dlg.accept)
         lay.addWidget(btn)
         dlg.exec()
@@ -375,11 +402,11 @@ class PromptEditorDialog(QDialog):
         try:
             save_prompt_config(entries, field_map=fm, card_show=card_show)
             added_fields, updated_models = self._sync_models_after_save()
-            msg = "✅ Đã lưu Prompt, Schema & Field Map! Cache AI đã tự làm mới."
+            msg = t("prompt_save_success")
             if added_fields:
-                msg += f"\n➕ Đã thêm {added_fields} field mới vào Note Type."
+                msg += "\n" + t("prompt_fields_added", count=added_fields)
             if updated_models:
-                msg += f"\n🃏 Đã đồng bộ template {updated_models} Note Type — field mới sẽ hiện trên thẻ."
+                msg += "\n" + t("prompt_templates_synced", count=updated_models)
             tooltip(msg)
             self._data = get_effective_config()
             self._edits = {}
@@ -387,7 +414,11 @@ class PromptEditorDialog(QDialog):
             self._fm_show_edits = {}
             self.accept()
         except Exception as ex:
-            QMessageBox.critical(self, "Lỗi lưu", f"Không thể lưu cấu hình prompt:\n{ex}")
+            QMessageBox.critical(
+                self,
+                t("prompt_save_error_title"),
+                t("prompt_save_error_message", error=ex),
+            )
 
     def _sync_models_after_save(self):
         """Sau khi lưu (Mức 1 + 2): tự THÊM field mới + ĐỒNG BỘ template thẻ
@@ -445,9 +476,9 @@ class PromptEditorDialog(QDialog):
 
     def _on_reset(self):
         if QMessageBox.question(
-            self, "Reset Prompt",
-            "Trả toàn bộ Prompt, Schema & Field Map về mặc định ban đầu?\n"
-            "(Mọi chỉnh sửa của bạn sẽ bị xóa.)",
+            self,
+            t("prompt_reset_title"),
+            t("prompt_reset_confirm"),
         ) != QMessageBox.StandardButton.Yes:
             return
         reset_prompt_config()
@@ -457,7 +488,7 @@ class PromptEditorDialog(QDialog):
         self._fm_show_edits = {}
         self._load_prompt_editor(_KINDS[0])
         self._build_fm_table()
-        tooltip("♻️ Đã reset về mặc định.")
+        tooltip(t("prompt_reset_done"))
 
 
 def show_prompt_editor_dialog(parent=None):

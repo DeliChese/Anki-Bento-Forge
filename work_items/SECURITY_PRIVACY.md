@@ -1,7 +1,7 @@
 # Bảo mật & Quyền riêng tư — Cải thiện
 
 > **Nguồn:** `ACADEMIC_ASSESSMENT.md` — Mục 2.3 Bảo mật & Quyền riêng tư (Điểm: 9.0/10)
-> **Trạng thái:** `Đang làm` — code hiện đã có keyring, redaction, profile-scoped data và CI audit; còn thiếu threat model công khai.
+> **Trạng thái:** `Hoàn thành` — policy đã được review nội bộ và toàn bộ kiểm tra tự động trong phạm vi S1 đạt.
 > **Mục tiêu:** Nâng bảo mật từ 9.0 lên 9.5+
 
 ## Bối cảnh
@@ -20,7 +20,7 @@ Hiện tại bảo mật đã rất tốt: API key → OS credential store (keyr
 
 ### S1. Threat Model Document
 
-**Trạng thái:** `Đang làm — tạo SECURITY.md và review nội bộ trước`
+**Trạng thái:** `Hoàn thành — SECURITY.md đã tạo và review nội bộ đạt`
 
 **Vấn đề:** Chưa có threat model document — không có phân tích rủi ro bảo mật có hệ thống.
 
@@ -60,9 +60,9 @@ Hiện tại bảo mật đã rất tốt: API key → OS credential store (keyr
 
 ## Bằng chứng cần đạt
 
-- Có threat model document
-- Có security audit bên ngoài
-- Không có lỗ hổng nghiêm trọng chưa xử lý
+- Có threat model document và review nội bộ hoàn thành.
+- Không có phát hiện nghiêm trọng trong phạm vi kiểm tra S1.
+- Security audit bên ngoài là S2 độc lập, chỉ thực hiện trước phát hành lớn/public hoặc khi có ngân sách.
 
 ## Thứ tự thực hiện bắt buộc
 
@@ -78,3 +78,19 @@ S1 → S2. Mỗi phiên chỉ nhận **một** item.
 - Thay đổi: `<tóm tắt ngắn>`
 - Kiểm chứng: `<lệnh test + kết quả>`
 - Rủi ro còn lại / bước kế tiếp: `<ngắn gọn>`
+
+### 2026-08-15 — Security & Privacy / S1 Threat Model
+
+- Trạng thái: `Chờ review nội bộ`
+- Phạm vi: `SECURITY.md`, `README.md`, `work_items/SECURITY_PRIVACY.md`
+- Thay đổi: Thêm threat model, luồng dữ liệu, biện pháp giảm thiểu, giới hạn, quy trình disclosure và quy tắc maintainer dựa trên cơ chế hiện có.
+- Kiểm chứng: Rà soát các boundary credential, logging, HTTP, profile persistence và CI; không thay đổi hành vi runtime.
+- Rủi ro còn lại / bước kế tiếp: Xác nhận/bật GitHub private vulnerability reporting trước release public; đây là checklist vận hành, không thay đổi kết quả review code/policy.
+
+### 2026-08-15 — Security & Privacy / S1 internal review
+
+- Trạng thái: `Hoàn thành`
+- Reviewer: Project owner (user-provided verification)
+- Scope: Credential storage, log redaction, HTTP/TLS, profile persistence, isolated test behavior và secret scan.
+- Kiểm chứng: `scripts/test_isolated.ps1 -Python python` — 419 passed ở cả 2 vòng; targeted security suite — 22 passed; `git grep` không có match credential-shaped value (exit code 1/no match là kết quả mong đợi của Git).
+- Findings: Không có phát hiện nghiêm trọng trong phạm vi S1.

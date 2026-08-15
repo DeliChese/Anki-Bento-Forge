@@ -16,8 +16,8 @@ if _addon_root not in sys.path:
 
 
 def _mod():
-    from utils import ai_extractor
-    return ai_extractor
+    from utils import import_history
+    return import_history
 
 
 @pytest.fixture(autouse=True)

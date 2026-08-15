@@ -14,23 +14,22 @@ Các file công việc được tạo từ `ACADEMIC_ASSESSMENT.md`, chia theo P
 | File | Phase | Mục tiêu | Ưu tiên |
 |------|-------|----------|---------|
 | [PHASE_A_AI_COST_OPTIMIZATION.md](PHASE_A_AI_COST_OPTIMIZATION.md) | A — Chi phí AI | Benchmark trước; A3/A4/A5 đã có một phần, A6 đã hoàn thành | 🟡 Theo bằng chứng |
-| [PHASE_B_CARD_QUALITY.md](PHASE_B_CARD_QUALITY.md) | B — Chất lượng thẻ | B1 structural complete; B2 cảnh báo thiếu trường, không phát sinh token | 🔥 Đang làm |
-| [PHASE_C_ARCHITECTURE.md](PHASE_C_ARCHITECTURE.md) | C — Kiến trúc | Tiếp tục tách responsibility có regression test | 🟡 Đang làm |
+| [PHASE_B_CARD_QUALITY.md](PHASE_B_CARD_QUALITY.md) | B — Chất lượng thẻ | B1 complete; B2 cảnh báo lỗi xác định được, không phát sinh token | 🔥 Đang làm |
+| [PHASE_C_ARCHITECTURE.md](PHASE_C_ARCHITECTURE.md) | C — Kiến trúc | C1/C2 hoàn thành; C3–C6 thực hiện theo điều kiện roadmap | 🟡 Đang làm |
 | [PHASE_D_LANGUAGE_EXPANSION.md](PHASE_D_LANGUAGE_EXPANSION.md) | D — Mở rộng ngôn ngữ | Một pilot theo nhu cầu đã xác nhận | ⏸ Hoãn |
 | [PHASE_E_ACADEMIC_EVIDENCE.md](PHASE_E_ACADEMIC_EVIDENCE.md) | E — Bằng chứng học thuật | Báo cáo riêng chỉ khi có câu hỏi người dùng rõ | 🟡 Có điều kiện |
 | [PHASE_F_COMMUNITY.md](PHASE_F_COMMUNITY.md) | F — Cộng đồng | FAQ/troubleshooting trước website/cộng đồng | 🟡 Có điều kiện |
 | [QUALITY_TESTING.md](QUALITY_TESTING.md) | Test — Chất lượng test | Targeted test theo boundary mới | 🟡 Có điều kiện |
-| [SECURITY_PRIVACY.md](SECURITY_PRIVACY.md) | Bảo mật — Quyền riêng tư | Threat model công khai | 🔥 Đang làm |
+| [SECURITY_PRIVACY.md](SECURITY_PRIVACY.md) | Bảo mật — Quyền riêng tư | S1 threat model và review nội bộ hoàn thành | ✅ Hoàn thành |
 | [UX_ACCESSIBILITY.md](UX_ACCESSIBILITY.md) | UX — Accessibility | Manual audit NVDA/WCAG trước UI release | 🟡 Có nền tảng |
 
 ## Thứ tự triển khai hiện hành
 
-1. Hoàn tất B1/B2 structural validation trong preview — đã triển khai và kiểm thử; các kiểm tra semantic vẫn cần corpus/review.
-2. S1: threat model/`SECURITY.md` và review nội bộ.
-3. C1/C2: tiếp tục refactor từng responsibility khi có regression test.
-4. A: lập benchmark thực tế rồi mới chọn A1/A3/A4/A5.
-5. U1/U2 và FAQ: audit thủ công trước release UI kế tiếp.
-6. D/E/F: chỉ bắt đầu khi có nhu cầu, scope và người sở hữu rõ ràng.
+1. Hoàn tất B1/B2 deterministic validation trong preview — đã triển khai và kiểm thử; các kiểm tra semantic vẫn cần corpus/review.
+2. C1/C2 đã hoàn thành; chỉ mở C3/C5 trước khi tăng số ngôn ngữ đích.
+3. A: lập benchmark thực tế rồi mới chọn A1/A3/A4/A5.
+4. U1/U2 và FAQ: audit thủ công trước release UI kế tiếp.
+5. D/E/F: chỉ bắt đầu khi có nhu cầu, scope và người sở hữu rõ ràng.
 
 ## Lộ trình 12 tháng lịch sử (từ ACADEMIC_ASSESSMENT.md)
 
@@ -39,15 +38,15 @@ Các file công việc được tạo từ `ACADEMIC_ASSESSMENT.md`, chia theo P
 - [ ] A2: Semantic Caching
 - [ ] A3: Prompt Compression — giảm 30-50% input token
 - [ ] A5: Local Model Priority
-- [ ] C1: Tách `__init__.py` (hoàn thành P1-D)
-- [ ] C2: Tách `ai_extractor.py`
+- [x] C1: Tách `__init__.py` (hoàn thành P1-D)
+- [x] C2: Tách `ai_extractor.py`
 - [ ] C3: Tách `templates.py` → `templates/{lang}.py`
 - [ ] C4: Tách `i18n.py` → `i18n/{lang}.json`
 - [ ] C5: Tách `prompts` → `prompts/{lang}.py`
 
 ### Tháng 3-4: Chất lượng thẻ + Ngôn ngữ đầu tiên (Phase B + D1)
 - [ ] B1: Quality Scoring — tự đánh giá chất lượng thẻ
-- [ ] B2: Error Detection — phát hiện lỗi ngữ pháp/ngữ nghĩa
+- [x] B2: Error Detection — cảnh báo lỗi xác định được; xác minh ngữ pháp/ngữ nghĩa vẫn cần corpus/review
 - [ ] B3: Level Validation — kiểm tra cấp độ JLPT/HSK/TOPIK
 - [ ] D1: Thêm Tiếng Việt + Tiếng Anh
 

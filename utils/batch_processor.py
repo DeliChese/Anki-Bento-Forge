@@ -21,14 +21,16 @@ import urllib.error
 from typing import Optional, Callable, List, Dict
 
 from .logger import get_logger
+from .i18n import get_language, t
 from .user_data import atomic_write_json, get_user_data_path, migrate_legacy_directory, prune_cache_dir, read_json
 from .ai_extractor import (
     get_api_config,
-    _make_existing_hash, _parse_ai_json_with_comment,
+    _make_existing_hash,
     _apply_reasoning_effort,
-    get_existing_vocab_from_deck, init_import_history,
+    get_existing_vocab_from_deck,
     is_openrouter,
 )
+from .ai_response_parser import parse_ai_json_with_comment as _parse_ai_json_with_comment
 from .ai_http_client import (
     get_rate_limit_delay as _get_rate_limit_delay,
     post_json as _http_post_json,
@@ -57,7 +59,7 @@ def _wait_for_cancel(seconds: float, should_abort: Optional[Callable[[], bool]] 
     deadline = time.monotonic() + max(0.0, seconds)
     while time.monotonic() < deadline:
         if should_abort and should_abort():
-            raise RuntimeError("⏹ Đã hủy bởi người dùng")
+            raise RuntimeError(t("error_cancelled_by_user"))
         before = time.monotonic()
         time.sleep(min(0.1, deadline - before))
         if time.monotonic() <= before:
@@ -400,7 +402,7 @@ def _call_ai_for_batch(
     """Gọi AI API cho một batch từ vựng (hoặc cấu trúc ngữ pháp)"""
     cfg = get_api_config()
     if not cfg.get("api_key") and "localhost" not in cfg.get("api_base", ""):
-        raise ValueError("⚠️ Chưa cấu hình API Key")
+        raise ValueError(t("error_api_key_missing"))
     
     system_prompt = get_system_prompt(lang, "grammar" if grammar else "vocab")
     user_prompt = _build_batch_user_prompt(
@@ -432,11 +434,11 @@ def _call_ai_for_batch(
         body = _http_post_json(url, payload, headers, timeout=_timeout,
                                progress_callback=progress_callback, should_abort=should_abort)
     except RuntimeError as e:
-        raise RuntimeError(f"❌ Lỗi API: {e}")
+        raise RuntimeError(t("batch_error_api", error=e))
     
     result = json.loads(body)
     if "choices" not in result or len(result["choices"]) == 0:
-        raise RuntimeError(f"❌ API không có kết quả.\n{body[:500]}")
+        raise RuntimeError(t("error_api_no_result", details=body[:500]))
     
     content = result["choices"][0]["message"].get("content", "") or ""
     
@@ -446,7 +448,9 @@ def _call_ai_for_batch(
         if reasoning.strip():
             content = reasoning.strip()
     
-    vocab_list, comment = _parse_ai_json_with_comment(content)
+    vocab_list, comment = _parse_ai_json_with_comment(
+        content, lambda preview: t("error_ai_json_parse", content=preview)
+    )
     
     if progress_callback and comment:
         progress_callback(f"  💬 {comment[:100]}")
@@ -541,18 +545,19 @@ def process_large_word_list(
     Returns:
         List[dict] từ vựng đã được AI làm giàu (đầy đủ trường)
     """
-    label = "cấu trúc ngữ pháp" if grammar else "từ"
+    label = t("batch_item_pattern") if grammar else t("batch_item_word")
+    short_label = t("batch_item_pattern_short") if grammar else t("batch_item_word_short")
     
     # ── Step 1: Parse ─────────────────────────────────────
     if progress_callback:
-        progress_callback(f"🔍 Đang parse danh sách {label}...")
+        progress_callback(t("batch_status_parsing", label=label))
     
     words = parse_word_list(raw_text, lang)
     if not words:
-        raise ValueError(f"⚠️ Không tìm thấy {label} nào trong danh sách. Kiểm tra format.")
+        raise ValueError(t("batch_error_no_items", label=label))
     
     if progress_callback:
-        progress_callback(f"📋 Đã parse {len(words)} {label}")
+        progress_callback(t("batch_status_parsed", count=len(words), label=label))
     
     # ── Step 2: Lọc đã có ─────────────────────────────
     if existing_words:
@@ -561,19 +566,24 @@ def process_large_word_list(
         words = [w for w in words if w["front"].lower().strip() not in existing_set]
         filtered_count = original_count - len(words)
         if progress_callback and filtered_count > 0:
-            progress_callback(f"🔍 Đã lọc {filtered_count} {label} trùng với deck hiện có")
+            progress_callback(t("batch_status_filtered", count=filtered_count, label=label))
     
     if not words:
-        raise ValueError(f"⚠️ Tất cả {label} đều đã có trong deck. Không có {label} mới để xử lý.")
+        raise ValueError(t("batch_error_all_existing", label=label))
     
     if progress_callback:
-        progress_callback(f"📝 Còn {len(words)} {label} mới cần xử lý")
+        progress_callback(t("batch_status_remaining", count=len(words), label=label))
     
     # ── Step 3: Smart grouping ────────────────────────────
     batches = smart_group_words(words, batch_size)
     
     if progress_callback:
-        progress_callback(f"📦 Chia thành {len(batches)} batch (~{batch_size} {label}/batch)")
+        progress_callback(t(
+            "batch_status_groups",
+            batches=len(batches),
+            size=batch_size,
+            label=label,
+        ))
     
     # ── Step 4: Process từng batch ────────────────────────
     existing_hash = _make_existing_hash(existing_words or [])
@@ -592,21 +602,21 @@ def process_large_word_list(
     else:
         base_delay = MIN_DELAY_BETWEEN_BATCHES
     if is_openrouter() and slow_mode and progress_callback:
-        progress_callback(
-            f"⚠️ OpenRouter free giới hạn ~20 req/phút → tự đặt delay {base_delay:.1f}s/batch "
-            f"(~{int(60 / base_delay)} req/phút, an toàn)."
-        )
+        progress_callback(t(
+            "batch_openrouter_safe",
+            delay=base_delay,
+            rate=int(60 / base_delay),
+        ))
     elif is_openrouter() and not slow_mode and progress_callback:
-        progress_callback(
-            f"⚠️ Đã tắt chế độ chậm OpenRouter — giữ delay {base_delay:.1f}s/batch. "
-            f"Có thể gặp rate limit 429 (tự retry + chờ)."
-        )
+        progress_callback(t("batch_openrouter_fast", delay=base_delay))
     
     for idx, batch in enumerate(batches):
         # Check abort
         if should_abort and should_abort():
             if progress_callback:
-                progress_callback(f"⏹️ Đã hủy sau {idx}/{total_batches} batch")
+                progress_callback(t(
+                    "batch_status_cancelled", current=idx, total=total_batches
+                ))
             break
         
         batch_num = idx + 1
@@ -622,8 +632,9 @@ def process_large_word_list(
         was_cache_hit = cached is not None
         if was_cache_hit:
             if progress_callback:
-                label = "cấu trúc" if grammar else "từ"
-                progress_callback(f"  📦 Cache hit: {len(cached)} {label}")
+                progress_callback(t(
+                    "batch_status_cache_hit", count=len(cached), label=short_label
+                ))
             new_count = 0
             for item in cached:
                 front = (item.get("front") or item.get("simplified") or "").strip().lower()
@@ -632,7 +643,12 @@ def process_large_word_list(
                     all_vocab.append(item)
                     new_count += 1
             if progress_callback:
-                progress_callback(f"  ✅ +{new_count} từ mới (sau lọc trùng)")
+                progress_callback(t(
+                    "batch_status_added",
+                    count=new_count,
+                    label=short_label,
+                    total=len(all_vocab),
+                ))
         
         else:
             # Gọi AI
@@ -655,8 +671,12 @@ def process_large_word_list(
                         new_count += 1
                  
                 if progress_callback:
-                    label = "cấu trúc" if grammar else "từ"
-                    progress_callback(f"  ✅ +{new_count} {label} mới (tổng: {len(all_vocab)})")
+                    progress_callback(t(
+                        "batch_status_added",
+                        count=new_count,
+                        label=short_label,
+                        total=len(all_vocab),
+                    ))
                  
                 # Cache kết quả
                 if vocab_batch:
@@ -666,11 +686,13 @@ def process_large_word_list(
                 total_errors += 1
                 logger.warning("Batch %d error: %s", batch_num, e)
                 if progress_callback:
-                    progress_callback(f"  ❌ Lỗi batch {batch_num}: {e}")
+                    progress_callback(t(
+                        "batch_progress_error", batch=batch_num, error=e
+                    ))
                 
                 # Nếu lỗi quá nhiều, dừng
                 if total_errors >= 3:
-                    raise RuntimeError(f"❌ Quá nhiều lỗi ({total_errors} batch lỗi). Dừng xử lý.")
+                    raise RuntimeError(t("batch_error_too_many", count=total_errors))
         
         # Rate limiting giữa các batch — CHỈ khi không phải cache hit (tiết kiệm thời gian)
         # Dùng delay động: nếu đang bị rate limit (từ _http_post_json), tăng dần
@@ -679,12 +701,18 @@ def process_large_word_list(
             current_delay = _get_rate_limit_delay()
             delay = current_delay if current_delay > 0 else base_delay
             if delay > base_delay and progress_callback:
-                progress_callback(f"⏳ Đang chờ {delay:.1f}s (rate limit đang hoạt động)...")
+                progress_callback(t("batch_status_rate_wait", seconds=delay))
             _wait_for_cancel(delay, should_abort)
     
     # ── Step 5: Tổng kết ──────────────────────────────────
     if progress_callback:
-        progress_callback(f"🎉 Hoàn tất! Tổng: {len(all_vocab)} {label} đã xử lý ({total_batches} batch, {total_errors} lỗi)")
+        progress_callback(t(
+            "batch_status_complete",
+            count=len(all_vocab),
+            label=label,
+            batches=total_batches,
+            errors=total_errors,
+        ))
     
     return all_vocab
 
@@ -726,6 +754,35 @@ NGUYÊN TẮC TỔ CHỨC:
   ]
 }"""
 
+_DECK_ORGANIZER_SYSTEM_PROMPT_EN = """You are an expert at organizing vocabulary for a spaced-repetition system (Anki).
+
+TASK: Analyze the extracted vocabulary and propose an effective deck hierarchy (parent decks + subdecks).
+
+ORGANIZATION RULES:
+1. PARENT DECKS: Group by broad learning context (for example, "Japanese Conversation" or "Chinese HSK").
+2. SUBDECKS: Aim for 20–50 words per subdeck so each group is focused but still has useful context.
+3. GROUPING PRIORITY: topic, proficiency level, part of speech, then difficulty/frequency.
+4. DECK NAMES: Use concise, meaningful English names.
+5. Assign each word to exactly one deck.
+
+JSON OUTPUT:
+{
+  "suggestion": "Short description of the organization strategy",
+  "decks": [
+    {
+      "parent": "Japanese Conversation",
+      "sub_decks": [
+        {
+          "name": "Greetings & Introductions",
+          "description": "Vocabulary used when greeting and meeting people",
+          "word_count": 25,
+          "words": ["食べる", "飲む"]
+        }
+      ]
+    }
+  ]
+}"""
+
 
 def organize_decks_with_ai(
     vocab_list: List[dict],
@@ -745,14 +802,14 @@ def organize_decks_with_ai(
         dict với keys: suggestion, decks (list parent + sub_decks)
     """
     if not vocab_list:
-        return {"suggestion": "Không có từ vựng", "decks": []}
+        return {"suggestion": t("organizer_empty"), "decks": []}
     
     cfg = get_api_config()
     if not cfg.get("api_key") and "localhost" not in cfg.get("api_base", ""):
-        raise ValueError("⚠️ Chưa cấu hình API Key")
+        raise ValueError(t("error_api_key_missing"))
     
     if progress_callback:
-        progress_callback("🧠 AI đang phân tích và tổ chức deck...")
+        progress_callback(t("organizer_status_analyzing"))
     
     # Xây dựng summary cho AI (không gửi toàn bộ chi tiết để tiết kiệm token)
     word_summaries = []
@@ -770,11 +827,27 @@ def organize_decks_with_ai(
         step = max(1, len(word_summaries) // MAX_WORDS_FOR_ORG)
         sampled = word_summaries[::step][:MAX_WORDS_FOR_ORG]
         word_text = "\n".join(sampled)
-        word_text += f"\n\n(Tổng cộng {len(word_summaries)} từ, hiển thị {len(sampled)} từ mẫu)"
+        word_text += (
+            f"\n\n(Total: {len(word_summaries)} words; showing {len(sampled)} samples)"
+            if get_language() == "en"
+            else f"\n\n(Tổng cộng {len(word_summaries)} từ, hiển thị {len(sampled)} từ mẫu)"
+        )
     else:
         word_text = "\n".join(word_summaries)
     
-    user_prompt = f"""Phân tích danh sách {len(vocab_list)} từ vựng sau và đề xuất cấu trúc deck tối ưu:
+    if get_language() == "en":
+        user_prompt = f"""Analyze the following {len(vocab_list)} vocabulary items and propose an effective deck hierarchy:
+
+{word_text}
+
+Organize them into parent decks and subdecks by topic, level, and part of speech.
+Each subdeck should contain about 20–50 words.
+Use concise, clear English deck names.
+
+Output a JSON object matching the system prompt."""
+        organizer_prompt = _DECK_ORGANIZER_SYSTEM_PROMPT_EN
+    else:
+        user_prompt = f"""Phân tích danh sách {len(vocab_list)} từ vựng sau và đề xuất cấu trúc deck tối ưu:
 
 {word_text}
 
@@ -783,9 +856,10 @@ Mỗi sub deck nên có 20-50 từ.
 Tên deck bằng tiếng Việt, ngắn gọn, dễ hiểu.
 
 Đầu ra: JSON object với cấu trúc như system prompt yêu cầu."""
+        organizer_prompt = _DECK_ORGANIZER_SYSTEM_PROMPT
 
     messages = [
-        {"role": "system", "content": _DECK_ORGANIZER_SYSTEM_PROMPT},
+        {"role": "system", "content": organizer_prompt},
         {"role": "user", "content": user_prompt},
     ]
     
@@ -805,7 +879,7 @@ Tên deck bằng tiếng Việt, ngắn gọn, dễ hiểu.
     }
     
     if progress_callback:
-        progress_callback("⏳ Đang chờ AI tổ chức deck...")
+        progress_callback(t("organizer_status_waiting"))
 
     try:
         body = _http_post_json(url, payload, headers, timeout=300,
@@ -846,7 +920,11 @@ Tên deck bằng tiếng Việt, ngắn gọn, dễ hiểu.
     
     if progress_callback:
         deck_count = sum(len(p.get("sub_decks", [])) for p in org_result.get("decks", []))
-        progress_callback(f"✅ AI đề xuất: {len(org_result.get('decks', []))} parent deck, {deck_count} sub deck")
+        progress_callback(t(
+            "organizer_status_suggested",
+            parents=len(org_result.get("decks", [])),
+            subs=deck_count,
+        ))
     
     return org_result
 
@@ -871,11 +949,11 @@ def _fallback_deck_organization(vocab_list: List[dict], lang: str) -> dict:
     
     # Nhóm theo level trong mỗi topic
     decks = []
-    lang_label = {
-        "japanese": "Tiếng Nhật",
-        "chinese": "Tiếng Trung",
-        "korean": "Tiếng Hàn",
-    }.get(lang, "Tiếng Nhật")
+    lang_label = t({
+        "japanese": "organizer_lang_japanese",
+        "chinese": "organizer_lang_chinese",
+        "korean": "organizer_lang_korean",
+    }.get(lang, "organizer_lang_japanese"))
     
     if by_topic:
         sub_decks = []
@@ -884,7 +962,10 @@ def _fallback_deck_organization(vocab_list: List[dict], lang: str) -> dict:
             if len(words) > 50:
                 by_level = {}
                 for w in words:
-                    level = w.get("jlptlevel") or w.get("hsk_level") or w.get("topik_level") or "Khác"
+                    level = (
+                        w.get("jlptlevel") or w.get("hsk_level")
+                        or w.get("topik_level") or t("organizer_other")
+                    )
                     if level not in by_level:
                         by_level[level] = []
                     by_level[level].append(w)
@@ -892,20 +973,24 @@ def _fallback_deck_organization(vocab_list: List[dict], lang: str) -> dict:
                 for level, lvl_words in sorted(by_level.items()):
                     sub_decks.append({
                         "name": f"{topic} - {level}",
-                        "description": f"Từ vựng {topic} cấp độ {level}",
+                        "description": t(
+                            "organizer_level_description", level=f"{topic} {level}"
+                        ),
                         "word_count": len(lvl_words),
                         "words": [w.get("front") or w.get("simplified") or "" for w in lvl_words],
                     })
             else:
                 sub_decks.append({
                     "name": topic,
-                    "description": f"Từ vựng về {topic.lower()}",
+                    "description": t(
+                        "organizer_topic_description", topic=topic.lower()
+                    ),
                     "word_count": len(words),
                     "words": [w.get("front") or w.get("simplified") or "" for w in words],
                 })
         
         decks.append({
-            "parent": f"{lang_label} Theo Chủ Đề",
+            "parent": t("organizer_topic_parent", language=lang_label),
             "sub_decks": sub_decks,
         })
     
@@ -913,7 +998,10 @@ def _fallback_deck_organization(vocab_list: List[dict], lang: str) -> dict:
         # Nhóm theo level
         by_level = {}
         for w in no_topic:
-            level = w.get("jlptlevel") or w.get("hsk_level") or w.get("topik_level") or "Chưa phân loại"
+            level = (
+                w.get("jlptlevel") or w.get("hsk_level")
+                or w.get("topik_level") or t("organizer_uncategorized")
+            )
             if level not in by_level:
                 by_level[level] = []
             by_level[level].append(w)
@@ -921,19 +1009,19 @@ def _fallback_deck_organization(vocab_list: List[dict], lang: str) -> dict:
         sub_decks = []
         for level, lvl_words in sorted(by_level.items()):
             sub_decks.append({
-                "name": f"{level} - Từ vựng",
-                "description": f"Từ vựng {level}",
+                "name": t("organizer_level_name", level=level),
+                "description": t("organizer_level_description", level=level),
                 "word_count": len(lvl_words),
                 "words": [w.get("front") or w.get("simplified") or "" for w in lvl_words],
             })
         
         decks.append({
-            "parent": f"{lang_label} Theo Cấp Độ",
+            "parent": t("organizer_level_parent", language=lang_label),
             "sub_decks": sub_decks,
         })
     
     return {
-        "suggestion": "Tổ chức tự động (fallback) — nhóm theo chủ đề và cấp độ",
+        "suggestion": t("organizer_fallback_suggestion"),
         "decks": decks,
     }
 
@@ -967,7 +1055,7 @@ def create_decks_from_organization(
             from aqt import mw
             collection = mw.col
     except ImportError:
-        raise RuntimeError("⚠️ Không thể truy cập Anki. Đảm bảo add-on đang chạy trong Anki.")
+        raise RuntimeError(t("organizer_anki_unavailable"))
     
     created_decks = {}
     
@@ -984,7 +1072,7 @@ def create_decks_from_organization(
     for parent_info in organization.get("decks", []):
         if should_abort and should_abort():
             break
-        parent_name = parent_info.get("parent", "Từ Vựng Mới").strip()
+        parent_name = parent_info.get("parent", t("organizer_default_parent")).strip()
         
         # Tạo parent deck nếu chưa có
         try:
@@ -996,7 +1084,7 @@ def create_decks_from_organization(
             try:
                 parent_id = collection.decks.id(parent_name)
                 if progress_callback:
-                    progress_callback(f"📁 Tạo parent deck: {parent_name}")
+                    progress_callback(t("organizer_status_create_parent", name=parent_name))
             except Exception as e:
                 logger.warning("Không tạo được parent deck '%s': %s", parent_name, e)
                 continue
@@ -1021,7 +1109,7 @@ def create_decks_from_organization(
                 logger.warning("Không tạo được sub deck '%s': %s", full_name, e)
     
     if progress_callback:
-        progress_callback(f"✅ Đã tạo {len(created_decks)} deck")
+        progress_callback(t("organizer_status_created", count=len(created_decks)))
     
     return created_decks
 

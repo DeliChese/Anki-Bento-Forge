@@ -12,6 +12,7 @@ from aqt.qt import QThread, pyqtSignal
 from audio import get_audio_multilang
 from audio.engine import speed_to_edge_rate
 from utils.logger import get_logger, log_event
+from utils.i18n import t
 
 logger = get_logger()
 _MAX_AUDIO_WORKERS = 4
@@ -61,7 +62,10 @@ class ImportWorker(QThread):
                         )
                         tags[task["key"]] = ""
                     completed += 1
-                    self.progress.emit(completed, f"🎤 Audio: {completed}/{total}")
+                    self.progress.emit(
+                        completed,
+                        t("status_audio_progress", current=completed, total=total),
+                    )
                     if not self.cancel_event.is_set():
                         next_task = next(task_iter, None)
                         if next_task is not None:

@@ -76,7 +76,10 @@ class AiExtractThread(QThread):
             if self.cancel_event.is_set():
                 return
             if self.existing_words:
-                label = t("item_label_grammar_lower") if self.grammar else "words"
+                label = (
+                    t("item_label_grammar_lower")
+                    if self.grammar else t("item_label_vocab_lower")
+                )
                 self.progress.emit(t("status_deck_avoid", count=len(self.existing_words), label=label))
 
             if self.grammar:

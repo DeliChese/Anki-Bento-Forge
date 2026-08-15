@@ -1,29 +1,32 @@
 ---
 name: ai-extraction
-description: Lõi AI của add-on — utils/ai_extractor.py (2,2xx dòng). Config, encryption, HTTP, cache, prompts (japanese/chinese/korean), extract/chat, history. Đọc khi sửa bất cứ thứ gì liên quan AI.
+description: Lõi AI của add-on — utils/ai_extractor.py (~1.489 dòng). Config + extract/chat orchestration; HTTP, document extraction, cache, prompt defaults, response parser và import history có owner riêng. Đọc khi sửa bất cứ thứ gì liên quan AI.
 ---
 
 # 🧠 SKILL-02: AI EXTRACTION CORE (`utils/ai_extractor.py`)
 
 > OpenAI-compatible API (DeepSeek/OpenAI/Ollama/LM Studio/OpenRouter/Claude-proxy).
-> ⚠️ **Đọc file này theo vùng, KHÔNG đọc trọn 2,2xx dòng.**
+> ⚠️ **Đọc file này theo vùng, KHÔNG đọc trọn 1.489 dòng khi chỉ cần một responsibility.**
 
 ## CẤU TRÚC THEO VÙNG (line)
 
 | Vùng | Dòng | Nội dung |
 |------|------|----------|
-| Encryption API key | 39-96 | `_get_machine_key`:39, `_derive_fernet_key`:46, `_encrypt_api_key`:59, `_decrypt_api_key`:77 (auto-detect `f:`/`x:`/plaintext) |
-| HTTP helper | 114-209 | `_pick_ssl_context`:114 (local=no-verify), `_http_post_json`:125 (pool + chunked + retry) |
-| Config | 227-321 | `_load_config`:227, `_save_config`:237, `get_api_config`:253, `save_api_config`:284, `_apply_reasoning_effort`:313 |
-| Cost tracking | 347-378 | `_calculate_cost`:353, `_format_token_report`:370, `_DEEPSEEK_PRICING`:347 |
-| Cache | 385-430 | `_ai_cache_key`:388, `_ai_cache_get`:393, `_ai_cache_set`:408, `clear_cache`:425, `_PROMPT_VERSION`:385 |
-| JSON templates + prompts | 480-690 | `_JAPANESE_JSON_TEMPLATE`:480, `_KOREAN_JSON_TEMPLATE`:511, `_SYSTEM_PROMPTS`:544, `_JSON_TEMPLATES`:550, `_JAPANESE_GRAMMAR_JSON_TEMPLATE`:565, `_KOREAN_GRAMMAR_JSON_TEMPLATE`:639, `_GRAMMAR_SYSTEM_PROMPTS`:677, `_GRAMMAR_JSON_TEMPLATES`:683 |
-| File extraction | 732-900 | `extract_text_from_file`:732 (txt/md/csv/pdf/docx/xlsx), `extract_text_from_files`:785, `_MAX_EXISTING_SHOWN`:902 (=400), `_format_existing_context`:905 |
-| Vocab extract | 948-1095 | `extract_vocabulary_with_ai`:948 (core), `_parse_ai_json_with_comment`:1097 |
-| Chat | 1157-1460 | `query_anki_context`:1157, `_build_anki_context_text`:1231, `chat_with_ai`:1320 |
-| Long text | 1462-1547 | `extract_vocabulary_long_text`:1462 (chunk → gọi lại core) |
-| Grammar extract | 1549-1828 | `extract_grammar_with_ai`:1549, `extract_grammar_long_text`:1704 |
-| Import history | 1830-2xxx | `init_import_history`:1830, `add_to_import_history`:1963, `get_import_history`:2036, `search_import_history`:2099, `get_history_summary_text`:2144 |
+| Encryption API key | 75-114 | `_get_machine_key`:75, `_derive_fernet_key`:82, `_decrypt_legacy_api_key`:95 |
+| Config | 203-343 | `_load_config`:203, `get_api_config`:237, `save_api_config`:290, `_apply_reasoning_effort`:335 |
+| Cost tracking | 364-400 | `_calculate_cost`:375, `_format_token_report`:392 |
+| Cache compatibility | 408-448 | `_PROMPT_VERSION`:408, `_ai_cache_key`:423, `_ai_cache_get`:432, `_ai_cache_set`:439, `clear_cache`:446 |
+| Cache owner | `utils/ai_result_cache.py:23-160` | key + prompt dimensions, migration/pruning, TTL 7/14 ngày, persistence, clear; không phụ thuộc AI/Anki/UI |
+| Prompt compatibility | 460-505 | re-export 32 symbol cũ; `get_json_template`:499, `get_grammar_json_template`:504 |
+| Prompt defaults owner | `utils/ai_prompt_defaults.py:12-528` | schema/prompt VI+EN cho vocab/grammar; dữ liệu thuần, không dependency runtime |
+| File extraction compatibility | 514-529 | re-export từ `utils/document_extractors.py` |
+| Vocab extract | 600-750 | `extract_vocabulary_with_ai`:600; parser được inject qua compatibility alias |
+| Response parser owner | `utils/ai_response_parser.py:9-64` | code fence/list/dict/comment/embedded/fallback/error; chỉ phụ thuộc `json_parser` |
+| Chat | 757-1117 | `query_anki_context`:757, `_build_anki_context_text`:843, `chat_with_ai`:965 |
+| Long text | 1124-1209 | `extract_vocabulary_long_text`:1124 |
+| Grammar extract | 1217-1455 | `extract_grammar_with_ai`:1217, `extract_grammar_long_text`:1376 |
+| Import-history compatibility | 1458-1489 | re-export API cũ; `init_import_history`:1484 inject Anki scan context lazy |
+| Import-history owner | `utils/import_history.py:30-522` | storage/TTL/scan aggregation/add/query/items/search/summary; không import Anki/UI/AI |
 
 ## API CÔNG KHAI (dùng từ nơi khác)
 
@@ -59,15 +62,15 @@ body = _http_post_json(url, payload, headers, timeout=_timeout, progress_callbac
 
 ## CACHE (QUAN TRỌNG — TIẾT KIỆM TOKEN)
 
-- Cache AI kết quả: `utils/ai_cache/`, key = `_ai_cache_key(text, lang, instruction, existing_hash)`.
+- Cache AI kết quả: owner `utils/ai_result_cache.py`, dữ liệu tại profile `cache/`; `ai_extractor` re-export API cũ trong release hiện tại.
 - **Bump `_PROMPT_VERSION` (`ai_extractor.py`) MỖI KHI sửa prompt MẶC ĐỊNH trong code** → invalidate toàn bộ cache cũ.
 - ⭐ **V17.1: sửa prompt QUA `utils/prompt_config.py` (file `utils/ai_prompts.json`) KHÔNG cần bump tay** — cache key giờ gồm `get_prompt_signature()` (md5 phần ghi đè) → sửa là tự invalidate.
 - Deck vocab cache nằm ở `utils/deck_cache.py` (incremental 5p + full 30p) — gọi `invalidate_deck_cache()` khi deck thay đổi.
-- Import history: `utils/import_history.json` — AI dùng để tránh từ đã import.
+- Import history: owner `utils/import_history.py`, dữ liệu `import_history.json` trong profile; Anki collection/config được inject chỉ khi TTL yêu cầu scan.
 
 ## PROMPT & JSON TEMPLATE (nơi hay sửa)
 
-- System prompt vocab: `_SYSTEM_PROMPTS[lang]` (japanese/chinese/korean). Grammar: `_GRAMMAR_SYSTEM_PROMPTS[lang]`.
+- Owner mặc định: `utils/ai_prompt_defaults.py`; system prompt vocab `_SYSTEM_PROMPTS[lang]`, grammar `_GRAMMAR_SYSTEM_PROMPTS[lang]`.
 - JSON output template: `get_json_template(lang, kind)` / `get_grammar_json_template(lang)` — gửi cho AI làm format chuẩn.
 - `_format_existing_context(existing, text, label)` — CHỈ gửi từ trùng với text (tối ưu input), cap `_MAX_EXISTING_SHOWN=400`.
 - Giữ prompt GỌN: output yêu cầu explanation ≤2 câu, ví dụ 5-12 từ (kiểm bởi tests/test_token_optimization.py).
@@ -76,7 +79,7 @@ body = _http_post_json(url, payload, headers, timeout=_timeout, progress_callbac
 
 > Kể từ V17.1, người dùng chỉnh prompt/schema qua UI (`ui/prompt_editor.py`, mở từ nút "✏️ Sửa Prompt / Schema AI" trong Cài Đặt AI) hoặc trực tiếp file `utils/ai_prompts.json` (gitignored).
 
-- **Module chính**: `utils/prompt_config.py` — KHÔNG import ai_extractor ở top (lazy trong hàm để tránh circular).
+- **Module chính**: `utils/prompt_config.py` — import trực tiếp owner thuần `ai_prompt_defaults`; không phụ thuộc `ai_extractor`.
 - **API quan trọng** (cũng re-export qua `utils/__init__.py`):
   - `get_system_prompt(lang, kind)` / `get_json_template(lang, kind)` — giá trị HIỆU LỰC (defaults + ghi đè). `kind` = `"vocab"` | `"grammar"`.
   - `get_effective_config()` — toàn bộ config cho UI editor (gồm `system_prompt_raw`, `fields`, `field_count`, `modified`, `field_map`, `default_field_map`, `all_fields`).
@@ -84,19 +87,19 @@ body = _http_post_json(url, payload, headers, timeout=_timeout, progress_callbac
 - **FIELD MAP + CARD RENDER (Mức 1 + 2 — đóng schema lock-in ở lớp thẻ)**:
   - `get_field_map(lang, kind, default_field_map)` — map {json_key → anki_field} hiệu lực (defaults từ `Language/*.py` `json_field_map` + ghi đè `field_map` trong `ai_prompts.json`).
   - `get_card_show(lang, kind)` — vị trí hiển thị field tuỳ chỉnh {field: "front"|"back"|"both"} (Mức 2).
-  - `apply_field_map_to_cfg(cfg, lang, kind)` — trả copy cfg với `json_field_map` + `all_fields` + `card_show` hiệu lực. **`__init__.py:_cfg()` bơm hàm này** → mọi flow tự nhận field mới.
+  - `apply_field_map_to_cfg(cfg, lang, kind)` — trả copy cfg với `json_field_map` + `all_fields` + `card_show` hiệu lực. **`ui/factory_dialog.py:_cfg()` bơm hàm này** → mọi flow tự nhận field mới.
   - `auto_field_name(json_key)` — tự suy field Anki từ key (`english_meaning` → `English Meaning`).
   - UI: tab "🗂 Field Map" trong `ui/prompt_editor.py`; lưu xong tự gọi `_sync_models_after_save()` thêm field + ĐỒNG BỘ template thẻ.
   - **Render thẻ**: `mode/card_render.py` — `build_qfmt/build_afmt` APPEND khối "extra fields" ({{#Field}}...{{/Field}} + inline styles) vào cuối template gốc → field mới TỰ HIỆN trên thẻ (mặc định mặt sau). `__init__.py get_or_create_model/_force_rebuild_model` dùng builder này.
 - **Cơ chế RAW + placeholder**: `system_prompt` lưu dạng RAW chứa `{{JSON_TEMPLATE}}` (tái dựng từ defaults bằng `str.replace` — không copy 250 dòng). Runtime thay placeholder bằng `json_template` hiệu lực → sửa mẫu JSON tự phản ánh vào prompt.
-- **Trong ai_extractor**: các nơi gọi prompt giờ dùng `get_effective_system_prompt(lang, "vocab"|"grammar")`; `get_json_template()`/`get_grammar_json_template()` delegate về prompt_config. `_SYSTEM_PROMPTS`/`_GRAMMAR_SYSTEM_PROMPTS` vẫn giữ làm DEFAULT (tests test_grammar/test_token_optimization đọc trực tiếp).
+- **Trong ai_extractor**: runtime dùng `get_effective_system_prompt(lang, "vocab"|"grammar")`; API template delegate về prompt_config. 32 symbol defaults cũ được re-export từ `ai_prompt_defaults` trong release hiện tại.
 - **batch_processor** dùng `get_system_prompt`/`get_json_template` từ prompt_config (KHÔNG import `_SYSTEM_PROMPTS`/`_JSON_TEMPLATES` nữa).
 - **Khi sửa prompt mặc định trong code**: nhớ cập nhật cả test compactness (`tests/test_token_optimization.py` — len `< 1400` vocab / `< 2400` grammar).
 
 ## TRAPS (lỗi thường gặp)
 
-1. **JSON output bị cắt** (DeepSeek ~8192 token): chunk mặc định 8k, cap 15k. `_check_truncated_output`:324 cảnh báo. → Đừng tăng chunk >15k.
-2. **Reasoner model content rỗng**: fallback lấy `reasoning_content` (1055, 1407). Giữ logic này.
+1. **JSON output bị cắt** (DeepSeek ~8192 token): chunk mặc định 8k, cap 15k. `_check_truncated_output`:346 cảnh báo. → Đừng tăng chunk >15k.
+2. **Reasoner model content rỗng**: fallback lấy `reasoning_content` (711, 1069, 1328). Giữ logic này.
 3. **API key encryption**: `save_api_config` mã hóa `f:`/`x:`; `get_api_config` decrypt. Không lưu plaintext mới.
 4. **max_chars sàn 10k / chunk sàn 3k** — bị clamp trong `get_api_config` (257-263). Test `test_length_and_reasoning.py` kiểm tra.
 5. **Retry/timeout**: `_http_post_json` có retry; model reasoner timeout 600s.

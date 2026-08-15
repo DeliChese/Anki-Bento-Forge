@@ -14,6 +14,8 @@ import time
 from typing import Callable, Optional
 from urllib.parse import urlparse
 
+from .i18n import t
+
 
 # Cloud providers use normal certificate verification.  The relaxed context is
 # limited to loopback hosts used by local Ollama/LM Studio installations.
@@ -100,7 +102,7 @@ def abortable_wait(
     deadline = time.monotonic() + max(0.0, seconds)
     while time.monotonic() < deadline:
         if should_abort and should_abort():
-            raise RuntimeError("⏹ Đã hủy bởi người dùng")
+            raise RuntimeError(t("error_cancelled_by_user"))
         before = time.monotonic()
         time.sleep(min(0.1, deadline - before))
         # Test doubles may replace sleep() with a no-op. Avoid spinning for the
@@ -132,7 +134,7 @@ def post_json(
     ssl_context = _pick_ssl_context(host)
 
     if should_abort and should_abort():
-        raise RuntimeError("⏹ Đã hủy bởi người dùng")
+        raise RuntimeError(t("error_cancelled_by_user"))
     deadline = time.monotonic() + total_timeout
     pool_key = f"{host}:{port}"
     conn = _get_thread_conn(pool_key, host, port, use_ssl, timeout, ssl_context)
@@ -143,7 +145,7 @@ def post_json(
     rate_delay = get_rate_limit_delay()
     if rate_delay > 0:
         if progress_callback:
-            progress_callback(f"⏳ Đang chờ {rate_delay:.1f}s (tránh rate limit)...")
+            progress_callback(t("status_rate_limit_wait", seconds=rate_delay))
         abortable_wait(rate_delay, should_abort)
 
     last_error = None
@@ -151,9 +153,9 @@ def post_json(
     for attempt in range(max_retries + 1):
         try:
             if should_abort and should_abort():
-                raise RuntimeError("⏹ Đã hủy bởi người dùng")
+                raise RuntimeError(t("error_cancelled_by_user"))
             if time.monotonic() >= deadline:
-                raise RuntimeError("⏱ Đã hết thời gian chờ tổng cho yêu cầu AI")
+                raise RuntimeError(t("error_ai_total_timeout"))
             if attempt > 0:
                 conn = _get_thread_conn(
                     pool_key,
@@ -180,10 +182,7 @@ def post_json(
                 else:
                     wait = 30.0
                 if progress_callback:
-                    progress_callback(
-                        f"⚠️ Rate limit (429) — chờ {wait:.0f}s rồi thử lại...\n"
-                        "💡 OpenRouter free giới hạn ~20 req/phút. Đang tự chậm lại."
-                    )
+                    progress_callback(t("status_rate_limited", seconds=wait))
                 abortable_wait(
                     min(wait, max(0.0, deadline - time.monotonic())),
                     should_abort,
@@ -205,7 +204,7 @@ def post_json(
             while True:
                 if should_abort and should_abort():
                     conn.close()
-                    raise RuntimeError("⏹ Đã hủy bởi người dùng")
+                    raise RuntimeError(t("error_cancelled_by_user"))
                 chunk = resp.read(8192)
                 if not chunk:
                     break
@@ -217,7 +216,7 @@ def post_json(
                     and total_read % 65536 < 8192
                 ):
                     pct = min(99, total_read * 100 // content_length)
-                    progress_callback(f"⏳ Đang nhận dữ liệu... {pct}%")
+                    progress_callback(t("status_receiving_data", percent=pct))
 
             body = b"".join(chunks).decode("utf-8")
             _reset_rate_limit_delay()
@@ -228,16 +227,21 @@ def post_json(
             if attempt < max_retries:
                 delay = 2.0 * (2 ** attempt)
                 if progress_callback:
-                    progress_callback(
-                        f"🔄 Retry {attempt + 1}/{max_retries} sau {delay:.0f}s..."
-                    )
+                    progress_callback(t(
+                        "status_retrying",
+                        attempt=attempt + 1,
+                        maximum=max_retries,
+                        seconds=delay,
+                    ))
                 abortable_wait(
                     min(delay, max(0.0, deadline - time.monotonic())),
                     should_abort,
                 )
                 continue
-            raise RuntimeError(
-                f"❌ Lỗi kết nối sau {max_retries + 1} lần thử: {last_error}"
-            )
+            raise RuntimeError(t(
+                "error_connection_retries",
+                attempts=max_retries + 1,
+                error=last_error,
+            ))
 
-    raise RuntimeError(f"❌ Không thể kết nối: {last_error}")
+    raise RuntimeError(t("error_connection", error=last_error))

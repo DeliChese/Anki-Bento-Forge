@@ -340,8 +340,8 @@ _TRANSLATIONS = {
 
     # ── Messages ────────────────────────────────────────
     "msg_import_success": {
-        "vi": "🚀 XUẤT XƯỞNG V17.0 THÀNH CÔNG! [{lang}]\n──────────────────────────────\n✨ Thêm mới   : {added} thẻ\n🔄 Cập nhật  : {updated} thẻ\n🎵 Audio gen  : {audio} file",
-        "en": "🚀 EXPORT V17.0 SUCCESS! [{lang}]\n──────────────────────────────\n✨ New        : {added} cards\n🔄 Updated    : {updated} cards\n🎵 Audio gen  : {audio} files",
+        "vi": "🚀 XUẤT XƯỞNG THÀNH CÔNG! [{language}]\n──────────────────────────────\n✨ Thêm mới   : {added} thẻ\n🔄 Cập nhật  : {updated} thẻ\n🎵 Audio      : {audio} file\n",
+        "en": "🚀 EXPORT COMPLETE! [{language}]\n──────────────────────────────\n✨ New        : {added} cards\n🔄 Updated    : {updated} cards\n🎵 Audio      : {audio} files\n",
     },
     "msg_no_api_key": {
         "vi": "Bạn chưa cấu hình API Key.\n\nNếu dùng DeepSeek/OpenAI/OpenRouter: cần API Key.\nNếu dùng Ollama/LM Studio local: có thể để trống.\n\nMở Cài Đặt AI?",
@@ -746,12 +746,60 @@ _TRANSLATIONS = {
         "en": "💰 AI cost: {cost} USD · {calls} calls",
     },
     "preview_quality_complete": {
-        "vi": "✓ Kiểm tra cấu trúc: {total}/{total} thẻ đủ trường bắt buộc · {score}/100. Không đánh giá ngữ nghĩa/ngữ pháp.",
-        "en": "✓ Structure check: {total}/{total} cards have required fields · {score}/100. Semantics and grammar are not assessed.",
+        "vi": "✓ Kiểm tra tự động: {total}/{total} thẻ không có cảnh báo xác định được · {score}/100. Độ đúng nghĩa, ngữ pháp và độ tự nhiên vẫn cần bạn rà soát.",
+        "en": "✓ Automated check: {total}/{total} cards have no deterministic warnings · {score}/100. Semantic accuracy, grammar, and naturalness still need your review.",
     },
     "preview_quality_warning": {
-        "vi": "⚠️ Kiểm tra cấu trúc: {flagged}/{total} thẻ thiếu trường bắt buộc ({issues} cảnh báo) · {score}/100. Bạn vẫn có thể sửa hoặc import.",
-        "en": "⚠️ Structure check: {flagged}/{total} cards are missing required fields ({issues} warnings) · {score}/100. You can still edit or import.",
+        "vi": "⚠️ Kiểm tra tự động: {flagged}/{total} thẻ có {issues} cảnh báo trường/nội dung · {score}/100. Di chuột lên hàng để xem chi tiết; bạn vẫn có thể sửa hoặc import.",
+        "en": "⚠️ Automated check: {flagged}/{total} cards have {issues} field/content warnings · {score}/100. Hover a row for details; you can still edit or import.",
+    },
+    "preview_quality_issue_invalid_card": {
+        "vi": "Dữ liệu thẻ không hợp lệ.",
+        "en": "Invalid card data.",
+    },
+    "preview_quality_issue_missing_front": {
+        "vi": "Thiếu từ hoặc mẫu ngữ pháp.",
+        "en": "Missing the word or grammar pattern.",
+    },
+    "preview_quality_issue_missing_meaning": {
+        "vi": "Thiếu nghĩa.",
+        "en": "Missing meaning.",
+    },
+    "preview_quality_issue_missing_example": {
+        "vi": "Thiếu ví dụ.",
+        "en": "Missing example.",
+    },
+    "preview_quality_issue_placeholder_front": {
+        "vi": "Từ/mẫu đang là giá trị giữ chỗ (ví dụ N/A hoặc unknown).",
+        "en": "The word/pattern is a placeholder value (such as N/A or unknown).",
+    },
+    "preview_quality_issue_placeholder_meaning": {
+        "vi": "Nghĩa đang là giá trị giữ chỗ (ví dụ N/A hoặc unknown).",
+        "en": "The meaning is a placeholder value (such as N/A or unknown).",
+    },
+    "preview_quality_issue_placeholder_example": {
+        "vi": "Ví dụ đang là giá trị giữ chỗ (ví dụ N/A hoặc unknown).",
+        "en": "The example is a placeholder value (such as N/A or unknown).",
+    },
+    "preview_quality_issue_meaning_repeats_front": {
+        "vi": "Nghĩa giống hệt từ/mẫu; hãy kiểm tra lại bản dịch.",
+        "en": "Meaning is identical to the word/pattern; check the translation.",
+    },
+    "preview_quality_issue_example_wrong_script": {
+        "vi": "Ví dụ không có chữ viết của ngôn ngữ đích; hãy kiểm tra ngôn ngữ đầu ra.",
+        "en": "Example has no target-language script; check the output language.",
+    },
+    "preview_quality_issue_target_not_in_example": {
+        "vi": "Từ tiếng Trung không xuất hiện trong ví dụ.",
+        "en": "The Chinese headword does not appear in the example.",
+    },
+    "preview_quality_issue_pattern_not_in_example": {
+        "vi": "Mẫu ngữ pháp dạng nguyên văn không xuất hiện trong ví dụ.",
+        "en": "The literal grammar pattern does not appear in the example.",
+    },
+    "preview_quality_issue_example_is_only_target": {
+        "vi": "Ví dụ chỉ lặp lại từ/mẫu, chưa có ngữ cảnh.",
+        "en": "Example only repeats the word/pattern and provides no context.",
     },
 
     # ── Main Window Status / Tooltips ────────────────────
@@ -1042,12 +1090,12 @@ _TRANSLATIONS = {
         "en": "🚀 Large Grammar Pattern Processing — Batch AI",
     },
     "batch_header_vocab": {
-        "vi": "🚀 Xử Lý Danh Sách Từ Vựng Lớn ({lang})",
-        "en": "🚀 Large Vocabulary Processing ({lang})",
+        "vi": "🚀 Xử Lý Danh Sách Từ Vựng Lớn ({language})",
+        "en": "🚀 Large Vocabulary Processing ({language})",
     },
     "batch_header_grammar": {
-        "vi": "🚀 Xử Lý Danh Sách Cấu Trúc Ngữ Pháp Lớn ({lang})",
-        "en": "🚀 Large Grammar Pattern Processing ({lang})",
+        "vi": "🚀 Xử Lý Danh Sách Cấu Trúc Ngữ Pháp Lớn ({language})",
+        "en": "🚀 Large Grammar Pattern Processing ({language})",
     },
     "batch_desc_vocab": {
         "vi": "Paste danh sách từ cần xử lý. AI sẽ làm giàu từng từ với đầy đủ nghĩa, phát âm, ví dụ, chủ đề.",
@@ -1866,6 +1914,693 @@ _TRANSLATIONS = {
     "overview_mode_label": {
         "vi": "🎯 Chế độ học:",
         "en": "🎯 Study mode:",
+    },
+
+    # ── Complete VI/EN coverage: main workflow ───────────
+    "app_title_language": {
+        "vi": "Bento Forge — {language}",
+        "en": "Bento Forge — {language}",
+    },
+    "lang_japanese_grammar": {
+        "vi": "🇯🇵 Ngữ pháp Tiếng Nhật",
+        "en": "🇯🇵 Japanese Grammar",
+    },
+    "lang_chinese_grammar": {
+        "vi": "🇨🇳 Ngữ pháp Tiếng Trung",
+        "en": "🇨🇳 Chinese Grammar",
+    },
+    "lang_korean_grammar": {
+        "vi": "🇰🇷 Ngữ pháp Tiếng Hàn",
+        "en": "🇰🇷 Korean Grammar",
+    },
+    "filter_all_levels": {
+        "vi": "Tất cả",
+        "en": "All",
+    },
+    "btn_reset_cost": {
+        "vi": "↺ Đặt lại",
+        "en": "↺ Reset",
+    },
+    "verify_error_title": {
+        "vi": "❌ Lỗi Kiểm Định",
+        "en": "❌ Validation Error",
+    },
+    "verify_error_message": {
+        "vi": "Không thể kiểm định dữ liệu:\n\n{error}\n\n{details}",
+        "en": "Could not validate the data:\n\n{error}\n\n{details}",
+    },
+    "verify_summary": {
+        "vi": "✨ {new} mới   🔄 {update} cập nhật   ⚠️ {partial} trùng mờ   🔍 {different} nghĩa khác   ❌ {duplicate} bỏ qua",
+        "en": "✨ {new} new   🔄 {update} updates   ⚠️ {partial} possible duplicates   🔍 {different} different meanings   ❌ {duplicate} skipped",
+    },
+    "cancel_order_empty": {
+        "vi": "ℹ️ Xưởng trống — không có thẻ để hủy.",
+        "en": "ℹ️ The factory is empty — there are no cards to discard.",
+    },
+    "cancel_order_title": {
+        "vi": "🗑️ HỦY LÔ HÀNG",
+        "en": "🗑️ DISCARD BATCH",
+    },
+    "cancel_order_message": {
+        "vi": "Lô hàng hiện có {total} thẻ chờ xuất xưởng.\n\n☑️ Đã chọn: {selected} thẻ.\n\nChọn thao tác xóa — chỉ xóa khỏi XƯỞNG, không ảnh hưởng đến Anki:",
+        "en": "The batch currently has {total} cards waiting to be exported.\n\n☑️ Selected: {selected} cards.\n\nChoose what to remove — this only removes cards from the FACTORY and does not affect Anki:",
+    },
+    "cancel_order_selected": {
+        "vi": "🗑️ Xóa các thẻ đã chọn",
+        "en": "🗑️ Remove selected cards",
+    },
+    "cancel_order_all": {
+        "vi": "🧹 Xóa toàn bộ",
+        "en": "🧹 Remove all",
+    },
+    "cancel_order_cancel": {
+        "vi": "Hủy",
+        "en": "Cancel",
+    },
+    "cancel_order_no_selection": {
+        "vi": "⚠️ Chưa chọn thẻ nào. Hãy tích chọn thẻ hoặc chỉnh khoảng Từ–Đến.",
+        "en": "⚠️ No cards selected. Select cards or adjust the From–To range.",
+    },
+    "import_no_selection": {
+        "vi": "⚠️ Không có thẻ nào được chọn để xuất xưởng.",
+        "en": "⚠️ No cards are selected for export.",
+    },
+    "status_generating_audio": {
+        "vi": "🎤 Đang tạo {count} file audio...",
+        "en": "🎤 Generating {count} audio files...",
+    },
+    "status_audio_progress": {
+        "vi": "🎤 Audio: {current}/{total}",
+        "en": "🎤 Audio: {current}/{total}",
+    },
+    "status_saving_notes": {
+        "vi": "💾 Đang lưu ghi chú...",
+        "en": "💾 Saving notes...",
+    },
+    "import_audio_failed": {
+        "vi": "⚠️ Audio lỗi : {count} file\n",
+        "en": "⚠️ Audio failed: {count} files\n",
+    },
+    "import_errors": {
+        "vi": "\n⚠️ Lỗi: {count} thẻ\n",
+        "en": "\n⚠️ Errors: {count} cards\n",
+    },
+    "import_error": {
+        "vi": "Lỗi nhập thẻ: {error}",
+        "en": "Import error: {error}",
+    },
+    "rollback_checkpoint": {
+        "vi": "Bento Forge: hoàn tác lô thẻ vừa nhập",
+        "en": "Bento Forge: roll back latest import batch",
+    },
+    "msg_no_api_key_title": {
+        "vi": "⚠️ Chưa có API Key",
+        "en": "⚠️ API Key Not Configured",
+    },
+    "err_ai_extract_title": {
+        "vi": "❌ Lỗi AI Trích Xuất",
+        "en": "❌ AI Extraction Error",
+    },
+    "err_ai_chat_title": {
+        "vi": "❌ Lỗi AI Chat",
+        "en": "❌ AI Chat Error",
+    },
+    "chat_default_message": {
+        "vi": "Xin chào! Hãy phân tích hệ thống Anki của tôi và đưa ra gợi ý học tập.",
+        "en": "Hello! Please analyze my Anki setup and suggest how I can study more effectively.",
+    },
+    "chat_truncated_warning": {
+        "vi": "⚠️ Nội dung quá dài ({length:,} ký tự).\nChỉ gửi {limit:,} ký tự đầu để tránh vượt giới hạn ngữ cảnh.\n💡 Nên dùng 'AI Trích Xuất' cho file lớn để xử lý toàn bộ theo từng đoạn.",
+        "en": "⚠️ The content is too long ({length:,} characters).\nOnly the first {limit:,} characters will be sent to stay within the context limit.\n💡 Use 'AI Extraction' for large files so the entire file can be processed in chunks.",
+    },
+    "chat_truncated_suffix": {
+        "vi": "[⏳ ...(phần còn lại đã cắt do quá dài)]",
+        "en": "[⏳ ...(the remaining content was truncated)]",
+    },
+    "file_attach_dialog_title": {
+        "vi": "📎 Chọn file tài liệu tham khảo",
+        "en": "📎 Select Reference Documents",
+    },
+    "file_attach_dialog_filter": {
+        "vi": "Tài liệu (*.txt *.md *.csv *.docx *.doc *.pdf *.xlsx *.xls);;Tất cả file (*)",
+        "en": "Documents (*.txt *.md *.csv *.docx *.doc *.pdf *.xlsx *.xls);;All files (*)",
+    },
+    "file_content_unreadable": {
+        "vi": "không đọc được nội dung",
+        "en": "could not read the content",
+    },
+    "tooltip_files_attached_partial": {
+        "vi": "📎 Đã kẹp {count} file.\n⚠️ Không đọc được:\n{errors}",
+        "en": "📎 Attached {count} files.\n⚠️ Could not read:\n{errors}",
+    },
+    "tooltip_files_attached": {
+        "vi": "✅ Đã kẹp {count} file làm tài liệu tham khảo!",
+        "en": "✅ Attached {count} reference files!",
+    },
+    "tooltip_files_cleared": {
+        "vi": "🧹 Đã bỏ toàn bộ file đính kèm.",
+        "en": "🧹 Removed all attached files.",
+    },
+    "status_attached_files": {
+        "vi": "📎 {count} file ({chars:,} ký tự): {names}",
+        "en": "📎 {count} files ({chars:,} characters): {names}",
+    },
+
+    # ── Prompt Editor ────────────────────────────────────
+    "prompt_kind_vocab": {
+        "vi": "Từ Vựng",
+        "en": "Vocabulary",
+    },
+    "prompt_kind_grammar": {
+        "vi": "Ngữ Pháp",
+        "en": "Grammar",
+    },
+    "prompt_side_back": {
+        "vi": "Chỉ mặt sau",
+        "en": "Back only",
+    },
+    "prompt_side_both": {
+        "vi": "Cả hai mặt",
+        "en": "Both sides",
+    },
+    "prompt_side_front": {
+        "vi": "Chỉ mặt trước",
+        "en": "Front only",
+    },
+    "prompt_editor_help": {
+        "vi": "Trong System Prompt, dùng <code>{{JSON_TEMPLATE}}</code> để chèn mẫu vào \"MẪU:\". Sửa xong → cache AI tự làm mới. Field mới trong Field Map sẽ được thêm vào Note Type khi Lưu.",
+        "en": "Use <code>{{JSON_TEMPLATE}}</code> in the System Prompt to insert the template into \"TEMPLATE:\". The AI cache refreshes after edits. New Field Map fields are added to the Note Type when you save.",
+    },
+    "prompt_template_hint": {
+        "vi": "(dùng <code>{placeholder}</code> để chèn mẫu)",
+        "en": "(use <code>{placeholder}</code> to insert the template)",
+    },
+    "prompt_tab_title": {
+        "vi": "Prompt {kind}",
+        "en": "{kind} Prompt",
+    },
+    "prompt_modified_suffix": {
+        "vi": " ✏️ (đã chỉnh)",
+        "en": " ✏️ (modified)",
+    },
+    "prompt_schema_valid": {
+        "vi": "<span style='color:#27ae60;font-weight:bold;'>✅ Schema hợp lệ — {count} trường:</span> <code>{fields}</code>{modified}",
+        "en": "<span style='color:#27ae60;font-weight:bold;'>✅ Valid schema — {count} fields:</span> <code>{fields}</code>{modified}",
+    },
+    "prompt_field_map_invalid": {
+        "vi": "<span style='color:#e74c3c;font-weight:bold;'>❌ Mẫu JSON chưa hợp lệ — sửa ở tab {tab} trước. {error}</span>",
+        "en": "<span style='color:#e74c3c;font-weight:bold;'>❌ The JSON template is invalid — fix it in the {tab} tab first. {error}</span>",
+    },
+    "prompt_new_keys_note": {
+        "vi": "<br><span style='color:#8e44ad;'>🆕 Key mới: {keys} — tự suy tên field, bạn có thể đổi.</span>",
+        "en": "<br><span style='color:#8e44ad;'>🆕 New keys: {keys} — field names are inferred and can be changed.</span>",
+    },
+    "prompt_none": {
+        "vi": "không có",
+        "en": "none",
+    },
+    "prompt_field_map_summary": {
+        "vi": "<span style='color:#27ae60;font-weight:bold;'>✅ {count} key JSON → Field Anki.</span> Field chưa có trong Note Type sẽ được <b>thêm tự động khi Lưu</b>, và field mới sẽ <b>tự hiện trên thẻ</b> (theo cột Hiển thị).{note}",
+        "en": "<span style='color:#27ae60;font-weight:bold;'>✅ {count} JSON keys → Anki Fields.</span> Missing Note Type fields are <b>added automatically on save</b>, and new fields <b>appear on cards automatically</b> (according to the Show column).{note}",
+    },
+    "prompt_json_error_title": {
+        "vi": "Lỗi JSON",
+        "en": "JSON Error",
+    },
+    "prompt_json_error_message": {
+        "vi": "Mẫu JSON không hợp lệ:\n{error}",
+        "en": "Invalid JSON template:\n{error}",
+    },
+    "prompt_preview_title": {
+        "vi": "👁 Prompt Đầy Đủ — {language} ({kind})",
+        "en": "👁 Full Prompt — {language} ({kind})",
+    },
+    "prompt_preview_metrics": {
+        "vi": "<b>Độ dài:</b> {chars} ký tự — <b>{lines}</b> dòng mẫu",
+        "en": "<b>Length:</b> {chars} characters — <b>{lines}</b> template lines",
+    },
+    "prompt_save_success": {
+        "vi": "✅ Đã lưu Prompt, Schema & Field Map! Cache AI đã tự làm mới.",
+        "en": "✅ Prompt, Schema, and Field Map saved! The AI cache was refreshed.",
+    },
+    "prompt_fields_added": {
+        "vi": "➕ Đã thêm {count} field mới vào Note Type.",
+        "en": "➕ Added {count} new fields to the Note Type.",
+    },
+    "prompt_templates_synced": {
+        "vi": "🃏 Đã đồng bộ template {count} Note Type — field mới sẽ hiện trên thẻ.",
+        "en": "🃏 Synced templates for {count} Note Types — new fields will appear on cards.",
+    },
+    "prompt_save_error_title": {
+        "vi": "Lỗi lưu",
+        "en": "Save Error",
+    },
+    "prompt_save_error_message": {
+        "vi": "Không thể lưu cấu hình prompt:\n{error}",
+        "en": "Could not save the prompt configuration:\n{error}",
+    },
+    "prompt_reset_title": {
+        "vi": "Đặt lại Prompt",
+        "en": "Reset Prompts",
+    },
+    "prompt_reset_confirm": {
+        "vi": "Trả toàn bộ Prompt, Schema & Field Map về mặc định ban đầu?\n(Mọi chỉnh sửa của bạn sẽ bị xóa.)",
+        "en": "Reset all Prompts, Schemas, and Field Maps to their defaults?\n(All your changes will be removed.)",
+    },
+    "prompt_reset_done": {
+        "vi": "♻️ Đã đặt lại về mặc định.",
+        "en": "♻️ Restored the defaults.",
+    },
+    "prompt_validation_empty": {
+        "vi": "Template rỗng.",
+        "en": "The template is empty.",
+    },
+    "prompt_validation_invalid_json": {
+        "vi": "JSON không hợp lệ: {error}",
+        "en": "Invalid JSON: {error}",
+    },
+    "prompt_validation_not_object": {
+        "vi": "Template phải là một object JSON duy nhất (không phải mảng).",
+        "en": "The template must be a single JSON object (not an array).",
+    },
+
+    # ── Theme dialog & AI providers ──────────────────────
+    "theme_preset_glass_dark": {"vi": "🌑 Kính Tối", "en": "🌑 Glass Dark"},
+    "theme_preset_glass_light": {"vi": "🌕 Kính Sáng", "en": "🌕 Glass Light"},
+    "theme_preset_midnight": {"vi": "🌌 Nửa Đêm", "en": "🌌 Midnight"},
+    "theme_accent_blue": {"vi": "🔵 Xanh dương", "en": "🔵 Blue"},
+    "theme_accent_purple": {"vi": "🟣 Tím", "en": "🟣 Purple"},
+    "theme_accent_green": {"vi": "🟢 Xanh lá", "en": "🟢 Green"},
+    "theme_accent_orange": {"vi": "🟠 Cam", "en": "🟠 Orange"},
+    "theme_accent_pink": {"vi": "🌸 Hồng", "en": "🌸 Pink"},
+    "theme_accent_red": {"vi": "🔴 Đỏ", "en": "🔴 Red"},
+    "theme_accent_cyan": {"vi": "🩵 Cyan", "en": "🩵 Cyan"},
+    "theme_accent_custom": {"vi": "🌈 Tùy chỉnh...", "en": "🌈 Custom..."},
+    "theme_topic_a": {"vi": "Chủ đề A", "en": "Topic A"},
+    "theme_topic_b": {"vi": "Chủ đề B", "en": "Topic B"},
+    "history_kind_tip": {
+        "vi": "Lọc riêng Từ vựng hoặc Ngữ pháp",
+        "en": "Filter Vocabulary or Grammar items",
+    },
+    "deck_create_failed": {
+        "vi": "Không thể tạo deck. Hãy kiểm tra tên deck và thử lại.",
+        "en": "Could not create the deck. Check the deck name and try again.",
+    },
+    "deck_rename_failed": {
+        "vi": "Không thể đổi tên deck. Hãy kiểm tra tên mới và thử lại.",
+        "en": "Could not rename the deck. Check the new name and try again.",
+    },
+    "deck_delete_failed": {
+        "vi": "Không thể xóa deck. Hãy thử lại sau.",
+        "en": "Could not delete the deck. Please try again.",
+    },
+    "ai_provider_deepseek_note": {
+        "vi": "deepseek-chat = nhanh/rẻ; deepseek-reasoner = suy nghĩ sâu (đắt hơn, chậm hơn).",
+        "en": "deepseek-chat is fast and economical; deepseek-reasoner reasons more deeply but is slower and costs more.",
+    },
+    "ai_provider_openai_note": {
+        "vi": "Các model GPT và o-series chính thức của OpenAI.",
+        "en": "Official OpenAI GPT and o-series models.",
+    },
+    "ai_provider_gemini_note": {
+        "vi": "Gemini API dùng endpoint OpenAI-compatible chính thức của Google. Lấy API key tại https://aistudio.google.com/apikey (bắt đầu bằng AIza...).",
+        "en": "Gemini API uses Google's official OpenAI-compatible endpoint. Get an API key at https://aistudio.google.com/apikey (it starts with AIza...).",
+    },
+    "ai_provider_anthropic_note": {
+        "vi": "Bento Forge gọi API kiểu OpenAI-compatible; với Anthropic, hãy dùng proxy tương thích (ví dụ LiteLLM / 1Backend) hoặc đặt API Base URL thành proxy của bạn.",
+        "en": "Bento Forge uses an OpenAI-compatible API. For Anthropic, use a compatible proxy (such as LiteLLM / 1Backend) or set the API Base URL to your proxy.",
+    },
+    "ai_provider_openrouter_note": {
+        "vi": "Một key dùng được model từ nhiều hãng. Chú ý định dạng tên model: vendor/model-name.",
+        "en": "One key provides models from many vendors. Use the vendor/model-name format.",
+    },
+    "ai_provider_ollama_note": {
+        "vi": "Chạy hoàn toàn trên máy — không cần API Key. Cài model bằng `ollama pull llama3.1`.",
+        "en": "Runs entirely on your computer — no API Key required. Install a model with `ollama pull llama3.1`.",
+    },
+    "ai_provider_lmstudio_note": {
+        "vi": "Mở LM Studio → Start Server. Bạn có thể đổi tên model trong ô Model thành model đã tải.",
+        "en": "Open LM Studio → Start Server. You can replace the Model value with the model you downloaded.",
+    },
+    "ai_provider_local_key_hint": {
+        "vi": "(không cần — chạy trên máy)",
+        "en": "(not required — runs locally)",
+    },
+    "ai_test_missing_base": {
+        "vi": "⚠️ Vui lòng nhập API Base URL.",
+        "en": "⚠️ Enter an API Base URL.",
+    },
+    "ai_test_http_error": {
+        "vi": "❌ Lỗi HTTP {code}: {reason}\n\n{details}",
+        "en": "❌ HTTP error {code}: {reason}\n\n{details}",
+    },
+    "ai_test_error": {
+        "vi": "❌ Lỗi: {error}",
+        "en": "❌ Error: {error}",
+    },
+
+    # ── Network, AI extraction & batch progress ──────────
+    "error_cancelled_by_user": {
+        "vi": "⏹ Đã hủy bởi người dùng",
+        "en": "⏹ Cancelled by the user",
+    },
+    "error_ai_total_timeout": {
+        "vi": "⏱ Đã hết tổng thời gian chờ cho yêu cầu AI",
+        "en": "⏱ The AI request exceeded its total timeout",
+    },
+    "status_rate_limit_wait": {
+        "vi": "⏳ Đang chờ {seconds:.1f}s để tránh giới hạn tốc độ...",
+        "en": "⏳ Waiting {seconds:.1f}s to avoid the rate limit...",
+    },
+    "status_rate_limited": {
+        "vi": "⚠️ Giới hạn tốc độ (429) — chờ {seconds:.0f}s rồi thử lại...\n💡 Gói OpenRouter miễn phí giới hạn khoảng 20 yêu cầu/phút. Hệ thống đang tự giảm tốc.",
+        "en": "⚠️ Rate limited (429) — waiting {seconds:.0f}s before retrying...\n💡 OpenRouter's free tier allows about 20 requests/minute. The request rate is being reduced automatically.",
+    },
+    "status_receiving_data": {
+        "vi": "⏳ Đang nhận dữ liệu... {percent}%",
+        "en": "⏳ Receiving data... {percent}%",
+    },
+    "status_retrying": {
+        "vi": "🔄 Thử lại {attempt}/{maximum} sau {seconds:.0f}s...",
+        "en": "🔄 Retry {attempt}/{maximum} in {seconds:.0f}s...",
+    },
+    "error_connection_retries": {
+        "vi": "❌ Lỗi kết nối sau {attempts} lần thử: {error}",
+        "en": "❌ Connection failed after {attempts} attempts: {error}",
+    },
+    "error_connection": {
+        "vi": "❌ Không thể kết nối: {error}",
+        "en": "❌ Could not connect: {error}",
+    },
+    "error_ai_json_parse": {
+        "vi": "⚠️ Không phân tích được JSON — thường do kết quả bị cắt vì vượt giới hạn token đầu ra.\n💡 Vào Cài Đặt AI → giảm 'Độ dài xử lý mỗi lần gọi' xuống 8k–12k rồi thử lại. Văn bản dài vẫn được xử lý hết theo từng đoạn.\nNội dung nhận được:\n{content}",
+        "en": "⚠️ Could not parse the JSON — this usually means the response was truncated by the output-token limit.\n💡 Open AI Settings → reduce 'Chunk size per request' to 8k–12k, then try again. Long text will still be processed completely in chunks.\nReceived content:\n{content}",
+    },
+    "warning_output_truncated": {
+        "vi": "⚠️ Kết quả bị cắt do giới hạn token đầu ra (max_tokens).\n💡 Giảm 'Độ dài xử lý mỗi lần gọi' trong Cài Đặt AI (ví dụ 6k–10k) hoặc chia nhỏ văn bản.",
+        "en": "⚠️ The result was truncated by the output-token limit (max_tokens).\n💡 Reduce 'Chunk size per request' in AI Settings (for example, 6k–10k) or split the text.",
+    },
+    "status_cache_vocab": {
+        "vi": "📦 Cache: {count} từ vựng!",
+        "en": "📦 Cache: {count} vocabulary items!",
+    },
+    "status_cache_grammar": {
+        "vi": "📦 Cache: {count} cấu trúc ngữ pháp!",
+        "en": "📦 Cache: {count} grammar patterns!",
+    },
+    "error_api_key_missing": {
+        "vi": "⚠️ Chưa cấu hình API Key. Vào Cài Đặt AI để nhập key.",
+        "en": "⚠️ No API Key configured. Open AI Settings to enter a key.",
+    },
+    "status_text_truncated": {
+        "vi": "📝 Văn bản {length} ký tự → cắt còn {limit}",
+        "en": "📝 Text has {length} characters → truncated to {limit}",
+    },
+    "status_calling_model": {
+        "vi": "🤖 Đang gọi {model}...",
+        "en": "🤖 Calling {model}...",
+    },
+    "status_waiting_ai": {
+        "vi": "⏳ Đang chờ AI phản hồi...",
+        "en": "⏳ Waiting for the AI response...",
+    },
+    "error_api_no_result": {
+        "vi": "❌ API không trả về kết quả.\n{details}",
+        "en": "❌ The API returned no result.\n{details}",
+    },
+    "status_reasoning_fallback": {
+        "vi": "⚠️ Đang dùng reasoning_content vì model không có content...",
+        "en": "⚠️ Using reasoning_content because the model returned no content...",
+    },
+    "error_model_empty": {
+        "vi": "❌ Model không trả về nội dung (content rỗng).",
+        "en": "❌ The model returned no content.",
+    },
+    "status_parsing_json": {
+        "vi": "🔍 Đang phân tích JSON...",
+        "en": "🔍 Parsing JSON...",
+    },
+    "status_filtered_vocab": {
+        "vi": "🔍 Đã lọc {count} từ trùng deck",
+        "en": "🔍 Filtered {count} words already in the deck",
+    },
+    "status_filtered_grammar": {
+        "vi": "🔍 Đã lọc {count} cấu trúc trùng deck",
+        "en": "🔍 Filtered {count} grammar patterns already in the deck",
+    },
+    "status_new_vocab": {
+        "vi": "✅ {count} từ vựng mới!",
+        "en": "✅ {count} new vocabulary items!",
+    },
+    "status_new_grammar": {
+        "vi": "✅ {count} cấu trúc ngữ pháp mới!",
+        "en": "✅ {count} new grammar patterns!",
+    },
+    "status_reasoning_only": {
+        "vi": "⚠️ Model chỉ trả về phần suy luận, không có kết quả cuối cùng.",
+        "en": "⚠️ The model returned reasoning only, with no final answer.",
+    },
+    "chat_reasoning_only": {
+        "vi": "[Phần suy luận của model]\n{reasoning}\n\n⚠️ Model không trả về kết quả cuối cùng.",
+        "en": "[Model reasoning]\n{reasoning}\n\n⚠️ The model did not return a final answer.",
+    },
+    "status_complete": {
+        "vi": "✅ Hoàn tất!",
+        "en": "✅ Complete!",
+    },
+    "status_chunks_vocab": {
+        "vi": "📦 {count} đoạn, đang xử lý...",
+        "en": "📦 Processing {count} chunks...",
+    },
+    "status_chunks_grammar": {
+        "vi": "📦 {count} đoạn, đang xử lý ngữ pháp...",
+        "en": "📦 Processing {count} grammar chunks...",
+    },
+    "status_chunk": {
+        "vi": "🔄 Đoạn {current}/{total}...",
+        "en": "🔄 Chunk {current}/{total}...",
+    },
+    "status_chunk_error": {
+        "vi": "⚠️ Lỗi đoạn {current}: {error}",
+        "en": "⚠️ Chunk {current} failed: {error}",
+    },
+    "status_total_vocab": {
+        "vi": "✅ Tổng: {count} từ mới",
+        "en": "✅ Total: {count} new words",
+    },
+    "status_total_grammar": {
+        "vi": "✅ Tổng: {count} cấu trúc ngữ pháp mới",
+        "en": "✅ Total: {count} new grammar patterns",
+    },
+    "status_total_with_tokens": {
+        "vi": "{summary} | 🔢 {tokens:,} tokens (vào {input_tokens:,} + ra {output_tokens:,}) | 💰 ${cost:.6f}",
+        "en": "{summary} | 🔢 {tokens:,} tokens (in {input_tokens:,} + out {output_tokens:,}) | 💰 ${cost:.6f}",
+    },
+    "token_report": {
+        "vi": "🔢 Token: {input_tokens:,} vào + {output_tokens:,} ra = {total_tokens:,} tổng | 💰 ${total_cost:.6f} (vào: ${input_cost:.6f} / ra: ${output_cost:.6f})",
+        "en": "🔢 Tokens: {input_tokens:,} in + {output_tokens:,} out = {total_tokens:,} total | 💰 ${total_cost:.6f} (in: ${input_cost:.6f} / out: ${output_cost:.6f})",
+    },
+    "error_ai_input_limit": {
+        "vi": "Nội dung đầu vào vượt giới hạn phiên AI đã cấu hình",
+        "en": "AI input exceeds the configured session input limit",
+    },
+    "error_ai_budget_exceeded": {
+        "vi": "Đã vượt ngân sách phiên AI: {reason}",
+        "en": "AI session budget exceeded: {reason}",
+    },
+    "ai_budget_reason_estimate": {
+        "vi": "ước tính token vượt giới hạn của phiên",
+        "en": "estimated token use exceeds the session token limit",
+    },
+    "ai_budget_reason_tokens": {
+        "vi": "ngân sách token còn lại của phiên không đủ",
+        "en": "remaining session token budget is too small",
+    },
+    "ai_budget_reason_cost": {
+        "vi": "ngân sách chi phí còn lại của phiên không đủ",
+        "en": "remaining session cost budget is too small",
+    },
+
+    # ── Batch processing & deck organization ─────────────
+    "batch_item_word": {"vi": "từ", "en": "word"},
+    "batch_item_pattern": {"vi": "cấu trúc ngữ pháp", "en": "grammar pattern"},
+    "batch_item_word_short": {"vi": "từ", "en": "word"},
+    "batch_item_pattern_short": {"vi": "cấu trúc", "en": "pattern"},
+    "batch_worker_estimate": {
+        "vi": "📊 Ước tính: ~{batches} batch, ~${cost:.4f} USD, ~{seconds}s",
+        "en": "📊 Estimate: ~{batches} batches, ~${cost:.4f} USD, ~{seconds}s",
+    },
+    "batch_worker_empty": {
+        "vi": "⚠️ AI không trích xuất được {label} nào.",
+        "en": "⚠️ The AI did not extract any {label}.",
+    },
+    "batch_worker_done": {
+        "vi": "✅ Hoàn tất! Đã xử lý {count} {label}.",
+        "en": "✅ Complete! Processed {count} {label}.",
+    },
+    "batch_status_parsing": {
+        "vi": "🔍 Đang phân tích danh sách {label}...",
+        "en": "🔍 Parsing the {label} list...",
+    },
+    "batch_error_no_items": {
+        "vi": "⚠️ Không tìm thấy {label} nào trong danh sách. Hãy kiểm tra định dạng.",
+        "en": "⚠️ No {label} found in the list. Check the format.",
+    },
+    "batch_status_parsed": {
+        "vi": "📋 Đã phân tích {count} {label}",
+        "en": "📋 Parsed {count} {label}",
+    },
+    "batch_status_filtered": {
+        "vi": "🔍 Đã lọc {count} {label} trùng với deck hiện có",
+        "en": "🔍 Filtered {count} {label} already in the deck",
+    },
+    "batch_error_all_existing": {
+        "vi": "⚠️ Tất cả {label} đều đã có trong deck. Không còn mục mới để xử lý.",
+        "en": "⚠️ Every {label} is already in the deck. There are no new items to process.",
+    },
+    "batch_status_remaining": {
+        "vi": "📝 Còn {count} {label} mới cần xử lý",
+        "en": "📝 {count} new {label} remain to process",
+    },
+    "batch_status_groups": {
+        "vi": "📦 Chia thành {batches} batch (~{size} {label}/batch)",
+        "en": "📦 Split into {batches} batches (~{size} {label}/batch)",
+    },
+    "batch_openrouter_safe": {
+        "vi": "⚠️ Gói OpenRouter miễn phí giới hạn khoảng 20 yêu cầu/phút → tự đặt độ trễ {delay:.1f}s/batch (~{rate} yêu cầu/phút, an toàn).",
+        "en": "⚠️ OpenRouter's free tier allows about 20 requests/minute → using a {delay:.1f}s batch delay (~{rate} requests/minute, safe).",
+    },
+    "batch_openrouter_fast": {
+        "vi": "⚠️ Đã tắt chế độ chậm OpenRouter — giữ độ trễ {delay:.1f}s/batch. Có thể gặp giới hạn 429 (hệ thống sẽ tự thử lại và chờ).",
+        "en": "⚠️ OpenRouter slow mode is off — keeping a {delay:.1f}s batch delay. A 429 rate limit may occur (the system will retry and wait automatically).",
+    },
+    "batch_status_cancelled": {
+        "vi": "⏹️ Đã hủy sau {current}/{total} batch",
+        "en": "⏹️ Cancelled after {current}/{total} batches",
+    },
+    "batch_status_cache_hit": {
+        "vi": "  📦 Cache hit: {count} {label}",
+        "en": "  📦 Cache hit: {count} {label}",
+    },
+    "batch_status_added": {
+        "vi": "  ✅ +{count} {label} mới (tổng: {total})",
+        "en": "  ✅ +{count} new {label} (total: {total})",
+    },
+    "batch_progress_error": {
+        "vi": "  ❌ Lỗi batch {batch}: {error}",
+        "en": "  ❌ Batch {batch} failed: {error}",
+    },
+    "batch_error_api": {
+        "vi": "❌ Lỗi API: {error}",
+        "en": "❌ API error: {error}",
+    },
+    "batch_error_too_many": {
+        "vi": "❌ Quá nhiều lỗi ({count} batch lỗi). Đã dừng xử lý.",
+        "en": "❌ Too many errors ({count} failed batches). Processing stopped.",
+    },
+    "batch_status_rate_wait": {
+        "vi": "⏳ Đang chờ {seconds:.1f}s vì giới hạn tốc độ đang hoạt động...",
+        "en": "⏳ Waiting {seconds:.1f}s while rate limiting is active...",
+    },
+    "batch_status_complete": {
+        "vi": "🎉 Hoàn tất! Tổng: {count} {label} đã xử lý ({batches} batch, {errors} lỗi)",
+        "en": "🎉 Complete! Processed {count} {label} in {batches} batches with {errors} errors",
+    },
+    "organizer_empty": {
+        "vi": "Không có từ vựng",
+        "en": "No vocabulary",
+    },
+    "organizer_status_analyzing": {
+        "vi": "🧠 AI đang phân tích và tổ chức deck...",
+        "en": "🧠 AI is analyzing and organizing the decks...",
+    },
+    "organizer_status_waiting": {
+        "vi": "⏳ Đang chờ AI tổ chức deck...",
+        "en": "⏳ Waiting for the AI to organize the decks...",
+    },
+    "organizer_status_suggested": {
+        "vi": "✅ AI đề xuất: {parents} parent deck, {subs} sub deck",
+        "en": "✅ AI suggested {parents} parent decks and {subs} sub decks",
+    },
+    "organizer_other": {"vi": "Khác", "en": "Other"},
+    "organizer_uncategorized": {"vi": "Chưa phân loại", "en": "Uncategorized"},
+    "organizer_lang_japanese": {"vi": "Tiếng Nhật", "en": "Japanese"},
+    "organizer_lang_chinese": {"vi": "Tiếng Trung", "en": "Chinese"},
+    "organizer_lang_korean": {"vi": "Tiếng Hàn", "en": "Korean"},
+    "organizer_topic_parent": {"vi": "{language} Theo Chủ Đề", "en": "{language} by Topic"},
+    "organizer_level_parent": {"vi": "{language} Theo Cấp Độ", "en": "{language} by Level"},
+    "organizer_topic_description": {"vi": "Từ vựng về {topic}", "en": "Vocabulary about {topic}"},
+    "organizer_level_description": {"vi": "Từ vựng {level}", "en": "{level} vocabulary"},
+    "organizer_level_name": {"vi": "{level} - Từ vựng", "en": "{level} - Vocabulary"},
+    "organizer_fallback_suggestion": {
+        "vi": "Tổ chức tự động (dự phòng) — nhóm theo chủ đề và cấp độ",
+        "en": "Automatic fallback organization — grouped by topic and level",
+    },
+    "organizer_anki_unavailable": {
+        "vi": "⚠️ Không thể truy cập Anki. Hãy đảm bảo add-on đang chạy trong Anki.",
+        "en": "⚠️ Could not access Anki. Make sure the add-on is running inside Anki.",
+    },
+    "organizer_default_parent": {"vi": "Từ Vựng Mới", "en": "New Vocabulary"},
+    "organizer_status_create_parent": {
+        "vi": "📁 Tạo parent deck: {name}",
+        "en": "📁 Creating parent deck: {name}",
+    },
+    "organizer_status_created": {
+        "vi": "✅ Đã tạo {count} deck",
+        "en": "✅ Created {count} decks",
+    },
+    "ai_context_query_failed": {
+        "vi": "Không thể truy vấn Anki: {error}",
+        "en": "Could not query Anki: {error}",
+    },
+    "ai_context_language": {
+        "vi": "🌐 Ngôn ngữ hiện tại: {language}",
+        "en": "🌐 Current language: {language}",
+    },
+    "ai_context_deck_list": {
+        "vi": "📦 Danh sách Deck ({count} deck):",
+        "en": "📦 Deck list ({count} decks):",
+    },
+    "ai_context_card_count": {
+        "vi": "{count} thẻ",
+        "en": "{count} cards",
+    },
+    "ai_context_other_decks": {
+        "vi": "... và {count} deck khác",
+        "en": "... and {count} other decks",
+    },
+    "ai_context_current_deck": {
+        "vi": "📊 Deck hiện tại ({name}):",
+        "en": "📊 Current deck ({name}):",
+    },
+    "ai_context_total": {"vi": "Tổng", "en": "Total"},
+    "ai_context_due": {"vi": "Đến hạn", "en": "Due"},
+    "ai_context_new": {"vi": "Mới", "en": "New"},
+    "history_ai_overview": {
+        "vi": "📚 TỔNG QUAN LỊCH SỬ NHẬP THẺ (TÁCH THEO NGÔN NGỮ)",
+        "en": "📚 IMPORT HISTORY OVERVIEW (GROUPED BY LANGUAGE)",
+    },
+    "history_ai_lang_japanese": {
+        "vi": "🇯🇵 TIẾNG NHẬT",
+        "en": "🇯🇵 JAPANESE",
+    },
+    "history_ai_lang_chinese": {
+        "vi": "🇨🇳 TIẾNG TRUNG",
+        "en": "🇨🇳 CHINESE",
+    },
+    "history_ai_lang_korean": {
+        "vi": "🇰🇷 TIẾNG HÀN",
+        "en": "🇰🇷 KOREAN",
+    },
+    "history_ai_total": {
+        "vi": "📊 Tổng: {count} mục đã nhập",
+        "en": "📊 Total: {count} imported items",
+    },
+    "history_ai_levels": {"vi": "🎓 Cấp độ: {levels}", "en": "🎓 Levels: {levels}"},
+    "history_ai_topics": {"vi": "🏷 Chủ đề: {topics}", "en": "🏷 Topics: {topics}"},
+    "history_ai_recent": {
+        "vi": "📝 {count} mục gần nhất:",
+        "en": "📝 {count} most recent items:",
     },
 }
 

@@ -112,6 +112,12 @@ audio_mock.engine = audio_engine_mock
 
 # Khởi tạo module add-on (chạy entry-point cần các mock trên)
 import __init__ as addon
+from ui import factory_dialog
+
+
+def test_package_root_reexports_factory_public_api():
+    assert addon.AnkiSmartFactory is factory_dialog.AnkiSmartFactory
+    assert addon.start_smart_factory is factory_dialog.start_smart_factory
 
 
 def _make_factory(state_path):
@@ -124,7 +130,7 @@ def _make_factory(state_path):
     obj._ai_attached_paths = []
     obj.ai_text_input = FakeTextEdit()
     obj.lbl_ai_files = MagicMock()
-    addon._STATE_PATH = state_path
+    factory_dialog._STATE_PATH = state_path
     obj._load_factory_state = addon.AnkiSmartFactory._load_factory_state.__get__(obj, addon.AnkiSmartFactory)
     obj._save_factory_state = addon.AnkiSmartFactory._save_factory_state.__get__(obj, addon.AnkiSmartFactory)
     obj._save_current_flow = addon.AnkiSmartFactory._save_current_flow.__get__(obj, addon.AnkiSmartFactory)
