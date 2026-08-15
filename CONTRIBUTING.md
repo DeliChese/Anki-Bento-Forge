@@ -32,5 +32,5 @@ utils/        → AI extractor, batch, prompt_config, i18n, logger...
 ui/           → dialog (ai_settings, prompt_editor, batch, history...)
 workers/      → background threads
 hooks/        → reviewer + overview hooks
-tests/        → 338+ unit/integration tests
+tests/        → 411 unit/integration tests (29 file)
 ```

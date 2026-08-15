@@ -5,7 +5,47 @@ from __future__ import annotations
 import re
 import unicodedata
 from difflib import SequenceMatcher
-from typing import Iterable, Optional, Tuple
+from html import unescape
+from typing import Iterable, Mapping, Optional, Tuple
+
+
+_HTML_TAG_RE = re.compile(r"<[^>]*>")
+
+
+def _has_visible_value(value: object) -> bool:
+    """Return whether a field contains visible content, including HTML fields."""
+    if value is None:
+        return False
+    text = unescape(str(value)).replace("\xa0", " ")
+    text = _HTML_TAG_RE.sub(" ", text)
+    return bool(text.strip())
+
+
+def evaluate_card_completeness(item: object, *, grammar: bool = False) -> dict:
+    """Score only required structural fields of an AI candidate card.
+
+    This deliberately does not claim to verify translation, grammar, naturalness,
+    or proficiency level. Those require a curated reference dataset or human
+    review. The result is advisory and callers must never block an import from
+    it alone.
+    """
+    if not isinstance(item, Mapping):
+        return {"score": 0, "issues": ("invalid_card",), "complete": False}
+
+    front_keys = ("pattern", "front") if grammar else ("front", "simplified")
+    checks = (
+        ("missing_front", front_keys, 40),
+        ("missing_meaning", ("meaning",), 35),
+        ("missing_example", ("example",), 25),
+    )
+    score = 0
+    issues = []
+    for issue, keys, weight in checks:
+        if any(_has_visible_value(item.get(key)) for key in keys):
+            score += weight
+        else:
+            issues.append(issue)
+    return {"score": score, "issues": tuple(issues), "complete": not issues}
 
 
 def normalize_for_comparison(value: object) -> str:

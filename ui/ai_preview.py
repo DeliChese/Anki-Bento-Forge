@@ -11,6 +11,7 @@ from aqt.qt import (
 from aqt.utils import showInfo, tooltip
 
 from utils.ai_extractor import extract_vocabulary_with_ai, extract_vocabulary_long_text
+from utils.import_quality import evaluate_card_completeness
 from utils.logger import get_logger
 from utils.i18n import t
 
@@ -112,6 +113,22 @@ def show_ai_preview_dialog(parent, vocab_list, lang, ai_text_input, ai_instructi
     table.resizeColumnsToContents()
     vl.addWidget(table)
 
+    quality_summary = QLabel()
+    quality_summary.setWordWrap(True)
+    vl.addWidget(quality_summary)
+
+    def refresh_quality_summary(*_args):
+        _update_quality_summary(
+            quality_summary,
+            _get_current_vocab_from_table(table, columns),
+            grammar=grammar,
+        )
+
+    refresh_quality_summary()
+    table.itemChanged.connect(refresh_quality_summary)
+    table.model().rowsRemoved.connect(refresh_quality_summary)
+    table.model().modelReset.connect(refresh_quality_summary)
+
     # Action buttons
     action_bar = QHBoxLayout()
 
@@ -193,6 +210,33 @@ def _get_current_vocab_from_table(table, columns):
         if front:
             result.append(item_data)
     return result
+
+
+def _update_quality_summary(label, vocab_list, *, grammar):
+    """Show advisory structural-completeness feedback without blocking import."""
+    results = [evaluate_card_completeness(item, grammar=grammar) for item in vocab_list]
+    if not results:
+        label.clear()
+        return
+
+    average = round(sum(result["score"] for result in results) / len(results))
+    flagged = [result for result in results if not result["complete"]]
+    if flagged:
+        issues = sum(len(result["issues"]) for result in flagged)
+        label.setText(t(
+            "preview_quality_warning",
+            flagged=len(flagged), total=len(results), issues=issues, score=average,
+        ))
+        label.setStyleSheet(
+            "background:#fef3cd;border:1px solid #d39e00;border-radius:6px;"
+            "padding:7px;color:#6c5100;"
+        )
+    else:
+        label.setText(t("preview_quality_complete", total=len(results), score=average))
+        label.setStyleSheet(
+            "background:#d4edda;border:1px solid #28a745;border-radius:6px;"
+            "padding:7px;color:#155724;"
+        )
 
 
 def _delete_selected(table, vocab_list, dlg):

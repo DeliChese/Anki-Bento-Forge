@@ -33,7 +33,7 @@ Bước 4: Chạy tests liên quan (xem skill 10)
 ## 🧭 SƠ ĐỒ TỔNG QUAN (TỐI GIẢN)
 
 ```
-__init__.py (2.6k dòng)       ← AnkiSmartFactory QDialog (MAIN)
+__init__.py (~2.8k dòng)      ← AnkiSmartFactory QDialog (MAIN)
 ├── Language/    LANG_CONFIG, LANG_GRAMMAR_CONFIG, LANG_SELECTOR_INFO  (japanese, chinese, korean)
 ├── mode/        LANG_TEMPLATES, LANG_CSS, LANG_GRAMMAR_*, card_render.py, shared.py (JS)
 ├── audio/       engine.py (router) + tts.py (Edge/gTTS/VoiceVox)
@@ -41,7 +41,7 @@ __init__.py (2.6k dòng)       ← AnkiSmartFactory QDialog (MAIN)
 ├── workers/     ImportWorker, PreviewThread, AiExtractThread, AiChatThread, DeckScanWorker, BatchProcessThread, DeckOrganizerThread
 ├── ui/          AiChatDialog, ai_settings, ai_preview, batch_dialog, verify_dialog, history_dialog, prompt_editor, theme
 ├── hooks/       reviewer.py (register_hooks) + overview_mode.py (mode selector)
-└── tests/       344 tests (17 file)
+└── tests/       411 tests (29 file)
 ```
 
 ## 🔒 QUY TẮC VÀNG (BẮT BUỘC)
@@ -62,7 +62,7 @@ __init__.py (2.6k dòng)       ← AnkiSmartFactory QDialog (MAIN)
 - `vocab` = chế độ Từ vựng; `grammar` = chế độ Ngữ pháp (Note Type riêng).
 - `lang` = `"japanese"` | `"chinese"` | `"korean"`.
 - Model names: `"AnkiTool Japanese/Chinese/Korean [Grammar] V17.0 (Add-on)"`.
-- Entry: `start_smart_factory()` (`__init__.py:2610`), shortcut `Ctrl+Shift+I`.
+- Entry: `start_smart_factory()` (`__init__.py:2806`), shortcut `Ctrl+Shift+I`. Menu Tools hiển thị **"🧪 Bento Forge"**.
 - Version hiện tại: **17.1.0** (`manifest.json`).
 - **Combo mode**: mỗi từ = 1 card duy nhất, 5 chế độ (qa/vn/wb/pron/lg) chuyển đổi trong card qua `_COMBO_MODE_JS`; mode lưu `mw.col.conf["ai_factory_study_mode"]`; Overview patch qua `hooks/overview_mode.py`.
 - **Prompt/Schema/Field Map/Card Render có thể GHI ĐÈ ngoài**: `utils/ai_prompts.json` (gitignored) qua `utils/prompt_config.py` + `mode/card_render.py` — xem skill 02 (ai-extraction) và 08 (card-templates).

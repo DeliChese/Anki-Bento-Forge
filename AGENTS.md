@@ -29,6 +29,6 @@
 
 ## CẤU TRÚC TỔNG QUAN (tóm tắt 1 dòng)
 
-`__init__.py` (AnkiSmartFactory, 2.6k dòng) → `Language/`, `mode/`, `audio/`, `utils/`, `workers/`, `ui/`, `hooks/`. Version 17.1.0, entry `start_smart_factory()` (`__init__.py:2610`), shortcut `Ctrl+Shift+I`.
+`__init__.py` (AnkiSmartFactory, ~2.8k dòng) → `Language/`, `mode/`, `audio/`, `utils/`, `workers/`, `ui/`, `hooks/`. Version 17.1.0, entry `start_smart_factory()` (`__init__.py:2806`), shortcut `Ctrl+Shift+I`. Menu Tools hiển thị tên **"🧪 Bento Forge"**.
 
 > Lưu ý: `CODE_MAP.md`/`UPGRADE_GUIDE.md` ở root là tài liệu cũ — dùng `.claude/` làm nguồn chính thức.

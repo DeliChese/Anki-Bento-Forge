@@ -74,6 +74,7 @@ from utils.anki_adapter import AnkiCollectionAdapter
 from utils.import_quality import find_near_duplicate
 from utils.import_report import write_import_report
 from utils.model_lifecycle import ensure_model
+from utils.ai_workflow import AiWorkflowCoordinator
 from utils.srs_policy import (
     apply_srs_layout_to_config,
     migrate_deck_to_independent,
@@ -146,8 +147,7 @@ class AnkiSmartFactory(QDialog):
         self._is_grammar = False   # False = từ vựng, True = ngữ pháp
         self.import_worker = None
         self._import_cancel_event = None
-        self._ai_thread = None
-        self._ai_cancel_event = None
+        self._ai_workflow = AiWorkflowCoordinator()
         # Danh sách file tài liệu tham khảo đã kẹp: [(name, text), ...] + đường dẫn
         self._ai_attached_files = []
         self._ai_attached_paths = []
@@ -2321,7 +2321,7 @@ class AnkiSmartFactory(QDialog):
         # Lưu params để dùng trong callback
         self._ai_pending_text = text
         self._ai_pending_instr = custom_instr
-        self._ai_cancel_event = threading.Event()
+        self._ai_workflow.begin()
 
         # Collection reads use Anki's serialized QueryOp; the following AI
         # request remains network-only.
@@ -2362,7 +2362,7 @@ class AnkiSmartFactory(QDialog):
 
     def _start_ai_extract(self, text, custom_instr, existing_words):
         """Khởi động AI extract thread sau khi đã có existing_words"""
-        if self._ai_cancel_event is None or self._ai_cancel_event.is_set():
+        if self._ai_workflow.is_cancelled():
             return
 
         if not self._confirm_ai_budget(text):
@@ -2373,18 +2373,17 @@ class AnkiSmartFactory(QDialog):
             self.lbl_ai_status.setText(t("status_calling_ai"))
         mw.app.processEvents()
 
-        self._ai_thread = AiExtractThread(
+        self._ai_workflow.start_extract(
+            AiExtractThread,
             text=text,
             lang=self._current_lang,
             custom_instruction=custom_instr,
             existing_words=existing_words,
             grammar=self._is_grammar,
-            cancel_event=self._ai_cancel_event,
+            on_progress=self._on_ai_progress,
+            on_finished=self._on_ai_finished,
+            on_error=self._on_ai_error,
         )
-        self._ai_thread.progress.connect(self._on_ai_progress)
-        self._ai_thread.finished.connect(self._on_ai_finished)
-        self._ai_thread.error.connect(self._on_ai_error)
-        self._ai_thread.start()
 
     def _on_ai_progress(self, msg):
         self.lbl_ai_status.setText(msg)
@@ -2407,7 +2406,7 @@ class AnkiSmartFactory(QDialog):
         # Mở dialog Xem Trước & Chỉnh Sửa
         self._show_ai_preview(vocab_list)
 
-        self._ai_thread = None
+        self._ai_workflow.clear_extract_worker()
 
     def _on_ai_error(self, error_msg):
         self._enable_ai_buttons()
@@ -2416,7 +2415,7 @@ class AnkiSmartFactory(QDialog):
         self.lbl_ai_status.setStyleSheet("color:#e74c3c;font-size:11px;font-weight:bold;")
 
         showInfo(f"❌ Lỗi AI Trích Xuất:\n\n{error_msg}")
-        self._ai_thread = None
+        self._ai_workflow.clear_extract_worker()
 
     def _enable_ai_buttons(self):
         self.btn_ai_extract.setEnabled(True)
@@ -2572,7 +2571,7 @@ class AnkiSmartFactory(QDialog):
 
         # Snapshot Collection context through QueryOp before starting the
         # network-only chat worker.
-        self._ai_cancel_event = threading.Event()
+        self._ai_workflow.begin()
         run_query(
             self,
             lambda col: query_anki_context(full_message, self._current_lang, collection=col),
@@ -2581,22 +2580,21 @@ class AnkiSmartFactory(QDialog):
         )
 
     def _start_ai_chat_thread(self, full_message, anki_context):
-        if self._ai_cancel_event is None or self._ai_cancel_event.is_set():
+        if self._ai_workflow.is_cancelled():
             return
 
         if not self._confirm_ai_budget(full_message):
             return
-        self._ai_chat_thread = AiChatThread(
+        self._ai_workflow.start_chat(
+            AiChatThread,
             message=full_message,
             lang=self._current_lang,
             conversation_history=self._ai_chat_history if len(self._ai_chat_history) > 0 else None,
             anki_context=anki_context,
-            cancel_event=self._ai_cancel_event,
+            on_progress=self._on_ai_chat_progress,
+            on_finished=self._on_ai_chat_finished,
+            on_error=self._on_ai_chat_error,
         )
-        self._ai_chat_thread.progress.connect(self._on_ai_chat_progress)
-        self._ai_chat_thread.finished.connect(self._on_ai_chat_finished)
-        self._ai_chat_thread.error.connect(self._on_ai_chat_error)
-        self._ai_chat_thread.start()
 
     def _on_ai_chat_progress(self, msg):
         elapsed = self._get_elapsed_str()
@@ -2619,13 +2617,15 @@ class AnkiSmartFactory(QDialog):
         # Lưu vào conversation history để lần sau AI có context
         reply_text = result.get("reply", "")
         if reply_text:
-            self._ai_chat_history.append({"role": "user", "content": self._ai_chat_thread.message})
+            worker = self._ai_workflow.chat_worker
+            if worker is not None:
+                self._ai_chat_history.append({"role": "user", "content": worker.message})
             self._ai_chat_history.append({"role": "assistant", "content": reply_text[:3000]})
             # Giới hạn 30 tin nhắn
             if len(self._ai_chat_history) > 30:
                 self._ai_chat_history = self._ai_chat_history[-30:]
 
-        self._ai_chat_thread = None
+        self._ai_workflow.clear_chat_worker()
 
         # Mở dialog chat hiển thị kết quả
         self._show_ai_chat_dialog(result)
@@ -2637,7 +2637,7 @@ class AnkiSmartFactory(QDialog):
         self.lbl_ai_status.setText(t("status_chat_error", elapsed=elapsed, error=error_msg[:60]))
         self.lbl_ai_status.setStyleSheet("color:#e74c3c;font-size:11px;font-weight:bold;")
         showInfo(f"❌ Lỗi AI Chat:\n\n{error_msg}")
-        self._ai_chat_thread = None
+        self._ai_workflow.clear_chat_worker()
 
     def _get_elapsed_str(self) -> str:
         """Trả về thời gian đã trôi qua dạng MM:SS"""
@@ -2665,15 +2665,9 @@ class AnkiSmartFactory(QDialog):
 
     def _cancel_ai_chat(self):
         """Dừng tác vụ AI (cả chat và extract)"""
-        if self._ai_cancel_event is not None:
-            self._ai_cancel_event.set()
         # Signal cancellation only. Never block the UI waiting for a network
         # thread, and never forcibly terminate one.
-        if hasattr(self, '_ai_chat_thread') and self._ai_chat_thread and self._ai_chat_thread.isRunning():
-            self._ai_chat_thread.stop()
-
-        if hasattr(self, '_ai_thread') and self._ai_thread and self._ai_thread.isRunning():
-            self._ai_thread.stop()
+        self._ai_workflow.cancel()
 
         self._stop_ai_chat_timer()
         self._enable_ai_buttons()

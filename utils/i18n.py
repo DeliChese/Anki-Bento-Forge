@@ -745,6 +745,14 @@ _TRANSLATIONS = {
         "vi": "💰 Chi phí AI: {cost} USD · {calls} lượt gọi",
         "en": "💰 AI cost: {cost} USD · {calls} calls",
     },
+    "preview_quality_complete": {
+        "vi": "✓ Kiểm tra cấu trúc: {total}/{total} thẻ đủ trường bắt buộc · {score}/100. Không đánh giá ngữ nghĩa/ngữ pháp.",
+        "en": "✓ Structure check: {total}/{total} cards have required fields · {score}/100. Semantics and grammar are not assessed.",
+    },
+    "preview_quality_warning": {
+        "vi": "⚠️ Kiểm tra cấu trúc: {flagged}/{total} thẻ thiếu trường bắt buộc ({issues} cảnh báo) · {score}/100. Bạn vẫn có thể sửa hoặc import.",
+        "en": "⚠️ Structure check: {flagged}/{total} cards are missing required fields ({issues} warnings) · {score}/100. You can still edit or import.",
+    },
 
     # ── Main Window Status / Tooltips ────────────────────
     "status_history_count": {

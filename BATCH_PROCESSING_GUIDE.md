@@ -50,7 +50,7 @@ Thay vì cắt theo ký tự, module nhóm từ **theo ngữ nghĩa**:
 
 | Cơ chế | Mô tả |
 |---------|-------|
-| **Batch size limit** | 30-50 từ/batch (có thể tùy chỉnh) |
+| **Batch size limit** | 30-100 từ/batch, mặc định 80 (có thể tùy chỉnh trong dialog) |
 | **Existing words** | Gửi danh sách từ đã có (giới hạn 1500) để AI tránh trùng |
 | **Cache 14 ngày** | Mỗi batch được cache riêng, không gọi lại nếu không đổi |
 | **Rate limiting** | Delay 1.5s giữa các batch |
@@ -117,7 +117,7 @@ Paste danh sách từ vào text area. Hỗ trợ nhiều format:
 
 ### Bước 3: Cấu Hình
 
-- **Số từ/batch**: 30-50 (mặc định 40). Nhỏ hơn = chất lượng cao hơn nhưng chậm hơn.
+- **Số từ/batch**: 30-100 (mặc định 80). Nhỏ hơn = chất lượng cao hơn nhưng chậm hơn.
 - **Yêu cầu thêm**: Hướng dẫn bổ sung cho AI (VD: "Chỉ lấy từ N3+, chủ đề kinh doanh")
 - **AI tự đề xuất deck**: Bật để AI phân tích và đề xuất cấu trúc Parent/Sub Deck
 - **Tự động tạo deck**: Bật để tự động tạo deck trong Anki
@@ -184,7 +184,7 @@ ui/
 | Tiêu chí | Cũ (AI Trích Xuất) | Mới (Batch Từ Vựng) |
 |----------|-------------------|---------------------|
 | Input | Văn bản/đoạn văn | Danh sách từ vựng |
-| Số lượng | ~12,000 ký tự | Không giới hạn (hàng nghìn từ) |
+| Số lượng | Tối đa 45.000 ký tự (`max_chars`, chỉnh được) | Không giới hạn (hàng nghìn từ) |
 | Chunking | Cắt theo ký tự | Nhóm theo ngữ nghĩa |
 | Cache | 7 ngày, theo text | 14 ngày, theo batch |
 | Deck tổ chức | Không có | AI đề xuất + tự tạo |

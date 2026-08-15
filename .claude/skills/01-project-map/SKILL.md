@@ -28,6 +28,7 @@ mode/shared.py (497)     ← _WB_JS_BODY, _HW_JS_BODY, WB_POOLS, _SPEED_CTRL_JS,
 mode/card_render.py      ← build_qfmt/build_afmt (tự append field tùy chỉnh lên thẻ)
 utils/ai_extractor.py (2,455) ← AI core (xem SKILL-02); re-export API đọc tài liệu/HTTP để tương thích
 utils/ai_http_client.py (243) ← HTTP transport AI thuần: TLS/pool/retry/rate-limit/cancel; không phụ thuộc Anki/UI/config
+utils/ai_workflow.py ← lifecycle worker AI: cancellation/token/signal; stdlib-only, worker/UI callbacks được inject
 utils/document_extractors.py (242) ← đọc TXT/CSV/PDF/DOCX/XLSX cục bộ; không phụ thuộc Anki/AI
 utils/batch_processor.py (1,061) ← batch (xem SKILL-03)
 utils/prompt_config.py   ← prompt/schema/field_map override (utils/ai_prompts.json)
@@ -62,6 +63,7 @@ __init__.py → Language, mode, audio.engine, utils(safe_parse_json,logger,ai_ex
             → workers (7 thread), ui (dialogs), ui.theme, hooks.reviewer
 ai_extractor → utils.logger, utils.ai_http_client, utils.document_extractors, utils.json_parser(ko trực tiếp—dùng batch), deck_cache(qua utils)
 ai_http_client → Python stdlib; không phụ thuộc aqt/mw/config/prompt/parser
+ai_workflow → Python stdlib; Factory inject `AiExtractThread`/`AiChatThread` và UI callbacks
 document_extractors → utils.logger + parser tùy chọn đã cài; không phụ thuộc aqt/mw/AI/network
 batch_processor → ai_extractor (get_api_config, prompts, _parse_ai_json_with_comment, _apply_reasoning_effort)
 workers/* → aqt.qt, utils.ai_extractor / batch_processor / deck_cache

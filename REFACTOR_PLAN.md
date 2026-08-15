@@ -3,9 +3,9 @@
 > Tài liệu sống và **nguồn kế hoạch duy nhất** cho các cải thiện chất lượng Bento Forge.
 > Không dùng `CODE_MAP.md` hay `UPGRADE_GUIDE.md` để quyết định công việc mới; cấu trúc mã nguồn chuẩn vẫn là `.claude/`.
 
-**Cập nhật gần nhất:** 2026-08-14
+**Cập nhật gần nhất:** 2026-08-15
 
-**Trạng thái chung:** Phase 0–4 hoàn thành; Phase 5 đang làm.
+**Trạng thái chung:** Phase 0–4 hoàn thành; Phase 5 chờ bằng chứng release ngoài local.
 **Nguyên tắc:** bảo toàn dữ liệu Anki và dữ liệu cá nhân quan trọng hơn thêm tính năng.
 
 ## Quy tắc duy trì bắt buộc
@@ -207,7 +207,7 @@ Mỗi phiên làm việc có động đến chất lượng, dữ liệu, worker
 
 ## Phase 5 — Đóng khoảng hở phát hành và hiệu quả học SRS
 
-**Trạng thái:** `Đang làm` — P0-A/P0-B/P1-E hoàn thành; P0-C đã đạt local gate, còn chờ CI và smoke Anki thật; P1-D còn orchestration UI.
+**Trạng thái:** `Đang làm` — P0-A/P0-B/P1-D/P1-E hoàn thành; P0-C đã đạt local gate, còn chờ CI và smoke Anki thật.
 
 **Mục tiêu:** Chỉ phát hành khi hành vi runtime, tài liệu và bằng chứng kiểm chứng khớp nhau; đồng thời bảo đảm Combo Mode không làm mờ tín hiệu ghi nhớ mà Anki dùng để lập lịch.
 
@@ -273,7 +273,15 @@ Mỗi phiên làm việc có động đến chất lượng, dữ liệu, worker
 
 ### P1-D — Giảm rủi ro từ các module điều phối lớn
 
-**Trạng thái:** `Đang làm` — document extractors và HTTP/AI client hoàn thành; kế tiếp là orchestration UI.
+**Trạng thái:** `Hoàn thành` (2026-08-15)
+
+### 2026-08-15 — Phase 5 / P1-D orchestration UI
+
+- Trạng thái: `Đang làm` → `Hoàn thành`
+- Phạm vi: `utils/ai_workflow.py`, wiring AI worker trong `__init__.py`, `tests/test_ai_workflow.py` và project map.
+- Thay đổi: Tách vòng đời worker AI (cancellation token, tạo worker, nối signal, giữ reference, clear và cancel không chặn UI) khỏi Factory vào `AiWorkflowCoordinator`. Module mới chỉ phụ thuộc Python stdlib và nhận worker factory/callback từ UI; Factory tiếp tục giữ Qt, dialog, QueryOp/Collection API và toàn bộ hành vi hiển thị.
+- Kiểm chứng: `python -m py_compile __init__.py utils/ai_workflow.py tests/test_ai_workflow.py`; pytest hẹp `4 passed`; `powershell -ExecutionPolicy Bypass -File scripts/test_isolated.ps1` chạy hai vòng, mỗi vòng `415 passed`, cleanup và kiểm tra worktree đạt; `git diff --check` đạt.
+- Rủi ro còn lại / bước kế tiếp: P1-D không còn lát cắt refactor đã lên kế hoạch. Phase 5 vẫn mở duy nhất cho P0-C: CI Python 3.9/3.11 và manual smoke Anki 2.1.50 với profile đã backup; không tự nhận các bằng chứng này từ môi trường local.
 
 **Vấn đề:** `__init__.py` và `utils/ai_extractor.py` vẫn là điểm tập trung thay đổi lớn, dù Phase 4 đã tách một phần state/adapter/model lifecycle.
 
@@ -346,6 +354,7 @@ Thực hiện REFACTOR_PLAN.md / Phase 5 / <ID>. Đọc AGENTS.md, .claude/CLAUD
 | 2026-08-14 | Hoàn thành lát cắt P1-D document extractors; P1-D tiếp tục với HTTP/AI client. | Giảm trách nhiệm của AI orchestrator bằng một seam thuần local, có test và giữ import tương thích. |
 | 2026-08-14 | Hoàn thành lát cắt P1-D HTTP/AI client; P1-D tiếp tục với orchestration UI. | Cô lập TLS/retry/rate-limit/cancel khỏi AI orchestrator và cho batch phụ thuộc trực tiếp owner network mới. |
 | 2026-08-14 | Hoàn thành P1-E: Combo mặc định một lịch; opt-in theo deck tạo 5 lịch kỹ năng độc lập với migration checkpoint/idempotent. | Làm Again/Good phản ánh một prompt ổn định mà vẫn giữ lịch sử card cũ và không sinh card ngoài ý muốn. |
+| 2026-08-15 | Hoàn thành P1-D orchestration UI: tách vòng đời worker AI/cancellation khỏi Factory bằng coordinator thuần Python có test. | Giảm coupling giữa QDialog và worker lifecycle, giữ UI/Anki access ở Factory, đồng thời kiểm chứng cancel không chặn UI. |
 
 ## Mẫu cập nhật cho phiên tiếp theo
 
