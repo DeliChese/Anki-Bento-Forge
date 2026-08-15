@@ -1,16 +1,28 @@
 # 📋 CHANGELOG
 
-## [Unreleased]
+## [Unreleased] - 2026-08-15
 
-### Quality
-- Làm rõ semantics Combo/SRS: Combo mặc định giữ một lịch chung; opt-in theo deck tạo 5 lịch kỹ năng độc lập. Card hiển thị phạm vi chấm, migration có checkpoint/Undo, giữ lịch sử `ord=0`, không xóa card cũ và idempotent.
-- Chuẩn hóa version/compatibility theo `manifest.json`; isolated harness chạy hai vòng với profile/temp riêng, cleanup bắt buộc và CI Python 3.9/3.11 dùng chung harness.
-- Loại bỏ auto-install `python-docx`/`openpyxl` khi đọc file; dependency thiếu được báo bằng thông điệp VI/EN với phiên bản pin và lệnh cài thủ công, không bị đưa vào prompt AI.
-- Chuẩn hóa diagnostic event code, che exception message có thể chứa dữ liệu người dùng, và lưu log theo Anki profile.
-- Bổ sung `DEBUGGING.md`, `COMPATIBILITY.md` và `RELEASE_CHECKLIST.md` để phát hành có bằng chứng kiểm thử và phạm vi tương thích rõ ràng.
-- Thêm AI session policy: hiển thị ước lượng token/chi phí, giới hạn input/token/chi phí theo phiên và chỉ lưu usage tổng hợp.
-- Phát hiện near-duplicate khi kiểm định import nhưng không tự merge; báo cáo import cục bộ không chứa nội dung thẻ hoặc lỗi chi tiết.
-- Đóng gói artifact tái lập qua `scripts/build_addon.ps1`, kèm SHA-256/SBOM; CI audit dependency, scan secret-shaped values và smoke artifact trên profile sạch.
+> Các thay đổi đã merge sau 17.1.0. Chỉ chuyển mục này thành bản phát hành khi `manifest.json`, bằng chứng CI và smoke Anki đã sẵn sàng.
+
+### ✨ Added
+- Dữ liệu người dùng (cấu hình, trạng thái Factory, lịch sử import và cache) được lưu theo Anki profile, ghi JSON atomic, có migration/backup và giới hạn dung lượng hoặc TTL.
+- API key sử dụng OS credential store; log tự che API key, token và Authorization header. AI, batch và import có cancellation xuyên suốt để dừng tác vụ dài an toàn hơn.
+- Giới hạn phiên AI theo ký tự đầu vào, token và chi phí; UI hiển thị ước lượng trước khi chạy nhưng chỉ lưu số liệu tổng hợp.
+- Lựa chọn SRS theo deck: Combo mặc định giữ một lịch chung; chế độ độc lập tạo năm lịch kỹ năng. Migration có checkpoint/Undo, giữ lịch sử `ord=0` và có thể chạy lặp lại an toàn.
+- Preset AI provider và thông báo lỗi kết nối/cấu hình đầy đủ hơn; bổ sung hợp đồng kiểm thử cho preset và khả năng tương thích thao tác Anki.
+- Thêm các owner thuần Python cho HTTP AI, trích xuất tài liệu, cache kết quả, parse phản hồi và lịch sử import; các API cũ vẫn được re-export để giữ tương thích.
+- Tách template thẻ và prompt mặc định theo từng ngôn ngữ Nhật/Trung/Hàn, có regression test để bảo toàn nội dung và registry hiện có.
+- Thêm `DEBUGGING.md`, `COMPATIBILITY.md`, `RELEASE_CHECKLIST.md`, artifact build có SHA-256/SBOM, cùng harness kiểm thử cô lập hai vòng dùng chung với CI.
+
+### 🔧 Changed
+- `AnkiSmartFactory` và wiring Qt/Anki chuyển sang `ui/factory_dialog.py`; package root chỉ còn compatibility facade.
+- Thao tác Collection, import, model lifecycle và kiểm định thẻ được cô lập rõ hơn; phát hiện near-duplicate nhưng không tự merge, báo cáo import không chứa nội dung thẻ hoặc lỗi chi tiết.
+- Bỏ tự động cài `python-docx`/`openpyxl`; dependency thiếu được báo bằng thông điệp VI/EN và hướng dẫn cài thủ công.
+- Chuẩn hóa compatibility theo `manifest.json`, diagnostic event code và logging theo Anki profile.
+
+### 🐛 Fixed
+- Phản hồi từ DeepSeek reasoning model nay lấy đúng final content khi `content` rỗng, đồng thời bật JSON mode cho API gốc để giảm lỗi parse JSON.
+- Cấu hình provider không còn tự chèn API key mặc định; các truy vấn Anki có nhánh tương thích và thông báo lỗi rõ ràng hơn.
 
 ## [V17.1] — 2026-08-12
 

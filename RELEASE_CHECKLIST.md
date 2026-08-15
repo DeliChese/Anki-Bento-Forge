@@ -8,7 +8,9 @@ Không tăng `manifest.json` version trước khi toàn bộ checklist này đư
 - [ ] Xác nhận CI xanh trên matrix Python đã công bố.
 - [ ] Chạy smoke thủ công trong Anki 2.1.50 trên profile đã sao lưu: import/add/update + undo, combo reviewer, TTS cancel/offline, và config migration.
 - [ ] Rà `git diff` để không có API key, raw prompt/response, user data hay log profile.
-- [ ] Cập nhật `CHANGELOG.md`, `COMPATIBILITY.md`, `REFACTOR_PLAN.md` và README nếu phạm vi hỗ trợ đổi.
+- [ ] Đối chiếu `CHANGELOG.md` với `git log` kể từ bản phát hành gần nhất: mọi thay đổi có thể phát hành đều ở `[Unreleased]`, chỉ mô tả việc đã hoàn tất và có bằng chứng; xem `.claude/CHANGELOG_POLICY.md`.
+- [ ] Khi phát hành, chuyển `[Unreleased]` thành `V<manifest.version>` với ngày phát hành; không tạo section version khi CI/smoke Anki còn thiếu.
+- [ ] Cập nhật `COMPATIBILITY.md`, `REFACTOR_PLAN.md` và README nếu phạm vi hỗ trợ đổi.
 - [ ] Chạy `scripts/build_addon.ps1`; lưu `.ankiaddon`, `.sha256` và `bento-forge.sbom.json` cùng release evidence.
 - [ ] Cài artifact vào profile sạch và kiểm tra Tools menu mở Bento Forge.
 
