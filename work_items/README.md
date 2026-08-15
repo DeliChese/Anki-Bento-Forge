@@ -15,7 +15,7 @@ Các file công việc được tạo từ `ACADEMIC_ASSESSMENT.md`, chia theo P
 |------|-------|----------|---------|
 | [PHASE_A_AI_COST_OPTIMIZATION.md](PHASE_A_AI_COST_OPTIMIZATION.md) | A — Chi phí AI | Benchmark trước; A3/A4/A5 đã có một phần, A6 đã hoàn thành | 🟡 Theo bằng chứng |
 | [PHASE_B_CARD_QUALITY.md](PHASE_B_CARD_QUALITY.md) | B — Chất lượng thẻ | B1 complete; B2 cảnh báo lỗi xác định được, không phát sinh token | 🔥 Đang làm |
-| [PHASE_C_ARCHITECTURE.md](PHASE_C_ARCHITECTURE.md) | C — Kiến trúc | C1/C2 hoàn thành; C3–C6 thực hiện theo điều kiện roadmap | 🟡 Đang làm |
+| [PHASE_C_ARCHITECTURE.md](PHASE_C_ARCHITECTURE.md) | C — Kiến trúc | C1/C2/C3/C5 hoàn thành; C4/C6 chỉ mở khi có nhu cầu thực tế | ✅ Đủ nền tảng pilot |
 | [PHASE_D_LANGUAGE_EXPANSION.md](PHASE_D_LANGUAGE_EXPANSION.md) | D — Mở rộng ngôn ngữ | Một pilot theo nhu cầu đã xác nhận | ⏸ Hoãn |
 | [PHASE_E_ACADEMIC_EVIDENCE.md](PHASE_E_ACADEMIC_EVIDENCE.md) | E — Bằng chứng học thuật | Báo cáo riêng chỉ khi có câu hỏi người dùng rõ | 🟡 Có điều kiện |
 | [PHASE_F_COMMUNITY.md](PHASE_F_COMMUNITY.md) | F — Cộng đồng | FAQ/troubleshooting trước website/cộng đồng | 🟡 Có điều kiện |
@@ -26,7 +26,7 @@ Các file công việc được tạo từ `ACADEMIC_ASSESSMENT.md`, chia theo P
 ## Thứ tự triển khai hiện hành
 
 1. Hoàn tất B1/B2 deterministic validation trong preview — đã triển khai và kiểm thử; các kiểm tra semantic vẫn cần corpus/review.
-2. C1/C2 đã hoàn thành; chỉ mở C3/C5 trước khi tăng số ngôn ngữ đích.
+2. C1/C2/C3/C5 đã hoàn thành; chỉ mở C4/C6 khi có nhu cầu thực tế.
 3. A: lập benchmark thực tế rồi mới chọn A1/A3/A4/A5.
 4. U1/U2 và FAQ: audit thủ công trước release UI kế tiếp.
 5. D/E/F: chỉ bắt đầu khi có nhu cầu, scope và người sở hữu rõ ràng.
@@ -40,9 +40,9 @@ Các file công việc được tạo từ `ACADEMIC_ASSESSMENT.md`, chia theo P
 - [ ] A5: Local Model Priority
 - [x] C1: Tách `__init__.py` (hoàn thành P1-D)
 - [x] C2: Tách `ai_extractor.py`
-- [ ] C3: Tách `templates.py` → `templates/{lang}.py`
+- [x] C3: Tách `templates.py` → `templates/{lang}.py`
 - [ ] C4: Tách `i18n.py` → `i18n/{lang}.json`
-- [ ] C5: Tách `prompts` → `prompts/{lang}.py`
+- [x] C5: Tách `prompts` → `prompts/{lang}.py`
 
 ### Tháng 3-4: Chất lượng thẻ + Ngôn ngữ đầu tiên (Phase B + D1)
 - [ ] B1: Quality Scoring — tự đánh giá chất lượng thẻ

@@ -1,0 +1,73 @@
+"""Language-scoped card-template registry and compatibility exports.
+
+The public ``mode.templates`` API remains stable while template markup lives
+in one module per target language.
+"""
+
+from .japanese import *  # noqa: F403
+from .chinese import *  # noqa: F403
+from .korean import *  # noqa: F403
+from .japanese import (
+    tmpl_ja_combo_q, tmpl_ja_combo_a, tmpl_ja_g_q, tmpl_ja_g_a,
+    tmpl_ja_g_rev_q, tmpl_ja_g_rev_a, tmpl_ja_vn_q, tmpl_ja_vn_a,
+    tmpl_ja_wb_q, tmpl_ja_wb_a, tmpl_ja_pron_q, tmpl_ja_pron_a,
+    tmpl_ja_lg_q, tmpl_ja_lg_a,
+)
+from .chinese import (
+    tmpl_zh_combo_q, tmpl_zh_combo_a, tmpl_zh_g_q, tmpl_zh_g_a,
+    tmpl_zh_g_rev_q, tmpl_zh_g_rev_a, tmpl_zh_vn_q, tmpl_zh_vn_a,
+    tmpl_zh_wb_q, tmpl_zh_wb_a, tmpl_zh_pron_q, tmpl_zh_pron_a,
+    tmpl_zh_lg_q, tmpl_zh_lg_a,
+)
+from .korean import (
+    tmpl_ko_combo_q, tmpl_ko_combo_a, tmpl_ko_g_q, tmpl_ko_g_a,
+    tmpl_ko_g_rev_q, tmpl_ko_g_rev_a, tmpl_ko_vn_q, tmpl_ko_vn_a,
+    tmpl_ko_wb_q, tmpl_ko_wb_a, tmpl_ko_pron_q, tmpl_ko_pron_a,
+    tmpl_ko_lg_q, tmpl_ko_lg_a,
+)
+from .common import _independent_template
+
+
+def _independent_pair(question, answer, skill, label):
+    return (
+        _independent_template(question, skill, label),
+        _independent_template(answer, skill, label),
+    )
+
+
+LANG_TEMPLATES = {
+    "japanese": (
+        tmpl_ja_combo_q, tmpl_ja_combo_a,
+        *_independent_pair(tmpl_ja_vn_q, tmpl_ja_vn_a, "production", "S?n xu?t"),
+        *_independent_pair(tmpl_ja_wb_q, tmpl_ja_wb_a, "spelling", "Ch?nh t?"),
+        *_independent_pair(tmpl_ja_pron_q, tmpl_ja_pron_a, "pronunciation", "Ph?t ?m"),
+        *_independent_pair(tmpl_ja_lg_q, tmpl_ja_lg_a, "letter-gap", "Nh? m?t ch?"),
+    ),
+    "chinese": (
+        tmpl_zh_combo_q, tmpl_zh_combo_a,
+        *_independent_pair(tmpl_zh_vn_q, tmpl_zh_vn_a, "production", "S?n xu?t"),
+        *_independent_pair(tmpl_zh_wb_q, tmpl_zh_wb_a, "spelling", "Ch?nh t?"),
+        *_independent_pair(tmpl_zh_pron_q, tmpl_zh_pron_a, "pronunciation", "Ph?t ?m"),
+        *_independent_pair(tmpl_zh_lg_q, tmpl_zh_lg_a, "letter-gap", "Nh? m?t ch?"),
+    ),
+    "korean": (
+        tmpl_ko_combo_q, tmpl_ko_combo_a,
+        *_independent_pair(tmpl_ko_vn_q, tmpl_ko_vn_a, "production", "S?n xu?t"),
+        *_independent_pair(tmpl_ko_wb_q, tmpl_ko_wb_a, "spelling", "Ch?nh t?"),
+        *_independent_pair(tmpl_ko_pron_q, tmpl_ko_pron_a, "pronunciation", "Ph?t ?m"),
+        *_independent_pair(tmpl_ko_lg_q, tmpl_ko_lg_a, "letter-gap", "Nh? m?t ch?"),
+    ),
+}
+
+
+LANG_GRAMMAR_TEMPLATES = {
+    "japanese": (tmpl_ja_g_q, tmpl_ja_g_a, tmpl_ja_g_rev_q, tmpl_ja_g_rev_a),
+    "chinese": (tmpl_zh_g_q, tmpl_zh_g_a, tmpl_zh_g_rev_q, tmpl_zh_g_rev_a),
+    "korean": (tmpl_ko_g_q, tmpl_ko_g_a, tmpl_ko_g_rev_q, tmpl_ko_g_rev_a),
+}
+
+
+__all__ = [
+    "LANG_TEMPLATES", "LANG_GRAMMAR_TEMPLATES",
+    *[name for name in globals() if name.startswith("tmpl_")],
+]

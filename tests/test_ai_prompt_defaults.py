@@ -6,6 +6,7 @@ from pathlib import Path
 from utils import ai_extractor
 from utils import ai_prompt_defaults as defaults
 from utils import prompt_config
+from utils.prompts import chinese, japanese, korean
 
 
 LANGS = {"japanese", "chinese", "korean"}
@@ -25,8 +26,24 @@ def _imports(module) -> set:
     return found
 
 
-def test_prompt_defaults_are_pure_data_without_runtime_dependencies():
-    assert _imports(defaults) == set()
+def test_prompt_defaults_are_a_small_facade_over_pure_language_data():
+    assert _imports(defaults) == {"prompts"}
+    assert len(Path(defaults.__file__).read_text(encoding="utf-8").splitlines()) < 500
+    assert all(_imports(module) == set() for module in (japanese, chinese, korean))
+
+
+def test_each_language_module_owns_its_vocab_and_grammar_defaults():
+    expected = {
+        "japanese": (japanese, "JAPANESE"),
+        "chinese": (chinese, "CHINESE"),
+        "korean": (korean, "KOREAN"),
+    }
+
+    for lang, (module, prefix) in expected.items():
+        assert getattr(module, f"_{prefix}_SYSTEM_PROMPT") is defaults._SYSTEM_PROMPTS[lang]
+        assert getattr(module, f"_{prefix}_JSON_TEMPLATE") is defaults._JSON_TEMPLATES[lang]
+        assert getattr(module, f"_{prefix}_GRAMMAR_SYSTEM_PROMPT") is defaults._GRAMMAR_SYSTEM_PROMPTS[lang]
+        assert getattr(module, f"_{prefix}_GRAMMAR_JSON_TEMPLATE") is defaults._GRAMMAR_JSON_TEMPLATES[lang]
 
 
 def test_prompt_config_depends_on_defaults_not_ai_extractor():

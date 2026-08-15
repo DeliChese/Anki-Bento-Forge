@@ -58,7 +58,7 @@ Nếu không tách trước khi mở rộng 12 ngôn ngữ, file 2.461 dòng s�
 
 ### C3. Tách `templates.py` → `templates/{lang}.py`
 
-**Trạng thái:** `Có điều kiện — thực hiện trước khi mở rộng hơn 3 ngôn ngữ đích`
+**Trạng thái:** `Hoàn thành` (2026-08-15)
 
 **Vấn đề:** `templates.py` HTML nên tách thành file template riêng (không hardcode trong Python). 15 ngôn ngữ × 5 chế độ × 2 mặt = 150 template — cần tách file riêng.
 
@@ -94,7 +94,7 @@ Nếu không tách trước khi mở rộng 12 ngôn ngữ, file 2.461 dòng s�
 
 ### C5. Tách `prompts` → `prompts/{lang}.py`
 
-**Trạng thái:** `Có điều kiện — gộp vào C2 hoặc hoàn thành trước khi thêm nhiều ngôn ngữ đích`
+**Trạng thái:** `Hoàn thành` (2026-08-15)
 
 **Vấn đề:** 15 ngôn ngữ × 2 chế độ × 2 ngôn ngữ UI = 60 prompt — cần tách file riêng.
 
@@ -179,6 +179,22 @@ C1/C2 theo từng responsibility → C3/C5 khi quyết định mở rộng ngôn
 - Thay đổi: Chuyển storage/migration, TTL, deck-scan aggregation, add/query/reconstruction/search/summary/clear sang owner riêng. Owner không import Anki/UI/AI orchestration; collection và language config được inject lazy từ compatibility wrapper chỉ khi TTL yêu cầu scan. Các API history công khai tiếp tục được re-export trong release hiện tại.
 - Kiểm chứng: `py_compile` đạt; regression history/AI `134 passed`; harness cô lập chạy hai vòng, mỗi vòng `444 passed`; `git diff --check` đạt.
 - Kết quả: `ai_extractor.py` giảm 1.951 → 1.489 dòng và đạt tiêu chí `< 1.500`; prompt/cache/parse/history có test và owner rõ ràng. C2 hoàn thành, không thay đổi version hoặc hành vi sản phẩm.
+
+### 2026-08-15 — Phase C / C3 — language-scoped card templates
+
+- Trạng thái: `Có điều kiện` → `Hoàn thành`.
+- Phạm vi: `mode/templates/`, compatibility import `mode.templates`, `tests/test_template_architecture.py`.
+- Thay đổi: Tách markup Mustache/HTML theo owner `japanese.py`, `chinese.py` và `korean.py`; các helper thật sự dùng chung ở `common.py`. `mode.templates` trở thành package facade nhỏ, giữ nguyên các hàm `tmpl_*`, `LANG_TEMPLATES` và `LANG_GRAMMAR_TEMPLATES` cho consumer hiện tại. Xóa god module `mode/templates.py`.
+- Kiểm chứng: kiểm tra SHA-256 cho toàn bộ 46 template trước/sau tách cho kết quả trùng khớp; architecture gate khóa package facade `< 500` dòng, ownership của 3 ngôn ngữ và registry vocab/grammar/SRS.
+- Rủi ro còn lại / bước kế tiếp: CSS/JS shared tiếp tục ở owner `mode/css.py` và `mode/shared.py`; khi thêm ngôn ngữ mới chỉ cần thêm module ngôn ngữ và đăng ký registry, không ghép lại markup vào facade.
+
+### 2026-08-15 — Phase C / C5 — language-scoped AI prompts
+
+- Trạng thái: `Có điều kiện` → `Hoàn thành`.
+- Phạm vi: `utils/prompts/`, compatibility facade `utils/ai_prompt_defaults.py`, `tests/test_ai_prompt_defaults.py`.
+- Thay đổi: Chuyển nguyên vẹn prompt và JSON schema vocab/grammar, cho cả UI VI/EN, sang owner `japanese.py`, `chinese.py` và `korean.py`. Package registry hợp nhất các owner; `ai_prompt_defaults`, `prompt_config` và compatibility re-export từ `ai_extractor` giữ nguyên API/symbol identity.
+- Kiểm chứng: SHA-256 của toàn bộ 32 public prompt/default symbols trùng khớp trước/sau refactor; architecture gate kiểm tra facade nhỏ, các module ngôn ngữ không có runtime dependency, registry và re-export tương thích.
+- Rủi ro còn lại / bước kế tiếp: Tăng prompt mặc định phải bump `_PROMPT_VERSION` trong `ai_extractor.py`; override người dùng qua `ai_prompts.json` vẫn tự invalid cache theo signature. C4 chưa cần làm nếu chỉ có hai UI locale; ưu tiên hướng mở rộng ngôn ngữ đích hoặc card-quality theo roadmap sản phẩm.
 
 ## Mẫu cập nhật cho phiên tiếp theo
 
