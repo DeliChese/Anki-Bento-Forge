@@ -21,6 +21,7 @@
 - Chuẩn hóa compatibility theo `manifest.json`, diagnostic event code và logging theo Anki profile.
 
 ### 🐛 Fixed
+- **Kiểm định lô hàng chống lách theo mode/lô AI:** Chuẩn hóa Unicode, khoảng trắng và dấu câu trước khi đối chiếu; lập chỉ mục cả các mục đã được chấp nhận trong lô hiện tại để chặn mục lặp xuất hiện sau đó. So khớp cùng nghĩa không còn phụ thuộc vào việc chọn cấp độ. Cùng mặt chữ/pattern nhưng khác nghĩa, kể cả Grammar mode, luôn phải được người dùng phê duyệt rõ ràng trước khi thêm.
 - Phản hồi từ DeepSeek reasoning model nay lấy đúng final content khi `content` rỗng, đồng thời bật JSON mode cho API gốc để giảm lỗi parse JSON.
 - Cấu hình provider không còn tự chèn API key mặc định; các truy vấn Anki có nhánh tương thích và thông báo lỗi rõ ràng hơn.
 

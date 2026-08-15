@@ -72,7 +72,7 @@ from utils.import_safety import rollback_added_notes, summarize_import_batch
 from utils.anki_ops import run_collection, run_query
 from utils.import_operations import apply_import, prepare_audio_tasks
 from utils.anki_adapter import AnkiCollectionAdapter
-from utils.import_quality import find_near_duplicate
+from utils.import_quality import find_near_duplicate, normalize_for_comparison
 from utils.import_report import write_import_report
 from utils.model_lifecycle import ensure_model
 from utils.ai_workflow import AiWorkflowCoordinator
@@ -1551,6 +1551,7 @@ class AnkiSmartFactory(QDialog):
         front_field = cfg["front_field"]
         level_field = cfg["level_field"]
         jfm = cfg["json_field_map"]
+        meaning_field = jfm.get("meaning", "Meaning")
 
         def get_front(item):
             dk = cfg["detect_key"]
@@ -1562,23 +1563,58 @@ class AnkiSmartFactory(QDialog):
                     return str(item[k]).strip()
             return ''
 
-        # ── Build lookup: front_lower → notes (tránh N+1 query) ──
+        # ── Build lookup once: canonical form → notes (tránh N+1 query) ──
+        # Canonical keys close Unicode/spacing/punctuation bypasses such as
+        # full-width forms or a trailing dash.  The same form is used below
+        # for the current batch, not only for cards already in the deck.
         front_to_notes = {}
+        front_displays = {}
         meaning_to_notes = {}
         if mid:
             try:
                 for note in AnkiCollectionAdapter(mw.col).notes_for_model(mid):
                     try:
-                        f = str(note.get(front_field, "")).strip().lower()
-                        if f:
-                            front_to_notes.setdefault(f, []).append(note)
-                        m = str(note.get("Meaning", "")).strip().lower()
-                        if m:
-                            meaning_to_notes.setdefault(m, []).append(note)
+                        f = str(note.get(front_field, "")).strip()
+                        front_key = normalize_for_comparison(f)
+                        if front_key:
+                            front_to_notes.setdefault(front_key, []).append(note)
+                            front_displays.setdefault(front_key, f)
+                        m = str(note.get(meaning_field, "")).strip()
+                        meaning_key = normalize_for_comparison(m)
+                        if meaning_key:
+                            meaning_to_notes.setdefault(meaning_key, []).append(note)
                     except Exception:
                         continue
             except Exception:
                 pass
+
+        # The previous verifier only indexed existing notes.  As a result an
+        # AI response could repeat an item later in the same batch and both
+        # copies would be imported.  Keep a separate in-memory index so every
+        # accepted candidate becomes visible to subsequent candidates.
+        batch_fronts = {}
+        batch_meanings = {}
+        batch_identities = set()
+
+        def remember_candidate(front_key, meaning_key, item, front, meaning):
+            batch_identities.add((front_key, meaning_key))
+            batch_fronts.setdefault(front_key, {
+                "item": item, "front": front, "meaning": meaning,
+            })
+            front_displays.setdefault(front_key, front)
+            if meaning_key:
+                batch_meanings.setdefault(meaning_key, {
+                    "item": item, "front": front, "meaning": meaning,
+                })
+
+        def batch_conflict(previous):
+            return {
+                "existing_front": previous["front"],
+                "existing_meaning": previous["meaning"],
+                "existing_furigana": "",
+                "existing_level": "",
+                "existing_nid": None,
+            }
 
         for item in self.raw_data:
             if not isinstance(item, dict):
@@ -1588,8 +1624,10 @@ class AnkiSmartFactory(QDialog):
             level = get_level(item)
             topic = str(item.get('topic', '')).strip().lower()
             meaning = str(item.get('meaning', '')).strip()
+            front_key = normalize_for_comparison(front)
+            meaning_key = normalize_for_comparison(meaning)
 
-            if not front:
+            if not front_key:
                 continue
             if target_level and target_level not in level:
                 continue
@@ -1599,7 +1637,23 @@ class AnkiSmartFactory(QDialog):
             action, target_nid, updatable = "add", None, []
             conflict_info = None
 
-            exact_notes = front_to_notes.get(front.lower(), [])
+            # Never permit a later raw item to bypass verification merely
+            # because the first duplicate has not been written to Anki yet.
+            if (front_key, meaning_key) in batch_identities:
+                cnt["dup"] += 1
+                continue
+            previous = batch_fronts.get(front_key)
+            if previous:
+                if normalize_for_comparison(previous["meaning"]) == meaning_key:
+                    cnt["dup"] += 1
+                    continue
+                action = "dup_diff"
+                cnt["dup_diff"] += 1
+                remember_candidate(front_key, meaning_key, item, front, meaning)
+                self._add_to_queue(item, action, None, [], cnt, batch_conflict(previous))
+                continue
+
+            exact_notes = front_to_notes.get(front_key, [])
             if exact_notes:
                 old = exact_notes[0]
                 exact_ids = [old.id]
@@ -1608,25 +1662,17 @@ class AnkiSmartFactory(QDialog):
                     action, target_nid = "update", exact_ids[0]
                     cnt["update"] += 1
                 else:
-                    # 📘 Ngữ pháp: cùng pattern + KHÁC nghĩa → thẻ MỚI (biến thể cách dùng)
-                    if getattr(self, '_is_grammar', False):
-                        try:
-                            _gm_existing_meaning = old["Meaning"].strip()
-                        except Exception:
-                            _gm_existing_meaning = ""
-                        if _gm_existing_meaning and meaning and _gm_existing_meaning.lower() != meaning.lower():
-                            cnt["new"] += 1
-                            self._add_to_queue(item, "add", None, [], cnt)
-                            continue
-                    # Kiểm tra xem nghĩa có khác không
+                    # Same spelling/pattern with a different meaning is never
+                    # auto-added, including grammar mode.  Legitimate grammar
+                    # variants remain available through the explicit approval
+                    # dialog instead of acting as a duplicate-detection bypass.
                     try:
-                        existing_meaning = old["Meaning"].strip()
+                        existing_meaning = old[meaning_field].strip()
                     except Exception:
                         existing_meaning = ""
-                    existing_meaning_lower = existing_meaning.lower()
-                    new_meaning_lower = meaning.lower()
+                    existing_meaning_key = normalize_for_comparison(existing_meaning)
 
-                    if existing_meaning_lower and new_meaning_lower and existing_meaning_lower != new_meaning_lower:
+                    if existing_meaning_key and meaning_key and existing_meaning_key != meaning_key:
                         # Cùng mặt chữ nhưng khác nghĩa → đưa vào diện "dup_diff" để người dùng xác nhận
                         action = "dup_diff"
                         cnt["dup_diff"] += 1
@@ -1648,12 +1694,13 @@ class AnkiSmartFactory(QDialog):
                     else:
                         cnt["dup"] += 1
                         continue
+                remember_candidate(front_key, meaning_key, item, front, meaning)
                 self._add_to_queue(item, action, target_nid, updatable, cnt, conflict_info)
                 continue
 
             # A near match is never merged automatically.  It stays in the
             # queue with an explicit warning so the learner retains control.
-            near_match = find_near_duplicate(front, front_to_notes.keys())
+            near_match = find_near_duplicate(front, front_displays.values())
             if near_match:
                 near_front, similarity = near_match
                 action = "add_partial"
@@ -1663,14 +1710,15 @@ class AnkiSmartFactory(QDialog):
                     "similarity": similarity,
                 }
 
-            if level and action == "add":
-                same_mean = meaning_to_notes.get(meaning.lower(), [])
+            if meaning_key and action == "add":
+                same_mean = meaning_to_notes.get(meaning_key) or batch_meanings.get(meaning_key)
                 if same_mean:
                     action = "add_partial"
                     cnt["partial"] += 1
 
             if action in ("add", "add_partial"):
                 cnt["new"] += 1
+            remember_candidate(front_key, meaning_key, item, front, meaning)
             self._add_to_queue(item, action, target_nid, updatable, cnt, conflict_info)
 
         self.btn_diff_meaning.setEnabled(cnt["dup_diff"] > 0)

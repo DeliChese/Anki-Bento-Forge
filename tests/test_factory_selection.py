@@ -231,6 +231,9 @@ class FakeComboBox:
     def currentText(self):
         return self.items[self._index] if self.items else ""
 
+    def currentData(self):
+        return self.currentText()
+
     def setCurrentIndex(self, i):
         if 0 <= i < len(self.items):
             self._index = i
@@ -354,6 +357,16 @@ def _cfg_ja():
     return {"detect_key": "front", "label": "🇯🇵 Tiếng Nhật"}
 
 
+def _verify_cfg():
+    return {
+        "detect_key": "front", "front_field": "Front",
+        "level_field": "JLPT Level", "furi_label": "Furigana",
+        "json_field_map": {
+            "front": "Front", "meaning": "Meaning", "jlptlevel": "JLPT Level",
+        },
+    }
+
+
 def _make_factory():
     """Tạo AnkiSmartFactory KHÔNG chạy __init__ (tránh UI) — chỉ test logic."""
     # Buộc ngôn ngữ UI về tiếng Việt để khớp các chuỗi mock hardcode trong test
@@ -373,6 +386,8 @@ def _make_factory():
     obj.raw_data = []
     obj.prepared_data = []
     obj.txt_search = FakeLineEdit()
+    obj.txt_topic = FakeLineEdit()
+    obj.cbo_level = FakeComboBox([""])
     obj.cbo_filter = FakeComboBox(["📂 Tất cả", "✨ Mới", "🔄 Cập nhật", "⚠️ Trùng mờ", "🔍 Nghĩa khác"])
     obj.preview_list = FakeListWidget()
     obj.spin_start = FakeSpin()
@@ -395,7 +410,8 @@ def _make_factory():
                "_select_none_visible", "_get_export_indices", "_remove_factory_indices",
                "_cancel_order", "_save_current_flow", "_restore_current_flow",
                "_save_factory_state", "_load_factory_state", "_on_range_changed",
-               "_load_history_to_factory", "_analyze_content"):
+               "_load_history_to_factory", "_analyze_content", "_verify_batch_impl",
+               "_add_to_queue"):
         obj.__dict__[_m] = addon.AnkiSmartFactory.__dict__[_m].__get__(obj, addon.AnkiSmartFactory)
     return obj
 
@@ -500,6 +516,50 @@ class TestGetExportIndices:
         f = _make_factory()
         f._rebuild_preview()
         assert f._get_export_indices() == []
+
+
+class TestBatchVerification:
+    def _factory(self):
+        f = _make_factory()
+        f._cfg = _verify_cfg
+        f._get_model_id = lambda: None
+        f._find_updatable_fields = lambda note, item: []
+        return f
+
+    def test_rejects_canonical_duplicate_within_the_same_raw_batch(self):
+        f = self._factory()
+        f.raw_data = [
+            {"front": "食べる", "meaning": "ăn"},
+            {"front": " 食べる！ ", "meaning": " ĂN "},
+        ]
+
+        f._verify_batch_impl()
+
+        assert [entry["item"]["front"] for entry in f.prepared_data] == ["食べる"]
+
+    def test_requires_explicit_review_for_different_meaning_within_batch(self):
+        f = self._factory()
+        f.raw_data = [
+            {"front": "ながら", "meaning": "vừa"},
+            {"front": "～ながら", "meaning": "trong khi"},
+            {"front": "ながら！", "meaning": " TRONG KHI "},
+        ]
+
+        f._verify_batch_impl()
+
+        assert [entry["action"] for entry in f.prepared_data] == ["add", "dup_diff"]
+        assert f.prepared_data[1]["conflict_info"]["existing_front"] == "ながら"
+
+    def test_warns_for_same_meaning_even_when_no_level_is_selected(self):
+        f = self._factory()
+        f.raw_data = [
+            {"front": "食べる", "meaning": "ăn"},
+            {"front": "食事", "meaning": "ăn"},
+        ]
+
+        f._verify_batch_impl()
+
+        assert [entry["action"] for entry in f.prepared_data] == ["add", "add_partial"]
 
 
 class TestRangeAutoCheck:
