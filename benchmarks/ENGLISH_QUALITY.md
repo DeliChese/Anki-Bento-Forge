@@ -19,7 +19,6 @@ and a cache miss.
   CEFR level; usage notes are limited to genuinely helpful collocation/register
   guidance.
 
-The completed reviewed run cost `$0.000966` in total. Retain this corpus and
-[`deepseek-v4-flash-disabled-reviewed.json`](runs/english-v5/deepseek-v4-flash-disabled-reviewed.json)
-as the English quality gate before accepting later English prompt, schema, or
-model changes.
+The completed reviewed run cost `$0.000966` in total. Retain this corpus and the
+reviewed metrics above as the English quality gate before accepting later prompt,
+schema, or model changes. Raw local run artifacts are intentionally gitignored.

@@ -29,6 +29,6 @@ The Japanese model repeatedly used `質問を聞きました` while translating 
 to `質問しました` only when its paired translation means *ask*. Legitimate
 “hear a question” cards are unchanged and covered by regression tests.
 
-The completed final runs cost `$0.003571` in total. Retain these corpora and
-their local run JSON as the quality gate before accepting later prompt, schema,
-or model changes.
+The completed final runs cost `$0.003571` in total. Retain these corpora and the
+reviewed metrics above as the quality gate before accepting later prompt, schema,
+or model changes. Raw local run artifacts are intentionally gitignored.

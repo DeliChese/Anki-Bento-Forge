@@ -46,7 +46,8 @@ Desktop.ini
 anki_tool.log*
 
 # === Local AI benchmark runs (may contain generated study content) ===
-benchmarks/runs/*.json
+benchmarks/runs/
+benchmarks/*_COMPARISON.md
 
 # === Anki ===
 *.anki2
