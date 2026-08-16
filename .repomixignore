@@ -1,0 +1,13 @@
+# Default repository pack excludes historical and generated material.
+# Add an excluded file explicitly only when the task contract justifies it.
+
+work_items/history/
+ACADEMIC_ASSESSMENT.md
+REFACTOR_PLAN.md
+CODE_MAP.md
+UPGRADE_GUIDE.md
+benchmarks/runs/
+__pycache__/
+*.pyc
+.pytest_cache/
+anki_tool.log

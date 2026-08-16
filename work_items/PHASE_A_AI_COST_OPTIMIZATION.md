@@ -1,5 +1,9 @@
 # Phase A — Tối ưu chi phí AI
 
+> Status: frozen
+> Authority: supporting historical plan; only active when referenced by `PERSONAL_ROADMAP.md`
+> Read when: task hiện hành liên kết trực tiếp tới Phase A
+
 > **PHẠM VI PERSONAL (2026-08-16):** Chỉ benchmark và tối ưu model/prompt mà chủ dự án thật sự dùng. Không xây routing đa người dùng. Mọi item mới phải xuất phát từ P1-01/P1-02 trong `PERSONAL_ROADMAP.md`; benchmark/prompt dùng `gpt-5.6-sol` / `high`, utility/test nhỏ dùng `gpt-5.6-luna` / `medium`.
 
 > **Nguồn:** `ACADEMIC_ASSESSMENT.md` — Phase A (Ưu tiên #1 — SỐNG CÒN)

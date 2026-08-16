@@ -1,4 +1,4 @@
-# 🤖 CLAUDE.md — Bento Forge (AnkiTool) V17.2.0 + V18 release candidate
+# 🤖 CLAUDE.md — Bento Forge
 
 > Add-on Anki (Python/PyQt5) tạo thẻ từ vựng Nhật, Trung & Hàn với AI + TTS + interactive templates.
 
@@ -7,9 +7,9 @@
 Nguyên tắc **progressive disclosure**: KHÔNG đọc toàn bộ source. Chỉ đọc 1 skill liên quan + nhảy thẳng tới dòng cần sửa (line number trong skill).
 
 ```
-Bước 1: Đọc file này (~1.5k token)
+Bước 1: Đọc file này và `.claude/context/current-state.md`
 Bước 2: Chọn ĐÚNG 1 skill dưới đây theo việc cần làm
-Bước 3: Trong skill, dùng "file:line" để đọc ĐÚNG đoạn code cần (read_file offset/limit)
+Bước 3: Trong skill, dùng `rg` và `file:line` để đọc ĐÚNG đoạn code cần
 Bước 4: Chạy tests liên quan (xem skill 10)
 ```
 
@@ -43,7 +43,7 @@ __init__.py (26 dòng)         ← compatibility facade (public re-export)
 ├── workers/     ImportWorker, PreviewThread, AiExtractThread, AiChatThread, DeckScanWorker, BatchProcessThread, DeckOrganizerThread
 ├── ui/          AiChatDialog, ai_settings, ai_preview, batch_dialog, verify_dialog, history_dialog, prompt_editor, theme
 ├── hooks/       reviewer.py (register_hooks) + overview_mode.py (mode selector)
-└── tests/       444 tests (36 file)
+└── tests/       regression suite; số liệu đã kiểm chứng nằm trong `context/current-state.md`
 ```
 
 ## 🔒 QUY TẮC VÀNG (BẮT BUỘC)
@@ -66,7 +66,7 @@ __init__.py (26 dòng)         ← compatibility facade (public re-export)
 - `lang` = `"japanese"` | `"chinese"` | `"korean"` | `"english"`.
 - Model names: `"AnkiTool Japanese/Chinese/Korean/English [Grammar] V17.0 (Add-on)"`.
 - Entry: `start_smart_factory()` (`ui/factory_dialog.py:2801`, re-export tại `__init__.py`), shortcut `Ctrl+Shift+I`. Menu Tools hiển thị **"🧪 Bento Forge"**.
-- Version manifest hiện tại: **17.2.0**, compatibility khai báo Anki **2.1.50 đến 26.5**; V18 Learning Modes còn chờ CI và GUI smoke endpoint trước khi bump `18.0.0`.
+- Version, compatibility, test gate và trạng thái V18: xem `.claude/context/current-state.md` và `work_items/PERSONAL_ROADMAP.md`; không sao chép số liệu động vào file này.
 - **Combo mode**: mỗi từ = 1 card duy nhất, 5 chế độ (qa/vn/wb/pron/lg) chuyển đổi trong card qua `_COMBO_MODE_JS`; mode lưu `mw.col.conf["ai_factory_study_mode"]`; Overview patch qua `hooks/overview_mode.py`.
 - **Prompt/Schema/Field Map/Card Render có thể GHI ĐÈ ngoài**: `utils/ai_prompts.json` (gitignored) qua `utils/prompt_config.py` + `mode/card_render.py` — xem skill 02 (ai-extraction) và 08 (card-templates).
 

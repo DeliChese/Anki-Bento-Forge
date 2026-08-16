@@ -1,5 +1,9 @@
 # AI model benchmark
 
+> Status: active
+> Authority: evidence index; acceptance thresholds live in `work_items/PERSONAL_ROADMAP.md`
+> Read when: thay đổi model, prompt, schema hoặc quality gate
+
 `japanese_vocab_20_v1.json` is the fixed first case: 20 Japanese vocabulary items sent through the same Xưởng/batch flow, with an empty deck and cache miss. Do not alter its terms while comparing models.
 
 `chinese_vocab_20_v1.json` and `korean_vocab_20_v1.json` are the corresponding

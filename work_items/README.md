@@ -1,5 +1,10 @@
 # 📋 Bento Forge — Work Items
 
+> Status: active
+> Authority: supporting index; `PERSONAL_ROADMAP.md` is canonical for new work
+> Last verified: 2026-08-16
+> Read when: cần tìm một work item hoặc tài liệu chuyên môn
+
 > **PHẠM VI HIỆN HÀNH (2026-08-16):** Bento Forge là add-on cá nhân. [PERSONAL_ROADMAP.md](PERSONAL_ROADMAP.md) là nguồn ưu tiên duy nhất cho công việc mới, bao gồm độ ưu tiên, độ khó, model và effort khuyến nghị. Các phase bên dưới được giữ làm lịch sử/chuyên môn; không phải cam kết phát triển công khai.
 > **Định hướng:** Ưu tiên workflow cá nhân, an toàn collection, baseline test và benchmark cho ngôn ngữ chủ dự án thực sự học. Không mở rộng đại trà, không xây community và không thêm feature để cạnh tranh.
 

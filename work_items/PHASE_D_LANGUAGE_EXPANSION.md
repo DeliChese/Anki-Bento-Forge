@@ -1,5 +1,9 @@
 # Phase D — Mở rộng ngôn ngữ
 
+> Status: frozen
+> Authority: historical plan; not active without an explicit roadmap reference
+> Read when: chủ dự án mở P2-02 hoặc task tham chiếu trực tiếp
+
 > **QUYẾT ĐỊNH THAY THẾ (2026-08-16):** `Đóng băng theo personal scope`. Không có roadmap 12 ngôn ngữ hay mục tiêu mở rộng thị trường. Nhật / Trung / Hàn được giữ nguyên; chỉ mở đúng một ngôn ngữ mới nếu chủ dự án học nó đều, gặp ma sát tạo thẻ ít nhất ba lần trong hai tuần, và có corpus 20–30 mục để test.
 > **Ưu tiên / độ khó / model:** Khi đủ điều kiện, tạo `P2-02` trong `PERSONAL_ROADMAP.md`: P2, 🟠 Khó, `gpt-5.6-sol` / `high`, 8–20 giờ. Mọi mục D1–D4 phía dưới chỉ là tham chiếu lịch sử, không được tự mở lại.
 

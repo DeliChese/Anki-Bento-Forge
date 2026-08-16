@@ -1,5 +1,9 @@
 # Phase B — Chất lượng thẻ
 
+> Status: frozen
+> Authority: supporting historical plan; only active when referenced by `PERSONAL_ROADMAP.md`
+> Read when: task hiện hành liên kết trực tiếp tới Phase B
+
 > **PHẠM VI PERSONAL (2026-08-16):** B1/B2 structural đã có. Chỉ mở cải tiến khi corpus hoặc trải nghiệm học cá nhân chỉ ra lỗi lặp lại; mục tiêu là “đủ tốt để học”, không phải “tốt nhất thị trường”. Schema/prompt/template cần phán đoán ngôn ngữ: `gpt-5.6-sol` / `high`; warning deterministic/test: `gpt-5.6-terra` / `medium`.
 
 > **Nguồn:** `ACADEMIC_ASSESSMENT.md` — Phase B (Core competency)

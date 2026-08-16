@@ -1,5 +1,10 @@
 # 🎓 Đánh giá Bento Forge V17.1.0 — Vị thế học thuật & Hướng phát triển
 
+> Status: historical
+> Authority: historical assessment; not a current roadmap
+> Last verified: 2026-08-15
+> Read when: cần bối cảnh đánh giá hoặc rationale cũ; roadmap hiện hành là `work_items/PERSONAL_ROADMAP.md`
+
 > **Ngày đánh giá:** 2026-08-15
 > **Phạm vi:** Toàn bộ add-on (kiến trúc, code, test, tài liệu, bảo mật, UX)
 > **Mục tiêu:** Đánh giá hiện trạng và đề xuất lộ trình nâng tầm vị thế học thuật

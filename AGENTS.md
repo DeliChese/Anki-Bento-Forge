@@ -1,34 +1,38 @@
-# AGENTS.md — Bento Forge V17.1.0 (AnkiTool)
+# AGENTS.md — Bento Forge
 
-> Điểm vào cho mọi AI agent (Claude Code, Cursor, Copilot, Codex...).
-> **Hệ thống kiến thức đầy đủ nằm trong `.claude/` — đọc theo progressive disclosure để tiết kiệm token.**
+> Điểm vào duy nhất cho mọi AI agent. Không dùng `CODE_MAP.md` hoặc `UPGRADE_GUIDE.md` để ra quyết định kỹ thuật.
 
-## QUY TRÌNH BẮT BUỘC (tiết kiệm token tối đa)
+## Quy trình bắt buộc
 
-1. Đọc [`.claude/CLAUDE.md`](.claude/CLAUDE.md) (~1.5k token) — chứa luật vàng + index skills.
-2. Chọn ĐÚNG 1 skill trong `.claude/skills/` theo việc cần làm.
-3. Dùng `file:line` trong skill để đọc đúng đoạn code cần — **KHÔNG đọc trọn file 2000 dòng**.
-4. Sửa xong → chạy pytest (xem skill 10).
+1. Đọc [`.claude/CLAUDE.md`](.claude/CLAUDE.md) để biết luật vàng và routing.
+2. Đọc [`.claude/context/current-state.md`](.claude/context/current-state.md) để biết trạng thái đã kiểm chứng và task đang mở.
+3. Chọn **đúng một** skill trong `.claude/skills/` theo phạm vi task.
+4. Dùng `rg` để định vị symbol, rồi chỉ đọc đoạn `file:line` mà skill hoặc kết quả tìm kiếm xác nhận.
+5. Trước khi sửa, nêu phạm vi, bất biến và tiêu chí hoàn tất. Sau khi sửa, xem diff và chạy kiểm chứng theo skill 10.
 
-## INDEX NHANH
+Không nạp toàn bộ repo, roadmap lịch sử, benchmark hay chat history vào context mặc định. Dùng [task contract template](.claude/context/task-contract-template.md) để chuyển giao giữa các lượt agent.
+
+## Routing nhanh
 
 | Việc cần làm | Skill |
-|--------------|-------|
-| Hiểu cấu trúc dự án | `.claude/skills/01-project-map/SKILL.md` |
-| Sửa AI/prompt/cache | `.claude/skills/02-ai-extraction/SKILL.md` |
-| Sửa batch/deck organize | `.claude/skills/03-batch-processing/SKILL.md` |
-| Sửa audio/TTS | `.claude/skills/04-audio-tts/SKILL.md` |
-| Sửa thread nền | `.claude/skills/05-workers/SKILL.md` |
-| Sửa UI/theme/i18n | `.claude/skills/06-ui-layer/SKILL.md` |
-| Sửa/ thêm ngôn ngữ | `.claude/skills/07-language-config/SKILL.md` |
-| Sửa template thẻ/CSS/JS | `.claude/skills/08-card-templates/SKILL.md` |
-| Sửa json_parser/logger/cache | `.claude/skills/09-utils/SKILL.md` |
-| Chạy/viết test | `.claude/skills/10-testing/SKILL.md` |
-| Nâng cấp version/release | `.claude/skills/11-upgrade-playbook/SKILL.md` |
-| 🐞 Tìm/sửa BUG (đọc log, root cause) | `.claude/skills/12-debugging/SKILL.md` |
+|---|---|
+| Hiểu cấu trúc hoặc tìm ownership | `.claude/skills/01-project-map/SKILL.md` |
+| AI, prompt, cache, cost | `.claude/skills/02-ai-extraction/SKILL.md` |
+| Batch hoặc tổ chức deck | `.claude/skills/03-batch-processing/SKILL.md` |
+| Audio/TTS | `.claude/skills/04-audio-tts/SKILL.md` |
+| Worker hoặc luồng nền | `.claude/skills/05-workers/SKILL.md` |
+| UI, theme, i18n | `.claude/skills/06-ui-layer/SKILL.md` |
+| Ngôn ngữ hoặc cấu hình field | `.claude/skills/07-language-config/SKILL.md` |
+| Template thẻ, CSS hoặc JS | `.claude/skills/08-card-templates/SKILL.md` |
+| Parser, logger, cache utility | `.claude/skills/09-utils/SKILL.md` |
+| Viết hoặc chạy test | `.claude/skills/10-testing/SKILL.md` |
+| Version, build hoặc release | `.claude/skills/11-upgrade-playbook/SKILL.md` |
+| Debug từ log hoặc tái hiện lỗi | `.claude/skills/12-debugging/SKILL.md` |
+| Learning Modes / Knowledge beta | `.claude/skills/13-learning-modes/SKILL.md` |
 
-## CẤU TRÚC TỔNG QUAN (tóm tắt 1 dòng)
+## Nguồn chuẩn
 
-`__init__.py` (compatibility facade) → `ui/factory_dialog.py` (AnkiSmartFactory + entry) → `Language/`, `mode/`, `audio/`, `utils/`, `workers/`, `hooks/`. Version 17.1.0, shortcut `Ctrl+Shift+I`. Menu Tools hiển thị tên **"🧪 Bento Forge"**.
-
-> Lưu ý: `CODE_MAP.md`/`UPGRADE_GUIDE.md` ở root là tài liệu cũ — dùng `.claude/` làm nguồn chính thức.
+- Trạng thái, version, gate và backlog đang hoạt động: [`work_items/PERSONAL_ROADMAP.md`](work_items/PERSONAL_ROADMAP.md).
+- Bằng chứng benchmark: [`benchmarks/`](benchmarks/).
+- Quyết định/lịch sử đã đóng: [`work_items/history/`](work_items/history/) và tài liệu có `Authority: historical`.
+- Bản đồ kỹ thuật cho agent: skill 01; overview cho người đọc: [`docs/architecture.md`](docs/architecture.md).

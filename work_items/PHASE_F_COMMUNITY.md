@@ -1,5 +1,9 @@
 # Phase F — Cộng đồng
 
+> Status: frozen
+> Authority: historical plan; not active without an explicit roadmap reference
+> Read when: chủ dự án quyết định phát hành công khai trở lại
+
 > **QUYẾT ĐỊNH THAY THẾ (2026-08-16):** `Đóng băng theo personal scope`. Không xây website, Discord/Reddit, video tutorial, beta public, case study hoặc mục tiêu user base.
 > **Ưu tiên / độ khó / model khi mở lại:** Chỉ sau một quyết định phát hành công khai. README/FAQ: 🟢 Dễ, `gpt-5.6-luna` / `medium`; compatibility/install: 🟡 Trung bình, `gpt-5.6-terra` / `medium`. Community/forum/video không lên lịch trước.
 

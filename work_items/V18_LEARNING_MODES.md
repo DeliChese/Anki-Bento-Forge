@@ -1,5 +1,9 @@
 # V18 — Learning Modes: Language và Knowledge
 
+> Status: dormant
+> Authority: supporting reactivation plan; not a release commitment
+> Read when: chủ dự án yêu cầu mở lại Knowledge beta
+
 **Trạng thái:** `Beta riêng tư dormant` — mã/schema/model Knowledge được giữ lại, nhưng feature gate tắt và giao diện chỉ mở workflow Language. Không có kế hoạch phát hành `18.0.0` hay hoàn thành release gate cho đến khi chủ dự án chủ động kích hoạt lại beta.
 
 **Mục tiêu:** Bento Forge trở thành công cụ đúc thẻ học chung, bắt đầu bằng hai mode chuyển đổi rõ ràng:

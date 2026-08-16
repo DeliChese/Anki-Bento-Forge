@@ -69,7 +69,7 @@ logger.warning("TRACE-%s: %s", step, value)  # level WARNING hiện rõ trong fi
 ## 4. SỬA THEO QUY TẮC VÀNG (AGENTS.md)
 
 1. Đọc skill vùng trước (bảng phần 1) → nhảy thẳng `file:line`.
-2. Tuân thủ QUY TẮC VÀNG trong [`CLAUDE.md`](../CLAUDE.md) (không `aqt` top-level, không `print`, không bare `except`, thread-safe, i18n `t()`).
+2. Tuân thủ QUY TẮC VÀNG trong [`CLAUDE.md`](../../CLAUDE.md) (không `aqt` top-level, không `print`, không bare `except`, thread-safe, i18n `t()`).
 3. Sửa prompt → bump `_PROMPT_VERSION` hoặc qua `prompt_config` (tự invalidate).
 4. Thêm/sửa note trong deck → gọi `invalidate_deck_cache()`.
 5. **Bare `except:` CẤM** — luôn `except Exception:` + log (để bug sau này tái hiện được).

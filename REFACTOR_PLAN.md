@@ -1,5 +1,10 @@
 # Bento Forge — Quality Roadmap
 
+> Status: historical
+> Authority: historical implementation record; not a current backlog
+> Last verified: 2026-08-15
+> Read when: điều tra quyết định/refactor cũ; backlog hiện hành là `work_items/PERSONAL_ROADMAP.md`
+
 > Tài liệu sống và **nguồn kế hoạch duy nhất** cho các cải thiện chất lượng Bento Forge.
 > Không dùng `CODE_MAP.md` hay `UPGRADE_GUIDE.md` để quyết định công việc mới; cấu trúc mã nguồn chuẩn vẫn là `.claude/`.
 

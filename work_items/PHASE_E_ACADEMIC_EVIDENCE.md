@@ -1,5 +1,9 @@
 # Phase E — Bằng chứng học thuật
 
+> Status: frozen
+> Authority: historical plan; not active without an explicit roadmap reference
+> Read when: có câu hỏi học tập cá nhân mà Anki Stats không trả lời được
+
 > **PHẠM VI PERSONAL (2026-08-16):** `Đóng băng`. Không xây báo cáo học thuật/analytics riêng, trừ khi Anki Stats không trả lời được một câu hỏi học tập cá nhân cụ thể. Khi đó mở P2 với `gpt-5.6-terra` / `medium` và chỉ dùng dữ liệu local.
 
 > **Nguồn:** `ACADEMIC_ASSESSMENT.md` — Phase E (Không phình to)

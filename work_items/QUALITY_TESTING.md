@@ -1,5 +1,9 @@
 # Chất lượng Test — Cải thiện
 
+> Status: supporting
+> Authority: supporting checklist; current release gate is in `PERSONAL_ROADMAP.md`
+> Read when: lập hoặc đánh giá quality/test plan
+
 > **ƯU TIÊN THAY THẾ (2026-08-16):** P0 personal reliability — đưa baseline test/compile về xanh trước khi theo đuổi property, mutation hay UI automation testing. Khuyến nghị `gpt-5.6-terra` / `high`.
 
 ## T0. Baseline xanh cho personal workflow
