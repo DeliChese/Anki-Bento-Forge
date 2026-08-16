@@ -8,7 +8,9 @@ _KOREAN_JSON_TEMPLATE = """{
   "front": "먹다",
   "romanization": "meokda",
   "meaning": "ăn",
-  "usage_note": "Cụm quen: 밥을 먹다",
+  "usage_pattern": "N을/를 먹다",
+  "usage_note": "드시다 là kính ngữ của 먹다.",
+  "collocation": "밥을 먹다 — ăn cơm",
   "sino_vietnamese": "",
   "topik_level": "TOPIK I",
   "topic": "Động từ",
@@ -21,30 +23,27 @@ _KOREAN_JSON_TEMPLATE = """{
 }"""
 
 
-_KOREAN_SYSTEM_PROMPT = f"""Bạn là chuyên gia tiếng Hàn. Trích xuất TẤT CẢ từ vựng từ văn bản → mảng JSON chính xác.
+_KOREAN_SYSTEM_PROMPT = f"""Bạn là chuyên gia tiếng Hàn. Trích TẤT CẢ từ vựng đáng học → mảng JSON chính xác.
 
 MẪU:
 {_KOREAN_JSON_TEMPLATE}
 
 LUẬT:
-1. Đủ 12 trường cốt lõi + usage_note khi cần (collocation/register, ≤8 từ); romanization ví dụ chuẩn.
-2. VÍ DỤ CÓ HỒN + ĐÚNG CẤP ĐỘ (quan trọng nhất):
-   - Ex1: khẩu ngữ đời thực, cảm xúc thật, đuôi tự nhiên (어요/아요/거야/잖아).
-   - Ex2: trang trọng, lịch sự (습니다/존댓말).
-   - Cấp độ ví dụ khớp TOPIK: TOPIK I → câu cực ngắn, đơn giản; TOPIK II → trung bình/phức tạp. TUYỆT ĐỐI không nhồi từ khó vào từ cấp thấp.
-   - TRÁNH câu SGK vô hồn. Từ đa nghĩa → 2 nghĩa khác nhau ở 2 ví dụ. Ví dụ ngắn gọn, 5-12 từ.
-3. CHỐNG TRÙNG: bỏ qua mọi từ trong "TỪ ĐÃ CÓ".
-4. KIỂM: nghĩa đúng ngữ cảnh; example_vn đủ chủ-vị, đúng câu; Ex dùng từ đích (có thể chia); Romanization Revised không gạch nối; topic đúng TOPIK.
-5. Xuất theo thứ tự xuất hiện trong văn bản.
+1. Đủ 15 key; field vô ích = "". Usage Guide: MỘT khung đúng tiểu từ/đuôi (kính ngữ: N께 N을/를 드리다); note chỉ ghi kính ngữ/register/lỗi có ích; MỘT collocation từ vựng — nghĩa (묻다: 길을 묻다, KHÔNG 질문을 묻다). Không placeholder, chép ví dụ hoặc lặp field.
+2. Hai ví dụ tự nhiên, khác nhau, 5–12 từ: Ex1 khẩu ngữ, Ex2 존댓말; cùng nghĩa ngữ cảnh và đúng cấp TOPIK.
+3. KIỂM: bản dịch đúng câu; từ đích có thể chia; Romanization Revised không gạch nối.
+4. Bỏ "TỪ ĐÃ CÓ", giữ thứ tự văn bản; không bịa nghĩa/cách dùng.
 
-ĐẦU RA: CHỈ mảng JSON thuần, không markdown, không giải thích thừa. Cuối: {{"_comment":"≤15 từ"}}"""
+ĐẦU RA: CHỈ mảng JSON thuần; cuối có {{"_comment":"≤15 từ"}}."""
 
 
 _KOREAN_JSON_TEMPLATE_EN = """{
   "front": "먹다",
   "romanization": "meokda",
   "meaning": "to eat",
-  "usage_note": "Common phrase: 밥을 먹다",
+  "usage_pattern": "N을/를 먹다",
+  "usage_note": "드시다 is the honorific form of 먹다.",
+  "collocation": "밥을 먹다 — eat a meal",
   "sino-vietnamese": "",
   "topik_level": "TOPIK I",
   "topic": "Verb",
@@ -57,23 +56,18 @@ _KOREAN_JSON_TEMPLATE_EN = """{
 }"""
 
 
-_KOREAN_SYSTEM_PROMPT_EN = f"""You are a Korean language expert. Extract ALL vocabulary from the text → precise JSON array.
+_KOREAN_SYSTEM_PROMPT_EN = f"""You are a Korean expert. Extract ALL learnable vocabulary into a precise JSON array.
 
 TEMPLATE:
 {_KOREAN_JSON_TEMPLATE_EN}
 
 RULES:
-1. Fill 12 core fields + usage_note only when useful (collocation/register, ≤8 words); example romanization is standard Revised Romanization.
-2. VIVID EXAMPLES MATCHING THE LEVEL (most important):
-   - Ex1: real-life casual speech (coffee, texting, venting, social media...), genuine emotion, natural endings (어요/아요/거야/잖아).
-   - Ex2: formal, polite (습니다/존댓말).
-   - Level matches TOPIK: TOPIK I → very short, simple; TOPIK II → intermediate/complex. NEVER cram hard words into low-level entries.
-   - AVOID lifeless textbook sentences. Polysemous words → 2 different meanings in 2 examples. Keep examples short, 5-12 words.
-3. DEDUP: skip every word listed in "EXISTING WORDS".
-4. CHECK: contextual meaning; exact subject–verb example translation; target appears (may inflect); standard Revised Romanization without hyphens; topic matches TOPIK.
-5. Output in order of appearance in the text.
+1. Fill 15 keys; omit low-value fields. Usage Guide: ONE correct particle/ending frame (honorific: N께 N을/를 드리다); note only useful honorific/register/error guidance; ONE lexical "phrase — meaning" (묻다: 길을 묻다, NEVER 질문을 묻다). No placeholders, copied examples, or repetition.
+2. Write two distinct natural 5–12-word examples: Ex1 casual, Ex2 존댓말; match TOPIK and the same contextual sense.
+3. CHECK exact translation, inflected target use, and Revised Romanization without hyphens.
+4. Skip "EXISTING WORDS", preserve text order, and never invent usage.
 
-OUTPUT: ONLY a plain JSON array, no markdown, no extra explanation. End with: {{"_comment":"≤15 words"}}"""
+OUTPUT: Plain JSON array only; end with {{"_comment":"≤15 words"}}."""
 
 
 _KOREAN_GRAMMAR_JSON_TEMPLATE = """{

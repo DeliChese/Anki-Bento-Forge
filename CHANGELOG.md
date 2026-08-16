@@ -5,7 +5,9 @@
 > Các thay đổi đã merge sau 17.1.0. Chỉ chuyển mục này thành bản phát hành khi `manifest.json`, bằng chứng CI và smoke Anki đã sẵn sàng.
 
 ### ✨ Added
-- V18 Learning Modes bổ sung lựa chọn theo deck giữa `Language` và `Knowledge` mà không đổi deck hoặc migration Note Type Language. Knowledge V1 dùng model riêng, hỗ trợ Basic Q&A/Cloze, Explanation, Source và Tags từ JSON thủ công hoặc AI qua preview có thể chỉnh sửa.
+- Usage Guide V1 cho vocab Nhật/Trung/Hàn/Anh: ba field tùy chọn `Usage Pattern`, `Usage Note`, `Collocation` (tối đa một cụm có nghĩa) hiển thị riêng ở mặt sau và tự ẩn khi trống. Output AI được chuẩn hóa để bỏ placeholder, nội dung lặp, collocation thiếu nghĩa và ví dụ thứ hai trùng; migration chỉ thêm field/template còn thiếu, không tạo card hay lịch SRS mới.
+- Usage Guide quality gate đạt `19/20` (`95%`) trên benchmark model thật bốn ngôn ngữ với chi phí final `$0.002035` và `1.69 giây/card`; smoke runtime Anki 26.5 xác nhận migration/import/update/undo/rollback và render mặt sau trên collection tạm.
+- Mã beta Knowledge được giữ riêng với Language (model Basic Q&A/Cloze, Explanation, Source và Tags) để có thể khôi phục khi cần; beta không hiện trên UI và không thuộc phạm vi phát hành hiện tại.
 - Quality baselines: fixed 20-item English, Japanese, Chinese, and Korean corpora with reviewed run reports. Candidate cards now surface missing English IPA/CJK pronunciation, and Korean headword romanization with a hyphen, before import.
 - Tiếng Anh trở thành ngôn ngữ đích thứ tư: có Note Type từ vựng/ngữ pháp, CEFR A1–C2, IPA, 5 chế độ học, prompt VI/EN, AI preview/chat, lịch sử, Edge TTS giọng UK/US và regression test riêng.
 - V17.2: Nhấp vào thanh chi phí AI ở góc dưới trái để xem lịch sử từng request theo model, thời điểm, thời lượng, loại công việc, input/output token và chi phí. Có lọc theo model/công việc/ngày hoặc khoảng ngày, sắp xếp chi phí và input/output cao–thấp, tổng cho tập dữ liệu đang lọc, cùng thao tác xóa lịch sử. Lịch sử chỉ giữ metadata usage (tối đa 2.000 lượt) trong Anki profile; không giữ prompt, phản hồi, API key hay URL API.
@@ -21,6 +23,7 @@
 - Thêm `DEBUGGING.md`, `COMPATIBILITY.md`, `RELEASE_CHECKLIST.md`, artifact build có SHA-256/SBOM, cùng harness kiểm thử cô lập hai vòng dùng chung với CI.
 
 ### 🔧 Changed
+- Knowledge beta được giữ trong mã nguồn nhưng tắt trên giao diện; profile/deck đã từng chọn Knowledge tự quay về Language mà không ghi đè preference hoặc draft beta. Manifest và tài liệu hiện chỉ công bố workflow ngoại ngữ, không bump `18.0.0`.
 - Mở compatibility manifest từ Anki 2.1.50 đến 26.5, bổ sung metadata cài `.ankiaddon` chuẩn (`package`/point version), và dùng `Collection.update_note()` để add/update/rollback nằm trong undo-aware operation trên Anki hiện tại; vẫn giữ fallback cho runtime legacy.
 - Knowledge dùng prompt/parser/cache version riêng, schema JSON nghiêm ngặt và history namespace riêng. Source thiếu được giữ rỗng thay vì tự suy đoán; các control Language/TTS không xuất hiện trong Knowledge.
 - English vocabulary extraction now keeps a supplied source meaning consistent across the card, both examples, and both translations; the cache prompt version was advanced so stale results are not reused.

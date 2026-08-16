@@ -2,61 +2,61 @@
 
 
 _ENGLISH_JSON_TEMPLATE = """{
-  "front": "take for granted",
-  "pronunciation": "/teɪk fə ˈɡrɑːntɪd/",
-  "meaning": "coi là điều hiển nhiên",
-  "usage_note": "take somebody/something for granted",
-  "cefr_level": "B2",
-  "topic": "Cụm động từ",
-  "example": "Don't take her support for granted.",
-  "example_vn": "Đừng coi sự ủng hộ của cô ấy là điều hiển nhiên.",
-  "example_2": "We often take clean water for granted.",
-  "example_2_vn": "Ta thường xem nước sạch là điều hiển nhiên."
+  "front": "advice",
+  "pronunciation": "/ədˈvaɪs/",
+  "meaning": "lời khuyên",
+  "usage_pattern": "advice on + N / a piece of advice",
+  "usage_note": "Không đếm được; không dùng an advice.",
+  "collocation": "seek advice — xin lời khuyên",
+  "cefr_level": "B1",
+  "topic": "Danh từ",
+  "example": "She gave me useful advice on studying.",
+  "example_vn": "Cô ấy cho tôi lời khuyên hữu ích về việc học.",
+  "example_2": "You should seek advice from a professional.",
+  "example_2_vn": "Bạn nên xin lời khuyên từ một chuyên gia."
 }"""
 
 
-_ENGLISH_SYSTEM_PROMPT = f"""Bạn là chuyên gia tiếng Anh. Trích TẤT CẢ từ/cụm từ đáng học trong văn bản thành mảng JSON chính xác.
+_ENGLISH_SYSTEM_PROMPT = f"""Bạn là chuyên gia tiếng Anh. Trích TẤT CẢ từ/cụm đáng học → mảng JSON chính xác.
 
 MẪU:
 {_ENGLISH_JSON_TEMPLATE}
 
 LUẬT:
-1. front là dạng từ điển/cụm cố định; pronunciation là IPA Anh-Anh. Đủ 10 trường; thiếu → "".
-2. Mỗi entry giữ MỘT nghĩa đúng ngữ cảnh và một từ loại; cả hai ví dụ phải dùng đúng nghĩa đó. Không có câu nguồn → chọn một nghĩa học phổ biến, tuyệt đối không đổi nghĩa giữa hai ví dụ. usage_note chỉ ghi collocation, giới từ hoặc register giúp tránh dùng sai (≤10 từ).
-3. Gán CEFR A1–C2 theo nghĩa/cách dùng, không theo độ khó câu nguồn; topic ngắn và cụ thể.
-4. Hai ví dụ tự nhiên, khác ngữ cảnh, 5–12 từ; đúng collocation/register và CEFR. Từ đa nghĩa chỉ tách khi văn bản dùng nhiều nghĩa.
-5. Không bịa nghĩa, sắc thái hay cụm đi kèm. Bỏ tên riêng, số, từ chức năng vô ích và mục trong "EXISTING WORDS"; giữ thứ tự xuất hiện.
+1. Đủ 12 key; lemma + IPA Anh-Anh (granted /ˈɡrɑːntɪd/, không /ˈɡræntɪd/); field vô ích = "". Giữ MỘT nghĩa đúng ngữ cảnh/từ loại; cả hai ví dụ phải dùng đúng nghĩa đó, tuyệt đối không đổi nghĩa giữa hai ví dụ.
+2. Usage Guide: MỘT frame; note chỉ register/nuance/countability/lỗi, không lặp frame; MỘT collocation từ vựng như depend heavily on/seek advice/genuinely interested. Front đã là fixed phrase thì collocation=""; take someone for granted chỉ là điền khe, KHÔNG phải collocation. Không placeholder/lặp.
+3. Hai ví dụ khác nhau, tự nhiên, 5–12 từ, đúng collocation/register và CEFR của sense. Bỏ "EXISTING WORDS"; không bịa cách dùng.
 
-ĐẦU RA: Chỉ mảng JSON thuần; không markdown, không giải thích. Cuối mảng có {{"_comment":"≤15 từ"}}."""
+ĐẦU RA: Chỉ mảng JSON thuần; cuối có {{"_comment":"≤15 từ"}}."""
 
 
 _ENGLISH_JSON_TEMPLATE_EN = """{
-  "front": "take for granted",
-  "pronunciation": "/teɪk fə ˈɡrɑːntɪd/",
-  "meaning": "to fail to appreciate something because it seems permanent",
-  "usage_note": "take somebody/something for granted",
-  "cefr_level": "B2",
-  "topic": "Verb phrase",
-  "example": "Don't take her support for granted.",
-  "example_vn": "Do not assume her support will always be there.",
-  "example_2": "We often take clean water for granted.",
-  "example_2_vn": "We often fail to appreciate access to clean water."
+  "front": "advice",
+  "pronunciation": "/ədˈvaɪs/",
+  "meaning": "guidance about what somebody should do",
+  "usage_pattern": "advice on + N / a piece of advice",
+  "usage_note": "Uncountable; never use an advice.",
+  "collocation": "seek advice — ask for guidance",
+  "cefr_level": "B1",
+  "topic": "Noun",
+  "example": "She gave me useful advice on studying.",
+  "example_vn": "She gave me useful guidance about studying.",
+  "example_2": "You should seek advice from a professional.",
+  "example_2_vn": "You should ask a professional for guidance."
 }"""
 
 
-_ENGLISH_SYSTEM_PROMPT_EN = f"""You are an English language expert. Extract ALL learnable words and fixed phrases from the text into a precise JSON array.
+_ENGLISH_SYSTEM_PROMPT_EN = f"""You are an English language expert. Extract ALL learnable words/fixed phrases into a precise JSON array.
 
 TEMPLATE:
 {_ENGLISH_JSON_TEMPLATE_EN}
 
 RULES:
-1. front is the dictionary form/fixed phrase; pronunciation is consistent British IPA. Fill all 10 fields; missing → "".
-2. Keep one sense and part of speech used in context; both examples must use that same sense. With no source sentence, choose one common learner sense and never switch senses between examples. Add usage_note only for a useful collocation, preposition, or register warning (≤10 words).
-3. Assign CEFR A1–C2 to this sense/use, not the source sentence; keep topic short and specific.
-4. Write two natural, distinct 5–12-word examples using correct collocation/register at the CEFR level. Split polysemy only when the text uses distinct senses.
-5. Never invent a sense, nuance, or collocation. Skip proper names, numbers, low-value function words, and "EXISTING WORDS"; preserve source order.
+1. Fill 12 keys; dictionary form + British IPA (granted /ˈɡrɑːntɪd/, never /ˈɡræntɪd/); omit low-value fields. Keep ONE sense/part of speech across both examples.
+2. Usage Guide: ONE frame; note only register/nuance/countability/error and never repeats the frame; ONE lexical collocation such as depend heavily on/seek advice/genuinely interested. If front is already a fixed phrase, collocation=""; take someone for granted is only a slot filler. No placeholders/repetition.
+3. Write two distinct natural 5–12-word examples at this sense's CEFR. Skip "EXISTING WORDS" and never invent usage.
 
-OUTPUT: Plain JSON array only; no markdown or commentary. End with {{"_comment":"≤15 words"}}."""
+OUTPUT: Plain JSON array only; end with {{"_comment":"≤15 words"}}."""
 
 
 _ENGLISH_GRAMMAR_JSON_TEMPLATE = """{

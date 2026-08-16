@@ -7,7 +7,7 @@ LANG_CONFIG = {
     "model_name": "AnkiTool English V17.0 (Add-on)",
     "old_model_names": [],
     "all_fields": [
-        "Front", "Pronunciation", "Meaning", "Usage Note", "CEFR Level", "Topic",
+        "Front", "Pronunciation", "Meaning", "Usage Pattern", "Usage Note", "Collocation", "CEFR Level", "Topic",
         "Example", "Example Fill", "Example in Vietnamese", "Vocab Audio", "Example Audio",
         "Example2", "Example2 Fill", "Example2 in Vietnamese", "Example2 Audio",
         "Image", "SRS Independent",
@@ -18,7 +18,9 @@ LANG_CONFIG = {
         "pronunciation": "Pronunciation",
         "ipa": "Pronunciation",
         "meaning": "Meaning",
+        "usage_pattern": "Usage Pattern",
         "usage_note": "Usage Note",
+        "collocation": "Collocation",
         "cefr_level": "CEFR Level",
         "cefrlevel": "CEFR Level",
         "level": "CEFR Level",

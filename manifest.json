@@ -5,21 +5,21 @@
   "human_version": "17.2.0",
   "min_point_version": 50,
   "max_point_version": 260500,
-  "description": "Bento Forge — Language and Knowledge card factory for Anki with AI extraction, safe preview/import, optional Language TTS, and interactive learning templates.",
+  "description": "Bento Forge — Language card factory for Anki with AI extraction, safe preview/import, optional TTS, and interactive learning templates.",
   "author": "AnkiTool Team / Bento Station AIOS",
   "license": "MIT",
   "anki": {
     "min_version": "2.1.50",
     "max_version": "26.5"
   },
-  "keywords": ["japanese", "chinese", "korean", "english", "vocabulary", "knowledge", "ai", "tts", "language-learning"],
+  "keywords": ["japanese", "chinese", "korean", "english", "vocabulary", "ai", "tts", "language-learning"],
   "categories": ["learning", "import", "templates"],
   "dependencies": {
     "python": ">=3.9",
     "packages": ["edge-tts", "gtts"]
   },
   "config": {
-    "learning_modes": ["language", "knowledge"],
+    "learning_modes": ["language"],
     "ai_providers": ["openai", "deepseek", "ollama", "lmstudio", "openrouter"],
     "languages": ["japanese", "chinese", "korean", "english"],
     "tts_engines": ["edge-tts", "gtts", "voicevox"],

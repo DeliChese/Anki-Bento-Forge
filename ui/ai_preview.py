@@ -97,17 +97,21 @@ def show_ai_preview_dialog(parent, vocab_list, lang, ai_text_input, ai_instructi
             columns = ["pattern", "reading", "meaning", "jlptlevel", "topic", "usage",
                        "explanation", "example", "example_vn", "example_2", "example_2_vn"]
     elif lang == "chinese":
-        columns = ["simplified", "traditional", "pinyin", "meaning", "sino_vietnamese",
+        columns = ["simplified", "traditional", "pinyin", "meaning",
+                   "usage_pattern", "usage_note", "collocation", "sino_vietnamese",
                    "hsk_level", "topic", "example", "example_vn", "example_2", "example_2_vn"]
     elif lang == "korean":
-        columns = ["front", "romanization", "meaning", "sino_vietnamese",
+        columns = ["front", "romanization", "meaning",
+                   "usage_pattern", "usage_note", "collocation", "sino_vietnamese",
                    "topik_level", "topic", "example", "example_romanization", "example_vn",
                    "example_2", "example_2_romanization", "example_2_vn"]
     elif lang == "english":
-        columns = ["front", "pronunciation", "meaning", "usage_note", "cefr_level", "topic",
+        columns = ["front", "pronunciation", "meaning",
+                   "usage_pattern", "usage_note", "collocation", "cefr_level", "topic",
                    "example", "example_vn", "example_2", "example_2_vn"]
     else:
-        columns = ["front", "furigana", "meaning", "sino-vietnamese",
+        columns = ["front", "furigana", "meaning",
+                   "usage_pattern", "usage_note", "collocation", "sino-vietnamese",
                    "jlptlevel", "topic", "example", "example_vn", "example_2", "example_2_vn"]
 
     table.setColumnCount(len(columns))

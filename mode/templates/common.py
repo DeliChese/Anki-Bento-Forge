@@ -4,6 +4,23 @@ This module owns the language-specific Anki Mustache/HTML templates.
 """
 
 from ..shared import _GRAMMAR_AI_JS
+
+
+def _usage_guide_block() -> str:
+    """Optional Usage Guide V1 content, visible on answer sides only."""
+    return (
+        '{{#Usage Pattern}}<div class="es usage-guide"><div class="esl">Mẫu dùng</div>'
+        '<div class="ec"><div class="ev" style="font-style:normal;color:var(--text);">'
+        '{{Usage Pattern}}</div></div></div>{{/Usage Pattern}}'
+        '{{#Usage Note}}<div class="es usage-guide"><div class="esl">Lưu ý dùng</div>'
+        '<div class="ec"><div class="ev" style="font-style:normal;color:var(--text);">'
+        '{{Usage Note}}</div></div></div>{{/Usage Note}}'
+        '{{#Collocation}}<div class="es usage-guide"><div class="esl">Cụm đi kèm</div>'
+        '<div class="ec"><div class="ev" style="font-style:normal;color:var(--text);">'
+        '{{Collocation}}</div></div></div>{{/Collocation}}'
+    )
+
+
 def _grammar_ai_panel(lang: str) -> str:
     """Panel 'Luyện dịch AI' cho thẻ ngữ pháp — AI sinh câu (streaming) + tự chấm điểm."""
     return (
@@ -100,7 +117,8 @@ def _combo_answer_common():
         '{{#Sino-Vietnamese}}<span class="sv">{{Sino-Vietnamese}}</span>{{/Sino-Vietnamese}}'
         '<span class="au">{{Vocab Audio}}</span>'
         '</div>'
-        '<div class="es"><div class="esl">Ví dụ</div>'
+        + _usage_guide_block()
+        + '<div class="es"><div class="esl">Ví dụ</div>'
         '{{#Example}}<div class="ec"><div class="en">VÍ DỤ 1</div>'
         '<div class="ej">{{Example}}</div><div class="ea">{{Example Audio}}</div>'
         '<div class="ev">{{Example in Vietnamese}}</div></div>{{/Example}}'
@@ -119,7 +137,8 @@ def _combo_answer_common_zh():
         '{{#Sino-Vietnamese}}<span class="sv">{{Sino-Vietnamese}}</span>{{/Sino-Vietnamese}}'
         '<span class="au">{{Vocab Audio}}</span>'
         '</div>'
-        '<div class="es"><div class="esl">Ví dụ</div>'
+        + _usage_guide_block()
+        + '<div class="es"><div class="esl">Ví dụ</div>'
         '{{#Example}}<div class="ec"><div class="en">VÍ DỤ 1</div>'
         '<div class="ej">{{Example}}</div>'
         '{{#Example Pinyin}}<div class="ep">{{Example Pinyin}}</div>{{/Example Pinyin}}'

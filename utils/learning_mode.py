@@ -16,6 +16,12 @@ LEARNING_MODE_CONFIG_KEY = "bento_forge_learning_mode_by_deck"
 LEARNING_MODES = ("language", "knowledge")
 LANGUAGE_KINDS = ("vocab", "grammar")
 
+# Knowledge is retained as a private beta, but deliberately has no UI entry
+# while Bento Forge focuses on the language-learning workflow.  Keep the
+# persisted mode and its domain code intact so a future opt-in can reactivate
+# it without migrating or discarding a user's existing Knowledge drafts.
+KNOWLEDGE_MODE_ENABLED = False
+
 
 @dataclass(frozen=True)
 class LearningModeSpec:
@@ -30,6 +36,19 @@ LEARNING_MODE_REGISTRY = {
     "language": LearningModeSpec("language", uses_language=True, kinds=LANGUAGE_KINDS),
     "knowledge": LearningModeSpec("knowledge", uses_language=False, kinds=()),
 }
+
+
+def is_learning_mode_available(mode: object) -> bool:
+    """Whether a recognized mode may be selected from the current UI.
+
+    Availability is intentionally separate from normalization/persistence:
+    old deck configuration containing ``knowledge`` remains readable while
+    the beta is dormant.
+    """
+    normalized = normalize_learning_mode(mode)
+    return normalized == "language" or (
+        normalized == "knowledge" and KNOWLEDGE_MODE_ENABLED
+    )
 
 
 def normalize_learning_mode(value: object) -> str:

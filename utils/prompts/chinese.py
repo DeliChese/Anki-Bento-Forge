@@ -9,7 +9,9 @@ _CHINESE_JSON_TEMPLATE = """{
   "traditional": "學習",
   "pinyin": "xuéxí",
   "meaning": "học tập",
-  "usage_note": "Thường đi với 中文",
+  "usage_pattern": "在 + nơi chốn + 学习 + nội dung",
+  "usage_note": "Không dùng 学习 để chỉ biết một người.",
+  "collocation": "学习中文 — học tiếng Trung",
   "sino_vietnamese": "học tập",
   "hsk_level": "HSK1",
   "topic": "Động từ",
@@ -22,23 +24,18 @@ _CHINESE_JSON_TEMPLATE = """{
 }"""
 
 
-_CHINESE_SYSTEM_PROMPT = f"""Bạn là chuyên gia tiếng Trung. Trích xuất TẤT CẢ từ vựng từ văn bản → mảng JSON chính xác.
+_CHINESE_SYSTEM_PROMPT = f"""Bạn là chuyên gia tiếng Trung. Trích TẤT CẢ từ vựng đáng học → mảng JSON chính xác.
 
 MẪU:
 {_CHINESE_JSON_TEMPLATE}
 
 LUẬT:
-1. Đủ 13 trường; usage_note chỉ khi hữu ích (≤8 từ); pinyin có dấu thanh.
-2. VÍ DỤ CÓ HỒN + ĐÚNG CẤP ĐỘ (quan trọng nhất):
-   - Ex1: khẩu ngữ đời thực (cà phê, nhắn tin, than thở, MXH...), cảm xúc thật.
-   - Ex2: trang trọng, lịch sự, formal (công việc, hội họp, thư từ).
-   - Cấp độ ví dụ khớp HSK: HSK1 → câu cực ngắn; HSK2-3 → đơn giản; HSK4 → trung bình; HSK5-6 → phức tạp, thành ngữ. TUYỆT ĐỐI không nhồi từ khó vào từ cấp thấp.
-   - Tránh câu SGK; từ đa nghĩa dùng 2 nghĩa; ví dụ 5-12 từ.
-3. Bỏ qua mọi từ trong "TỪ ĐÃ CÓ".
-4. KIỂM: giản/thể cùng từ; pinyin dấu thanh; nghĩa đúng ngữ cảnh; example_vn đủ chủ-vị, đúng câu; Ex chứa từ đích; topic đúng HSK.
-5. Giữ thứ tự văn bản.
+1. Đủ 16 key; field vô ích = "". Usage Guide: pattern là MỘT khung trật tự/介词/bổ ngữ; note phải có căn cứ, không tuyệt đối hóa kiểu “觉得 không dùng trang trọng” hay “了解 chỉ hiểu sâu”; collocation là MỘT cụm từ vựng như 了解情况/交通方便/把握机会, không chỉ 很 + tính từ. Không placeholder, chép ví dụ hoặc lặp field.
+2. Hai ví dụ tự nhiên, khác nhau, 5–12 từ: Ex1 khẩu ngữ, Ex2 formal; cùng nghĩa ngữ cảnh và đúng cấp HSK.
+3. KIỂM: giản/thể cùng từ; pinyin dấu thanh; bản dịch đúng câu; từ đích có trong ví dụ.
+4. Bỏ "TỪ ĐÃ CÓ", giữ thứ tự văn bản; không bịa nghĩa/cách dùng.
 
-ĐẦU RA: CHỈ mảng JSON thuần, không markdown, không giải thích thừa. Cuối: {{"_comment":"≤15 từ"}}"""
+ĐẦU RA: CHỈ mảng JSON thuần; cuối có {{"_comment":"≤15 từ"}}."""
 
 
 _CHINESE_JSON_TEMPLATE_EN = """{
@@ -46,7 +43,9 @@ _CHINESE_JSON_TEMPLATE_EN = """{
   "traditional": "學習",
   "pinyin": "xuéxí",
   "meaning": "to study",
-  "usage_note": "Often used with 中文",
+  "usage_pattern": "在 + place + 学习 + subject",
+  "usage_note": "Do not use 学习 to mean know a person.",
+  "collocation": "学习中文 — study Chinese",
   "sino-vietnamese": "",
   "hsk_level": "HSK1",
   "topic": "Verb",
@@ -59,23 +58,18 @@ _CHINESE_JSON_TEMPLATE_EN = """{
 }"""
 
 
-_CHINESE_SYSTEM_PROMPT_EN = f"""You are a Chinese language expert. Extract ALL vocabulary from the text → precise JSON array.
+_CHINESE_SYSTEM_PROMPT_EN = f"""You are a Chinese expert. Extract ALL learnable vocabulary into a precise JSON array.
 
 TEMPLATE:
 {_CHINESE_JSON_TEMPLATE_EN}
 
 RULES:
-1. Fill 13 fields; usage_note only when useful (≤8 words); all pinyin is tone-marked.
-2. VIVID EXAMPLES MATCHING THE LEVEL (most important):
-   - Ex1: real-life casual speech (coffee, texting, venting, social media...), genuine emotion.
-   - Ex2: formal, polite (work, meetings, letters).
-   - Level matches HSK: HSK1 → very short; HSK2-3 → simple; HSK4 → intermediate; HSK5-6 → complex, idioms. NEVER cram hard words into low-level entries.
-   - Avoid textbook sentences; use two senses for polysemy; examples 5-12 words.
-3. Skip every word in "EXISTING WORDS".
-4. CHECK: matching simplified/traditional pair; tone-marked pinyin; contextual meaning; exact subject–verb example translation; target appears in Ex; topic matches HSK.
-5. Keep text order.
+1. Fill 16 keys; omit low-value fields. Usage Guide: ONE word-order/coverb/complement frame; evidence-based note without absolutes such as “觉得 is never formal” or “了解 is only deep”; ONE lexical collocation such as 了解情况/交通方便/把握机会, not merely 很 + adjective. No placeholders, copied examples, or repetition.
+2. Write two distinct natural 5–12-word examples: Ex1 casual, Ex2 formal; match HSK and the same contextual sense.
+3. CHECK matching simplified/traditional, tone-marked pinyin, exact translation, and target in each example.
+4. Skip "EXISTING WORDS", preserve text order, and never invent usage.
 
-OUTPUT: ONLY a plain JSON array, no markdown, no extra explanation. End with: {{"_comment":"≤15 words"}}"""
+OUTPUT: Plain JSON array only; end with {{"_comment":"≤15 words"}}."""
 
 
 _CHINESE_GRAMMAR_JSON_TEMPLATE = """{

@@ -1,5 +1,7 @@
 # V18 Learning Modes — Smoke trên profile Anki 26.5 tách biệt
 
+> **Dormant beta:** Không chạy checklist này như release gate hiện tại. Knowledge đã tắt khỏi giao diện để tập trung Language; chỉ dùng lại khi chủ dự án chủ động bật beta.
+
 Chỉ chạy checklist này trên **profile Anki 26.5 mới hoặc bản sao đã backup**.
 Không dùng profile học chính. Đây là gate GUI bổ sung cho smoke headless đã đạt;
 test mock/headless không thay thế thao tác thật trong Anki.

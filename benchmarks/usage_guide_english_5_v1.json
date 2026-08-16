@@ -1,0 +1,13 @@
+{
+  "id": "usage_guide_english_5_v1",
+  "language": "english",
+  "grammar": false,
+  "expected_terms": ["depend", "advice", "interested", "say", "take for granted"],
+  "source_items": [
+    {"front": "depend", "meaning": "phụ thuộc"},
+    {"front": "advice", "meaning": "lời khuyên"},
+    {"front": "interested", "meaning": "quan tâm; hứng thú"},
+    {"front": "say", "meaning": "nói"},
+    {"front": "take for granted", "meaning": "coi là điều hiển nhiên"}
+  ]
+}

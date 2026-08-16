@@ -13,13 +13,13 @@ Version và phạm vi Anki lấy từ [`manifest.json`](manifest.json); tài li�
 
 ## ✨ Tính năng
 
-### 🧭 Learning Modes (V18 release candidate)
-| Mode | Phạm vi |
-|------|---------|
-| 🌐 **Language** | Giữ nguyên Từ vựng/Ngữ pháp cho Nhật, Trung, Hàn và Anh, gồm prompt/model hiện hữu, TTS và các chế độ học tương tác. |
-| 🧠 **Knowledge** | Model riêng cho Basic Q&A và Cloze, có Explanation/Source/Tags; JSON và AI đều qua schema nghiêm ngặt, preview chỉnh sửa, duplicate đúng deck/model, import/update/history/undo và không tạo TTS. |
+### 🌐 Language learning
 
-Mode được người dùng chọn và lưu theo deck; Bento Forge không suy đoán mode từ nội dung. Chuyển qua lại giữ draft riêng và không tự migrate note Language. Bản phát hành V18 chỉ được đóng version sau khi hoàn tất [smoke checklist trên profile backup](work_items/V18_SMOKE_PROFILE.md).
+Bento Forge tập trung vào Từ vựng/Ngữ pháp cho Nhật, Trung, Hàn và Anh, gồm AI extract, preview/import an toàn, TTS và các chế độ học tương tác.
+
+### 🧪 Knowledge beta (đang tắt)
+
+Knowledge Basic/Cloze được giữ trong mã nguồn như beta riêng tư để không mất schema, model hay draft đã có, nhưng không hiển thị hay chọn được trên giao diện và không phải tính năng phát hành. Workflow đang hỗ trợ là Language.
 
 ### 🇯🇵🇨🇳🇰🇷🇬🇧 Đa ngôn ngữ (4 ngôn ngữ)
 | Tính năng | Mô tả |

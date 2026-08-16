@@ -4,7 +4,7 @@ This module owns the language-specific Anki Mustache/HTML templates.
 """
 
 from ..shared import _WB_JS_BODY, WB_POOLS, _COMBO_MODE_JS
-from .common import _grammar_ai_panel, _srs_scope_banner
+from .common import _grammar_ai_panel, _srs_scope_banner, _usage_guide_block
 def _combo_mode_bar_korean():
     return (
         '<div class="mode-bar" id="combo-mode-bar">'
@@ -36,7 +36,8 @@ def _combo_answer_common_ko():
         '{{#Sino-Vietnamese}}<span class="sv">{{Sino-Vietnamese}}</span>{{/Sino-Vietnamese}}'
         '<span class="au">{{Vocab Audio}}</span>'
         '</div>'
-        '<div class="es"><div class="esl">Ví dụ</div>'
+        + _usage_guide_block()
+        + '<div class="es"><div class="esl">Ví dụ</div>'
         '{{#Example}}<div class="ec"><div class="en">VÍ DỤ 1</div>'
         '<div class="ej">{{Example}}</div>'
         '{{#Example Romanization}}<div class="ep">{{Example Romanization}}</div>{{/Example Romanization}}'

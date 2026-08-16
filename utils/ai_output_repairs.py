@@ -5,23 +5,36 @@ from __future__ import annotations
 import re
 from collections.abc import Mapping, Sequence
 
+from .usage_guide import normalize_usage_guide_cards
+
 
 _ASK_TRANSLATION_RE = re.compile(
     r"(?<!câu )\bhỏi\b|\bask(?:ed|ing|s)?\b", re.IGNORECASE
 )
-_KIKU_QUESTION_ERROR = "質問を聞きました"
-_KIKU_QUESTION_REPAIR = "質問しました"
+_KIKU_QUESTION_RE = re.compile(r"質問を聞(いて|いた|きました|きます|く)")
+_KIKU_QUESTION_REPAIRS = {
+    "いて": "して",
+    "いた": "した",
+    "きました": "しました",
+    "きます": "します",
+    "く": "する",
+}
+
+
+def _repair_kiku_question(match: re.Match) -> str:
+    return "質問" + _KIKU_QUESTION_REPAIRS[match.group(1)]
 
 
 def repair_vocabulary_cards(cards: Sequence[object], lang: str) -> list[object]:
-    """Repair the one Japanese ``聞く`` construction contradicted by its translation.
+    """Repair narrow Japanese ``聞く`` constructions contradicted by translation.
 
-    ``質問を聞きました`` means to hear a question; if its paired Vietnamese or
-    English translation says "ask", the intended, natural construction is
-    ``質問しました``.  No other wording, language, or card field is changed.
+    ``質問を聞く`` means to hear a question; if its paired Vietnamese or English
+    translation says "ask", the intended construction is ``質問する`` with the
+    same supported inflection. Other wording/languages remain unchanged.
     """
+    cards = normalize_usage_guide_cards(cards)
     if lang != "japanese":
-        return list(cards)
+        return cards
 
     repaired: list[object] = []
     for card in cards:
@@ -35,9 +48,9 @@ def repair_vocabulary_cards(cards: Sequence[object], lang: str) -> list[object]:
         ):
             example = str(updated.get(example_field) or "")
             translation = str(updated.get(translation_field) or "")
-            if _KIKU_QUESTION_ERROR in example and _ASK_TRANSLATION_RE.search(translation):
-                updated[example_field] = example.replace(
-                    _KIKU_QUESTION_ERROR, _KIKU_QUESTION_REPAIR
+            if _KIKU_QUESTION_RE.search(example) and _ASK_TRANSLATION_RE.search(translation):
+                updated[example_field] = _KIKU_QUESTION_RE.sub(
+                    _repair_kiku_question, example
                 )
         repaired.append(updated)
     return repaired

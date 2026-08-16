@@ -6,7 +6,7 @@ LANG_CONFIG = {
     "model_name": "AnkiTool Korean V17.0 (Add-on)",
     "old_model_names": [],
     "all_fields": [
-        "Front", "Romanization", "Meaning", "Usage Note", "Sino-Vietnamese",
+        "Front", "Romanization", "Meaning", "Usage Pattern", "Usage Note", "Collocation", "Sino-Vietnamese",
         "TOPIK Level", "Topic",
         "Example", "Example Fill", "Example Romanization", "Example in Vietnamese", "Vocab Audio", "Example Audio",
         "Example2", "Example2 Fill", "Example2 Romanization", "Example2 in Vietnamese", "Example2 Audio",
@@ -17,7 +17,9 @@ LANG_CONFIG = {
         "romanization":         "Romanization",
         "romaja":               "Romanization",
         "meaning":              "Meaning",
+        "usage_pattern":        "Usage Pattern",
         "usage_note":           "Usage Note",
+        "collocation":          "Collocation",
         "sino_vietnamese":      "Sino-Vietnamese",
         "sino-vietnamese":      "Sino-Vietnamese",
         "sinovietnamese":       "Sino-Vietnamese",

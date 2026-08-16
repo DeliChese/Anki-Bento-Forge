@@ -208,7 +208,7 @@ class TestOverrideLifecycle:
         grammar = pc.get_system_prompt("english", "grammar")
         assert all(rule in vocab for rule in ("nghĩa đúng ngữ cảnh", "CEFR", "collocation/register"))
         assert all(rule in grammar for rule in ("form–meaning pair", "TỐI ĐA 2 câu", "<b>…</b>"))
-        assert len(json.loads(pc.get_json_template("english", "vocab"))) == 10
+        assert len(json.loads(pc.get_json_template("english", "vocab"))) == 12
         assert len(json.loads(pc.get_json_template("english", "grammar"))) == 11
 
 

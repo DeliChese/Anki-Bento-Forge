@@ -32,6 +32,7 @@ from utils.factory_state import FactoryStateStore
 from utils.learning_mode import (
     DEFAULT_LEARNING_MODE,
     get_learning_mode,
+    is_learning_mode_available,
     normalize_learning_mode,
     set_learning_mode,
 )
@@ -201,7 +202,15 @@ class AnkiSmartFactory(QDialog):
         self._ui_ready = False
         self._setup_ui()
         self._ui_ready = True
-        self._learning_mode = self._deck_learning_mode()
+        stored_learning_mode = self._deck_learning_mode()
+        # A dormant beta must not reopen merely because an older deck saved
+        # its selection.  Do not persist this fallback: the old selection and
+        # its isolated draft remain available if the beta is re-enabled.
+        self._learning_mode = (
+            stored_learning_mode
+            if is_learning_mode_available(stored_learning_mode)
+            else DEFAULT_LEARNING_MODE
+        )
         self._apply_learning_mode_ui()
         if self._learning_mode == "language":
             self._on_lang_changed()
@@ -1334,9 +1343,18 @@ class AnkiSmartFactory(QDialog):
         """Show only controls that apply to the selected product-level mode."""
         if not hasattr(self, "btn_learning_language"):
             return
+        knowledge_available = is_learning_mode_available("knowledge")
+        if not knowledge_available and self._learning_mode != DEFAULT_LEARNING_MODE:
+            # Defensive boundary for callers/tests that bypass __init__.
+            # This intentionally leaves the per-deck preference untouched.
+            self._learning_mode = DEFAULT_LEARNING_MODE
         is_language = self._learning_mode == "language"
         self.btn_learning_language.setChecked(is_language)
         self.btn_learning_knowledge.setChecked(not is_language)
+        self.btn_learning_knowledge.setVisible(knowledge_available)
+        if hasattr(self, "learning_mode_grp"):
+            # A one-option selector is noise in the focused Language UI.
+            self.learning_mode_grp.setVisible(knowledge_available)
         # These controls encode language, level, audio or Language model policy.
         for widget in (self.lang_grp, self.mode_grp, self.voice_grp):
             widget.setVisible(is_language)
@@ -1378,6 +1396,8 @@ class AnkiSmartFactory(QDialog):
     def _select_learning_mode(self, mode, *, persist=True, announce=True):
         """Switch modes without invoking Language extraction or model lifecycle."""
         mode = normalize_learning_mode(mode)
+        if not is_learning_mode_available(mode):
+            return
         if mode == self._learning_mode:
             self._apply_learning_mode_ui()
             return

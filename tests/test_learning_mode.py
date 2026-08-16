@@ -6,6 +6,7 @@ from utils.learning_mode import (
     LEARNING_MODE_CONFIG_KEY,
     LEARNING_MODE_REGISTRY,
     get_learning_mode,
+    is_learning_mode_available,
     set_learning_mode,
 )
 from utils.i18n import t
@@ -25,6 +26,12 @@ def test_learning_mode_defaults_to_language_and_persists_per_deck():
     assert get_learning_mode(conf, 10) == "knowledge"
     assert get_learning_mode(conf, 20) == DEFAULT_LEARNING_MODE
     assert conf[LEARNING_MODE_CONFIG_KEY] == {"10": "knowledge"}
+
+
+def test_knowledge_beta_is_retained_but_not_available_in_the_ui():
+    assert get_learning_mode({LEARNING_MODE_CONFIG_KEY: {"10": "knowledge"}}, 10) == "knowledge"
+    assert is_learning_mode_available("language") is True
+    assert is_learning_mode_available("knowledge") is False
 
 
 def test_learning_mode_invalid_or_legacy_config_preserves_language_default():

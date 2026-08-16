@@ -1,7 +1,7 @@
 """English card templates."""
 
 from ..shared import _WB_JS_BODY, WB_POOLS, _COMBO_MODE_JS
-from .common import _grammar_ai_panel, _srs_scope_banner
+from .common import _grammar_ai_panel, _srs_scope_banner, _usage_guide_block
 
 
 def _head(topic="{{Topic}}"):
@@ -34,9 +34,9 @@ def _combo_data():
 def _answer():
     return (
         '<div class="ir"><span class="mn">{{Meaning}}</span>'
-        '{{#Usage Note}}<span class="sv">{{Usage Note}}</span>{{/Usage Note}}'
         '<span class="au">{{Vocab Audio}}</span></div>'
-        '<div class="es"><div class="esl">Ví dụ</div>'
+        + _usage_guide_block()
+        + '<div class="es"><div class="esl">Ví dụ</div>'
         '{{#Example}}<div class="ec"><div class="en">VÍ DỤ 1</div><div class="ej">{{Example}}</div>'
         '<div class="ea">{{Example Audio}}</div><div class="ev">{{Example in Vietnamese}}</div></div>{{/Example}}'
         '{{#Example2}}<div class="ec"><div class="en">VÍ DỤ 2</div><div class="ej">{{Example2}}</div>'

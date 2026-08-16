@@ -1,0 +1,42 @@
+{
+  "reviewed_on": "2026-08-16",
+  "model": "deepseek-v4-flash@disabled",
+  "final_run_sources": {
+    "japanese": "benchmarks/runs/p1-05-r2/japanese",
+    "chinese": "benchmarks/runs/p1-05-r2/chinese",
+    "korean": "benchmarks/runs/p1-05-r2/korean",
+    "english": "benchmarks/runs/p1-05-r5/english"
+  },
+  "final_cost_usd": 0.002035,
+  "final_seconds_per_card": 1.6857,
+  "required_pass_rate": 0.9,
+  "items": [
+    {"language": "japanese", "front": "聞く", "passed": true},
+    {"language": "japanese", "front": "食べる", "passed": true},
+    {"language": "japanese", "front": "約束", "passed": true, "note": "Exact pattern/collocation repetition is removed by final normalization."},
+    {"language": "japanese", "front": "気になる", "passed": true},
+    {"language": "japanese", "front": "伺う", "passed": true},
+
+    {"language": "chinese", "front": "觉得", "passed": true},
+    {"language": "chinese", "front": "了解", "passed": true},
+    {"language": "chinese", "front": "方便", "passed": true},
+    {"language": "chinese", "front": "习惯", "passed": true},
+    {"language": "chinese", "front": "把握", "passed": true},
+
+    {"language": "korean", "front": "먹다", "passed": true},
+    {"language": "korean", "front": "묻다", "passed": true},
+    {"language": "korean", "front": "익숙하다", "passed": true},
+    {"language": "korean", "front": "드리다", "passed": true},
+    {"language": "korean", "front": "약속하다", "passed": false, "note": "Usage note about time/place nouns is too broad; preview review should rewrite or omit it."},
+
+    {"language": "english", "front": "depend", "passed": true},
+    {"language": "english", "front": "advice", "passed": true},
+    {"language": "english", "front": "interested", "passed": true},
+    {"language": "english", "front": "say", "passed": true},
+    {"language": "english", "front": "take for granted", "passed": true, "note": "Final run uses British /ɡrɑːntɪd/ and omits a slot-filled pseudo-collocation."}
+  ],
+  "passed_items": 19,
+  "total_items": 20,
+  "pass_rate": 0.95,
+  "gate_passed": true
+}

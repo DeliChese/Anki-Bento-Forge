@@ -10,7 +10,7 @@ Test:
 import os
 import sys
 import types
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
 _addon_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if _addon_root not in sys.path:
@@ -253,16 +253,28 @@ class TestFactoryState:
         persisted = []
         f._persist_learning_mode = persisted.append
 
-        f.ai_text_input.setPlainText("language input")
-        f._select_learning_mode("knowledge", persist=True, announce=False)
-        f.ai_text_input.setPlainText("knowledge input")
-        f._select_learning_mode("language", persist=True, announce=False)
+        with patch.object(factory_dialog, "is_learning_mode_available", return_value=True):
+            f.ai_text_input.setPlainText("language input")
+            f._select_learning_mode("knowledge", persist=True, announce=False)
+            f.ai_text_input.setPlainText("knowledge input")
+            f._select_learning_mode("language", persist=True, announce=False)
 
         assert f.ai_text_input.toPlainText() == "language input"
         assert persisted == ["knowledge", "language"]
 
+    def test_disabled_knowledge_mode_does_not_replace_language_or_persist(self, tmp_path):
+        f = _make_factory(str(tmp_path / "state.json"))
+        f._select_learning_mode = addon.AnkiSmartFactory._select_learning_mode.__get__(f, addon.AnkiSmartFactory)
+        persisted = []
+        f._persist_learning_mode = persisted.append
 
-def test_knowledge_mode_hides_language_only_controls():
+        f._select_learning_mode("knowledge", persist=True, announce=False)
+
+        assert f._learning_mode == "language"
+        assert persisted == []
+
+
+def test_enabled_knowledge_mode_hides_language_only_controls():
     class Control:
         def __init__(self):
             self.visible = self.enabled = True
@@ -284,7 +296,8 @@ def test_knowledge_mode_hides_language_only_controls():
     ):
         setattr(obj, name, Control())
 
-    addon.AnkiSmartFactory._apply_learning_mode_ui(obj)
+    with patch.object(factory_dialog, "is_learning_mode_available", return_value=True):
+        addon.AnkiSmartFactory._apply_learning_mode_ui(obj)
 
     assert obj.btn_learning_knowledge.checked is True
     assert obj.btn_learning_language.checked is False

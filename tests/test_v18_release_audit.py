@@ -8,25 +8,25 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 
 
-def test_manifest_declares_learning_modes_and_anki_26_5_install_metadata():
+def test_manifest_declares_language_only_ui_and_anki_26_5_install_metadata():
     manifest = json.loads((ROOT / "manifest.json").read_text(encoding="utf-8"))
-    assert manifest["config"]["learning_modes"] == ["language", "knowledge"]
+    assert manifest["config"]["learning_modes"] == ["language"]
     assert manifest["anki"] == {"min_version": "2.1.50", "max_version": "26.5"}
     assert manifest["package"] == "bento_forge"
     assert manifest["min_point_version"] == 50
     assert manifest["max_point_version"] == 260500
 
 
-def test_v18_user_docs_and_pending_release_gate_are_present():
+def test_knowledge_beta_docs_are_dormant_not_a_release_candidate():
     readme = (ROOT / "README.md").read_text(encoding="utf-8")
     changelog = (ROOT / "CHANGELOG.md").read_text(encoding="utf-8")
     checklist = (ROOT / "RELEASE_CHECKLIST.md").read_text(encoding="utf-8")
     smoke = (ROOT / "work_items" / "V18_SMOKE_PROFILE.md").read_text(encoding="utf-8")
 
-    assert "Learning Modes (V18 release candidate)" in readme
-    assert "V18 Learning Modes" in changelog.split("## [V17.1]", 1)[0]
-    assert "V18 release-candidate gate" in checklist
-    assert "manifest.json` từ `17.2.0` sang `18.0.0" in checklist
+    assert "Knowledge beta (đang tắt)" in readme
+    assert "Knowledge beta được giữ trong mã nguồn nhưng tắt trên giao diện" in changelog.split("## [V17.1]", 1)[0]
+    assert "Knowledge beta (không phải release gate)" in checklist
+    assert "không bump `18.0.0`" in checklist
     assert "Undo khôi phục update" in smoke
 
 

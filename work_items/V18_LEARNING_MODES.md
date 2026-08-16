@@ -1,6 +1,6 @@
 # V18 — Learning Modes: Language và Knowledge
 
-**Trạng thái:** `Triển khai hoàn tất, chờ release gate ngoài local` — V18-01…05 hoàn thành; V18-06 đã đạt compatibility audit/headless smoke Anki 26.5 và build local, nhưng còn GUI smoke, CI và kiểm chứng endpoint legacy 2.1.50 trước khi bump `18.0.0`.
+**Trạng thái:** `Beta riêng tư dormant` — mã/schema/model Knowledge được giữ lại, nhưng feature gate tắt và giao diện chỉ mở workflow Language. Không có kế hoạch phát hành `18.0.0` hay hoàn thành release gate cho đến khi chủ dự án chủ động kích hoạt lại beta.
 
 **Mục tiêu:** Bento Forge trở thành công cụ đúc thẻ học chung, bắt đầu bằng hai mode chuyển đổi rõ ràng:
 
@@ -8,6 +8,8 @@
 - `knowledge`: tạo thẻ kiến thức chuyên ngành từ tài liệu hoặc ghi chú, V1 hỗ trợ Q&A, cloze và nguồn tham khảo.
 
 ## Quyết định phạm vi V18
+
+0. Knowledge là beta riêng tư đang tắt. Không hiện selector trên UI, không tự khôi phục deck đã chọn Knowledge, không xóa preference/draft beta và không đưa Knowledge vào manifest/tài liệu tính năng phát hành.
 
 1. `Learning Mode` là lớp sản phẩm trên `vocab/grammar`; không đổi ý nghĩa các note type ngôn ngữ đã tạo.
 2. Người dùng chọn mode rõ ràng; AI không tự đoán mode. Mỗi deck lưu mode mặc định, nhưng người dùng có thể đổi trước khi tạo thẻ.
@@ -91,6 +93,7 @@ V18-01 mode contract
 | 2026-08-16 | V18-04 | `Hoàn thành` | Selector Learning Mode theo deck trong `ui/factory_dialog.py`, draft `knowledge/default` trong `utils/factory_state.py`, i18n VI/EN; giữ input riêng khi đổi mode, ẩn control Language/TTS/filter trong Knowledge và không tạo model/call workflow; full isolated harness — 515 passed | V18-05: nối extract, preview, duplicate scan, import/update/undo/history Knowledge |
 | 2026-08-16 | V18-05 | `Hoàn thành` | `utils/knowledge_extractor.py`, `utils/knowledge_workflow.py`, Knowledge CollectionOp trong `utils/import_operations.py`, worker/preview/factory/history UI; strict AI/manual preview, duplicate đúng model+deck, TTS off, cancel rollback nguyên batch, add/update/history/undo; focused pytest — 54 passed, full isolated harness 2 vòng — 526 passed mỗi vòng | V18-06: audit compatibility/release metadata và smoke thủ công trên profile backup; chưa nâng version/changelog |
 | 2026-08-16 | V18-06 | `Local hoàn tất · chờ GUI smoke/CI` | Mở manifest từ Anki 2.1.50 đến 26.5; Anki 26.5 đạt packaged manifest/runtime smoke; Knowledge ẩn Batch Vocabulary, hiển thị `GỬI & TẠO THẺ` cho pipeline schema riêng; isolated harness 2 vòng × 532 passed; artifact `8e2d0fc6…5ea0` | Còn GUI smoke 26.5 theo `V18_SMOKE_PROFILE.md`, CI Python 3.9/3.11 và smoke endpoint legacy 2.1.50 trước khi bump 18.0.0 |
+| 2026-08-16 | Beta policy | `Dormant` | `utils.learning_mode.KNOWLEDGE_MODE_ENABLED = False`; selector bị ẩn, deck lưu Knowledge khởi động lại ở Language nhưng dữ liệu beta không bị ghi đè | Chỉ bật lại khi chủ dự án yêu cầu; khi đó khôi phục smoke/CI V18 trước khi cân nhắc phát hành |
 
 ## Mẫu ghi nhận mỗi đợt
 

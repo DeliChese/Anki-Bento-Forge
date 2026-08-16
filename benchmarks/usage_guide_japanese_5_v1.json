@@ -1,0 +1,13 @@
+{
+  "id": "usage_guide_japanese_5_v1",
+  "language": "japanese",
+  "grammar": false,
+  "expected_terms": ["聞く", "食べる", "約束", "気になる", "伺う"],
+  "source_items": [
+    {"front": "聞く", "meaning": "hỏi"},
+    {"front": "食べる", "meaning": "ăn"},
+    {"front": "約束", "meaning": "lời hứa; cuộc hẹn"},
+    {"front": "気になる", "meaning": "bận tâm; thấy tò mò"},
+    {"front": "伺う", "meaning": "hỏi; đến thăm (khiêm nhường)"}
+  ]
+}

@@ -1,0 +1,134 @@
+{
+  "id": "usage_guide_v1_reference_20",
+  "reviewed_on": "2026-08-16",
+  "rubric": {
+    "usage_pattern": "One reusable, language-specific frame; never a full example.",
+    "usage_note": "Only register, nuance, or a concrete misuse warning.",
+    "collocation": "At most one phrase for the selected sense, formatted phrase — meaning.",
+    "threshold_percent": 90
+  },
+  "cards": [
+    {
+      "language": "japanese", "front": "聞く", "meaning": "hỏi",
+      "usage_pattern": "Nに聞く", "usage_note": "“Hỏi” không dùng 質問を聞く.",
+      "collocation": "先生に聞く — hỏi giáo viên",
+      "example": "分からないことを先生に聞いた。", "example_2": "駅員に道を聞きました。"
+    },
+    {
+      "language": "japanese", "front": "食べる", "meaning": "ăn",
+      "usage_pattern": "Nを食べる", "usage_note": "食う suồng sã; 召し上がる là kính ngữ.",
+      "collocation": "ご飯を食べる — ăn cơm",
+      "example": "朝はパンを食べるよ。", "example_2": "会議の前に昼食を食べました。"
+    },
+    {
+      "language": "japanese", "front": "約束", "meaning": "lời hứa; cuộc hẹn",
+      "usage_pattern": "Nと約束する", "usage_note": "約束を守る là giữ lời, không phải bảo vệ.",
+      "collocation": "約束を守る — giữ lời hứa",
+      "example": "友達と七時に会う約束をした。", "example_2": "お客様との約束を守ります。"
+    },
+    {
+      "language": "japanese", "front": "気になる", "meaning": "bận tâm; thấy tò mò",
+      "usage_pattern": "Nが気になる", "usage_note": "Khác 気にする: chủ động để tâm tới N.",
+      "collocation": "結果が気になる — bận tâm về kết quả",
+      "example": "あの店の新メニューが気になる。", "example_2": "試験の結果が気になっています。"
+    },
+    {
+      "language": "japanese", "front": "伺う", "meaning": "hỏi; đến thăm (khiêm nhường)",
+      "usage_pattern": "Nに伺う / nơiへ伺う", "usage_note": "Khiêm nhường ngữ của 聞く hoặc 行く.",
+      "collocation": "ご意見を伺う — xin hỏi ý kiến",
+      "example": "先生に予定を伺った。", "example_2": "明日そちらへ伺います。"
+    },
+
+    {
+      "language": "chinese", "front": "觉得", "meaning": "cảm thấy; cho rằng",
+      "usage_pattern": "S + 觉得 + mệnh đề", "usage_note": "Không nói 很觉得; dùng 觉得很 + tính từ.",
+      "collocation": "觉得不错 — thấy khá tốt",
+      "example": "我觉得这个办法不错。", "example_2": "您觉得这个方案可行吗？"
+    },
+    {
+      "language": "chinese", "front": "了解", "meaning": "hiểu rõ",
+      "usage_pattern": "了解 + sự việc/tình hình", "usage_note": "Với người, 认识 nhấn mạnh quen biết.",
+      "collocation": "了解情况 — tìm hiểu tình hình",
+      "example": "我想了解这里的历史。", "example_2": "我们需要进一步了解情况。"
+    },
+    {
+      "language": "chinese", "front": "方便", "meaning": "thuận tiện",
+      "usage_pattern": "方便 + V / 对N来说很方便", "usage_note": "方便 không mang nghĩa “thoải mái”.",
+      "collocation": "交通方便 — giao thông thuận tiện",
+      "example": "坐地铁去很方便。", "example_2": "这个时间对您方便吗？"
+    },
+    {
+      "language": "chinese", "front": "习惯", "meaning": "quen; thói quen",
+      "usage_pattern": "习惯 + N/V", "usage_note": "Làm động từ không cần 是 trước 习惯.",
+      "collocation": "养成习惯 — hình thành thói quen",
+      "example": "我还不习惯早起。", "example_2": "请养成按时记录的习惯。"
+    },
+    {
+      "language": "chinese", "front": "把握", "meaning": "nắm chắc; sự chắc chắn",
+      "usage_pattern": "有把握 + V / 把握 + cơ hội", "usage_note": "有把握 diễn tả mức độ chắc chắn.",
+      "collocation": "把握机会 — nắm bắt cơ hội",
+      "example": "我有把握完成这项工作。", "example_2": "请把握这次合作机会。"
+    },
+
+    {
+      "language": "korean", "front": "먹다", "meaning": "ăn",
+      "usage_pattern": "N을/를 먹다", "usage_note": "드시다 là kính ngữ của 먹다.",
+      "collocation": "밥을 먹다 — ăn cơm",
+      "example": "아침에 빵을 먹어요.", "example_2": "손님께서 먼저 드셨습니다."
+    },
+    {
+      "language": "korean", "front": "묻다", "meaning": "hỏi",
+      "usage_pattern": "N에게 N을/를 묻다", "usage_note": "Phân biệt 묻다 “chôn/dính” theo ngữ cảnh.",
+      "collocation": "길을 묻다 — hỏi đường",
+      "example": "친구에게 이유를 물었어요.", "example_2": "직원에게 위치를 물었습니다."
+    },
+    {
+      "language": "korean", "front": "익숙하다", "meaning": "quen thuộc",
+      "usage_pattern": "N에 익숙하다", "usage_note": "Tiểu từ chuẩn là 에, không phải 을/를.",
+      "collocation": "일에 익숙하다 — quen việc",
+      "example": "이제 한국 생활에 익숙해요.", "example_2": "새 절차에 아직 익숙하지 않습니다."
+    },
+    {
+      "language": "korean", "front": "드리다", "meaning": "đưa/tặng (khiêm nhường)",
+      "usage_pattern": "N에게 N을/를 드리다", "usage_note": "Dùng khi người nhận cần được tôn kính.",
+      "collocation": "말씀드리다 — thưa/trình bày",
+      "example": "할머니께 선물을 드렸어요.", "example_2": "결과를 내일 말씀드리겠습니다."
+    },
+    {
+      "language": "korean", "front": "약속하다", "meaning": "hứa; hẹn",
+      "usage_pattern": "N와/과 약속하다", "usage_note": "약속을 지키다 là giữ lời hứa.",
+      "collocation": "시간을 약속하다 — hẹn thời gian",
+      "example": "친구와 다시 만나기로 약속했어요.", "example_2": "정해진 기한을 지키겠다고 약속했습니다."
+    },
+
+    {
+      "language": "english", "front": "depend", "meaning": "phụ thuộc",
+      "usage_pattern": "depend on + somebody/something", "usage_note": "Không bỏ giới từ on trong nghĩa này.",
+      "collocation": "depend heavily on — phụ thuộc nhiều vào",
+      "example": "Many families depend on this income.", "example_2": "The result depends heavily on timing."
+    },
+    {
+      "language": "english", "front": "advice", "meaning": "lời khuyên",
+      "usage_pattern": "a piece of advice / advice on + N", "usage_note": "Danh từ không đếm được; không dùng an advice.",
+      "collocation": "seek advice — xin lời khuyên",
+      "example": "She gave me useful advice.", "example_2": "Please seek legal advice before signing."
+    },
+    {
+      "language": "english", "front": "interested", "meaning": "quan tâm; hứng thú",
+      "usage_pattern": "be interested in + N/V-ing", "usage_note": "Interested mô tả người; interesting mô tả sự vật.",
+      "collocation": "genuinely interested — thực sự quan tâm",
+      "example": "I'm interested in learning Korean.", "example_2": "Several clients are genuinely interested."
+    },
+    {
+      "language": "english", "front": "say", "meaning": "nói",
+      "usage_pattern": "say + something / say something to + person", "usage_note": "Không dùng say me; dùng tell me.",
+      "collocation": "say clearly — nói rõ ràng",
+      "example": "She said nothing about the delay.", "example_2": "Please say clearly what you need."
+    },
+    {
+      "language": "english", "front": "take for granted", "meaning": "coi là điều hiển nhiên",
+      "usage_pattern": "take + somebody/something + for granted", "usage_note": "Thường mang sắc thái phê bình.",
+      "example": "Don't take her support for granted.", "example_2": "We often take clean water for granted."
+    }
+  ]
+}

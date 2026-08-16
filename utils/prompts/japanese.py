@@ -8,7 +8,9 @@ _JAPANESE_JSON_TEMPLATE = """{
   "front": "食べる",
   "furigana": "たべる",
   "meaning": "ăn",
-  "usage_note": "Thường đi với ご飯",
+  "usage_pattern": "Nを食べる",
+  "usage_note": "食う suồng sã; 召し上がる là kính ngữ.",
+  "collocation": "ご飯を食べる — ăn cơm",
   "sino-vietnamese": "thực",
   "jlptlevel": "N5",
   "topic": "Động từ",
@@ -19,30 +21,27 @@ _JAPANESE_JSON_TEMPLATE = """{
 }"""
 
 
-_JAPANESE_SYSTEM_PROMPT = f"""Bạn là chuyên gia tiếng Nhật. Trích xuất TẤT CẢ từ vựng từ văn bản → mảng JSON chính xác.
+_JAPANESE_SYSTEM_PROMPT = f"""Bạn là chuyên gia tiếng Nhật. Trích TẤT CẢ từ vựng đáng học → mảng JSON chính xác.
 
 MẪU:
 {_JAPANESE_JSON_TEMPLATE}
 
 LUẬT:
-1. Đủ 10 trường cốt lõi + usage_note khi cần (collocation/register, ≤8 từ).
-2. VÍ DỤ CÓ HỒN + ĐÚNG CẤP ĐỘ (quan trọng nhất):
-   - Ex1: khẩu ngữ đời thực (quán cà phê, LINE, than thở, MXH...), cảm xúc thật, trợ từ cuối câu tự nhiên (よ/ね/よね/じゃん).
-   - Ex2: trang trọng, lịch sự (です・ます/敬語).
-   - Cấp độ ví dụ khớp JLPT: N5 → câu cực ngắn; N4 → đơn giản; N3 → trung bình; N2-N1 → phức tạp, thành ngữ. TUYỆT ĐỐI không nhồi từ khó vào từ cấp thấp.
-   - TRÁNH câu SGK vô hồn. Từ đa nghĩa → 2 nghĩa khác nhau ở 2 ví dụ. Ví dụ ngắn gọn, 5-12 từ.
-3. CHỐNG TRÙNG: bỏ qua mọi từ trong "TỪ ĐÃ CÓ".
-4. KIỂM: đa nghĩa khớp trợ từ/collocation; 聞く “hỏi” = Nに聞く, không dịch 質問を聞く là hỏi; example_vn đúng câu; Ex dùng từ đích; furigana hiragana.
-5. Xuất theo thứ tự xuất hiện trong văn bản.
+1. Đủ 13 key; field không hữu ích = "". Usage Guide: usage_pattern là MỘT khung có trợ từ/khe N/V/A; usage_note chỉ ghi register/sắc thái/lỗi hay mắc; collocation tối đa MỘT "cụm — nghĩa" đúng sense. Không placeholder, không chép câu ví dụ, không lặp giữa các field.
+2. Hai ví dụ tự nhiên, khác nhau, 5–12 từ: Ex1 khẩu ngữ, Ex2 lịch sự; độ khó khớp JLPT và cùng nghĩa ngữ cảnh.
+3. KIỂM: đúng trợ từ/collocation; 聞く “hỏi” = Nに聞く, không dịch 質問を聞く là hỏi; bản dịch đúng câu; furigana hiragana.
+4. Bỏ "TỪ ĐÃ CÓ", giữ thứ tự văn bản; không bịa nghĩa/cách dùng.
 
-ĐẦU RA: CHỈ mảng JSON thuần, không markdown, không giải thích thừa. Cuối: {{"_comment":"≤15 từ"}}"""
+ĐẦU RA: CHỈ mảng JSON thuần; cuối có {{"_comment":"≤15 từ"}}."""
 
 
 _JAPANESE_JSON_TEMPLATE_EN = """{
   "front": "食べる",
   "furigana": "たべる",
   "meaning": "to eat",
-  "usage_note": "Often used with ご飯",
+  "usage_pattern": "Nを食べる",
+  "usage_note": "食う is rough; 召し上がる is honorific.",
+  "collocation": "ご飯を食べる — eat a meal",
   "sino-vietnamese": "",
   "jlptlevel": "N5",
   "topic": "Verb",
@@ -53,23 +52,18 @@ _JAPANESE_JSON_TEMPLATE_EN = """{
 }"""
 
 
-_JAPANESE_SYSTEM_PROMPT_EN = f"""You are a Japanese language expert. Extract ALL vocabulary from the text → precise JSON array.
+_JAPANESE_SYSTEM_PROMPT_EN = f"""You are a Japanese language expert. Extract ALL learnable vocabulary into a precise JSON array.
 
 TEMPLATE:
 {_JAPANESE_JSON_TEMPLATE_EN}
 
 RULES:
-1. Fill 10 core fields + usage_note only when useful (collocation/register, ≤8 words).
-2. VIVID EXAMPLES MATCHING THE LEVEL (most important):
-   - Ex1: real-life casual speech (café, texting, venting, social media...), genuine emotion, natural sentence-final particles (よ/ね/よね/じゃん).
-   - Ex2: formal, polite (です・ます/keigo).
-   - Example level must match JLPT: N5 → very short; N4 → simple; N3 → intermediate; N2-N1 → complex, idioms. NEVER cram hard words into low-level entries.
-   - AVOID lifeless textbook sentences. Polysemous words → 2 different meanings in 2 examples. Keep examples short, 5-12 words.
-3. DEDUP: skip every word listed in "EXISTING WORDS".
-4. CHECK: polysemy uses matching particles/collocations; ask with 聞く = Nに聞く, never translate 質問を聞く as ask; exact example translation; target appears; hiragana furigana.
-5. Output in order of appearance in the text.
+1. Fill 13 keys; use "" when not useful. Usage Guide: usage_pattern is ONE reusable particle/N/V/A frame; usage_note only register, nuance, or a common error; collocation at most ONE "phrase — meaning" for this sense. No placeholders, copied examples, or repeated fields.
+2. Write two distinct natural 5–12-word examples: Ex1 casual, Ex2 polite; match JLPT and the same contextual sense.
+3. CHECK particles/collocations; ask with 聞く = Nに聞く, never translate 質問を聞く as ask; exact translation; hiragana furigana.
+4. Skip "EXISTING WORDS", preserve text order, and never invent usage.
 
-OUTPUT: ONLY a plain JSON array, no markdown, no extra explanation. End with: {{"_comment":"≤15 words"}}"""
+OUTPUT: Plain JSON array only; end with {{"_comment":"≤15 words"}}."""
 
 
 _JAPANESE_GRAMMAR_JSON_TEMPLATE = """{

@@ -9,7 +9,7 @@ LANG_CONFIG = {
         "AnkiTool Chinese V15.0 (Add-on)",
     ],
     "all_fields": [
-        "Front", "Traditional", "Pinyin", "Meaning", "Usage Note", "Sino-Vietnamese",
+        "Front", "Traditional", "Pinyin", "Meaning", "Usage Pattern", "Usage Note", "Collocation", "Sino-Vietnamese",
         "HSK Level", "Topic",
         "Example", "Example Fill", "Example Pinyin", "Example in Vietnamese", "Vocab Audio", "Example Audio",
         "Example2", "Example2 Fill", "Example2 Pinyin", "Example2 in Vietnamese", "Example2 Audio",
@@ -21,7 +21,9 @@ LANG_CONFIG = {
         "traditional":              "Traditional",
         "pinyin":                   "Pinyin",
         "meaning":                  "Meaning",
+        "usage_pattern":            "Usage Pattern",
         "usage_note":               "Usage Note",
+        "collocation":              "Collocation",
         "sino_vietnamese":          "Sino-Vietnamese",
         "sino-vietnamese":          "Sino-Vietnamese",
         "sinovietnamese":           "Sino-Vietnamese",

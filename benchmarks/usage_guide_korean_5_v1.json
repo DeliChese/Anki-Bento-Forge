@@ -1,0 +1,13 @@
+{
+  "id": "usage_guide_korean_5_v1",
+  "language": "korean",
+  "grammar": false,
+  "expected_terms": ["먹다", "묻다", "익숙하다", "드리다", "약속하다"],
+  "source_items": [
+    {"front": "먹다", "meaning": "ăn"},
+    {"front": "묻다", "meaning": "hỏi"},
+    {"front": "익숙하다", "meaning": "quen thuộc"},
+    {"front": "드리다", "meaning": "đưa/tặng (khiêm nhường)"},
+    {"front": "약속하다", "meaning": "hứa; hẹn"}
+  ]
+}

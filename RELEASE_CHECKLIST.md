@@ -14,16 +14,13 @@ Không tăng `manifest.json` version trước khi toàn bộ checklist này đư
 - [x] Chạy `scripts/build_addon.ps1`; lưu `.ankiaddon`, `.sha256` và `bento-forge.sbom.json` cùng release evidence.
 - [ ] Cài artifact vào profile sạch và kiểm tra Tools menu mở Bento Forge.
 
-## V18 release-candidate gate
+## Knowledge beta (không phải release gate)
 
-- [x] Learning Mode/schema/model/workflow regression và compatibility audit đã có test.
-- [x] Local isolated harness V18 sau sửa hành động gửi Knowledge chạy hai vòng liên tiếp, mỗi vòng `532 passed` (2026-08-16).
-- [x] Changelog `[Unreleased]`, README, compatibility và roadmap đã mô tả đúng phạm vi đã kiểm chứng.
-- [x] Artifact candidate được build với SHA-256 `8e2d0fc60e725a2ffa728c9f9a35199aa833c8f277aef2cd7a21c7f915a65ea0`; package regression xác nhận manifest Anki 26.5, có `workers/` và không có bytecode cache.
-- [ ] Chủ dự án hoàn thành `work_items/V18_SMOKE_PROFILE.md` trên profile Anki 26.5 tách biệt và ghi người/ngày xác nhận.
-- [x] Audit compatibility Anki 26.5: manifest cài đặt chuẩn, import entry/UI/public hooks đạt; collection backend thật đạt Basic/Cloze add/update/card generation/rollback (2026-08-16).
-- [ ] CI Python 3.9/3.11 xanh trên commit chứa V18.
-- [ ] Sau hai xác nhận trên mới đổi `manifest.json` từ `17.2.0` sang `18.0.0`, đổi tiêu đề/badge tài liệu và tạo section changelog `V18.0.0`.
+Knowledge V18 được giữ lại như beta riêng tư nhưng đã tắt khỏi giao diện để tập trung phát hành workflow ngoại ngữ. Không cần hoàn thành smoke/CI Knowledge cho một bản phát hành Language và không bump `18.0.0` khi beta còn dormant.
+
+- [x] Schema/model/workflow regression và compatibility audit Knowledge đã có test local.
+- [x] Draft và preference Knowledge cũ được giữ nguyên; UI luôn mở Language khi beta tắt.
+- [ ] Chỉ mở lại checklist `work_items/V18_SMOKE_PROFILE.md` khi chủ dự án quyết định kích hoạt lại beta.
 
 ## Record phát hành
 

@@ -1,0 +1,13 @@
+{
+  "id": "usage_guide_chinese_5_v1",
+  "language": "chinese",
+  "grammar": false,
+  "expected_terms": ["觉得", "了解", "方便", "习惯", "把握"],
+  "source_items": [
+    {"front": "觉得", "meaning": "cảm thấy; cho rằng"},
+    {"front": "了解", "meaning": "hiểu rõ"},
+    {"front": "方便", "meaning": "thuận tiện"},
+    {"front": "习惯", "meaning": "quen; thói quen"},
+    {"front": "把握", "meaning": "nắm chắc; sự chắc chắn"}
+  ]
+}
