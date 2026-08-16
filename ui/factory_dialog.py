@@ -65,9 +65,12 @@ from utils.ai_extractor import (
     get_ai_session_estimate,
     get_existing_vocab_from_deck, invalidate_deck_cache,
     extract_vocabulary_with_ai, extract_vocabulary_long_text,
-    get_effective_json_template, init_import_history, query_anki_context,
+    get_effective_json_template, query_anki_context,
 )
-from utils.import_history import add_to_import_history, get_history_summary_text
+from utils.import_history import (
+    add_to_import_history, get_history_summary_text, init_import_history,
+    load_import_history, needs_import_history_scan,
+)
 from utils.import_safety import rollback_added_notes, summarize_import_batch
 from utils.anki_ops import run_collection, run_query
 from utils.import_operations import apply_import, prepare_audio_tasks
@@ -164,6 +167,9 @@ class AnkiSmartFactory(QDialog):
         self.import_worker = None
         self._import_cancel_event = None
         self._ai_workflow = AiWorkflowCoordinator()
+        self._history_scan_cancel_event = None
+        self._history_scan_progress = {}
+        self._history_scan_progress_lock = threading.Lock()
         # Danh sách file tài liệu tham khảo đã kẹp: [(name, text), ...] + đường dẫn
         self._ai_attached_files = []
         self._ai_attached_paths = []
@@ -184,16 +190,85 @@ class AnkiSmartFactory(QDialog):
         self._init_history()
 
     def _init_history(self):
-        """Khởi tạo lịch sử import trong background (không chặn UI)"""
+        """Load cached history, then bootstrap it via QueryOp only when needed."""
         try:
-            # Chạy init trong thread để không chặn UI
-            history = init_import_history(force_rescan=False)
-            total = sum(len(v) for v in history.get("entries", {}).values())
-            if total > 0:
-                self.lbl_ai_status.setText(t("status_history_count", count=total))
-                self.lbl_ai_status.setStyleSheet("color:#27ae60;font-size:11px;")
+            history = load_import_history()
+            self._set_history_status(history)
+            if not needs_import_history_scan(history):
+                return
+
+            self._history_scan_cancel_event = threading.Event()
+            self._history_scan_timer = QTimer(self)
+            self._history_scan_timer.setInterval(125)
+            self._history_scan_timer.timeout.connect(self._refresh_history_scan_progress)
+            self._history_scan_timer.start()
+            self.btn_history_cancel.setVisible(True)
+            self._refresh_history_scan_progress()
+
+            # QueryOp serializes all collection/SQL access with Anki.  The
+            # progress callback only writes a lock-protected snapshot; Qt is
+            # updated by the timer on the main thread.
+            run_query(
+                self,
+                lambda col: init_import_history(
+                    scan_context_factory=lambda: (col, LANG_CONFIG),
+                    cancel_event=self._history_scan_cancel_event,
+                    progress_callback=self._on_history_scan_progress,
+                ),
+                self._on_history_scan_finished,
+                self._on_history_scan_error,
+            )
         except Exception as e:
             logger.warning("Lỗi init history: %s", e)
+
+    def _set_history_status(self, history):
+        total = sum(len(v) for v in history.get("entries", {}).values())
+        self.lbl_history_status.setText(t("status_history_count", count=total))
+        self.lbl_history_status.setStyleSheet("color:#27ae60;font-size:11px;")
+
+    def _on_history_scan_progress(self, progress):
+        with self._history_scan_progress_lock:
+            self._history_scan_progress = dict(progress)
+
+    def _refresh_history_scan_progress(self):
+        with self._history_scan_progress_lock:
+            progress = dict(self._history_scan_progress)
+        self.lbl_history_status.setText(t(
+            "status_history_scanning",
+            processed=progress.get("processed", 0),
+            total=progress.get("total", 0),
+        ))
+        self.lbl_history_status.setStyleSheet("color:#e67e22;font-size:11px;")
+
+    def _finish_history_scan(self):
+        timer = getattr(self, "_history_scan_timer", None)
+        if timer is not None:
+            timer.stop()
+        self.btn_history_cancel.setVisible(False)
+        self._history_scan_cancel_event = None
+
+    def _on_history_scan_finished(self, history):
+        self._finish_history_scan()
+        if history.get("_scan_cancelled"):
+            self.lbl_history_status.setText(t("status_history_scan_cancelled"))
+            self.lbl_history_status.setStyleSheet("color:#e67e22;font-size:11px;")
+            return
+        self._set_history_status(history)
+
+    def _on_history_scan_error(self, err):
+        logger.warning("Lỗi quét import history: %s", err)
+        self._finish_history_scan()
+        self.lbl_history_status.setText(t("status_history_scan_error"))
+        self.lbl_history_status.setStyleSheet("color:#e74c3c;font-size:11px;")
+
+    def _cancel_history_scan(self):
+        if self._history_scan_cancel_event is not None:
+            self._history_scan_cancel_event.set()
+            timer = getattr(self, "_history_scan_timer", None)
+            if timer is not None:
+                timer.stop()
+            self.btn_history_cancel.setEnabled(False)
+            self.lbl_history_status.setText(t("status_history_scan_cancelling"))
 
     def _cfg(self):
         # Mức 1 (Field Map Editor): bơm json_field_map + all_fields HIỆU LỰC
@@ -309,6 +384,7 @@ class AnkiSmartFactory(QDialog):
 
     def closeEvent(self, event):
         """Lưu trạng thái ô AI khi đóng Factory."""
+        self._cancel_history_scan()
         try:
             self._save_current_flow()
         except Exception:
@@ -502,6 +578,20 @@ class AnkiSmartFactory(QDialog):
         self.btn_ai_stop.clicked.connect(self._cancel_ai_chat)
         self.btn_ai_stop.setVisible(False)
         ai_bar.addWidget(self.btn_ai_stop)
+
+        self.btn_history_cancel = QPushButton(t("history_scan_cancel_btn"))
+        self.btn_history_cancel.setStyleSheet(
+            "padding:5px 8px;background:#e74c3c;color:white;"
+            "font-weight:bold;border-radius:6px;border:none;font-size:12px;"
+        )
+        self.btn_history_cancel.setToolTip(t("history_scan_cancel_tip"))
+        self.btn_history_cancel.clicked.connect(self._cancel_history_scan)
+        self.btn_history_cancel.setVisible(False)
+        ai_bar.addWidget(self.btn_history_cancel)
+
+        self.lbl_history_status = QLabel("")
+        self.lbl_history_status.setProperty("class", "dim")
+        ai_bar.addWidget(self.lbl_history_status)
 
         self.lbl_ai_status = QLabel("")
         self.lbl_ai_status.setProperty("class", "dim")
@@ -973,6 +1063,8 @@ class AnkiSmartFactory(QDialog):
             self.btn_ai_chat.setToolTip(t("btn_ai_chat_tip"))
             self.btn_ai_stop.setText(t("ai_stop_btn"))
             self.btn_ai_stop.setToolTip(t("btn_ai_stop_tip"))
+            self.btn_history_cancel.setText(t("history_scan_cancel_btn"))
+            self.btn_history_cancel.setToolTip(t("history_scan_cancel_tip"))
             self.btn_ai_attach.setText(t("btn_ai_attach"))
             self.btn_ai_attach.setToolTip(t("btn_ai_attach_tip"))
             self.btn_ai_attach_clear.setText(t("btn_ai_attach_clear"))

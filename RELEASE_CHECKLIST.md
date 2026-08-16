@@ -18,5 +18,5 @@ Không tăng `manifest.json` version trước khi toàn bộ checklist này đư
 
 | Phiên bản | Ngày | CI | Smoke Anki thật | Người xác nhận | Ghi chú |
 | --- | --- | --- | --- | --- | --- |
-| 17.2.0 | Chưa phát hành | Chờ CI | Chưa chạy | — | Baseline P0-01: compile toàn bộ Python tracked, regression metadata và isolated harness hai vòng đã chạy cục bộ; vẫn cần CI 3.9/3.11 và smoke Anki thật trước phát hành. |
+| 17.2.0 | Chưa phát hành | Chờ CI | Chưa chạy | — | Local 2026-08-16: Python 3.11 compile toàn bộ Python tracked; isolated harness 2 vòng, mỗi vòng 500 passed; ruff + credential scan xanh; build artifact SHA-256 `86c087d7b6249d372855a47082a1d4ae28de8fe9ffd7f13622ffff69d09b3fd9`, giải nén clean-profile tạm và compile xanh. Chưa được tính là cài/smoke Anki thật. `pip-audit` chặn bởi `pytest==8.3.5` / `PYSEC-2026-1845`; bản audit nêu 9.0.3 không hỗ trợ Python 3.9, nên vẫn cần quyết định tương thích/security, CI 3.9/3.11 và smoke Anki thật trước phát hành. |
 | 17.1.0 | Chưa phát hành lại | Chờ CI | Chưa chạy | — | P0-A local: `py_compile` và `80 passed` (2026-08-13). P0-B/P0-C local (2026-08-14): metadata/temp regression `119 passed`; hai lần gọi isolated harness, mỗi lần hai vòng `383 passed`, cleanup và worktree check đạt. Vẫn không được tăng version/phát hành cho tới khi CI 3.9/3.11 và smoke Anki thật hoàn thành. |

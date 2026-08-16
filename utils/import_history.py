@@ -25,7 +25,10 @@ _LEGACY_CONFIG_DIR = os.path.dirname(os.path.abspath(__file__))
 _HISTORY_PATH = get_user_data_path("import_history.json")
 _LEGACY_HISTORY_PATH = os.path.join(_LEGACY_CONFIG_DIR, "import_history.json")
 _HISTORY_VERSION = 1
-_HISTORY_SCAN_TTL = 24 * 3600  # TTL 24h cho full scan
+# Retained as a compatibility constant for callers that used to import it.
+# Opening the factory must not use time-based full scans: imports update this
+# cache incrementally, and a full scan is now bootstrap/manual only.
+_HISTORY_SCAN_TTL = 24 * 3600
 
 
 def _load_history() -> dict:
@@ -50,6 +53,36 @@ def _save_history(data: dict):
         logger.warning("Lỗi ghi import_history: %s", e)
 
 
+def load_import_history() -> dict:
+    """Load the cached history without touching the Anki collection."""
+    return _load_history()
+
+
+def needs_import_history_scan(data: dict = None) -> bool:
+    """Return whether a one-time bootstrap scan has not completed yet.
+
+    Normal imports call :func:`add_to_import_history`, so an existing cache is
+    deliberately never invalidated by time.  A caller may still request a
+    repair/rebuild explicitly with ``force_rescan=True``.
+    """
+    data = data if data is not None else _load_history()
+    return not bool(data.get("last_full_scan"))
+
+
+def _report_scan_progress(callback, **progress):
+    """Notify an optional observer without letting UI/reporting failures stop a scan."""
+    if callback is None:
+        return
+    try:
+        callback(progress)
+    except Exception as e:
+        logger.warning("Lỗi báo tiến độ import history: %s", e)
+
+
+def _scan_cancelled(cancel_event) -> bool:
+    return bool(cancel_event is not None and cancel_event.is_set())
+
+
 def clear_import_history():
     """Xóa toàn bộ lịch sử import từ vựng"""
     if os.path.exists(_HISTORY_PATH):
@@ -62,33 +95,25 @@ def clear_import_history():
     return True
 
 
-def init_import_history(force_rescan: bool = False, scan_context_factory=None) -> dict:
+def init_import_history(force_rescan: bool = False, scan_context_factory=None,
+                        cancel_event=None, progress_callback=None) -> dict:
     """
     Khởi tạo lịch sử import: quét toàn bộ deck Anki để thu thập
     từ vựng hiện có. Chỉ quét nếu:
     - File lịch sử chưa tồn tại
-    - TTL đã hết (24h)
+    - Chưa từng bootstrap cache, hoặc ``force_rescan = True``
+
+    ``scan_context_factory`` must be called by an Anki ``QueryOp`` when a
+    collection scan is required.  The function itself stays free of Anki/Qt
+    dependencies so it can be tested offline.
     - force_rescan = True
 
     Returns:
         dict lịch sử sau khi khởi tạo
     """
     data = _load_history()
-    last_scan = data.get("last_full_scan")
-
-    # Kiểm tra có cần rescan không
-    need_scan = force_rescan
-    if not need_scan and last_scan:
-        try:
-            if time.time() - last_scan > _HISTORY_SCAN_TTL:
-                need_scan = True
-        except Exception:
-            need_scan = True
-    if not need_scan and not last_scan:
-        need_scan = True
-
-    # Nếu đã có entries, chỉ rescan nếu cần
-    if not need_scan and data.get("entries"):
+    need_scan = force_rescan or needs_import_history_scan(data)
+    if not need_scan:
         return data
 
     if need_scan:
@@ -101,7 +126,12 @@ def init_import_history(force_rescan: bool = False, scan_context_factory=None) -
                 data["entries"] = {}
 
             total_scanned = 0
+            notes_processed = 0
+            notes_total = 0
             for lang_key, cfg in language_configs.items():
+                if _scan_cancelled(cancel_event):
+                    data["_scan_cancelled"] = True
+                    return data
                 model_name = cfg.get("model_name", "")
                 front_field = cfg.get("front_field", "")
 
@@ -115,6 +145,15 @@ def init_import_history(force_rescan: bool = False, scan_context_factory=None) -
                     note_ids = collection.find_notes(f'"note:{model_name}"')
                     if not note_ids:
                         continue
+                    notes_total += len(note_ids)
+                    _report_scan_progress(
+                        progress_callback,
+                        phase="scanning",
+                        language=lang_key,
+                        processed=notes_processed,
+                        total=notes_total,
+                        added=total_scanned,
+                    )
 
                     existing_keys = set(data["entries"][lang_key].keys())
                     # Lấy field index từ model (1 lần)
@@ -130,6 +169,9 @@ def init_import_history(force_rescan: bool = False, scan_context_factory=None) -
                     # Batch query: lấy flds trực tiếp từ SQL (tránh N+1 get_note)
                     batch_size = 200
                     for i in range(0, len(note_ids), batch_size):
+                        if _scan_cancelled(cancel_event):
+                            data["_scan_cancelled"] = True
+                            return data
                         batch = note_ids[i:i + batch_size]
                         try:
                             placeholders = ",".join("?" * len(batch))
@@ -146,6 +188,10 @@ def init_import_history(force_rescan: bool = False, scan_context_factory=None) -
                                     continue
 
                         for nid, flds_raw in rows:
+                            if _scan_cancelled(cancel_event):
+                                data["_scan_cancelled"] = True
+                                return data
+                            notes_processed += 1
                             try:
                                 fields = flds_raw.split("\x1f")
                                 if front_idx >= len(fields):
@@ -191,8 +237,20 @@ def init_import_history(force_rescan: bool = False, scan_context_factory=None) -
                                 total_scanned += 1
                             except Exception:
                                 continue
+                        _report_scan_progress(
+                            progress_callback,
+                            phase="scanning",
+                            language=lang_key,
+                            processed=notes_processed,
+                            total=notes_total,
+                            added=total_scanned,
+                        )
                 except Exception as e:
                     logger.warning("Lỗi quét deck %s: %s", lang_key, e)
+
+            if _scan_cancelled(cancel_event):
+                data["_scan_cancelled"] = True
+                return data
 
             data["last_full_scan"] = time.time()
             data["_scan_summary"] = {
@@ -524,4 +582,6 @@ __all__ = [
     "search_import_history",
     "get_history_summary_text",
     "clear_import_history",
+    "load_import_history",
+    "needs_import_history_scan",
 ]

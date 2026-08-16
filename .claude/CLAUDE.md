@@ -29,6 +29,7 @@ Bước 4: Chạy tests liên quan (xem skill 10)
 | 10 | testing | Chạy/viết test, verify sau khi sửa | ~1.0k |
 | 11 | upgrade-playbook | Nâng cấp version, bảo trì, release | ~1.2k |
 | 12 | debugging | 🐞 Tìm/sửa BUG: đọc log, root cause, catalogue lỗi | ~0.5k |
+| 13 | learning-modes | V18: tách/chuyển Language ↔ Knowledge, schema, model, UI và workflow an toàn | ~1.5k |
 
 ## 🧭 SƠ ĐỒ TỔNG QUAN (TỐI GIẢN)
 

@@ -43,3 +43,15 @@ def test_factory_dialog_is_the_ui_orchestration_owner():
     assert "from utils.anki_adapter import AnkiCollectionAdapter" in source
     assert "from utils.import_operations import apply_import, prepare_audio_tasks" in source
     assert "from utils.model_lifecycle import ensure_model" in source
+
+
+def test_history_bootstrap_is_queryop_bound_and_cancellable():
+    source = _source("ui/factory_dialog.py")
+
+    assert "load_import_history()" in source
+    assert "needs_import_history_scan(history)" in source
+    assert "run_query(" in source
+    assert "lambda col: init_import_history(" in source
+    assert "cancel_event=self._history_scan_cancel_event" in source
+    assert "progress_callback=self._on_history_scan_progress" in source
+    assert "self.btn_history_cancel" in source

@@ -31,6 +31,7 @@
 - Chuẩn hóa compatibility theo `manifest.json`, diagnostic event code và logging theo Anki profile.
 
 ### 🐛 Fixed
+- Opening Bento Forge no longer performs a TTL-triggered collection scan on the UI thread. The one-time history bootstrap is serialized through Anki `QueryOp`, reports progress, can be cancelled without saving partial results, and subsequent imports keep history current incrementally.
 - Release artifacts now include the required `workers/` package and exclude `__pycache__`, `.pyc`, and `.pyo` bytecode files.
 - Prompt Editor trong Cài đặt AI nay nạp sẵn cả tab Từ vựng lẫn Ngữ pháp và lưu nội dung theo ngôn ngữ vừa rời khỏi, tránh tab prompt rỗng hoặc ghi nhầm dữ liệu khi đổi ngôn ngữ.
 - Compile gate now covers every tracked Python file, including `scripts/`; invalid markers that prevented `scripts/fetch_ankiforge_info.py` from compiling were removed.

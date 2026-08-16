@@ -1517,15 +1517,17 @@ get_history_summary_text = _import_history.get_history_summary_text
 _build_single_lang_summary = _import_history._build_single_lang_summary
 
 
-def _anki_history_scan_context():
-    from aqt import mw
-    from Language import LANG_CONFIG
-    return mw.col, LANG_CONFIG
+def init_import_history(force_rescan: bool = False, scan_context_factory=None,
+                        cancel_event=None, progress_callback=None) -> dict:
+    """Compatibility entry point for callers already inside Anki ``QueryOp``.
 
-
-def init_import_history(force_rescan: bool = False) -> dict:
-    """Compatibility entry point that injects the Anki scan boundary lazily."""
+    ``scan_context_factory`` must supply the collection owned by that QueryOp.
+    This layer intentionally never imports or accesses ``mw``; doing so would
+    permit an unsafe synchronous collection scan.
+    """
     return _import_history.init_import_history(
         force_rescan=force_rescan,
-        scan_context_factory=_anki_history_scan_context,
+        scan_context_factory=scan_context_factory,
+        cancel_event=cancel_event,
+        progress_callback=progress_callback,
     )

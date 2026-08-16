@@ -25,6 +25,8 @@ Các file công việc được tạo từ `ACADEMIC_ASSESSMENT.md`, chia theo P
 | [QUALITY_TESTING.md](QUALITY_TESTING.md) | Test — Chất lượng test | Targeted test theo boundary mới | 🟡 Có điều kiện |
 | [SECURITY_PRIVACY.md](SECURITY_PRIVACY.md) | Bảo mật — Quyền riêng tư | S1 threat model và review nội bộ hoàn thành | ✅ Hoàn thành |
 | [UX_ACCESSIBILITY.md](UX_ACCESSIBILITY.md) | UX — Accessibility | Manual audit NVDA/WCAG trước UI release | 🟡 Có nền tảng |
+| [P1-04_AWESOMETTS_SAFE_BATCH.md](P1-04_AWESOMETTS_SAFE_BATCH.md) | P1 — TTS cá nhân | Provider AwesomeTTS tùy chọn, audio media lưu local và batch an toàn | 📋 Đã lên kế hoạch |
+| [V18_LEARNING_MODES.md](V18_LEARNING_MODES.md) | V18 — Learning Modes | Language và Knowledge cùng lõi import/preview/undo, mode/model riêng | 📋 Milestone kế tiếp |
 
 ## Thứ tự triển khai lịch sử
 

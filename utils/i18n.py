@@ -111,6 +111,14 @@ _TRANSLATIONS = {
         "vi": "⏹ Dừng",
         "en": "⏹ Stop",
     },
+    "history_scan_cancel_btn": {
+        "vi": "⏹ Dừng quét",
+        "en": "⏹ Stop scan",
+    },
+    "history_scan_cancel_tip": {
+        "vi": "Dừng quét lịch sử ban đầu; dữ liệu quét dở sẽ không được lưu.",
+        "en": "Stop the initial history scan; partial results will not be saved.",
+    },
     "ai_input_placeholder": {
         "vi": "📥 Nạp Quặng/Nguyên Liệu Thô/ Văn Bản Thô (300-800 ký tự tối ưu, ~50-100 từ). Hỗ trợ Nhật & Trung.",
         "en": "📥 Load Ore/Raw Material/Raw Text (300-800 chars optimal, ~50-100 words). Supports Japanese & Chinese.",
@@ -966,6 +974,22 @@ _TRANSLATIONS = {
     "status_history_count": {
         "vi": "📚 Lịch sử: {count} từ vựng đã có",
         "en": "📚 History: {count} existing vocabulary",
+    },
+    "status_history_scanning": {
+        "vi": "🔍 Đang lập chỉ mục lịch sử ({processed}/{total})…",
+        "en": "🔍 Building history index ({processed}/{total})…",
+    },
+    "status_history_scan_cancelling": {
+        "vi": "⏹ Đang dừng quét lịch sử…",
+        "en": "⏹ Stopping history scan…",
+    },
+    "status_history_scan_cancelled": {
+        "vi": "⏹ Đã dừng quét lịch sử; không lưu dữ liệu dở dang.",
+        "en": "⏹ History scan stopped; partial data was not saved.",
+    },
+    "status_history_scan_error": {
+        "vi": "⚠ Không thể lập chỉ mục lịch sử; sẽ thử lại khi mở lần sau.",
+        "en": "⚠ Could not build the history index; it will retry next time.",
     },
     "status_cleared_factory": {
         "vi": "🧹 Đã xóa toàn bộ thẻ trong xưởng.",
