@@ -31,6 +31,7 @@
 - Chuẩn hóa compatibility theo `manifest.json`, diagnostic event code và logging theo Anki profile.
 
 ### 🐛 Fixed
+- Release artifacts now include the required `workers/` package and exclude `__pycache__`, `.pyc`, and `.pyo` bytecode files.
 - Prompt Editor trong Cài đặt AI nay nạp sẵn cả tab Từ vựng lẫn Ngữ pháp và lưu nội dung theo ngôn ngữ vừa rời khỏi, tránh tab prompt rỗng hoặc ghi nhầm dữ liệu khi đổi ngôn ngữ.
 - Compile gate now covers every tracked Python file, including `scripts/`; invalid markers that prevented `scripts/fetch_ankiforge_info.py` from compiling were removed.
 - V17.2: API key nay được cô lập theo từng AI provider (và từng endpoint Custom). Chuyển provider trong Cài đặt AI sẽ nạp key đã lưu của provider đó, không còn dùng hoặc ghi đè key của provider trước.
