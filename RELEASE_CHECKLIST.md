@@ -6,17 +6,28 @@ Không tăng `manifest.json` version trước khi toàn bộ checklist này đư
 
 - [x] Chạy `scripts/test_isolated.ps1` hai lần và ghi số test của cả hai lượt.
 - [ ] Xác nhận CI xanh trên matrix Python đã công bố.
-- [ ] Chạy smoke thủ công trong Anki 2.1.50 trên profile đã sao lưu: import/add/update + undo, combo reviewer, TTS cancel/offline, và config migration.
-- [ ] Rà `git diff` để không có API key, raw prompt/response, user data hay log profile.
+- [ ] Chạy smoke thủ công trong Anki 26.5 trên profile mới/đã sao lưu: import/add/update + undo, combo reviewer, TTS cancel/offline và config migration; smoke endpoint 2.1.50 vẫn cần trước khi phát hành với legacy target.
+- [x] Rà `git diff` và credential scan: không có API key, raw response, user data hay log profile trong thay đổi V18.
 - [ ] Đối chiếu `CHANGELOG.md` với `git log` kể từ bản phát hành gần nhất: mọi thay đổi có thể phát hành đều ở `[Unreleased]`, chỉ mô tả việc đã hoàn tất và có bằng chứng; xem `.claude/CHANGELOG_POLICY.md`.
 - [ ] Khi phát hành, chuyển `[Unreleased]` thành `V<manifest.version>` với ngày phát hành; không tạo section version khi CI/smoke Anki còn thiếu.
-- [ ] Cập nhật `COMPATIBILITY.md`, `REFACTOR_PLAN.md` và README nếu phạm vi hỗ trợ đổi.
-- [ ] Chạy `scripts/build_addon.ps1`; lưu `.ankiaddon`, `.sha256` và `bento-forge.sbom.json` cùng release evidence.
+- [x] Cập nhật `COMPATIBILITY.md`, `REFACTOR_PLAN.md` và README cho phạm vi Anki 2.1.50 đến 26.5.
+- [x] Chạy `scripts/build_addon.ps1`; lưu `.ankiaddon`, `.sha256` và `bento-forge.sbom.json` cùng release evidence.
 - [ ] Cài artifact vào profile sạch và kiểm tra Tools menu mở Bento Forge.
+
+## V18 release-candidate gate
+
+- [x] Learning Mode/schema/model/workflow regression và compatibility audit đã có test.
+- [x] Local isolated harness V18 sau sửa hành động gửi Knowledge chạy hai vòng liên tiếp, mỗi vòng `532 passed` (2026-08-16).
+- [x] Changelog `[Unreleased]`, README, compatibility và roadmap đã mô tả đúng phạm vi đã kiểm chứng.
+- [x] Artifact candidate được build với SHA-256 `8e2d0fc60e725a2ffa728c9f9a35199aa833c8f277aef2cd7a21c7f915a65ea0`; package regression xác nhận manifest Anki 26.5, có `workers/` và không có bytecode cache.
+- [ ] Chủ dự án hoàn thành `work_items/V18_SMOKE_PROFILE.md` trên profile Anki 26.5 tách biệt và ghi người/ngày xác nhận.
+- [x] Audit compatibility Anki 26.5: manifest cài đặt chuẩn, import entry/UI/public hooks đạt; collection backend thật đạt Basic/Cloze add/update/card generation/rollback (2026-08-16).
+- [ ] CI Python 3.9/3.11 xanh trên commit chứa V18.
+- [ ] Sau hai xác nhận trên mới đổi `manifest.json` từ `17.2.0` sang `18.0.0`, đổi tiêu đề/badge tài liệu và tạo section changelog `V18.0.0`.
 
 ## Record phát hành
 
 | Phiên bản | Ngày | CI | Smoke Anki thật | Người xác nhận | Ghi chú |
 | --- | --- | --- | --- | --- | --- |
-| 17.2.0 | Chưa phát hành | Chờ CI | Chưa chạy | — | Local 2026-08-16: Python 3.11 compile toàn bộ Python tracked; isolated harness 2 vòng, mỗi vòng 500 passed; ruff + credential scan xanh; build artifact SHA-256 `86c087d7b6249d372855a47082a1d4ae28de8fe9ffd7f13622ffff69d09b3fd9`, giải nén clean-profile tạm và compile xanh. Chưa được tính là cài/smoke Anki thật. `pip-audit` chặn bởi `pytest==8.3.5` / `PYSEC-2026-1845`; bản audit nêu 9.0.3 không hỗ trợ Python 3.9, nên vẫn cần quyết định tương thích/security, CI 3.9/3.11 và smoke Anki thật trước phát hành. |
+| 17.2.0 | Chưa phát hành | Chờ CI | Chờ GUI smoke | — | Local 2026-08-16: compatibility mở Anki 2.1.50 đến 26.5; runtime 26.5/Python 3.13.5 chấp nhận packaged manifest và đạt entry/UI/public-hook import cùng collection thật Basic/Cloze add/update/card generation/rollback. Knowledge đã ẩn/chặn workflow Batch Vocabulary của Language và có nút Gửi & tạo thẻ riêng. Isolated harness 2 vòng, mỗi vòng 532 passed; compile toàn bộ Python và diff check xanh. Artifact SHA-256 `8e2d0fc60e725a2ffa728c9f9a35199aa833c8f277aef2cd7a21c7f915a65ea0`. Version vẫn giữ 17.2.0 cho đến khi CI, GUI smoke 26.5 và endpoint legacy đạt. Local ruff chưa chạy vì môi trường thiếu module; `pip-audit` trước đó bị chặn bởi `pytest==8.3.5` / `PYSEC-2026-1845`, nên hai gate này vẫn thuộc CI/security decision trước phát hành. |
 | 17.1.0 | Chưa phát hành lại | Chờ CI | Chưa chạy | — | P0-A local: `py_compile` và `80 passed` (2026-08-13). P0-B/P0-C local (2026-08-14): metadata/temp regression `119 passed`; hai lần gọi isolated harness, mỗi lần hai vòng `383 passed`, cleanup và worktree check đạt. Vẫn không được tăng version/phát hành cho tới khi CI 3.9/3.11 và smoke Anki thật hoàn thành. |

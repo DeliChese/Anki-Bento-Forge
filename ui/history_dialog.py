@@ -24,6 +24,7 @@ def _lang_options():
         (t("lang_chinese"), "chinese"),
         (t("lang_korean"), "korean"),
         (t("lang_english"), "english"),
+        (t("item_label_knowledge"), "knowledge"),
     ]
 
 
@@ -33,6 +34,7 @@ def _kind_options():
         (t("history_kind_all"), None),
         (t("history_kind_vocab"), "vocab"),
         (t("history_kind_grammar"), "grammar"),
+        (t("item_label_knowledge"), "knowledge"),
     ]
 
 _LANG_TAG = {
@@ -40,6 +42,7 @@ _LANG_TAG = {
     "chinese": "🇨🇳",
     "korean": "🇰🇷",
     "english": "🇬🇧",
+    "knowledge": "🧠",
 }
 
 
@@ -161,17 +164,17 @@ class HistoryBrowserDialog(QDialog):
         self.lst.clear()
         self._visible = []
         for lang, item in self._all_entries:
-            front = str(item.get("front", ""))
-            meaning = str(item.get("meaning", ""))
+            front = str(item.get("front") or item.get("question") or item.get("cloze_text") or "")
+            meaning = str(item.get("meaning") or item.get("answer") or item.get("explanation") or "")
             if query and query not in front.lower() and query not in meaning.lower():
                 continue
             self._visible.append((lang, item))
         for lang, item in self._visible:
-            front = str(item.get("front", ""))
-            meaning = str(item.get("meaning", ""))
+            front = str(item.get("front") or item.get("question") or item.get("cloze_text") or "")
+            meaning = str(item.get("meaning") or item.get("answer") or item.get("explanation") or "")
             level = str(item.get("jlptlevel") or item.get("hsk_level") or item.get("level", "") or "")
             tag = _LANG_TAG.get(lang, "")
-            kind_tag = "📘 " if item.get("kind") == "grammar" else ""
+            kind_tag = "📘 " if item.get("kind") == "grammar" else ("🧠 " if lang == "knowledge" else "")
             text = f"{front} — {meaning}"
             if level:
                 text += f"  [{level}]"

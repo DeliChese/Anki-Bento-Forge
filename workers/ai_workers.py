@@ -14,6 +14,7 @@ from utils.ai_extractor import (
     extract_grammar_long_text,
     chat_with_ai,
 )
+from utils.knowledge_extractor import extract_knowledge_long_text
 
 logger = get_logger()
 
@@ -62,13 +63,15 @@ class AiExtractThread(QThread):
     finished = pyqtSignal(list)
     error = pyqtSignal(str)
 
-    def __init__(self, text, lang, custom_instruction="", existing_words=None, grammar=False, cancel_event=None):
+    def __init__(self, text, lang, custom_instruction="", existing_words=None, grammar=False,
+                 cancel_event=None, learning_mode="language"):
         super().__init__()
         self.text = text
         self.lang = lang
         self.custom_instruction = custom_instruction
         self.existing_words = existing_words or []
         self.grammar = grammar
+        self.learning_mode = learning_mode
         self.cancel_event = cancel_event or threading.Event()
 
     def run(self):
@@ -77,12 +80,22 @@ class AiExtractThread(QThread):
                 return
             if self.existing_words:
                 label = (
-                    t("item_label_grammar_lower")
-                    if self.grammar else t("item_label_vocab_lower")
+                    t("item_label_knowledge") if self.learning_mode == "knowledge" else
+                    (t("item_label_grammar_lower") if self.grammar else t("item_label_vocab_lower"))
                 )
                 self.progress.emit(t("status_deck_avoid", count=len(self.existing_words), label=label))
 
-            if self.grammar:
+            if self.learning_mode == "knowledge":
+                self.progress.emit(t("worker_progress_knowledge"))
+                result_list = extract_knowledge_long_text(
+                    self.text,
+                    self.custom_instruction,
+                    existing_keys=self.existing_words,
+                    progress_callback=lambda msg: self.progress.emit(msg),
+                    should_abort=self.cancel_event.is_set,
+                )
+                empty_msg = t("empty_knowledge")
+            elif self.grammar:
                 self.progress.emit(t("worker_progress_grammar"))
                 result_list = extract_grammar_long_text(
                     self.text,

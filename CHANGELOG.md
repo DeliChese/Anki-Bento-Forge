@@ -5,6 +5,7 @@
 > Các thay đổi đã merge sau 17.1.0. Chỉ chuyển mục này thành bản phát hành khi `manifest.json`, bằng chứng CI và smoke Anki đã sẵn sàng.
 
 ### ✨ Added
+- V18 Learning Modes bổ sung lựa chọn theo deck giữa `Language` và `Knowledge` mà không đổi deck hoặc migration Note Type Language. Knowledge V1 dùng model riêng, hỗ trợ Basic Q&A/Cloze, Explanation, Source và Tags từ JSON thủ công hoặc AI qua preview có thể chỉnh sửa.
 - Quality baselines: fixed 20-item English, Japanese, Chinese, and Korean corpora with reviewed run reports. Candidate cards now surface missing English IPA/CJK pronunciation, and Korean headword romanization with a hyphen, before import.
 - Tiếng Anh trở thành ngôn ngữ đích thứ tư: có Note Type từ vựng/ngữ pháp, CEFR A1–C2, IPA, 5 chế độ học, prompt VI/EN, AI preview/chat, lịch sử, Edge TTS giọng UK/US và regression test riêng.
 - V17.2: Nhấp vào thanh chi phí AI ở góc dưới trái để xem lịch sử từng request theo model, thời điểm, thời lượng, loại công việc, input/output token và chi phí. Có lọc theo model/công việc/ngày hoặc khoảng ngày, sắp xếp chi phí và input/output cao–thấp, tổng cho tập dữ liệu đang lọc, cùng thao tác xóa lịch sử. Lịch sử chỉ giữ metadata usage (tối đa 2.000 lượt) trong Anki profile; không giữ prompt, phản hồi, API key hay URL API.
@@ -20,6 +21,8 @@
 - Thêm `DEBUGGING.md`, `COMPATIBILITY.md`, `RELEASE_CHECKLIST.md`, artifact build có SHA-256/SBOM, cùng harness kiểm thử cô lập hai vòng dùng chung với CI.
 
 ### 🔧 Changed
+- Mở compatibility manifest từ Anki 2.1.50 đến 26.5, bổ sung metadata cài `.ankiaddon` chuẩn (`package`/point version), và dùng `Collection.update_note()` để add/update/rollback nằm trong undo-aware operation trên Anki hiện tại; vẫn giữ fallback cho runtime legacy.
+- Knowledge dùng prompt/parser/cache version riêng, schema JSON nghiêm ngặt và history namespace riêng. Source thiếu được giữ rỗng thay vì tự suy đoán; các control Language/TTS không xuất hiện trong Knowledge.
 - English vocabulary extraction now keeps a supplied source meaning consistent across the card, both examples, and both translations; the cache prompt version was advanced so stale results are not reused.
 - Built-in CJK prompts now require contextual meanings, faithful example translations, and language-specific pronunciation/form accuracy. A narrowly scoped Japanese repair corrects the proven `質問を聞きました`/“ask” contradiction without changing legitimate “hear a question” output.
 - Prompt tiếng Anh ưu tiên đúng nghĩa ngữ cảnh, lemma/IPA/CEFR, collocation/register và ví dụ tự nhiên ngắn; prompt batch/chat bỏ phần hướng dẫn lặp để tăng chất lượng với ít input token hơn. Prompt mặc định/cache được nâng version để không dùng lại kết quả cũ.
@@ -31,6 +34,9 @@
 - Chuẩn hóa compatibility theo `manifest.json`, diagnostic event code và logging theo Anki profile.
 
 ### 🐛 Fixed
+- Knowledge đổi hành động AI thành `GỬI & TẠO THẺ`, làm rõ ô `Yêu cầu thêm` và giữ nó trên pipeline tạo thẻ/schema Knowledge thay vì AI Chat của Language.
+- Knowledge không còn hiển thị hoặc gọi gián tiếp công cụ `Batch Từ Vựng`; nhiều Knowledge card tiếp tục đi qua AI extract/schema riêng có chunking thay vì workflow Vocabulary/Grammar của Language.
+- Import Knowledge chỉ quét duplicate theo Question/Concept đã chuẩn hóa trong đúng Knowledge model + deck; cancel giữa batch tự phục hồi phần đã ghi và Undo batch gần nhất xóa note mới đồng thời khôi phục note đã update mà không chạm note Language.
 - Opening Bento Forge no longer performs a TTL-triggered collection scan on the UI thread. The one-time history bootstrap is serialized through Anki `QueryOp`, reports progress, can be cancelled without saving partial results, and subsequent imports keep history current incrementally.
 - Release artifacts now include the required `workers/` package and exclude `__pycache__`, `.pyc`, and `.pyo` bytecode files.
 - Prompt Editor trong Cài đặt AI nay nạp sẵn cả tab Từ vựng lẫn Ngữ pháp và lưu nội dung theo ngôn ngữ vừa rời khỏi, tránh tab prompt rỗng hoặc ghi nhầm dữ liệu khi đổi ngôn ngữ.

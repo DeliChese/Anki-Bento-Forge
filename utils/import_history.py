@@ -267,7 +267,7 @@ def init_import_history(force_rescan: bool = False, scan_context_factory=None,
 
 
 def add_to_import_history(vocab_list: list, lang: str, deck_name: str = "", source: str = "manual",
-                          kind: str = "vocab"):
+                          kind: str = "vocab", learning_mode: str = "language"):
     """
     Ghi nhận từ vựng / ngữ pháp mới vào lịch sử sau mỗi lần import.
 
@@ -284,8 +284,9 @@ def add_to_import_history(vocab_list: list, lang: str, deck_name: str = "", sour
     data = _load_history()
     if not data.get("entries"):
         data["entries"] = {}
-    if lang not in data["entries"]:
-        data["entries"][lang] = {}
+    history_key = "knowledge" if learning_mode == "knowledge" else lang
+    if history_key not in data["entries"]:
+        data["entries"][history_key] = {}
 
     now = time.time()
     added_count = 0
@@ -295,7 +296,12 @@ def add_to_import_history(vocab_list: list, lang: str, deck_name: str = "", sour
             continue
 
         # Grammar dùng key "pattern" thay cho "front"
-        front = (item.get("front") or item.get("simplified") or item.get("pattern") or "").strip()
+        front = (
+            item.get("question") or item.get("cloze_text")
+            if learning_mode == "knowledge"
+            else item.get("front") or item.get("simplified") or item.get("pattern")
+        ) or ""
+        front = str(front).strip()
         if not front:
             continue
 
@@ -304,18 +310,24 @@ def add_to_import_history(vocab_list: list, lang: str, deck_name: str = "", sour
         entry = {
             "front": front,
             "front_lower": front_lower,
-            "meaning": str(item.get("meaning", "")).strip(),
+            "meaning": str(
+                item.get("answer") or item.get("explanation") or ""
+                if learning_mode == "knowledge" else item.get("meaning", "")
+            ).strip(),
             "level": str(item.get("jlptlevel") or item.get("hsk_level") or "").strip(),
             "deck": deck_name,
             "imported_at": now,
             "source": source,
             "kind": kind,
+            "learning_mode": learning_mode,
             # Lưu toàn bộ item gốc để có thể đưa lại vào xưởng và import lại
             "item": item,
         }
 
         # Furigana / Pinyin
-        if lang == "japanese":
+        if learning_mode == "knowledge":
+            entry["source_text"] = str(item.get("source", "")).strip()
+        elif lang == "japanese":
             entry["furigana"] = str(item.get("furigana", "")).strip()
         else:
             entry["pinyin"] = str(item.get("pinyin", "")).strip()
@@ -324,7 +336,7 @@ def add_to_import_history(vocab_list: list, lang: str, deck_name: str = "", sour
         # Topic
         entry["topic"] = str(item.get("topic", "")).strip()
 
-        data["entries"][lang][front_lower] = entry
+        data["entries"][history_key][front_lower] = entry
         added_count += 1
 
     # Ghi phiên import
@@ -335,14 +347,15 @@ def add_to_import_history(vocab_list: list, lang: str, deck_name: str = "", sour
         "count": added_count,
         "deck": deck_name,
         "source": source,
-        "lang": lang,
+        "lang": history_key,
+        "learning_mode": learning_mode,
     })
     # Giới hạn 100 phiên gần nhất
     if len(data["import_sessions"]) > 100:
         data["import_sessions"] = data["import_sessions"][-100:]
 
     _save_history(data)
-    logger.info("Import history: +%s words (%s, %s)", added_count, lang, source)
+    logger.info("Import history: +%s items (%s, %s)", added_count, history_key, source)
 
 
 def get_import_history(lang: str = None, limit: int = 2000) -> dict:
@@ -452,10 +465,12 @@ def get_import_history_items(lang: str = None, limit: int = 5000, kind: str = No
                     item["traditional"] = w["traditional"]
             else:
                 item = dict(item)  # tránh mutate dữ liệu gốc trong file
-                if not item.get("front"):
+                if not item.get("front") and w.get("learning_mode") != "knowledge":
                     item["front"] = w.get("front", "")
-            item.setdefault("kind", w.get("kind", "vocab"))
-            if not item.get("front"):
+            is_knowledge = w.get("learning_mode") == "knowledge"
+            if not is_knowledge:
+                item.setdefault("kind", w.get("kind", "vocab"))
+            if not item.get("front") and not is_knowledge:
                 continue
             result.append((l, w.get("imported_at", 0), item))
     result.sort(key=lambda x: x[1], reverse=True)

@@ -3,7 +3,7 @@
 > **Vocabulary Factory cho Anki** — Tạo thẻ từ vựng tiếng Nhật, Trung, Hàn & Anh với AI, TTS, và interactive templates.
 
 [![Version](https://img.shields.io/badge/version-17.2.0-blue)](manifest.json)
-[![Anki](https://img.shields.io/badge/anki-2.1.50-green)](COMPATIBILITY.md)
+[![Anki](https://img.shields.io/badge/anki-2.1.50_to_26.5-green)](COMPATIBILITY.md)
 [![Python](https://img.shields.io/badge/python-%3E%3D3.9-yellow)](manifest.json)
 [![Tests](https://github.com/DeliChese/Anki-Bento-Forge/actions/workflows/ci.yml/badge.svg)](https://github.com/DeliChese/Anki-Bento-Forge/actions/workflows/ci.yml)
 
@@ -12,6 +12,14 @@ Version và phạm vi Anki lấy từ [`manifest.json`](manifest.json); tài li�
 ---
 
 ## ✨ Tính năng
+
+### 🧭 Learning Modes (V18 release candidate)
+| Mode | Phạm vi |
+|------|---------|
+| 🌐 **Language** | Giữ nguyên Từ vựng/Ngữ pháp cho Nhật, Trung, Hàn và Anh, gồm prompt/model hiện hữu, TTS và các chế độ học tương tác. |
+| 🧠 **Knowledge** | Model riêng cho Basic Q&A và Cloze, có Explanation/Source/Tags; JSON và AI đều qua schema nghiêm ngặt, preview chỉnh sửa, duplicate đúng deck/model, import/update/history/undo và không tạo TTS. |
+
+Mode được người dùng chọn và lưu theo deck; Bento Forge không suy đoán mode từ nội dung. Chuyển qua lại giữ draft riêng và không tự migrate note Language. Bản phát hành V18 chỉ được đóng version sau khi hoàn tất [smoke checklist trên profile backup](work_items/V18_SMOKE_PROFILE.md).
 
 ### 🇯🇵🇨🇳🇰🇷🇬🇧 Đa ngôn ngữ (4 ngôn ngữ)
 | Tính năng | Mô tả |
@@ -54,8 +62,8 @@ Version và phạm vi Anki lấy từ [`manifest.json`](manifest.json); tài li�
 ## 📦 Cài đặt
 
 ### Yêu cầu
-- Anki 2.1.50 (xem [compatibility matrix](COMPATIBILITY.md))
-- Python 3.9 (bundled with the supported Anki runtime)
+- Anki 2.1.50 through 26.5 (xem [compatibility matrix](COMPATIBILITY.md))
+- Python 3.9+ (Anki 26.5 bundles Python 3.13.5)
 - `edge-tts` (cài rõ ràng bằng lệnh được hiển thị khi thiếu)
 - `gtts` (optional, fallback)
 

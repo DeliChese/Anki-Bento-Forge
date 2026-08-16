@@ -38,6 +38,7 @@ from .ai_result_cache import (
 from .ai_response_parser import parse_ai_json_with_comment as _parse_ai_json_with_comment
 from .ai_response_guard import enable_deepseek_json_output, get_final_model_content
 from .ai_output_repairs import repair_vocabulary_cards
+from .ai_prompt_defaults import KNOWLEDGE_PROMPT_VERSION
 from .ai_usage_history import record_usage as _record_usage
 from .user_data import (
     atomic_write_json,
@@ -468,12 +469,14 @@ _PROMPT_VERSION = _DEFAULT_PROMPT_VERSION
 
 
 def _ai_cache_options(kind: str) -> dict:
+    prompt_version = KNOWLEDGE_PROMPT_VERSION if kind == "knowledge" else _PROMPT_VERSION
+    prompt_signature = "" if kind == "knowledge" else get_prompt_signature()
     return {
         "cache_dir": _CACHE_DIR,
         "legacy_cache_dir": _LEGACY_CACHE_DIR,
-        "prompt_signature": get_prompt_signature(),
+        "prompt_signature": prompt_signature,
         "kind": kind,
-        "prompt_version": _PROMPT_VERSION,
+        "prompt_version": prompt_version,
         "max_bytes": _AI_CACHE_MAX_BYTES,
         "max_files": _AI_CACHE_MAX_FILES,
     }
@@ -482,9 +485,11 @@ def _ai_cache_options(kind: str) -> dict:
 def _ai_cache_key(text: str, lang: str, instruction: str, existing_hash: str, kind: str = "vocab") -> str:
     # get_prompt_signature() = md5 phần ghi đè prompt (utils/ai_prompts.json)
     # → người dùng sửa prompt/schema trong editor → cache tự invalidate (quy tắc #9)
+    prompt_version = KNOWLEDGE_PROMPT_VERSION if kind == "knowledge" else _PROMPT_VERSION
+    prompt_signature = "" if kind == "knowledge" else get_prompt_signature()
     return _build_ai_cache_key(
         text, lang, instruction, existing_hash, kind=kind,
-        prompt_version=_PROMPT_VERSION, prompt_signature=get_prompt_signature(),
+        prompt_version=prompt_version, prompt_signature=prompt_signature,
     )
 
 
@@ -560,6 +565,8 @@ from .ai_prompt_defaults import (
     _GRAMMAR_JSON_TEMPLATES,
     _GRAMMAR_SYSTEM_PROMPTS_EN,
     _GRAMMAR_JSON_TEMPLATES_EN,
+    _KNOWLEDGE_JSON_TEMPLATE,
+    _KNOWLEDGE_SYSTEM_PROMPT,
 )
 
 

@@ -24,10 +24,17 @@ _addon_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if _addon_root not in sys.path:
     sys.path.insert(0, _addon_root)
 
-# Lưu trạng thái ô AI (text + file kẹp) theo từng luồng: {lang: {vocab|grammar: {...}}}
+# Lưu trạng thái ô AI theo learning mode rõ ràng:
+# {language: {lang: {vocab|grammar: {...}}}}.
 # Dữ liệu này phải ở profile Anki để update add-on không thể ghi đè dữ liệu người dùng.
 from utils.user_data import get_user_data_path
 from utils.factory_state import FactoryStateStore
+from utils.learning_mode import (
+    DEFAULT_LEARNING_MODE,
+    get_learning_mode,
+    normalize_learning_mode,
+    set_learning_mode,
+)
 
 _LEGACY_STATE_PATH = os.path.join(_addon_root, "utils", "factory_state.json")
 _STATE_PATH = get_user_data_path("factory_state.json")
@@ -67,6 +74,14 @@ from utils.ai_extractor import (
     extract_vocabulary_with_ai, extract_vocabulary_long_text,
     get_effective_json_template, query_anki_context,
 )
+from utils.knowledge_schema import KnowledgeSchemaError, parse_knowledge_cards
+from utils.knowledge_workflow import (
+    KNOWLEDGE_IMPORT_CONFIG,
+    prepare_knowledge_batch,
+    read_knowledge_duplicate_keys,
+    read_knowledge_notes_for_deck,
+)
+from utils.prompt_config import get_knowledge_json_template
 from utils.import_history import (
     add_to_import_history, get_history_summary_text, init_import_history,
     load_import_history, needs_import_history_scan,
@@ -74,6 +89,7 @@ from utils.import_history import (
 from utils.import_safety import rollback_added_notes, summarize_import_batch
 from utils.anki_ops import run_collection, run_query
 from utils.import_operations import apply_import, prepare_audio_tasks
+from utils.import_operations import apply_knowledge_import, rollback_knowledge_import
 from utils.anki_adapter import AnkiCollectionAdapter
 from utils.import_quality import find_near_duplicate, normalize_for_comparison
 from utils.import_report import write_import_report
@@ -173,15 +189,25 @@ class AnkiSmartFactory(QDialog):
         # Danh sách file tài liệu tham khảo đã kẹp: [(name, text), ...] + đường dẫn
         self._ai_attached_files = []
         self._ai_attached_paths = []
-        # Trạng thái lưu theo luồng (từ vựng / ngữ pháp) cho từng ngôn ngữ
+        # V18: Language là default tương thích; UI selector Knowledge ở V18-04.
+        self._learning_mode = "language"
+        # Trạng thái lưu theo learning mode, ngôn ngữ và subtype.
         self._factory_state = self._load_factory_state()
         # Debounce timer cho JSON parsing (tránh parse liên tục khi gõ)
         self._analyze_timer = QTimer(self)
         self._analyze_timer.setSingleShot(True)
         self._analyze_timer.setInterval(500)  # 500ms debounce
         self._analyze_timer.timeout.connect(self._analyze_content)
+        self._ui_ready = False
         self._setup_ui()
-        self._on_lang_changed()
+        self._ui_ready = True
+        self._learning_mode = self._deck_learning_mode()
+        self._apply_learning_mode_ui()
+        if self._learning_mode == "language":
+            self._on_lang_changed()
+        else:
+            self._restore_current_flow()
+            self._retranslate_ui()
 
         # Đăng ký refresh UI khi ngôn ngữ giao diện thay đổi (từ nút toggle VI/EN)
         add_language_listener(self._retranslate_ui)
@@ -274,6 +300,8 @@ class AnkiSmartFactory(QDialog):
         # Mức 1 (Field Map Editor): bơm json_field_map + all_fields HIỆU LỰC
         # (defaults từ Language/*.py + ghi đè của người dùng trong ai_prompts.json)
         # vào config → mọi nơi dùng self._cfg() đều tự có field mới.
+        if getattr(self, "_learning_mode", DEFAULT_LEARNING_MODE) == "knowledge":
+            return dict(KNOWLEDGE_IMPORT_CONFIG)
         from utils.prompt_config import apply_field_map_to_cfg
         is_grammar = bool(getattr(self, '_is_grammar', False))
         base = (LANG_GRAMMAR_CONFIG if is_grammar else LANG_CONFIG)[self._current_lang]
@@ -294,6 +322,8 @@ class AnkiSmartFactory(QDialog):
 
     def _select_mode(self, is_grammar):
         """Chuyển chế độ Từ vựng ↔ Ngữ pháp (Note Type riêng)"""
+        if self._learning_mode != "language":
+            return
         # Luôn đồng bộ trạng thái nút (tránh toggle lệch khi bấm lại nút đang active)
         self.btn_mode_vocab.setChecked(not is_grammar)
         self.btn_mode_grammar.setChecked(is_grammar)
@@ -318,16 +348,26 @@ class AnkiSmartFactory(QDialog):
         self._factory_state = _factory_state_store().save(self._factory_state)
 
     def _flow_key(self):
-        """Trả về (lang, mode) — mode: 'vocab' hoặc 'grammar'."""
-        mode = "grammar" if self._is_grammar else "vocab"
-        return self._current_lang, mode
+        """Return the explicit V18 draft key for Language or Knowledge."""
+        if getattr(self, "_learning_mode", DEFAULT_LEARNING_MODE) == "knowledge":
+            return "knowledge", "default", "knowledge"
+        subtype = "grammar" if self._is_grammar else "vocab"
+        return "language", self._current_lang, subtype
+
+    def _flow_state_path(self):
+        """Normalize the V18 key and tolerate test/extensions using the V17 key."""
+        key = self._flow_key()
+        if len(key) == 2:
+            lang, subtype = key
+            return "language", lang, subtype
+        return key
 
     def _save_current_flow(self):
         """Lưu text + file paths + thẻ trong xưởng (raw_data/prepared_data/JSON) của luồng
         đang hiển thị (gọi TRƯỚC khi đổi ngôn ngữ/mode/đóng)."""
         try:
-            lang, mode = self._flow_key()
-            flow = self._factory_state.setdefault(lang, {}).setdefault(mode, {})
+            learning_mode, lang, mode = self._flow_state_path()
+            flow = self._factory_state.setdefault(learning_mode, {}).setdefault(lang, {}).setdefault(mode, {})
             flow["text"] = self.ai_text_input.toPlainText()
             flow["files"] = list(getattr(self, '_ai_attached_paths', []))
             # Lưu thẻ chờ xuất xưởng để KHÔNG bị mất khi đóng Factory
@@ -344,8 +384,8 @@ class AnkiSmartFactory(QDialog):
     def _restore_current_flow(self):
         """Khôi phục text + file kẹp + thẻ trong xưởng cho luồng đang hiển thị (gọi SAU khi setup UI)."""
         try:
-            lang, mode = self._flow_key()
-            flow = self._factory_state.get(lang, {}).get(mode, {})
+            learning_mode, lang, mode = self._flow_state_path()
+            flow = self._factory_state.get(learning_mode, {}).get(lang, {}).get(mode, {})
             self.ai_text_input.setPlainText(flow.get("text", ""))
             # Khôi phục danh sách file kẹp (đọc lại nếu file còn tồn tại)
             self._ai_attached_files = []
@@ -438,6 +478,21 @@ class AnkiSmartFactory(QDialog):
         left = QVBoxLayout(left_panel)
         left.setContentsMargins(0, 0, 4, 0)
         left.setSpacing(6)
+
+        # Learning Mode selector (product-level; vocab/grammar stay Language subtypes).
+        self.learning_mode_grp = QGroupBox(t("learning_mode_grp_title"))
+        learning_mode_layout = QHBoxLayout()
+        self.btn_learning_language = QPushButton(t("btn_learning_language"))
+        self.btn_learning_language.setCheckable(True)
+        self.btn_learning_language.setChecked(True)
+        self.btn_learning_language.clicked.connect(lambda checked: self._select_learning_mode("language"))
+        learning_mode_layout.addWidget(self.btn_learning_language)
+        self.btn_learning_knowledge = QPushButton(t("btn_learning_knowledge"))
+        self.btn_learning_knowledge.setCheckable(True)
+        self.btn_learning_knowledge.clicked.connect(lambda checked: self._select_learning_mode("knowledge"))
+        learning_mode_layout.addWidget(self.btn_learning_knowledge)
+        self.learning_mode_grp.setLayout(learning_mode_layout)
+        left.addWidget(self.learning_mode_grp)
 
         # Language selector
         self.lang_grp = QGroupBox(t("lang_grp_title"))
@@ -981,12 +1036,15 @@ class AnkiSmartFactory(QDialog):
             logger.warning("Lỗi chuyển ngôn ngữ: %s", e)
 
     def _update_window_title(self):
-        """Cập nhật tiêu đề cửa sổ theo ngôn ngữ ngôn ngữ học + hậu tố Ngữ pháp."""
+        """Update the title without representing Knowledge as a language flow."""
         try:
-            language = _translated_language_label(
-                self._current_lang, grammar=self._is_grammar
-            )
-            self.setWindowTitle(t("app_title_language", language=language))
+            if self._learning_mode == "knowledge":
+                self.setWindowTitle(t("app_title_knowledge"))
+            else:
+                language = _translated_language_label(
+                    self._current_lang, grammar=self._is_grammar
+                )
+                self.setWindowTitle(t("app_title_language", language=language))
         except Exception as e:
             logger.warning("Lỗi cập nhật tiêu đề: %s", e)
 
@@ -1035,9 +1093,13 @@ class AnkiSmartFactory(QDialog):
             self.btn_reset_cost.setText(t("btn_reset_cost"))
 
             # Selectors
-            self.lang_grp.setTitle(_translated_language_label(
-                self._current_lang, grammar=self._is_grammar
-            ))
+            self.learning_mode_grp.setTitle(t("learning_mode_grp_title"))
+            self.btn_learning_language.setText(t("btn_learning_language"))
+            self.btn_learning_knowledge.setText(t("btn_learning_knowledge"))
+            if self._learning_mode == "language":
+                self.lang_grp.setTitle(_translated_language_label(
+                    self._current_lang, grammar=self._is_grammar
+                ))
             for lang, button in self.btn_lang.items():
                 button.setText(t(_LANG_LABEL_KEYS[lang]))
             self.mode_grp.setTitle(t("mode_grp_title"))
@@ -1053,10 +1115,17 @@ class AnkiSmartFactory(QDialog):
             self.btn_history.setToolTip(t("btn_history_tip"))
 
             # AI group
-            self.ai_grp.setTitle(t("ai_group_title"))
+            self.ai_grp.setTitle(t(
+                "ai_group_title_knowledge" if self._learning_mode == "knowledge" else "ai_group_title"
+            ))
             self.btn_ai_settings.setText(t("ai_settings_btn"))
             self.btn_ai_clear_text.setText(t("ai_clear_text_btn"))
-            self.btn_ai_extract.setText(t("ai_extract_btn"))
+            if self._learning_mode == "knowledge":
+                self.btn_ai_extract.setText(t("knowledge_generate_btn"))
+                self.btn_ai_extract.setToolTip(t("knowledge_generate_tip"))
+            else:
+                self.btn_ai_extract.setText(t("ai_extract_btn"))
+                self.btn_ai_extract.setToolTip("")
             self.btn_ai_batch.setText(t("ai_batch_btn"))
             self.btn_ai_batch.setToolTip(t("btn_ai_batch_tip"))
             self.btn_ai_chat.setText(t("ai_chat_btn"))
@@ -1069,13 +1138,16 @@ class AnkiSmartFactory(QDialog):
             self.btn_ai_attach.setToolTip(t("btn_ai_attach_tip"))
             self.btn_ai_attach_clear.setText(t("btn_ai_attach_clear"))
             self.btn_ai_attach_clear.setToolTip(t("btn_ai_attach_clear_tip"))
-            self.ai_text_input.setPlaceholderText(t(
-                "ai_input_placeholder_grammar"
-                if self._is_grammar else "ai_input_placeholder_vocab"
+            self.ai_text_input.setPlaceholderText(t(self._ai_input_placeholder_key()))
+            self.lbl_instruction.setText(t(
+                "knowledge_instruction_label" if self._learning_mode == "knowledge" else "ai_instruction_label"
             ))
-            self.lbl_instruction.setText(t("ai_instruction_label"))
-            self.ai_instruction.setPlaceholderText(t("ai_instruction_placeholder"))
-            self.lbl_json_label.setText(t("json_input_label"))
+            self.ai_instruction.setPlaceholderText(t(
+                "knowledge_instruction_placeholder" if self._learning_mode == "knowledge" else "ai_instruction_placeholder"
+            ))
+            self.lbl_json_label.setText(t(
+                "knowledge_json_input_label" if self._learning_mode == "knowledge" else "json_input_label"
+            ))
             if self._ai_attached_files:
                 self._update_ai_files_label()
 
@@ -1093,7 +1165,8 @@ class AnkiSmartFactory(QDialog):
             self.btn_rebuild.setToolTip(t("btn_rebuild_tip"))
             self.btn_diff_meaning.setText(t("btn_diff_meaning"))
             self.btn_diff_meaning.setToolTip(t("btn_diff_meaning_tip"))
-            self._sync_level_combo()
+            if self._learning_mode == "language":
+                self._sync_level_combo()
 
             # Voice
             self.voice_grp.setTitle(t("voice_group_title"))
@@ -1109,10 +1182,13 @@ class AnkiSmartFactory(QDialog):
             self.chk_audio_vocab.setToolTip(t("voice_tooltip"))
             self.chk_audio_ex1.setToolTip(t("voice_tooltip"))
             self.chk_audio_ex2.setToolTip(t("voice_tooltip"))
-            self._sync_srs_layout_combo()
+            if self._learning_mode == "language":
+                self._sync_srs_layout_combo()
 
             # Preview area
-            self.lbl_preview_title.setText(t("preview_label"))
+            self.lbl_preview_title.setText(t(
+                "knowledge_preview_label" if self._learning_mode == "knowledge" else "preview_label"
+            ))
             self.txt_search.setPlaceholderText(t("search_placeholder"))
             self._repopulate_filter_combo()
             self.cbo_filter.setToolTip(t("cbo_filter_tip"))
@@ -1230,7 +1306,99 @@ class AnkiSmartFactory(QDialog):
             style = default_style + selected_styles.get(key, "")
             btn.setStyleSheet(style)
 
+    def _deck_learning_mode(self):
+        """Read the selected deck's explicit V18 mode without changing config."""
+        try:
+            return get_learning_mode(mw.col.conf, self._current_deck_id())
+        except Exception as error:
+            logger.warning("Could not read learning mode for deck: %s", error)
+            return DEFAULT_LEARNING_MODE
+
+    def _persist_learning_mode(self, mode):
+        """Persist a user-selected mode only for the currently selected deck."""
+        deck_id = self._current_deck_id()
+        if deck_id is None:
+            return
+        try:
+            set_learning_mode(mw.col.conf, mode, deck_id)
+            mw.col.setMod()
+        except Exception as error:
+            logger.warning("Could not save learning mode for deck %s: %s", deck_id, error)
+
+    def _ai_input_placeholder_key(self):
+        if getattr(self, "_learning_mode", "language") == "knowledge":
+            return "ai_input_placeholder_knowledge"
+        return "ai_input_placeholder_grammar" if self._is_grammar else "ai_input_placeholder_vocab"
+
+    def _apply_learning_mode_ui(self):
+        """Show only controls that apply to the selected product-level mode."""
+        if not hasattr(self, "btn_learning_language"):
+            return
+        is_language = self._learning_mode == "language"
+        self.btn_learning_language.setChecked(is_language)
+        self.btn_learning_knowledge.setChecked(not is_language)
+        # These controls encode language, level, audio or Language model policy.
+        for widget in (self.lang_grp, self.mode_grp, self.voice_grp):
+            widget.setVisible(is_language)
+        for widget in (self.btn_ai_extract, self.btn_sample, self.btn_verify):
+            widget.setVisible(True)
+        # This opens the Language-only vocabulary/grammar batch dialog.
+        # Knowledge already accepts multiple strict cards through AI extract.
+        self.btn_ai_batch.setVisible(is_language)
+        self.btn_ai_chat.setVisible(is_language)
+        self.filter_grp.setVisible(True)
+        for widget in (
+            self.lbl_level, self.cbo_level, self.lbl_topic, self.txt_topic,
+            self.lbl_audio, self.chk_audio_vocab, self.chk_audio_ex1, self.chk_audio_ex2,
+            self.btn_rebuild, self.btn_diff_meaning,
+        ):
+            widget.setVisible(is_language)
+        if hasattr(self, "json_input"):
+            self.json_input.setEnabled(True)
+        if hasattr(self, "btn_import"):
+            self.btn_import.setEnabled(bool(self.prepared_data))
+        if hasattr(self, "btn_cancel_order"):
+            self.btn_cancel_order.setEnabled(bool(self.prepared_data))
+
+    def _clear_mode_preview(self):
+        """Clear only the displayed data before restoring the target mode draft."""
+        self.raw_data = []
+        self.prepared_data = []
+        if hasattr(self, "preview_list"):
+            self.preview_list.clear()
+        if hasattr(self, "json_input"):
+            self.json_input.clear()
+        if hasattr(self, "btn_import"):
+            self.btn_import.setEnabled(False)
+        if hasattr(self, "btn_cancel_order"):
+            self.btn_cancel_order.setEnabled(False)
+        if hasattr(self, "btn_diff_meaning"):
+            self.btn_diff_meaning.setEnabled(False)
+
+    def _select_learning_mode(self, mode, *, persist=True, announce=True):
+        """Switch modes without invoking Language extraction or model lifecycle."""
+        mode = normalize_learning_mode(mode)
+        if mode == self._learning_mode:
+            self._apply_learning_mode_ui()
+            return
+        self._save_current_flow()
+        self._learning_mode = mode
+        if persist:
+            self._persist_learning_mode(mode)
+        if mode == "language":
+            self._on_lang_changed()
+        else:
+            self._clear_mode_preview()
+            self._apply_learning_mode_ui()
+            self._restore_current_flow()
+            self._apply_learning_mode_ui()
+            self._retranslate_ui()
+        if announce:
+            tooltip(t("tooltip_switched_learning_knowledge" if mode == "knowledge" else "tooltip_switched_learning_language"))
+
     def _select_lang(self, lang_key):
+        if self._learning_mode != "language":
+            return
         if lang_key != self._current_lang:
             # Lưu trạng thái luồng hiện tại trước khi chuyển ngôn ngữ
             self._save_current_flow()
@@ -1243,6 +1411,9 @@ class AnkiSmartFactory(QDialog):
         self._on_lang_changed()
 
     def _on_lang_changed(self):
+        if self._learning_mode != "language":
+            return
+        self._apply_learning_mode_ui()
         cfg = self._cfg()
         for k, btn in self.btn_lang.items():
             btn.setChecked(k == self._current_lang)
@@ -1276,10 +1447,7 @@ class AnkiSmartFactory(QDialog):
             self.lbl_ai_files.setText("")
 
         # Cập nhật placeholder theo chế độ
-        if self._is_grammar:
-            self.ai_text_input.setPlaceholderText(t("ai_input_placeholder_grammar"))
-        else:
-            self.ai_text_input.setPlaceholderText(t("ai_input_placeholder_vocab"))
+        self.ai_text_input.setPlaceholderText(t(self._ai_input_placeholder_key()))
 
         # Sync voice dropdown với ngôn ngữ hiện tại
         lang = cfg["lang_code"]
@@ -1384,9 +1552,14 @@ class AnkiSmartFactory(QDialog):
             logger.warning("Lỗi lưu SRS layout: %s", exc)
 
     def _on_deck_changed(self, _name=None):
-        if hasattr(self, "cbo_study_mode"):
+        if not getattr(self, "_ui_ready", False):
+            return
+        deck_mode = self._deck_learning_mode()
+        if deck_mode != self._learning_mode:
+            self._select_learning_mode(deck_mode, persist=False, announce=False)
+        if self._learning_mode == "language" and hasattr(self, "cbo_study_mode"):
             self._sync_study_mode_combo()
-        if hasattr(self, "cbo_srs_layout"):
+        if self._learning_mode == "language" and hasattr(self, "cbo_srs_layout"):
             self._sync_srs_layout_combo()
 
     def _migrate_current_deck_srs(self):
@@ -1453,6 +1626,10 @@ class AnkiSmartFactory(QDialog):
             tooltip(t("tooltip_audio_gen_fail"))
 
     def _show_sample_json(self):
+        if getattr(self, "_learning_mode", "language") == "knowledge":
+            self.json_input.setPlainText(get_knowledge_json_template())
+            self._schedule_analyze()
+            return
         samples = {
             "japanese": '''{
   "front": "食べる",
@@ -1632,6 +1809,13 @@ class AnkiSmartFactory(QDialog):
         raw = self.json_input.toPlainText().strip()
         if not raw:
             self.raw_data = []
+        elif getattr(self, "_learning_mode", "language") == "knowledge":
+            try:
+                self.raw_data = parse_knowledge_cards(raw)
+            except KnowledgeSchemaError as error:
+                self.raw_data = []
+                self.lbl_raw.setText(t("knowledge_schema_error", error=error))
+                return
         else:
             self.raw_data = safe_parse_json(raw)
 
@@ -1657,6 +1841,23 @@ class AnkiSmartFactory(QDialog):
         return AnkiCollectionAdapter(mw.col).model_id_by_name(cfg["model_name"])
 
     def _verify_batch_impl(self):
+        if getattr(self, "_learning_mode", "language") == "knowledge":
+            self.preview_list.clear()
+            self.prepared_data = []
+            if not self.raw_data:
+                self.lbl_ready.setText(t("knowledge_no_valid_cards"))
+                return
+            deck_id = self._current_deck_id()
+            if deck_id is None:
+                showInfo(t("knowledge_deck_required"))
+                return
+            run_query(
+                self,
+                lambda col: read_knowledge_notes_for_deck(col, deck_id),
+                self._on_knowledge_duplicate_scan,
+                lambda error: showInfo(t("verify_error_message", error=error, details="")),
+            )
+            return
         cfg = self._cfg()
         self.preview_list.clear()
         self.prepared_data = []
@@ -1852,6 +2053,17 @@ class AnkiSmartFactory(QDialog):
         # Dựng lại danh sách thẻ chờ xuất xưởng (có tìm kiếm + lọc + checkbox)
         self._rebuild_preview()
 
+    def _on_knowledge_duplicate_scan(self, existing_notes):
+        result = prepare_knowledge_batch(self.raw_data, existing_notes)
+        self.prepared_data = result["prepared"]
+        counts = result["counts"]
+        self.lbl_ready.setText(t(
+            "knowledge_verify_summary",
+            new=counts["new"], update=counts["update"], duplicate=counts["duplicate"],
+        ))
+        self.btn_diff_meaning.setEnabled(False)
+        self._rebuild_preview()
+
     def _add_to_queue(self, item, action, nid, updatable, cnt, conflict_info=None):
         """Thêm thẻ vào hàng chờ xuất xưởng (prepared_data).
         Danh sách hiển thị được dựng lại ở cuối _verify_batch_impl qua _rebuild_preview()."""
@@ -1902,8 +2114,12 @@ class AnkiSmartFactory(QDialog):
         for i, d in enumerate(self.prepared_data):
             item = d["item"]
             action = d["action"]
-            front = str(item.get(dk, item.get('front', ''))).strip()
-            meaning = str(item.get('meaning', '')).strip()
+            if getattr(self, "_learning_mode", "language") == "knowledge":
+                front = str(item.get("question") or item.get("cloze_text") or "").strip()
+                meaning = str(item.get("answer") or item.get("explanation") or "").strip()
+            else:
+                front = str(item.get(dk, item.get('front', ''))).strip()
+                meaning = str(item.get('meaning', '')).strip()
             if want_action and action != want_action:
                 continue
             if search and search not in front.lower() and search not in meaning.lower():
@@ -1918,7 +2134,12 @@ class AnkiSmartFactory(QDialog):
             action = d["action"]
             updatable = d.get("update_fields", [])
             ci = d.get("conflict_info")
-            front = str(item.get(dk, item.get('front', ''))).strip()
+            if getattr(self, "_learning_mode", "language") == "knowledge":
+                front = str(item.get("question") or item.get("cloze_text") or "").strip()
+                preview_meaning = str(item.get("answer") or item.get("explanation") or "")
+            else:
+                front = str(item.get(dk, item.get('front', ''))).strip()
+                preview_meaning = str(item.get("meaning", ""))
             icon = {"add": "✨", "add_partial": "⚠️", "update": "🔄", "dup_diff": "🔍"}.get(action, "✨")
             if action == "dup_diff" and ci:
                 suffix = t("preview_suffix_dup_diff",
@@ -1932,7 +2153,7 @@ class AnkiSmartFactory(QDialog):
                 suffix = t("preview_suffix_partial")
             else:
                 suffix = ""
-            li = QListWidgetItem(f"{icon} {pos}: {front} — {item.get('meaning','')}{suffix}")
+            li = QListWidgetItem(f"{icon} {pos}: {front} — {preview_meaning}{suffix}")
             li.setFlags(li.flags() | Qt.ItemFlag.ItemIsUserCheckable)
             li.setCheckState(Qt.CheckState.Checked if idx in checked else Qt.CheckState.Unchecked)
             li.setData(Qt.ItemDataRole.UserRole, idx)
@@ -2149,6 +2370,7 @@ class AnkiSmartFactory(QDialog):
 
         cfg = self._cfg()
         deck_id = mw.col.decks.id(self.deck_chooser.currentText())
+        self._import_learning_mode = getattr(self, "_learning_mode", "language")
 
         audio_options = (
             self.chk_audio_vocab.isChecked(),
@@ -2163,8 +2385,15 @@ class AnkiSmartFactory(QDialog):
         self.pbar.setVisible(True)
 
         self._import_cancel_event = threading.Event()
+        self.btn_learning_language.setEnabled(False)
+        self.btn_learning_knowledge.setEnabled(False)
         for entry in batch:
-            entry["audio_enabled"] = audio_options
+            entry["audio_enabled"] = (
+                audio_options if self._import_learning_mode == "language" else (False, False, False)
+            )
+        if self._import_learning_mode == "knowledge":
+            self._commit_import(batch, cfg, deck_id, {})
+            return
         run_query(
             self,
             lambda col: prepare_audio_tasks(col, batch, cfg),
@@ -2192,9 +2421,18 @@ class AnkiSmartFactory(QDialog):
         if self._import_cancel_event is None or self._import_cancel_event.is_set():
             return
         self.lbl_status.setText(t("status_saving_notes"))
+        operation = (
+            (lambda col: apply_knowledge_import(
+                col, batch, deck_id, self._import_cancel_event.is_set
+            ))
+            if getattr(self, "_import_learning_mode", "language") == "knowledge"
+            else (lambda col: apply_import(
+                col, batch, cfg, deck_id, audio_tags, self._import_cancel_event.is_set
+            ))
+        )
         run_collection(
             self,
-            lambda col: apply_import(col, batch, cfg, deck_id, audio_tags, self._import_cancel_event.is_set),
+            operation,
             self._on_import_finished,
             self._on_import_error,
         )
@@ -2211,10 +2449,18 @@ class AnkiSmartFactory(QDialog):
         self.pbar.setVisible(False)
         self.btn_cancel.setVisible(False)
         self.btn_import.setEnabled(True)
+        self.btn_learning_language.setEnabled(True)
+        self.btn_learning_knowledge.setEnabled(True)
         self.lbl_status.setText(t("status_done"))
 
+        import_mode = report.get(
+            "learning_mode", getattr(self, "_import_learning_mode", "language")
+        )
         self._last_imported_note_ids = list(report.get("added_note_ids", []))
-        self.btn_rollback_import.setEnabled(bool(self._last_imported_note_ids))
+        self._last_knowledge_rollback = report if import_mode == "knowledge" else None
+        self.btn_rollback_import.setEnabled(bool(
+            self._last_imported_note_ids or report.get("updated_before")
+        ))
 
         try:
             write_import_report(report, getattr(self, "_last_import_summary", {}))
@@ -2225,19 +2471,23 @@ class AnkiSmartFactory(QDialog):
         # Ghi nhận vào lịch sử import
         try:
             deck_name = self.deck_chooser.currentText()
-            if report.get('added', 0) > 0:
+            if report.get('added', 0) > 0 or (import_mode == "knowledge" and report.get("updated", 0) > 0):
                 imported_items = [
                     self.prepared_data[i]["item"] for i in idxs
                     if 0 <= i < len(self.prepared_data)
-                    and self.prepared_data[i]["action"] in ("add", "add_partial")
+                    and self.prepared_data[i]["action"] in (
+                        ("add", "update") if import_mode == "knowledge" else ("add", "add_partial")
+                    )
                 ]
                 if imported_items:
                     add_to_import_history(
                         imported_items,
-                        self._current_lang,
+                        "knowledge" if import_mode == "knowledge" else self._current_lang,
                         deck_name=deck_name,
                         source="manual",
-                        kind="grammar" if getattr(self, '_is_grammar', False) else "vocab",
+                        kind=("knowledge" if import_mode == "knowledge" else
+                              ("grammar" if getattr(self, '_is_grammar', False) else "vocab")),
+                        learning_mode=import_mode,
                     )
                 invalidate_deck_cache()
         except Exception as e:
@@ -2249,9 +2499,8 @@ class AnkiSmartFactory(QDialog):
 
         msg = t(
             "msg_import_success",
-            language=_translated_language_label(
-                self._current_lang, grammar=self._is_grammar
-            ),
+            language=(t("item_label_knowledge") if import_mode == "knowledge" else
+                      _translated_language_label(self._current_lang, grammar=self._is_grammar)),
             added=report["added"],
             updated=report["updated"],
             audio=report["audio_gen"],
@@ -2269,6 +2518,22 @@ class AnkiSmartFactory(QDialog):
 
     def _rollback_last_import(self):
         """Undo only notes newly created by the latest completed import batch."""
+        knowledge_token = getattr(self, "_last_knowledge_rollback", None)
+        if knowledge_token:
+            count = (
+                len(knowledge_token.get("added_note_ids", []))
+                + len(knowledge_token.get("updated_before", []))
+            )
+            if not askUser(t("confirm_rollback_import", count=count), parent=self):
+                return
+            self.btn_rollback_import.setEnabled(False)
+            run_collection(
+                self,
+                lambda col: rollback_knowledge_import(col, knowledge_token),
+                self._on_knowledge_rollback_finished,
+                self._on_import_error,
+            )
+            return
         note_ids = list(getattr(self, "_last_imported_note_ids", []))
         if not note_ids:
             return
@@ -2287,11 +2552,24 @@ class AnkiSmartFactory(QDialog):
             logger.warning("Rollback import batch failed: %s", e)
             showInfo(t("rollback_import_failed", error=str(e)))
 
+    def _on_knowledge_rollback_finished(self, result):
+        mw.reset()
+        self._last_knowledge_rollback = None
+        self._last_imported_note_ids = []
+        self.btn_rollback_import.setEnabled(False)
+        invalidate_deck_cache()
+        tooltip(t(
+            "knowledge_rollback_done",
+            removed=result["removed"], restored=result["restored"],
+        ))
+
     def _on_import_error(self, error_msg):
         if self._import_cancel_event is not None and self._import_cancel_event.is_set():
             return
         showInfo(t("import_error", error=error_msg))
         self.btn_import.setEnabled(True)
+        self.btn_learning_language.setEnabled(True)
+        self.btn_learning_knowledge.setEnabled(True)
         self.btn_cancel.setVisible(False)
         self.pbar.setVisible(False)
         # Không xóa thẻ khỏi xưởng khi import lỗi
@@ -2306,6 +2584,8 @@ class AnkiSmartFactory(QDialog):
         self._last_export_indices = None
         self.btn_cancel.setVisible(False)
         self.btn_import.setEnabled(True)
+        self.btn_learning_language.setEnabled(True)
+        self.btn_learning_knowledge.setEnabled(True)
         self.pbar.setVisible(False)
         self.lbl_status.setText(t("status_stopping"))
 
@@ -2499,6 +2779,8 @@ class AnkiSmartFactory(QDialog):
 
     def _get_existing_words_for_ai(self):
         """Lấy danh sách từ hiện có trong deck (có cache 30 phút)"""
+        if getattr(self, "_learning_mode", "language") == "knowledge":
+            return list(getattr(self, "_ai_existing_words", []) or [])
         cfg = self._cfg()
         deck_name = self.deck_chooser.currentText()
         if not deck_name:
@@ -2559,6 +2841,8 @@ class AnkiSmartFactory(QDialog):
         self.btn_ai_batch.setEnabled(False)
         self.btn_ai_settings.setEnabled(False)
         self.btn_ai_clear_text.setEnabled(False)
+        self.btn_learning_language.setEnabled(False)
+        self.btn_learning_knowledge.setEnabled(False)
         self.lbl_ai_status.setText(t("status_scanning_deck"))
         self.lbl_ai_status.setStyleSheet("color:#e67e22;font-size:11px;font-weight:bold;")
         self.btn_ai_stop.setVisible(True)
@@ -2576,11 +2860,16 @@ class AnkiSmartFactory(QDialog):
         if deck_name:
             try:
                 deck_id = mw.col.decks.id(deck_name)
+                scan = (
+                    (lambda col: read_knowledge_duplicate_keys(col, deck_id))
+                    if getattr(self, "_learning_mode", "language") == "knowledge"
+                    else (lambda col: get_existing_vocab_from_deck(
+                        cfg["model_name"], deck_id, cfg["front_field"], collection=col
+                    ))
+                )
                 run_query(
                     self,
-                    lambda col: get_existing_vocab_from_deck(
-                        cfg["model_name"], deck_id, cfg["front_field"], collection=col
-                    ),
+                    scan,
                     self._on_deck_scan_finished,
                     self._on_deck_scan_error,
                 )
@@ -2596,6 +2885,7 @@ class AnkiSmartFactory(QDialog):
         mw.app.processEvents()
 
     def _on_deck_scan_finished(self, existing_words):
+        self._ai_existing_words = list(existing_words or [])
         text = getattr(self, '_ai_pending_text', '')
         instr = getattr(self, '_ai_pending_instr', '')
         self._start_ai_extract(text, instr, existing_words)
@@ -2612,6 +2902,7 @@ class AnkiSmartFactory(QDialog):
             return
 
         if not self._confirm_ai_budget(text):
+            self._enable_ai_buttons()
             return
         if existing_words:
             self.lbl_ai_status.setText(t("status_deck_count", count=len(existing_words)))
@@ -2626,6 +2917,7 @@ class AnkiSmartFactory(QDialog):
             custom_instruction=custom_instr,
             existing_words=existing_words,
             grammar=self._is_grammar,
+            learning_mode=getattr(self, "_learning_mode", "language"),
             on_progress=self._on_ai_progress,
             on_finished=self._on_ai_finished,
             on_error=self._on_ai_error,
@@ -2666,9 +2958,11 @@ class AnkiSmartFactory(QDialog):
     def _enable_ai_buttons(self):
         self.btn_ai_extract.setEnabled(True)
         self.btn_ai_chat.setEnabled(True)
-        self.btn_ai_batch.setEnabled(True)
+        self.btn_ai_batch.setEnabled(self._learning_mode == "language")
         self.btn_ai_settings.setEnabled(True)
         self.btn_ai_clear_text.setEnabled(True)
+        self.btn_learning_language.setEnabled(True)
+        self.btn_learning_knowledge.setEnabled(True)
         self.btn_ai_stop.setVisible(False)
 
     # ═══════════════════════════════════════════════════════
@@ -2676,6 +2970,9 @@ class AnkiSmartFactory(QDialog):
     # ═══════════════════════════════════════════════════════
     def _ai_batch_process(self):
         """Mở dialog xử lý danh sách từ vựng lớn qua AI"""
+        if getattr(self, "_learning_mode", "language") == "knowledge":
+            # Guard programmatic/stale signal calls as well as hiding the UI.
+            return
         cfg_api = get_api_config()
         if not self._ensure_ai_access(cfg_api):
             return
@@ -2955,6 +3252,7 @@ class AnkiSmartFactory(QDialog):
             get_existing_words_fn=self._get_existing_words_for_ai,
             on_finalize_callback=self._finalize_ai_vocab,
             grammar=self._is_grammar,
+            learning_mode=getattr(self, "_learning_mode", "language"),
         )
 
     def _finalize_ai_vocab(self, final_list):
@@ -2963,23 +3261,32 @@ class AnkiSmartFactory(QDialog):
             tooltip(t("err_no_words"))
             return
 
+        if getattr(self, "_learning_mode", "language") == "knowledge":
+            try:
+                final_list = parse_knowledge_cards(json.dumps(final_list, ensure_ascii=False))
+            except KnowledgeSchemaError as error:
+                showInfo(t("knowledge_schema_error", error=error))
+                return
+
         # Đổ vào json_input
         json_str = json.dumps(final_list, indent=2, ensure_ascii=False)
         self.json_input.setPlainText(json_str)
         self._schedule_analyze()
 
-        # Ghi nhận vào lịch sử import
-        try:
-            deck_name = self.deck_chooser.currentText()
-            add_to_import_history(
-                final_list,
-                self._current_lang,
-                deck_name=deck_name,
-                source="ai_extract",
-                kind="grammar" if getattr(self, '_is_grammar', False) else "vocab",
-            )
-        except Exception as e:
-            logger.warning("Lỗi ghi lịch sử AI extract: %s", e)
+        # Language preserves its legacy preview history. Knowledge is recorded
+        # only after a successful CollectionOp import.
+        if getattr(self, "_learning_mode", "language") == "language":
+            try:
+                deck_name = self.deck_chooser.currentText()
+                add_to_import_history(
+                    final_list,
+                    self._current_lang,
+                    deck_name=deck_name,
+                    source="ai_extract",
+                    kind="grammar" if getattr(self, '_is_grammar', False) else "vocab",
+                )
+            except Exception as e:
+                logger.warning("Lỗi ghi lịch sử AI extract: %s", e)
 
         self.lbl_ai_status.setText(t("status_poured_vocab", count=len(final_list)))
         self.lbl_ai_status.setStyleSheet("color:#27ae60;font-size:11px;font-weight:bold;")
@@ -2993,7 +3300,11 @@ class AnkiSmartFactory(QDialog):
         """Mở dialog xem lịch sử từ vựng đã lưu (AI/import) và đưa lại vào xưởng."""
         from ui.history_dialog import HistoryBrowserDialog
 
-        dlg = HistoryBrowserDialog(parent=self, current_lang=self._current_lang)
+        current_history = (
+            "knowledge" if getattr(self, "_learning_mode", "language") == "knowledge"
+            else self._current_lang
+        )
+        dlg = HistoryBrowserDialog(parent=self, current_lang=current_history)
         if dlg.exec() == QDialog.DialogCode.Accepted and dlg.accepted_items:
             self._load_history_to_factory(dlg.accepted_lang, dlg.accepted_items)
 
@@ -3001,14 +3312,22 @@ class AnkiSmartFactory(QDialog):
         """Đưa các từ đã chọn từ lịch sử vào xưởng (json_input + kho hàng) để kiểm định lại."""
         if not items:
             return
-        if lang and lang in LANG_CONFIG and lang != self._current_lang:
+        if lang == "knowledge":
+            if not hasattr(self, "_learning_mode"):
+                self._learning_mode = "language"
+            self._select_learning_mode("knowledge", persist=True, announce=False)
+        elif lang and lang in LANG_CONFIG and lang != self._current_lang:
+            if hasattr(self, "_learning_mode") and self._learning_mode != "language":
+                self._select_learning_mode("language", persist=True, announce=False)
             self._current_lang = lang
             self._on_lang_changed()
         json_str = json.dumps(items, indent=2, ensure_ascii=False)
         self.json_input.setPlainText(json_str)
         self._analyze_content()
-        # Đảm bảo kho hàng đúng theo item đã chọn (an toàn nếu JSON parse lệch)
-        self.raw_data = list(items)
+        # Strict Knowledge parsing remains authoritative; Language preserves
+        # the legacy fallback used for old history entries.
+        if getattr(self, "_learning_mode", "language") == "language":
+            self.raw_data = list(items)
         self.lbl_raw.setText(t("filter_raw_count", count=len(self.raw_data)))
         self.lbl_ai_status.setText(t("status_pulled_history", count=len(items)))
         self.lbl_ai_status.setStyleSheet("color:#27ae60;font-size:11px;font-weight:bold;")

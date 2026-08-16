@@ -126,6 +126,7 @@ def _make_factory(state_path):
     obj = object.__new__(addon.AnkiSmartFactory)
     obj._current_lang = "japanese"
     obj._is_grammar = False
+    obj._learning_mode = "language"
     obj._factory_state = {}
     obj._ai_attached_files = []
     obj._ai_attached_paths = []
@@ -218,6 +219,97 @@ class TestFactoryState:
         f._restore_current_flow()
         assert f._ai_attached_paths == [ref]
         assert f.ai_text_input.toPlainText() == "text+file"
+
+    def test_knowledge_draft_is_independent_of_language_and_subtype(self, tmp_path):
+        p = str(tmp_path / "state.json")
+        f = _make_factory(p)
+        f.ai_text_input.setPlainText("LANGUAGE DRAFT")
+        f._save_current_flow()
+
+        f._learning_mode = "knowledge"
+        f.ai_text_input.setPlainText("KNOWLEDGE DRAFT")
+        f._save_current_flow()
+
+        # Knowledge has no language or vocab/grammar subtype namespace.
+        f._current_lang = "korean"
+        f._is_grammar = True
+        f.ai_text_input.clear()
+        f._restore_current_flow()
+        assert f.ai_text_input.toPlainText() == "KNOWLEDGE DRAFT"
+
+        f._learning_mode = "language"
+        f._current_lang = "japanese"
+        f._is_grammar = False
+        f.ai_text_input.clear()
+        f._restore_current_flow()
+        assert f.ai_text_input.toPlainText() == "LANGUAGE DRAFT"
+
+    def test_learning_mode_switch_saves_each_draft_without_changing_deck(self, tmp_path):
+        p = str(tmp_path / "state.json")
+        f = _make_factory(p)
+        f._select_learning_mode = addon.AnkiSmartFactory._select_learning_mode.__get__(f, addon.AnkiSmartFactory)
+        f._on_lang_changed = f._restore_current_flow
+        f._retranslate_ui = lambda: None
+        persisted = []
+        f._persist_learning_mode = persisted.append
+
+        f.ai_text_input.setPlainText("language input")
+        f._select_learning_mode("knowledge", persist=True, announce=False)
+        f.ai_text_input.setPlainText("knowledge input")
+        f._select_learning_mode("language", persist=True, announce=False)
+
+        assert f.ai_text_input.toPlainText() == "language input"
+        assert persisted == ["knowledge", "language"]
+
+
+def test_knowledge_mode_hides_language_only_controls():
+    class Control:
+        def __init__(self):
+            self.visible = self.enabled = True
+            self.checked = False
+
+        def setVisible(self, value): self.visible = value
+        def setEnabled(self, value): self.enabled = value
+        def setChecked(self, value): self.checked = value
+
+    obj = object.__new__(addon.AnkiSmartFactory)
+    obj._learning_mode = "knowledge"
+    obj.raw_data, obj.prepared_data = [], []
+    for name in (
+        "btn_learning_language", "btn_learning_knowledge", "lang_grp", "mode_grp", "voice_grp",
+        "filter_grp", "btn_ai_extract", "btn_ai_batch", "btn_sample", "btn_verify", "btn_rebuild",
+        "btn_diff_meaning", "btn_ai_chat", "json_input", "btn_import", "btn_cancel_order",
+        "lbl_level", "cbo_level", "lbl_topic", "txt_topic", "lbl_audio",
+        "chk_audio_vocab", "chk_audio_ex1", "chk_audio_ex2",
+    ):
+        setattr(obj, name, Control())
+
+    addon.AnkiSmartFactory._apply_learning_mode_ui(obj)
+
+    assert obj.btn_learning_knowledge.checked is True
+    assert obj.btn_learning_language.checked is False
+    assert all(not getattr(obj, name).visible for name in (
+        "lang_grp", "mode_grp", "voice_grp", "btn_rebuild", "btn_diff_meaning", "btn_ai_chat",
+        "btn_ai_batch",
+        "lbl_level", "cbo_level", "lbl_topic", "txt_topic", "lbl_audio",
+        "chk_audio_vocab", "chk_audio_ex1", "chk_audio_ex2",
+    ))
+    assert all(getattr(obj, name).visible for name in (
+        "filter_grp", "btn_ai_extract", "btn_sample", "btn_verify",
+    ))
+    assert obj.json_input.enabled is True
+    assert obj.btn_import.enabled is False
+
+
+def test_knowledge_mode_cannot_invoke_language_batch_workflow():
+    obj = object.__new__(addon.AnkiSmartFactory)
+    obj._learning_mode = "knowledge"
+    calls = []
+    obj._ai_extract = lambda: calls.append("extract")
+
+    addon.AnkiSmartFactory._ai_batch_process(obj)
+
+    assert calls == []
 
 
 class TestComboMigration:

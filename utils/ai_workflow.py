@@ -58,6 +58,7 @@ class AiWorkflowCoordinator:
         custom_instruction: str,
         existing_words: list,
         grammar: bool,
+        learning_mode: str = "language",
         on_progress: ProgressCallback,
         on_finished: ExtractFinishedCallback,
         on_error: ErrorCallback,
@@ -72,6 +73,7 @@ class AiWorkflowCoordinator:
             custom_instruction=custom_instruction,
             existing_words=existing_words,
             grammar=grammar,
+            learning_mode=learning_mode,
             cancel_event=self._cancel_event,
         )
         worker.progress.connect(on_progress)

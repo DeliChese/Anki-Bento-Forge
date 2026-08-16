@@ -1,0 +1,43 @@
+{
+  "valid": [
+    {
+      "type": "basic",
+      "question": "What does CPU stand for?",
+      "answer": "Central Processing Unit",
+      "explanation": "The CPU executes program instructions.",
+      "source": "Computer architecture notes, section 1",
+      "tags": ["computing", "hardware"],
+      "cloze_text": ""
+    },
+    {
+      "type": "cloze",
+      "question": "",
+      "answer": "",
+      "explanation": "A valid cloze card.",
+      "source": "Biology notes, chapter 2",
+      "tags": ["biology"],
+      "cloze_text": "Mitochondria are the {{c1::powerhouses}} of the cell."
+    }
+  ],
+  "source_missing": [
+    {
+      "type": "basic",
+      "question": "What is a pure function?",
+      "answer": "A function without observable side effects.",
+      "explanation": "",
+      "tags": ["programming"],
+      "cloze_text": ""
+    }
+  ],
+  "invalid": [
+    {
+      "type": "cloze",
+      "question": "",
+      "answer": "",
+      "explanation": "",
+      "source": "Lecture 3",
+      "tags": [],
+      "cloze_text": "Mitochondria are {{c0::powerhouses}}."
+    }
+  ]
+}

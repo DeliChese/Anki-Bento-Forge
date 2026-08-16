@@ -1,35 +1,44 @@
 # Compatibility Matrix
 
-`manifest.json` is the authoritative source for the Bento Forge version and the
-minimum/maximum Anki versions. For 17.2.0 it declares exactly Anki 2.1.50; this
-document explains that scope without widening it. A version
-outside this matrix may run because the add-on detects missing public hooks and
-disables only the affected feature, but it is not a supported release target.
+`manifest.json` is the authoritative source for the Bento Forge version and
+Anki compatibility metadata. For 17.2.0 it declares Anki 2.1.50 through 26.5.
+The installable manifest also maps those endpoints to Anki point versions `50`
+and `260500`.
 
-Publication status is separate from the declared compatibility scope. The
-17.2.0 release record remains pending until CI and real-Anki smoke evidence are
-recorded in `RELEASE_CHECKLIST.md`.
+Publication status is separate from compatibility scope. The 17.2.0 release
+record remains pending until CI and the manual GUI smoke checklist are recorded
+in `RELEASE_CHECKLIST.md`.
 
 | Anki | Bundled Python | Status | Evidence |
 | --- | --- | --- | --- |
-| 2.1.50 | 3.9 | Supported release target | Local isolated harness: four rounds × 383 tests passed on 2026-08-14; CI 3.9/3.11 and real-Anki smoke remain pending. |
+| 2.1.50 | 3.9 | Legacy compatibility target | Existing legacy adapters and regression suite remain in place; a fresh endpoint GUI smoke is still required before release. |
+| 26.5 | 3.13.5 | Validated compatibility target | Real Anki runtime smoke passed on 2026-08-16 for add-on/UI/hook imports and Knowledge Basic/Cloze add, update, card generation, and scoped rollback; GUI smoke remains pending. |
 
-## Not yet supported
+## Compatibility design
 
-- Anki 2.1.51 and later, including date-based releases, have no completed smoke
-  test for import, reviewer hooks, combo mode, config migration, and undo.
-- Python versions used only by CI are development-test environments; they do not
-  expand the supported Anki runtime matrix.
+- `Collection.update_note()` is preferred on current Anki so updates remain in
+  the surrounding undo-aware operation; `Note.flush()` is retained only as a
+  compatibility fallback for legacy runtimes.
+- Query and collection work stays behind the public `QueryOp`/`CollectionOp`
+  adapter, including the keyword-only QueryOp constructor used by Anki 26.5.
+- Reviewer and overview integrations use public `gui_hooks` and degrade when an
+  optional hook is unavailable.
+- Language and Knowledge use separate note types; widening the runtime matrix
+  does not migrate existing user notes.
 
-## Release verification
+## Remaining release verification
 
-Before widening `manifest.json` or publishing a release, run the isolated test
-suite twice, then verify on a backed-up Anki profile:
+Before publishing, run the isolated suite twice and complete
+`work_items/V18_SMOKE_PROFILE.md` on a copied profile:
 
-1. Import a new note and update an existing note; confirm undo and audio result counts.
-2. Review a combo card; confirm mode sync, letter-gap, and speed controls.
-3. Start Anki after a config migration and confirm the prior configuration survives.
-4. Confirm the add-on stays usable when an optional public hook is unavailable.
+1. Open Bento Forge from Tools and switch Language/Knowledge without losing drafts.
+2. Import a new note and update an existing note; verify undo and result counts.
+3. Review Language combo cards and verify public reviewer-hook controls.
+4. Exercise Language TTS cancellation/offline handling and config migration.
+5. Verify Knowledge strict validation, deck/model duplicate scope, history, and rollback.
 
-Anki warns that add-ons can break when Anki internals change; this matrix avoids
-claiming compatibility that has not been exercised.
+The headless runtime smoke is reproducible with Anki's bundled Python:
+
+```powershell
+& '<Anki>/.venv/Scripts/python.exe' scripts/smoke_anki_26_5.py
+```

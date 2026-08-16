@@ -47,5 +47,35 @@ from .prompts import (
     _GRAMMAR_JSON_TEMPLATES_EN,
 )
 
+# Knowledge is intentionally independent from the language prompt registry:
+# it has no language selector, pronunciation, or audio fields.
+_KNOWLEDGE_JSON_TEMPLATE = """[
+  {
+    "type": "basic",
+    "question": "...",
+    "answer": "...",
+    "explanation": "...",
+    "source": "...",
+    "tags": ["..."],
+    "cloze_text": ""
+  }
+]"""
+
+_KNOWLEDGE_SYSTEM_PROMPT = """You create study cards from the user's supplied material.
+Return only a JSON array matching this schema exactly:
+{{KNOWLEDGE_JSON_TEMPLATE}}
+
+Rules:
+- Use type "basic" only when question and answer are both present.
+- Use type "cloze" only when cloze_text contains valid Anki cloze syntax such as {{c1::answer}}.
+- Preserve a source only when it is explicitly supplied in the input. Never invent, infer, or fabricate a citation; otherwise use an empty string.
+- Do not include pronunciation, audio, language-learning fields, Markdown fences, commentary, or extra keys.""".replace(
+    "{{KNOWLEDGE_JSON_TEMPLATE}}", _KNOWLEDGE_JSON_TEMPLATE
+)
+
+# Separate cache boundary for the future Knowledge extraction workflow.  It does
+# not invalidate V17 Language caches when this Knowledge-only prompt changes.
+KNOWLEDGE_PROMPT_VERSION = 1
+
 
 __all__ = [name for name in globals() if name.startswith("_") and not name.startswith("__")]

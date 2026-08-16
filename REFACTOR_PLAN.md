@@ -27,7 +27,7 @@ Mỗi phiên làm việc có động đến chất lượng, dữ liệu, worker
 
 ## Baseline đã biết
 
-- `manifest.json` là nguồn sự thật: add-on v17.1.0, min/max Anki đều là 2.1.50; tài liệu chỉ diễn giải phạm vi này.
+- `manifest.json` là nguồn sự thật: candidate hiện là v17.2.0, khai báo Anki 2.1.50 đến 26.5; tài liệu chỉ diễn giải phạm vi này.
 - Lần đánh giá 2026-08-13 phát hiện test không cô lập hoàn toàn cấu hình i18n: `set_language()` ghi trực tiếp vào `utils/i18n_config.json`.
 - Lần chạy `python -m pytest -q` trong sandbox: 271 pass, 20 fail, 57 error. Nhiều error liên quan quyền thư mục tạm; một số test i18n/template/prompt đang kỳ vọng nội dung cũ. Kết quả này là baseline cần tái hiện trong môi trường phát triển bình thường, không phải tiêu chí pass/fail cuối cùng.
 
@@ -250,7 +250,7 @@ Mỗi phiên làm việc có động đến chất lượng, dữ liệu, worker
 
 ### P0-C — Bằng chứng release có thể tái lập
 
-**Trạng thái:** `Đang làm` — triển khai và local gate hoàn thành; chờ CI Python 3.9/3.11 và smoke Anki 2.1.50.
+**Trạng thái:** `Đang làm` — triển khai, local gate và headless smoke Anki 26.5 hoàn thành; chờ CI Python 3.9/3.11, GUI smoke 26.5 và smoke endpoint legacy 2.1.50.
 
 **Vấn đề:** full suite trong Windows sandbox từng vướng cleanup tạm và v17.1.0 chưa có record CI xanh hoặc smoke Anki thật. Harness mock không thay thế Anki runtime.
 
@@ -259,7 +259,7 @@ Mỗi phiên làm việc có động đến chất lượng, dữ liệu, worker
 - Bằng chứng bắt buộc trước release:
   1. `scripts/test_isolated.ps1` pass hai lần liên tiếp, không làm bẩn worktree;
   2. CI pass trên Python 3.9 và 3.11;
-  3. Manual smoke trên Anki 2.1.50 với profile đã backup: import add/update + undo, Combo reviewer, TTS offline/cancel, config migration;
+  3. Manual GUI smoke trên Anki 26.5 với profile tách biệt và trên endpoint legacy 2.1.50 trước release: import add/update + undo, Combo reviewer, TTS offline/cancel, config migration;
   4. Ghi kết quả, ngày và người xác nhận vào `RELEASE_CHECKLIST.md`.
 
 ### 2026-08-14 — Phase 5 / P0-B và P0-C metadata + isolated release evidence

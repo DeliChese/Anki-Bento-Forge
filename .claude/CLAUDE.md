@@ -1,4 +1,4 @@
-# 🤖 CLAUDE.md — Bento Forge (AnkiTool) V17.1.0
+# 🤖 CLAUDE.md — Bento Forge (AnkiTool) V17.2.0 + V18 release candidate
 
 > Add-on Anki (Python/PyQt5) tạo thẻ từ vựng Nhật, Trung & Hàn với AI + TTS + interactive templates.
 
@@ -66,7 +66,7 @@ __init__.py (26 dòng)         ← compatibility facade (public re-export)
 - `lang` = `"japanese"` | `"chinese"` | `"korean"` | `"english"`.
 - Model names: `"AnkiTool Japanese/Chinese/Korean/English [Grammar] V17.0 (Add-on)"`.
 - Entry: `start_smart_factory()` (`ui/factory_dialog.py:2801`, re-export tại `__init__.py`), shortcut `Ctrl+Shift+I`. Menu Tools hiển thị **"🧪 Bento Forge"**.
-- Version hiện tại: **17.1.0** (`manifest.json`).
+- Version manifest hiện tại: **17.2.0**, compatibility khai báo Anki **2.1.50 đến 26.5**; V18 Learning Modes còn chờ CI và GUI smoke endpoint trước khi bump `18.0.0`.
 - **Combo mode**: mỗi từ = 1 card duy nhất, 5 chế độ (qa/vn/wb/pron/lg) chuyển đổi trong card qua `_COMBO_MODE_JS`; mode lưu `mw.col.conf["ai_factory_study_mode"]`; Overview patch qua `hooks/overview_mode.py`.
 - **Prompt/Schema/Field Map/Card Render có thể GHI ĐÈ ngoài**: `utils/ai_prompts.json` (gitignored) qua `utils/prompt_config.py` + `mode/card_render.py` — xem skill 02 (ai-extraction) và 08 (card-templates).
 

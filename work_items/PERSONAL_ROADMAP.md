@@ -60,18 +60,18 @@ Nếu không thỏa điều kiện nào, ghi vào backlog `Để sau`, không tr
 
 ## Trình tự cho sáu phiên làm việc tới
 
-1. V18-01 — contract `learning_mode`, state theo deck và compatibility state Language cũ.
-2. V18-02 — schema/prompt/validation Knowledge tối thiểu.
-3. V18-03 — note type/template Knowledge riêng, có idempotency test.
-4. V18-04 — UI chuyển mode, i18n và state input riêng.
-5. V18-05 — nối extract/preview/import/history/undo/batch.
-6. V18-06 — regression, smoke profile backup, sau đó mới nâng version V18 và ghi changelog. P1-04 AwesomeTTS giữ ở kế hoạch độc lập.
+1. ✅ V18-01 — contract `learning_mode`, state theo deck và compatibility state Language cũ.
+2. ✅ V18-02 — schema/prompt/validation Knowledge tối thiểu.
+3. ✅ V18-03 — note type/template Knowledge riêng, có idempotency test.
+4. ✅ V18-04 — UI chuyển mode, i18n và state input riêng.
+5. ✅ V18-05 — nối extract/preview/import/history/undo/batch.
+6. ⏳ V18-06 — compatibility audit/headless smoke Anki 26.5 và build local đã đạt; còn GUI smoke trong `V18_SMOKE_PROFILE.md`, endpoint legacy 2.1.50 và CI trước khi bump 18.0.0. P1-04 AwesomeTTS giữ ở kế hoạch độc lập.
 
 ## Nhật ký personal contract
 
 | Ngày | Ngôn ngữ chính | Phiên bản Anki | Flow hằng tuần | Ngân sách AI/tháng | Ghi chú |
 | --- | --- | --- | --- | --- | --- |
-| 2026-08-16 | Nhật (`japanese`) | Anki `2.1.50` (cần xác nhận trong Help → About) | AI extract → preview/import; update/undo; TTS → review | `$10/tháng` (tạm thời) | Hợp đồng cá nhân khởi đầu; đổi khi có số liệu sử dụng thực tế |
+| 2026-08-16 | Nhật (`japanese`) | Anki `26.5` (compatibility audit/headless smoke đạt; GUI smoke còn chờ) | AI extract → preview/import; update/undo; TTS → review | `$10/tháng` (tạm thời) | Hoàn thành GUI smoke 26.5 và CI; kiểm chứng endpoint legacy 2.1.50 trước phát hành V18 |
 
 ## Mẫu cập nhật task
 
@@ -101,7 +101,7 @@ Nếu không thỏa điều kiện nào, ghi vào backlog `Để sau`, không tr
 - Lý do mở task: cần giới hạn rõ ngôn ngữ, flow lặp lại và ngân sách trước khi benchmark/tinh chỉnh AI.
 - Model / effort đã dùng: `gpt-5.6-luna` / `low` (ghi tài liệu)
 - Phạm vi: mục `Nhật ký personal contract` trong file này.
-- Kiểm chứng: đối chiếu mặc định `japanese` tại `ui/factory_dialog.py:161` và phạm vi Anki `2.1.50` tại `manifest.json`.
+- Kiểm chứng: đối chiếu mặc định `japanese` tại `ui/factory_dialog.py:161` và phạm vi Anki `2.1.50` đến `26.5` tại `manifest.json`.
 - Quyết định tiếp theo: P0-01; sau đó hoàn tất P0-02 trên profile backup. Nếu chi phí thực tế vượt `$10/tháng`, dừng benchmark mới và cập nhật contract.
 
 ### 2026-08-16 — Personal / P1-01
@@ -142,9 +142,9 @@ Nếu không thỏa điều kiện nào, ghi vào backlog `Để sau`, không tr
 
 ### 2026-08-16 — Personal / V18 Learning Modes
 
-- Trạng thái: `Đã lên kế hoạch`; đây là hướng phát triển mới sau khi chủ dự án xác nhận các P0/P1 trước đã hoàn thành.
+- Trạng thái: `Triển khai hoàn tất, chờ release gate ngoài local`; V18-01…05 đã hoàn thành, V18-06 đã xanh audit/build local nhưng chưa có smoke Anki thật và CI.
 - Lý do mở task: Bento Forge phục vụ cả học ngoại ngữ lẫn kiến thức chuyên ngành, nhưng cần tách contract/model để không làm hỏng collection Language hiện hữu.
 - Model / effort: `gpt-5.6-terra` / `high` cho contract/UI/release; `gpt-5.6-sol` / `high` cho schema, model lifecycle và workflow đa boundary. Chi tiết ở `V18_LEARNING_MODES.md`.
 - Phạm vi: `language` giữ vocab/grammar; `knowledge` V1 hỗ trợ Basic, Cloze, Explanation, Source và Tags; AwesomeTTS không thuộc scope V18 mặc định.
-- Kiểm chứng kế hoạch: đã map state `vocab/grammar`, config note type, UI selector, extract/preview/import/history và release boundary vào skill `13-learning-modes`.
-- Quyết định tiếp theo: chỉ mở V18-01. Metadata version vẫn giữ nguyên cho đến V18-06 có test/smoke và release record.
+- Kiểm chứng: isolated harness sau sửa hành động gửi Knowledge hai vòng `532 passed` mỗi vòng; Anki 26.5/Python 3.13.5 đã đạt packaged manifest, entry/UI/public-hook import và collection thật Basic/Cloze add/update/card generation/rollback; artifact SHA-256 `8e2d0fc60e725a2ffa728c9f9a35199aa833c8f277aef2cd7a21c7f915a65ea0`.
+- Quyết định tiếp theo: hoàn thành `V18_SMOKE_PROFILE.md` bằng GUI Anki 26.5 trên profile tách biệt, CI Python 3.9/3.11 và smoke endpoint legacy 2.1.50. Chỉ sau các gate đó mới bump 18.0.0 và đóng changelog phát hành.

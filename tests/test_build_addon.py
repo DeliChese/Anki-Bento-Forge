@@ -27,7 +27,11 @@ def test_build_artifact_includes_workers_and_excludes_python_bytecode(tmp_path):
         json.dumps(
             {
                 "name": "Bento Forge package test",
+                "package": "bento_forge_test",
                 "version": "0.0.0",
+                "human_version": "0.0.0",
+                "min_point_version": 50,
+                "max_point_version": 260500,
                 "dependencies": {"packages": []},
             }
         ),
@@ -67,11 +71,15 @@ def test_build_artifact_includes_workers_and_excludes_python_bytecode(tmp_path):
         members = {
             PurePosixPath(name.replace("\\", "/")) for name in archive.namelist()
         }
+        packaged_manifest = json.loads(archive.read("manifest.json"))
 
     assert PurePosixPath("workers/__init__.py") in members
     assert PurePosixPath("workers/import_worker.py") in members
     assert all("__pycache__" not in member.parts for member in members)
     assert all(member.suffix.lower() not in {".pyc", ".pyo"} for member in members)
+    assert packaged_manifest["package"] == "bento_forge_test"
+    assert packaged_manifest["min_point_version"] == 50
+    assert packaged_manifest["max_point_version"] == 260500
     assert cache_sentinel.is_file()
     assert loose_bytecode.is_file()
     assert optimized_bytecode.is_file()

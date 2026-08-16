@@ -45,6 +45,10 @@ _TRANSLATIONS = {
         "vi": "Bento Forge",
         "en": "Bento Forge",
     },
+    "app_title_knowledge": {
+        "vi": "Bento Forge — Knowledge Factory",
+        "en": "Bento Forge — Knowledge Factory",
+    },
     "menu_entry": {
         "vi": "🧪 Bento Forge",
         "en": "🧪 Bento Forge",
@@ -87,6 +91,10 @@ _TRANSLATIONS = {
         "vi": "⚙️ Lò Đúc Tự Động (AI) — OpenAI / DeepSeek / Ollama",
         "en": "⚙️ Auto Forge (AI) — OpenAI / DeepSeek / Ollama",
     },
+    "ai_group_title_knowledge": {
+        "vi": "⚙️ Lò Đúc Kiến Thức (AI)",
+        "en": "⚙️ Knowledge Forge (AI)",
+    },
     "ai_settings_btn": {
         "vi": "⚙️ Cài Đặt API",
         "en": "⚙️ API Settings",
@@ -98,6 +106,14 @@ _TRANSLATIONS = {
     "ai_extract_btn": {
         "vi": "🔥 Khai Thác Nguyên Liệu",
         "en": "🔥 Extract Raw Material",
+    },
+    "knowledge_generate_btn": {
+        "vi": "✨ GỬI & TẠO THẺ",
+        "en": "✨ SEND & GENERATE CARDS",
+    },
+    "knowledge_generate_tip": {
+        "vi": "Gửi nguồn học và yêu cầu thêm cho AI để tạo thẻ Knowledge Basic/Cloze theo schema nghiêm ngặt.",
+        "en": "Send the source and extra request to generate strict Knowledge Basic/Cloze cards.",
     },
     "ai_batch_btn": {
         "vi": "📋 Batch Từ Vựng",
@@ -130,6 +146,14 @@ _TRANSLATIONS = {
     "ai_instruction_label": {
         "vi": "💬 Lời nhắn:",
         "en": "💬 Instruction:",
+    },
+    "knowledge_instruction_label": {
+        "vi": "🎯 Yêu cầu thêm:",
+        "en": "🎯 Extra request:",
+    },
+    "knowledge_instruction_placeholder": {
+        "vi": "VD: Tạo tối đa 5 thẻ Cloze, ưu tiên định nghĩa và ví dụ thực tế...",
+        "en": "e.g. Create at most 5 Cloze cards, prioritizing definitions and practical examples...",
     },
 
     # ── JSON Input ──────────────────────────────────────
@@ -541,6 +565,18 @@ _TRANSLATIONS = {
         "vi": "📚 Loại Thẻ",
         "en": "📚 Card Type",
     },
+    "learning_mode_grp_title": {
+        "vi": "🧭 Chế độ học",
+        "en": "🧭 Learning Mode",
+    },
+    "btn_learning_language": {
+        "vi": "🌐 Ngôn ngữ",
+        "en": "🌐 Language",
+    },
+    "btn_learning_knowledge": {
+        "vi": "🧠 Kiến thức",
+        "en": "🧠 Knowledge",
+    },
     "btn_mode_vocab": {
         "vi": "📖 Từ vựng",
         "en": "📖 Vocabulary",
@@ -752,6 +788,66 @@ _TRANSLATIONS = {
     "ai_input_placeholder_grammar": {
         "vi": "📥 Nạp Quặng/Nguyên Liệu Thô (NGỮ PHÁP) — cấu trúc, cách dùng, công thức, ví dụ...",
         "en": "📥 Load Ore/Raw Material (GRAMMAR) — patterns, usage, formulas, examples...",
+    },
+    "ai_input_placeholder_knowledge": {
+        "vi": "📥 Dán ghi chú hoặc tài liệu để tạo thẻ Kiến thức Q&A/Cloze. Nguồn chỉ được giữ khi có trong nội dung.",
+        "en": "📥 Paste notes or source material for Knowledge Q&A/Cloze cards. Sources are kept only when supplied.",
+    },
+    "knowledge_json_input_label": {
+        "vi": "🧠 JSON Kiến thức (sẽ preview ở bước workflow)",
+        "en": "🧠 Knowledge JSON (preview arrives with the workflow)",
+    },
+    "knowledge_preview_label": {
+        "vi": "🧠 Xem trước thẻ Kiến thức",
+        "en": "🧠 Knowledge card preview",
+    },
+    "item_label_knowledge": {
+        "vi": "thẻ Kiến thức",
+        "en": "Knowledge cards",
+    },
+    "knowledge_schema_error": {
+        "vi": "JSON Kiến thức không hợp lệ: {error}",
+        "en": "Invalid Knowledge JSON: {error}",
+    },
+    "knowledge_no_valid_cards": {
+        "vi": "Không có thẻ Kiến thức hợp lệ để kiểm định.",
+        "en": "There are no valid Knowledge cards to verify.",
+    },
+    "knowledge_deck_required": {
+        "vi": "Hãy chọn deck trước khi kiểm định thẻ Kiến thức.",
+        "en": "Select a deck before verifying Knowledge cards.",
+    },
+    "knowledge_verify_summary": {
+        "vi": "Sẵn sàng: {new} mới · {update} cập nhật · bỏ qua {duplicate} trùng",
+        "en": "Ready: {new} new · {update} updates · {duplicate} duplicates skipped",
+    },
+    "knowledge_preview_valid": {
+        "vi": "✓ {count} thẻ Kiến thức hợp lệ; nguồn thiếu được giữ rỗng.",
+        "en": "✓ {count} valid Knowledge cards; missing sources remain empty.",
+    },
+    "knowledge_rollback_done": {
+        "vi": "Đã hoàn tác batch Kiến thức: xóa {removed} thẻ mới, khôi phục {restored} thẻ cập nhật.",
+        "en": "Knowledge batch undone: removed {removed} new notes and restored {restored} updates.",
+    },
+    "status_cache_knowledge": {
+        "vi": "Dùng cache: {count} thẻ Kiến thức",
+        "en": "Using cache: {count} Knowledge cards",
+    },
+    "status_new_knowledge": {
+        "vi": "Đã tạo {count} thẻ Kiến thức mới",
+        "en": "Created {count} new Knowledge cards",
+    },
+    "worker_progress_knowledge": {
+        "vi": "Đang trích xuất thẻ Kiến thức…",
+        "en": "Extracting Knowledge cards…",
+    },
+    "regen_instr_knowledge": {
+        "vi": "Tạo lại đúng các thẻ Kiến thức sau từ tài liệu nguồn, giữ schema JSON nghiêm ngặt:\n",
+        "en": "Regenerate exactly these Knowledge cards from the source, preserving the strict JSON schema:\n",
+    },
+    "empty_knowledge": {
+        "vi": "AI không trả về thẻ Kiến thức hợp lệ hoặc mới.",
+        "en": "AI returned no valid or new Knowledge cards.",
     },
     "cost_label": {
         "vi": "💰 Chi phí AI: {cost} USD · {calls} lượt gọi",
@@ -1062,6 +1158,14 @@ _TRANSLATIONS = {
     "tooltip_switched_vocab": {
         "vi": "📖 Đã chuyển sang Từ vựng",
         "en": "📖 Switched to Vocabulary",
+    },
+    "tooltip_switched_learning_language": {
+        "vi": "🌐 Đã chuyển sang chế độ Ngôn ngữ",
+        "en": "🌐 Switched to Language mode",
+    },
+    "tooltip_switched_learning_knowledge": {
+        "vi": "🧠 Đã chuyển sang chế độ Kiến thức",
+        "en": "🧠 Switched to Knowledge mode",
     },
     "grammar_suffix": {
         "vi": " (Ngữ pháp)",

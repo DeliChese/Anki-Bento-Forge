@@ -8,6 +8,22 @@ import re
 
 from anki.notes import Note
 
+from .knowledge_model import ensure_knowledge_model, knowledge_note_payload
+
+
+def _save_note(col, note):
+    """Persist a note through the collection API when it is available.
+
+    Anki 26.5 deprecates ``Note.flush()`` and its compatibility implementation
+    bypasses the current undo entry.  ``Collection.update_note()`` keeps the
+    mutation inside the surrounding CollectionOp.  The fallback retains
+    support for the older Anki API and lightweight test doubles.
+    """
+    update_note = getattr(col, "update_note", None)
+    if callable(update_note):
+        return update_note(note)
+    return note.flush()
+
 
 def _fill_example_blanks(note, front_field):
     if not front_field:
@@ -102,10 +118,80 @@ def apply_import(col, batch, cfg, deck_id, audio_tags, is_cancelled):
                     report["audio_gen"] += 1
                 elif f"{item_index}:{audio_field}" in audio_tags:
                     report["audio_failed"] += 1
-            note.flush()
+            _save_note(col, note)
         except Exception as exc:
             report["errors"] += 1
             errors.append(f"• {display}: {exc}")
     if errors:
         report["errors_detail"] = errors[:10]
     return report
+
+
+def apply_knowledge_import(col, batch, deck_id, is_cancelled):
+    """Apply a strict Knowledge batch inside one undo-aware CollectionOp."""
+    model = ensure_knowledge_model(col.models).model
+    report = {
+        "learning_mode": "knowledge", "added": 0, "added_note_ids": [],
+        "updated": 0, "audio_gen": 0, "audio_failed": 0,
+        "errors": 0, "cancelled": False, "updated_before": [],
+    }
+    errors = []
+    for entry in batch:
+        if is_cancelled():
+            report["cancelled"] = True
+            break
+        payload = knowledge_note_payload(entry["item"])
+        display = payload["fields"].get("Question") or payload["fields"].get("Cloze Text")
+        try:
+            if entry["action"] == "update":
+                note = col.get_note(entry["nid"])
+                before = {field: str(note[field]) for field in payload["fields"]}
+                before["tags"] = list(getattr(note, "tags", []) or [])
+                report["updated_before"].append({"nid": int(entry["nid"]), "values": before})
+                for field in entry.get("update_fields", []):
+                    if field == "tags":
+                        note.tags = list(payload["tags"])
+                    elif field in payload["fields"]:
+                        note[field] = str(payload["fields"][field])
+                report["updated"] += 1
+            else:
+                note = Note(col, model)
+                for field, value in payload["fields"].items():
+                    note[field] = str(value)
+                note.tags = list(payload["tags"])
+                col.add_note(note, deck_id)
+                if getattr(note, "id", 0):
+                    report["added_note_ids"].append(int(note.id))
+                report["added"] += 1
+            _save_note(col, note)
+        except Exception as exc:
+            report["errors"] += 1
+            errors.append(f"• {display}: {exc}")
+    if report["cancelled"] and (report["added_note_ids"] or report["updated_before"]):
+        report["cancel_rollback"] = rollback_knowledge_import(col, report)
+        report["added"] = 0
+        report["updated"] = 0
+        report["added_note_ids"] = []
+        report["updated_before"] = []
+    if errors:
+        report["errors_detail"] = errors[:10]
+    return report
+
+
+def rollback_knowledge_import(col, rollback_token):
+    """Undo exactly one Knowledge batch: delete its adds and restore its updates."""
+    note_ids = [int(nid) for nid in rollback_token.get("added_note_ids", []) if int(nid) > 0]
+    if note_ids:
+        col.remove_notes(note_ids)
+    restored = 0
+    for snapshot in rollback_token.get("updated_before", []):
+        note = col.get_note(int(snapshot["nid"]))
+        values = snapshot.get("values", {})
+        for field, value in values.items():
+            if field == "tags":
+                note.tags = list(value or [])
+            else:
+                note[field] = str(value)
+        _save_note(col, note)
+        restored += 1
+    return {"removed": len(note_ids), "restored": restored}

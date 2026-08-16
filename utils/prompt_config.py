@@ -267,11 +267,21 @@ def get_json_template(lang: str, kind: str = "vocab") -> str:
     return get_effective_config()[kind][lang]["json_template"]
 
 
+def get_knowledge_json_template() -> str:
+    """Return the fixed V18 Knowledge schema without entering Language overrides."""
+    return defaults._KNOWLEDGE_JSON_TEMPLATE
+
+
 def get_system_prompt(lang: str, kind: str = "vocab") -> str:
     """System prompt hiệu lực (đã interpolate template) cho (lang, kind)."""
     if lang not in LANGS or kind not in KINDS:
         return _default_system_prompt(lang, kind)
     return get_effective_config()[kind][lang]["system_prompt"]
+
+
+def get_knowledge_system_prompt() -> str:
+    """Return the standalone Knowledge prompt; no language or user override applies."""
+    return defaults._KNOWLEDGE_SYSTEM_PROMPT
 
 
 def get_fields(lang: str, kind: str = "vocab") -> list:

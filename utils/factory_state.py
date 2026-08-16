@@ -65,23 +65,45 @@ class FactoryStateStore:
         if not isinstance(state, dict):
             return {}
         clean = {}
+
+        def clean_flow(flow):
+            if not isinstance(flow, dict):
+                return None
+            text, json_text, files = flow.get("text", ""), flow.get("json", ""), flow.get("files", [])
+            return {
+                "text": text[:self.max_text_chars] if isinstance(text, str) else "",
+                "json": json_text[:self.max_json_chars] if isinstance(json_text, str) else "",
+                "files": [path[:512] for path in files[:5] if isinstance(path, str)],
+                "raw": self._bounded_items(flow.get("raw", []), self.max_flow_bytes // 2),
+                "cards": self._bounded_items(flow.get("cards", []), self.max_flow_bytes // 2),
+            }
+        # V17 stored {lang: {vocab|grammar: flow}} at the top level.
+        # V18 makes the product mode explicit while accepting that shape on
+        # read, so old unsent drafts remain available after upgrading.
+        language_state = state.get("language", {})
+        if not isinstance(language_state, dict):
+            language_state = {}
+        clean_language = {}
         for lang in ("japanese", "chinese", "korean", "english"):
-            lang_state = state.get(lang)
+            lang_state = language_state.get(lang, state.get(lang))
             if not isinstance(lang_state, dict):
                 continue
             clean_lang = {}
             for mode in ("vocab", "grammar"):
-                flow = lang_state.get(mode)
-                if not isinstance(flow, dict):
+                flow = clean_flow(lang_state.get(mode))
+                if flow is None:
                     continue
-                text, json_text, files = flow.get("text", ""), flow.get("json", ""), flow.get("files", [])
-                clean_lang[mode] = {
-                    "text": text[:self.max_text_chars] if isinstance(text, str) else "",
-                    "json": json_text[:self.max_json_chars] if isinstance(json_text, str) else "",
-                    "files": [path[:512] for path in files[:5] if isinstance(path, str)],
-                    "raw": self._bounded_items(flow.get("raw", []), self.max_flow_bytes // 2),
-                    "cards": self._bounded_items(flow.get("cards", []), self.max_flow_bytes // 2),
-                }
+                clean_lang[mode] = flow
             if clean_lang:
-                clean[lang] = clean_lang
+                clean_language[lang] = clean_lang
+        if clean_language:
+            clean["language"] = clean_language
+        # Knowledge is language-independent.  It has one draft flow until the
+        # V18-05 workflow owns preview/import state for it.
+        knowledge_state = state.get("knowledge", {})
+        if isinstance(knowledge_state, dict):
+            knowledge_default = knowledge_state.get("default", {})
+            flow = clean_flow(knowledge_default.get("knowledge")) if isinstance(knowledge_default, dict) else None
+            if flow is not None:
+                clean["knowledge"] = {"default": {"knowledge": flow}}
         return clean

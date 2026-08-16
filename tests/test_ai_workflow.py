@@ -72,12 +72,27 @@ def test_extract_worker_uses_current_token_and_forwards_signals():
     assert worker.started
     assert worker.kwargs["cancel_event"] is token
     assert worker.kwargs["existing_words"] == ["already known"]
+    assert worker.kwargs["learning_mode"] == "language"
     worker.progress.emit("working")
     worker.finished.emit([{"word": "猫"}])
     worker.error.emit("unused")
     assert progress == ["working"]
     assert finished == [[{"word": "猫"}]]
     assert errors == ["unused"]
+
+
+def test_extract_worker_forwards_explicit_knowledge_mode():
+    coordinator = AiWorkflowCoordinator()
+    coordinator.begin()
+    worker = coordinator.start_extract(
+        _Worker,
+        text="source", lang="english", custom_instruction="", existing_words=[],
+        grammar=False, learning_mode="knowledge",
+        on_progress=lambda _message: None,
+        on_finished=lambda _result: None,
+        on_error=lambda _message: None,
+    )
+    assert worker.kwargs["learning_mode"] == "knowledge"
 
 
 def test_chat_worker_uses_current_token_and_can_be_cleared():

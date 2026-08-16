@@ -15,7 +15,10 @@ RELEASE_DOCS = (
     "RELEASE_CHECKLIST.md",
     "REFACTOR_PLAN.md",
 )
-ANKI_RANGE = re.compile(r"(?<!\d)(2\.\d+\.\d+)\s*[–—-]\s*(2\.\d+\.\d+)(?!\d)")
+ANKI_RANGE = re.compile(
+    r"Anki\s+(\d+\.\d+(?:\.\d+)?)\s+(?:through|to)\s+(\d+\.\d+(?:\.\d+)?)",
+    re.IGNORECASE,
+)
 
 
 def _manifest():
@@ -29,16 +32,15 @@ def test_manifest_matches_current_compatibility_matrix():
     maximum = manifest["anki"]["max_version"]
     compatibility = (ROOT / "COMPATIBILITY.md").read_text(encoding="utf-8")
 
-    assert minimum == maximum
+    assert (minimum, maximum) == ("2.1.50", "26.5")
+    assert manifest["package"] == "bento_forge"
+    assert manifest["human_version"] == version
+    assert manifest["min_point_version"] == 50
+    assert manifest["max_point_version"] == 260500
     assert manifest["dependencies"]["python"] == ">=3.9"
-    assert f"For {version} it declares exactly Anki {minimum}" in compatibility
-    supported_rows = [
-        line for line in compatibility.splitlines() if "Supported release target" in line
-    ]
-    assert len(supported_rows) == 1
-    assert supported_rows[0].startswith(
-        f"| {minimum} | 3.9 | Supported release target |"
-    )
+    assert f"For {version} it declares Anki {minimum} through {maximum}" in compatibility
+    assert f"| {minimum} | 3.9 | Legacy compatibility target |" in compatibility
+    assert f"| {maximum} | 3.13.5 | Validated compatibility target |" in compatibility
 
 
 def test_release_docs_do_not_claim_a_conflicting_anki_range():
@@ -79,18 +81,12 @@ def test_ci_uses_the_same_two_round_isolated_harness():
 def test_every_tracked_python_file_compiles():
     """Keep auxiliary scripts inside the syntax gate, not just add-on modules."""
     tracked_python = subprocess.run(
-        ["git", "ls-files", "*.py"],
-        cwd=ROOT,
-        capture_output=True,
-        check=True,
-        text=True,
+        ["git", "ls-files", "*.py"], cwd=ROOT, capture_output=True, check=True, text=True
     ).stdout.splitlines()
-
     result = subprocess.run(
         [sys.executable, "-m", "py_compile", *tracked_python],
         cwd=ROOT,
         capture_output=True,
         text=True,
     )
-
     assert result.returncode == 0, result.stderr

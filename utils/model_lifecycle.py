@@ -32,7 +32,7 @@ def collect_template_fields(templates: Iterable[Callable[[], str]]) -> set:
             continue
         for match in re.finditer(r"\{\{([#^/]?)([^{}\n]+?)\}\}", html):
             name = match.group(2).strip()
-            if name.startswith("type:"):
+            if name.startswith(("type:", "cloze:")):
                 name = name.split(":", 1)[1].strip()
             if name and name not in _SPECIAL_TEMPLATE_FIELDS:
                 fields.add(name)

@@ -102,8 +102,10 @@ def test_model_lifecycle_migrates_fields_and_reduces_extra_templates():
 
 
 def test_template_field_parser_excludes_anki_special_fields():
-    fields = collect_template_fields([lambda: "{{FrontSide}} {{Tags}} {{#Front}}{{type:Meaning}}{{/Front}}"])
-    assert fields == {"Front", "Meaning"}
+    fields = collect_template_fields([
+        lambda: "{{FrontSide}} {{Tags}} {{#Front}}{{type:Meaning}}{{cloze:Cloze Text}}{{/Front}}"
+    ])
+    assert fields == {"Front", "Meaning", "Cloze Text"}
 
 
 class FakeWidget:

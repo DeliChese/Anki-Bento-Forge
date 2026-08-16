@@ -31,7 +31,7 @@ def base_template_fields(tmpls) -> set:
             continue
         for m in re.finditer(r"\{\{([#^/]?)([^{}\n]+?)\}\}", html):
             raw = m.group(2).strip()
-            if raw.startswith("type:"):
+            if raw.startswith(("type:", "cloze:")):
                 raw = raw.split(":", 1)[1].strip()
             if raw and raw not in _SKIP_FIELDS:
                 fields.add(raw)

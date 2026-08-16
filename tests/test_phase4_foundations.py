@@ -55,7 +55,7 @@ def test_factory_state_store_is_bounded_and_migrates_out_of_source(tmp_path):
     store = FactoryStateStore(legacy_path=str(legacy), path=str(target), max_text_chars=5)
 
     state = store.load()
-    assert state["japanese"]["vocab"]["text"] == "xxxxx"
+    assert state["language"]["japanese"]["vocab"]["text"] == "xxxxx"
     assert target.exists() and not legacy.exists()
 
 

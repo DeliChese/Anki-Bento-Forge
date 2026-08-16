@@ -191,3 +191,25 @@ def test_history_query_search_summary_and_clear():
 
     assert history.clear_import_history() is True
     assert not Path(history._HISTORY_PATH).exists()
+
+
+def test_knowledge_history_is_namespaced_and_old_language_entries_still_load():
+    history.add_to_import_history(
+        [{
+            "type": "basic", "question": "What is CPU?", "answer": "Processor",
+            "explanation": "", "source": "", "tags": [], "cloze_text": "",
+        }],
+        "knowledge",
+        deck_name="Computer Science",
+        source="ai_extract",
+        kind="knowledge",
+        learning_mode="knowledge",
+    )
+    history.add_to_import_history([{"front": "legacy", "meaning": "old"}], "english")
+
+    knowledge = history.get_import_history_items(lang="knowledge", kind="knowledge")
+    language = history.get_import_history_items(lang="english", kind="vocab")
+    assert knowledge[0][0] == "knowledge"
+    assert knowledge[0][1]["question"] == "What is CPU?"
+    assert knowledge[0][1]["source"] == ""
+    assert language[0][1]["front"] == "legacy"
