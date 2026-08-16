@@ -16,7 +16,7 @@ _KOREAN_JSON_TEMPLATE = """{
   "example_romanization": "achime babeul meogeoyo.",
   "example_vn": "Buổi sáng tôi ăn cơm.",
   "example_2": "친구와 함께 저녁을 먹었어요.",
-  "example_2_romanization": "chin-guwa hamkke jeonyeogeul meogeosseoyo.",
+  "example_2_romanization": "chinguwa hamkke jeonyeogeul meogeosseoyo.",
   "example_2_vn": "Tôi đã ăn tối cùng bạn bè."
 }"""
 
@@ -29,12 +29,12 @@ MẪU:
 LUẬT:
 1. Đủ 12 trường cốt lõi + usage_note khi cần (collocation/register, ≤8 từ); romanization ví dụ chuẩn.
 2. VÍ DỤ CÓ HỒN + ĐÚNG CẤP ĐỘ (quan trọng nhất):
-   - Ex1: khẩu ngữ đời thực (cà phê, nhắn tin, than thở, MXH...), cảm xúc thật, kết thúc câu tự nhiên (어요/아요/거야/잖아).
+   - Ex1: khẩu ngữ đời thực, cảm xúc thật, đuôi tự nhiên (어요/아요/거야/잖아).
    - Ex2: trang trọng, lịch sự (습니다/존댓말).
    - Cấp độ ví dụ khớp TOPIK: TOPIK I → câu cực ngắn, đơn giản; TOPIK II → trung bình/phức tạp. TUYỆT ĐỐI không nhồi từ khó vào từ cấp thấp.
    - TRÁNH câu SGK vô hồn. Từ đa nghĩa → 2 nghĩa khác nhau ở 2 ví dụ. Ví dụ ngắn gọn, 5-12 từ.
 3. CHỐNG TRÙNG: bỏ qua mọi từ trong "TỪ ĐÃ CÓ".
-4. CHÍNH XÁC: Hangul, romanization, ngữ pháp, từ vựng chuẩn. topic ngắn, đúng TOPIK.
+4. KIỂM: nghĩa đúng ngữ cảnh; example_vn đủ chủ-vị, đúng câu; Ex dùng từ đích (có thể chia); Romanization Revised không gạch nối; topic đúng TOPIK.
 5. Xuất theo thứ tự xuất hiện trong văn bản.
 
 ĐẦU RA: CHỈ mảng JSON thuần, không markdown, không giải thích thừa. Cuối: {{"_comment":"≤15 từ"}}"""
@@ -70,7 +70,7 @@ RULES:
    - Level matches TOPIK: TOPIK I → very short, simple; TOPIK II → intermediate/complex. NEVER cram hard words into low-level entries.
    - AVOID lifeless textbook sentences. Polysemous words → 2 different meanings in 2 examples. Keep examples short, 5-12 words.
 3. DEDUP: skip every word listed in "EXISTING WORDS".
-4. ACCURACY: correct Hangul, romanization, grammar, vocabulary. topic short, matching TOPIK.
+4. CHECK: contextual meaning; exact subject–verb example translation; target appears (may inflect); standard Revised Romanization without hyphens; topic matches TOPIK.
 5. Output in order of appearance in the text.
 
 OUTPUT: ONLY a plain JSON array, no markdown, no extra explanation. End with: {{"_comment":"≤15 words"}}"""
@@ -108,7 +108,7 @@ LUẬT:
    - Ex1: khẩu ngữ đời thực, cảm xúc thật. Ex2: trang trọng, lịch sự.
    - Cấp độ ví dụ khớp TOPIK của pattern; KHÔNG nhồi từ khó. Ví dụ 5-12 từ.
    - MỌI ví dụ PHẢI kèm romanization đầy đủ.
-7. CHÍNH XÁC: ngữ pháp, romanization, cách dùng chuẩn. topic ngắn, đúng trọng tâm.
+7. KIỂM: nghĩa đúng ngữ cảnh; example_vn đủ chủ-vị, đúng câu; mỗi ví dụ có pattern đã bọc <b>; Romanization Revised không gạch nối.
 8. NHƯ GIẢNG VIÊN ĐỌC GIÁO TRÌNH: Đọc kỹ TOÀN BỘ văn bản, hiểu ngữ cảnh + từ vựng đi kèm rồi mới trích. Ví dụ phải bám ngữ cảnh thực của bài, dùng từ vựng ĐA DẠNG (không lặp cùng 1 cụm từ trong mọi ví dụ).
 9. CÙNG PATTERN – KHÁC NGHĨA: Nếu 1 pattern xuất hiện nhiều lần với từ đi kèm khác nhau tạo NGHĨA/CÁCH DÙNG khác nhau → tạo NHIỀU entry riêng (meaning khác nhau, ví dụ khác nhau) thay vì gộp. Không tạo trùng lặp máy móc nếu thực sự giống nghĩa.
 10. ĐÁNH DẤU PATTERN: Trong example/example_2, BỌC phần thể hiện pattern bằng <b>…</b> để nổi bật trên thẻ (Anki render HTML, ví dụ: "지금 학교에 <b>가요</b>.").
@@ -148,7 +148,7 @@ RULES:
    - Ex1: real-life casual speech, genuine emotion. Ex2: formal, polite.
    - Example level matches the pattern's TOPIK; NEVER cram hard words. Examples 5-12 words.
    - EVERY example must include full romanization.
-7. ACCURACY: correct grammar, romanization, usage. topic short and on point.
+7. CHECK: contextual meaning; exact subject–verb example translation; every example contains the bolded pattern; standard Revised Romanization without hyphens.
 8. LIKE A LECTURER READING A TEXTBOOK: read the WHOLE text carefully, understand context + accompanying vocabulary before extracting. Examples must follow the text's real context and use DIVERSE vocabulary.
 9. SAME PATTERN – DIFFERENT MEANING: if a pattern appears multiple times with different accompanying words producing DIFFERENT meanings/usages → create MULTIPLE entries instead of merging.
 10. MARK THE PATTERN: in example/example_2, WRAP the pattern instance in <b>…</b> (Anki renders HTML, e.g. "지금 학교에 <b>가요</b>.").

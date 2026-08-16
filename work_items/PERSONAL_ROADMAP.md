@@ -107,3 +107,21 @@ Nếu không thỏa điều kiện nào, ghi vào backlog `Để sau`, không tr
 - Phạm vi: `benchmarks/`, `scripts/benchmark_ai_models.py`, `utils/ai_benchmark.py`, `tests/test_ai_benchmark.py`.
 - Kiểm chứng: 3 cấu hình × 20 mục tại `benchmarks/runs/`; cả ba đạt coverage/factory-ready/meaning/example `100%`. Flash non-thinking: `$0.001129`, `21.0152s`; Flash thinking: `$0.003266`, `74.2481s`; Pro non-thinking: `$0.003507`, `30.2951s`. `py_compile` xanh; isolated pytest AI liên quan `70 passed` trước benchmark.
 - Quyết định tiếp theo: chọn `deepseek-v4-flash` non-thinking làm mặc định cho flow từ vựng Nhật. Ngưỡng chấp nhận: coverage/factory-ready `≥95%`, nghĩa/ví dụ `≥90%`, cost/card `≤$0.000200`, latency/card `≤4.00s`. Chưa mở P1-02 vì prompt hiện tại đạt đủ; chỉ benchmark lại khi thẻ đã học cho thấy lỗi lặp lại.
+
+### 2026-08-16 — Personal / P1-02 (CJK quality round 1)
+
+- Trạng thái: `Hoàn thành` theo yêu cầu mở rộng chủ động sang cả Nhật / Trung / Hàn.
+- Lý do mở task: cần tăng độ tin cậy nghĩa, bản dịch ví dụ và cách đọc trước khi đưa thẻ CJK vào review.
+- Model / effort đã dùng: `gpt-5.6-sol` / `high`.
+- Phạm vi: `utils/prompts/`, `utils/import_quality.py`, `utils/ai_output_repairs.py`, `benchmarks/`.
+- Kiểm chứng: corpus cố định 20 mục cho mỗi ngôn ngữ; mỗi run đạt coverage/factory-ready/meaning/example `100%`, chi tiết tại `benchmarks/CJK_QUALITY.md`; regression `89 passed` cho prompt, parser/batch, repair và validator.
+- Quyết định tiếp theo: giữ prompt/schema hiện tại; chỉ mở vòng mới khi review thẻ thật xuất hiện lỗi lặp lại hoặc benchmark CJK tụt dưới ngưỡng P1-01.
+
+### 2026-08-16 — Personal / P1-03 (English quality round 1)
+
+- Trạng thái: `Hoàn thành` theo yêu cầu mở rộng sang tiếng Anh của chủ dự án.
+- Lý do mở task: tiếng Anh có prompt nhưng chưa có corpus chất lượng và review output thật tương đương CJK.
+- Model / effort đã dùng: `gpt-5.6-sol` / `high`.
+- Phạm vi: `utils/prompts/english.py`, `utils/batch_processor.py`, `utils/import_quality.py`, `benchmarks/`.
+- Kiểm chứng: corpus cố định 20 mục có nghĩa đích; run `deepseek-v4-flash` non-thinking đạt coverage/factory-ready/meaning/example `100%`, `$0.000048/card`, `0.77s/card`, chi tiết tại `benchmarks/ENGLISH_QUALITY.md`; regression `123 passed` cho prompt, cache, batch, benchmark và validator.
+- Quyết định tiếp theo: giữ V4 Flash non-thinking và quality gate tiếng Anh; chỉ mở vòng mới nếu review thẻ thật phát hiện lỗi nghĩa/ví dụ lặp lại hoặc benchmark tụt dưới ngưỡng P1-01.

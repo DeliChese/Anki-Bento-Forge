@@ -91,6 +91,7 @@ def _run_one(case: dict, cfg: dict, variant: str) -> tuple[list[dict], dict]:
         _http_post_json,
     )
     from utils.ai_response_guard import enable_deepseek_json_output, get_final_model_content
+    from utils.ai_output_repairs import repair_vocabulary_cards
     from utils.ai_response_parser import parse_ai_json_with_comment
     from utils.batch_processor import _build_batch_user_prompt
     from utils.prompt_config import get_system_prompt
@@ -138,6 +139,8 @@ def _run_one(case: dict, cfg: dict, variant: str) -> tuple[list[dict], dict]:
         raise RuntimeError("provider returned no choices")
     content = get_final_model_content(response["choices"][0])
     cards, _comment = parse_ai_json_with_comment(content)
+    if not case.get("grammar"):
+        cards = repair_vocabulary_cards(cards, case["language"])
     usage = response.get("usage") or {}
     token_info = _calculate_cost(
         model,

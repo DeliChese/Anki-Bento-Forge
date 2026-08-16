@@ -1,0 +1,58 @@
+{
+  "benchmark_version": "1",
+  "case": {
+    "id": "japanese_vocab_20_v1",
+    "language": "japanese",
+    "grammar": false,
+    "expected_terms": [
+      "食べる",
+      "飲む",
+      "見る",
+      "行く",
+      "来る",
+      "学校",
+      "先生",
+      "友達",
+      "大きい",
+      "新しい",
+      "面白い",
+      "速い",
+      "今日",
+      "明日",
+      "時間",
+      "勉強する",
+      "読む",
+      "書く",
+      "聞く",
+      "約束"
+    ]
+  },
+  "run": {
+    "provider": "deepseek",
+    "model": "deepseek-v4-flash@disabled",
+    "cache_status": "miss",
+    "cost_usd": 0.001079,
+    "latency_seconds": 20.9857,
+    "input_tokens": 1159.0,
+    "output_tokens": 3275.0
+  },
+  "metrics": {
+    "expected_cards": 20,
+    "returned_cards": 20,
+    "matched_cards": 20,
+    "missing_terms": [],
+    "unexpected_terms": [],
+    "duplicate_output_count": 0,
+    "coverage_rate": 1.0,
+    "completeness_rate": 1.0,
+    "factory_ready_count": 20,
+    "factory_ready_rate": 1.0,
+    "warning_count": 0,
+    "automated_score": 100.0,
+    "automated_gate_passed": true,
+    "cost_per_expected_card_usd": 5.395e-05,
+    "seconds_per_expected_card": 1.0493
+  },
+  "human_review": null,
+  "decision_ready": false
+}

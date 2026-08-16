@@ -32,7 +32,7 @@ LUẬT:
    - Cấp độ ví dụ khớp JLPT: N5 → câu cực ngắn; N4 → đơn giản; N3 → trung bình; N2-N1 → phức tạp, thành ngữ. TUYỆT ĐỐI không nhồi từ khó vào từ cấp thấp.
    - TRÁNH câu SGK vô hồn. Từ đa nghĩa → 2 nghĩa khác nhau ở 2 ví dụ. Ví dụ ngắn gọn, 5-12 từ.
 3. CHỐNG TRÙNG: bỏ qua mọi từ trong "TỪ ĐÃ CÓ".
-4. CHÍNH XÁC: furigana, ngữ pháp, từ vựng chuẩn. topic ngắn, đúng JLPT.
+4. KIỂM: đa nghĩa khớp trợ từ/collocation; 聞く “hỏi” = Nに聞く, không dịch 質問を聞く là hỏi; example_vn đúng câu; Ex dùng từ đích; furigana hiragana.
 5. Xuất theo thứ tự xuất hiện trong văn bản.
 
 ĐẦU RA: CHỈ mảng JSON thuần, không markdown, không giải thích thừa. Cuối: {{"_comment":"≤15 từ"}}"""
@@ -66,7 +66,7 @@ RULES:
    - Example level must match JLPT: N5 → very short; N4 → simple; N3 → intermediate; N2-N1 → complex, idioms. NEVER cram hard words into low-level entries.
    - AVOID lifeless textbook sentences. Polysemous words → 2 different meanings in 2 examples. Keep examples short, 5-12 words.
 3. DEDUP: skip every word listed in "EXISTING WORDS".
-4. ACCURACY: correct furigana, grammar, vocabulary. topic short, matching JLPT.
+4. CHECK: polysemy uses matching particles/collocations; ask with 聞く = Nに聞く, never translate 質問を聞く as ask; exact example translation; target appears; hiragana furigana.
 5. Output in order of appearance in the text.
 
 OUTPUT: ONLY a plain JSON array, no markdown, no extra explanation. End with: {{"_comment":"≤15 words"}}"""
@@ -102,7 +102,7 @@ LUẬT:
    - Ex1: khẩu ngữ đời thực (普通体), cảm xúc thật, trợ từ よ/ね/よね.
    - Ex2: trang trọng, lịch sự (です・ます/敬語).
    - Cấp độ ví dụ khớp JLPT của pattern; KHÔNG nhồi từ khó. Ví dụ 5-12 từ.
-7. CHÍNH XÁC: ngữ pháp, cách dùng, từ vựng chuẩn. topic ngắn, đúng trọng tâm.
+7. KIỂM: nghĩa đúng ngữ cảnh; example_vn đủ chủ-vị, đúng câu; mỗi ví dụ có pattern đã bọc <b>; reading chuẩn.
 8. NHƯ GIẢNG VIÊN ĐỌC GIÁO TRÌNH: Đọc kỹ TOÀN BỘ văn bản, hiểu ngữ cảnh + từ vựng đi kèm rồi mới trích. Ví dụ phải bám ngữ cảnh thực của bài, dùng từ vựng ĐA DẠNG (không lặp cùng 1 cụm từ trong mọi ví dụ).
 9. CÙNG PATTERN – KHÁC NGHĨA: Nếu 1 pattern xuất hiện nhiều lần với từ đi kèm khác nhau tạo NGHĨA/CÁCH DÙNG khác nhau → tạo NHIỀU entry riêng (meaning khác nhau, ví dụ khác nhau) thay vì gộp. Không tạo trùng lặp máy móc nếu thực sự giống nghĩa.
 10. ĐÁNH DẤU PATTERN: Trong example/example_2, BỌC phần thể hiện pattern bằng <b>…</b> để nổi bật trên thẻ (Anki render HTML, ví dụ: "ここで写真を撮<b>ってもいい</b>ですか。").
@@ -140,7 +140,7 @@ RULES:
    - Ex1: real-life casual speech (普通体), genuine emotion, particles よ/ね/よね.
    - Ex2: formal, polite (です・ます/keigo).
    - Example level matches the pattern's JLPT; NEVER cram hard words. Examples 5-12 words.
-7. ACCURACY: correct grammar, usage, vocabulary. topic short and on point.
+7. CHECK: contextual meaning; exact subject–verb example translation; every example contains the bolded pattern; correct reading.
 8. LIKE A LECTURER READING A TEXTBOOK: read the WHOLE text carefully, understand context + accompanying vocabulary before extracting. Examples must follow the text's real context and use DIVERSE vocabulary (don't repeat the same phrase in every example).
 9. SAME PATTERN – DIFFERENT MEANING: if a pattern appears multiple times with different accompanying words producing DIFFERENT meanings/usages → create MULTIPLE entries (different meaning, different examples) instead of merging. Don't create mechanical duplicates when meanings are truly the same.
 10. MARK THE PATTERN: in example/example_2, WRAP the pattern instance in <b>…</b> to highlight on the card (Anki renders HTML, e.g. "ここで写真を撮<b>ってもいい</b>ですか。").

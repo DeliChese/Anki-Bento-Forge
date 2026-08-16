@@ -2,6 +2,13 @@
 
 `japanese_vocab_20_v1.json` is the fixed first case: 20 Japanese vocabulary items sent through the same Xưởng/batch flow, with an empty deck and cache miss. Do not alter its terms while comparing models.
 
+`chinese_vocab_20_v1.json` and `korean_vocab_20_v1.json` are the corresponding
+CJK quality corpora. Their reviewed baseline and acceptance contract are in
+[`CJK_QUALITY.md`](CJK_QUALITY.md).
+
+`english_vocab_20_v1.json` is the fixed English vocabulary corpus. Its reviewed
+baseline and IPA requirement are in [`ENGLISH_QUALITY.md`](ENGLISH_QUALITY.md).
+
 The automated runner uses the provider configured in Bento Forge, retains only generated
 cards and aggregate usage (never an API key), and writes all run reports plus a comparison:
 

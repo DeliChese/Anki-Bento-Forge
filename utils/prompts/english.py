@@ -21,10 +21,10 @@ MẪU:
 {_ENGLISH_JSON_TEMPLATE}
 
 LUẬT:
-1. front là dạng từ điển/cụm cố định; pronunciation là IPA Anh-Anh nhất quán. Đủ 10 trường, thiếu → "".
-2. Mỗi entry chỉ giữ nghĩa đúng ngữ cảnh. usage_note chỉ ghi collocation, giới từ hoặc register giúp tránh dùng sai (≤10 từ).
+1. front là dạng từ điển/cụm cố định; pronunciation là IPA Anh-Anh. Đủ 10 trường; thiếu → "".
+2. Mỗi entry giữ MỘT nghĩa đúng ngữ cảnh và một từ loại; cả hai ví dụ phải dùng đúng nghĩa đó. Không có câu nguồn → chọn một nghĩa học phổ biến, tuyệt đối không đổi nghĩa giữa hai ví dụ. usage_note chỉ ghi collocation, giới từ hoặc register giúp tránh dùng sai (≤10 từ).
 3. Gán CEFR A1–C2 theo nghĩa/cách dùng, không theo độ khó câu nguồn; topic ngắn và cụ thể.
-4. Hai ví dụ tự nhiên, khác ngữ cảnh, 5–12 từ; dùng đúng collocation/register và vừa CEFR. Từ đa nghĩa chỉ tách entry khi văn bản thực sự dùng nhiều nghĩa.
+4. Hai ví dụ tự nhiên, khác ngữ cảnh, 5–12 từ; đúng collocation/register và CEFR. Từ đa nghĩa chỉ tách khi văn bản dùng nhiều nghĩa.
 5. Không bịa nghĩa, sắc thái hay cụm đi kèm. Bỏ tên riêng, số, từ chức năng vô ích và mục trong "EXISTING WORDS"; giữ thứ tự xuất hiện.
 
 ĐẦU RA: Chỉ mảng JSON thuần; không markdown, không giải thích. Cuối mảng có {{"_comment":"≤15 từ"}}."""
@@ -51,7 +51,7 @@ TEMPLATE:
 
 RULES:
 1. front is the dictionary form/fixed phrase; pronunciation is consistent British IPA. Fill all 10 fields; missing → "".
-2. Keep only the sense used in context. Add usage_note only for a useful collocation, preposition, or register warning (≤10 words).
+2. Keep one sense and part of speech used in context; both examples must use that same sense. With no source sentence, choose one common learner sense and never switch senses between examples. Add usage_note only for a useful collocation, preposition, or register warning (≤10 words).
 3. Assign CEFR A1–C2 to this sense/use, not the source sentence; keep topic short and specific.
 4. Write two natural, distinct 5–12-word examples using correct collocation/register at the CEFR level. Split polysemy only when the text uses distinct senses.
 5. Never invent a sense, nuance, or collocation. Skip proper names, numbers, low-value function words, and "EXISTING WORDS"; preserve source order.

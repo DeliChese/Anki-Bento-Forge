@@ -19,8 +19,8 @@ CASE = {
 }
 
 CARDS = [
-    {"front": "食べる", "meaning": "ăn", "example": "私は毎日食べる。"},
-    {"front": "飲む", "meaning": "uống", "example": "水を飲む。"},
+    {"front": "食べる", "furigana": "たべる", "meaning": "ăn", "example": "私は毎日食べる。"},
+    {"front": "飲む", "furigana": "のむ", "meaning": "uống", "example": "水を飲む。"},
 ]
 
 

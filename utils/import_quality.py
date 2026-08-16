@@ -129,6 +129,24 @@ def detect_card_warnings(
         if target and normalized_example == target:
             warnings.append("example_is_only_target")
 
+    # Pronunciation is a core learning aid for CJK cards.  Keep this advisory
+    # so existing notes remain importable, but surface omissions before a card
+    # reaches a learner's review queue.
+    pronunciation_field = {
+        "chinese": "pinyin",
+        "english": "pronunciation",
+        "korean": "romanization",
+    }.get(lang)
+    if lang == "japanese":
+        pronunciation_field = "reading" if grammar else "furigana"
+        # Kana-only vocabulary does not need a separate furigana reading.
+        if not _CHINESE_TEXT_RE.search(front):
+            pronunciation_field = None
+    if pronunciation_field and not _has_visible_value(item.get(pronunciation_field)):
+        warnings.append(f"missing_{pronunciation_field}")
+    if lang == "korean" and "-" in _visible_text(item.get("romanization")):
+        warnings.append("romanization_contains_hyphen")
+
     return tuple(dict.fromkeys(warnings))
 
 

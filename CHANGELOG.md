@@ -5,6 +5,7 @@
 > Các thay đổi đã merge sau 17.1.0. Chỉ chuyển mục này thành bản phát hành khi `manifest.json`, bằng chứng CI và smoke Anki đã sẵn sàng.
 
 ### ✨ Added
+- Quality baselines: fixed 20-item English, Japanese, Chinese, and Korean corpora with reviewed run reports. Candidate cards now surface missing English IPA/CJK pronunciation, and Korean headword romanization with a hyphen, before import.
 - Tiếng Anh trở thành ngôn ngữ đích thứ tư: có Note Type từ vựng/ngữ pháp, CEFR A1–C2, IPA, 5 chế độ học, prompt VI/EN, AI preview/chat, lịch sử, Edge TTS giọng UK/US và regression test riêng.
 - V17.2: Nhấp vào thanh chi phí AI ở góc dưới trái để xem lịch sử từng request theo model, thời điểm, thời lượng, loại công việc, input/output token và chi phí. Có lọc theo model/công việc/ngày hoặc khoảng ngày, sắp xếp chi phí và input/output cao–thấp, tổng cho tập dữ liệu đang lọc, cùng thao tác xóa lịch sử. Lịch sử chỉ giữ metadata usage (tối đa 2.000 lượt) trong Anki profile; không giữ prompt, phản hồi, API key hay URL API.
 - B6: Thẻ từ vựng mặc định có field `Usage Note` hiển thị ở mặt sau khi có nội dung; prompt chỉ yêu cầu ghi chú collocation/register ngắn khi thực sự giúp phân biệt cách dùng. Field `Usage` của thẻ ngữ pháp cũng nhận thêm ghi chú này khi cần, không thêm schema/output field mới.
@@ -19,6 +20,8 @@
 - Thêm `DEBUGGING.md`, `COMPATIBILITY.md`, `RELEASE_CHECKLIST.md`, artifact build có SHA-256/SBOM, cùng harness kiểm thử cô lập hai vòng dùng chung với CI.
 
 ### 🔧 Changed
+- English vocabulary extraction now keeps a supplied source meaning consistent across the card, both examples, and both translations; the cache prompt version was advanced so stale results are not reused.
+- Built-in CJK prompts now require contextual meanings, faithful example translations, and language-specific pronunciation/form accuracy. A narrowly scoped Japanese repair corrects the proven `質問を聞きました`/“ask” contradiction without changing legitimate “hear a question” output.
 - Prompt tiếng Anh ưu tiên đúng nghĩa ngữ cảnh, lemma/IPA/CEFR, collocation/register và ví dụ tự nhiên ngắn; prompt batch/chat bỏ phần hướng dẫn lặp để tăng chất lượng với ít input token hơn. Prompt mặc định/cache được nâng version để không dùng lại kết quả cũ.
 - DeepSeek V4 card generation now explicitly defaults to non-thinking mode, selected by the Japanese 3×20 benchmark: the same 100% quality score as Flash thinking and Pro non-thinking at materially lower measured cost and latency.
 - V17.2: Cập nhật preset model AI theo catalog hiện hành: DeepSeek V4 Flash/Pro, OpenAI GPT-5.6 (Sol/Terra/Luna), Gemini 3.6/3.5/3.1 và 2.5, Claude 5/Haiku 4.5; OpenRouter có alias `~openai/gpt-latest`; Ollama/LM Studio thêm Qwen 3.5 và Gemma 4. Các model cũ phổ biến vẫn còn để không làm hỏng cấu hình đã lưu.

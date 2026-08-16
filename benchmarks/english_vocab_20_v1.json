@@ -1,0 +1,17 @@
+{
+  "id": "english_vocab_20_v1",
+  "language": "english",
+  "grammar": false,
+  "expected_terms": [
+    "take for granted", "reliable", "reluctant", "efficient", "figure out",
+    "on purpose", "despite", "aware", "recommend", "deadline",
+    "improve", "achieve", "however", "usually", "available",
+    "actually", "experience", "require", "avoid", "convenient"
+  ],
+  "source_items": [
+    {"front": "take for granted", "meaning": "coi là điều hiển nhiên"}, {"front": "reliable", "meaning": "đáng tin cậy"}, {"front": "reluctant", "meaning": "miễn cưỡng"}, {"front": "efficient", "meaning": "hiệu quả"}, {"front": "figure out", "meaning": "tìm ra"},
+    {"front": "on purpose", "meaning": "cố ý"}, {"front": "despite", "meaning": "mặc dù"}, {"front": "aware", "meaning": "biết, nhận thức"}, {"front": "recommend", "meaning": "khuyên"}, {"front": "deadline", "meaning": "hạn chót"},
+    {"front": "improve", "meaning": "cải thiện"}, {"front": "achieve", "meaning": "đạt được"}, {"front": "however", "meaning": "tuy nhiên"}, {"front": "usually", "meaning": "thường"}, {"front": "available", "meaning": "có sẵn"},
+    {"front": "actually", "meaning": "thực ra"}, {"front": "experience", "meaning": "kinh nghiệm"}, {"front": "require", "meaning": "đòi hỏi"}, {"front": "avoid", "meaning": "tránh"}, {"front": "convenient", "meaning": "thuận tiện"}
+  ]
+}

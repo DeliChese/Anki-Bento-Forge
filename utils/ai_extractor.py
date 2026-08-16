@@ -37,6 +37,7 @@ from .ai_result_cache import (
 )
 from .ai_response_parser import parse_ai_json_with_comment as _parse_ai_json_with_comment
 from .ai_response_guard import enable_deepseek_json_output, get_final_model_content
+from .ai_output_repairs import repair_vocabulary_cards
 from .ai_usage_history import record_usage as _record_usage
 from .user_data import (
     atomic_write_json,
@@ -791,6 +792,7 @@ def extract_vocabulary_with_ai(
 
     _check_truncated_output(content, progress_callback)
     vocab_list, comment = _parse_ai_json_with_comment(content, lambda p: t("error_ai_json_parse", content=p))
+    vocab_list = repair_vocabulary_cards(vocab_list, lang)
 
     # Lọc bỏ từ trùng với existing_words (safety net)
     if existing_words:

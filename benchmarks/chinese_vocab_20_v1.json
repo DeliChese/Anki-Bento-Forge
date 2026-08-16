@@ -1,0 +1,15 @@
+{
+  "id": "chinese_vocab_20_v1",
+  "language": "chinese",
+  "grammar": false,
+  "expected_terms": [
+    "学习", "工作", "朋友", "时间", "今天", "明天", "喜欢", "觉得", "因为", "所以",
+    "重要", "可能", "需要", "认识", "了解", "方便", "机场", "旅行", "经验", "习惯"
+  ],
+  "source_items": [
+    {"front": "学习"}, {"front": "工作"}, {"front": "朋友"}, {"front": "时间"}, {"front": "今天"},
+    {"front": "明天"}, {"front": "喜欢"}, {"front": "觉得"}, {"front": "因为"}, {"front": "所以"},
+    {"front": "重要"}, {"front": "可能"}, {"front": "需要"}, {"front": "认识"}, {"front": "了解"},
+    {"front": "方便"}, {"front": "机场"}, {"front": "旅行"}, {"front": "经验"}, {"front": "习惯"}
+  ]
+}

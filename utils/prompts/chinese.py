@@ -28,15 +28,15 @@ MẪU:
 {_CHINESE_JSON_TEMPLATE}
 
 LUẬT:
-1. Đủ 13 trường cốt lõi + usage_note khi cần (collocation/register, ≤8 từ); pinyin có dấu thanh.
+1. Đủ 13 trường; usage_note chỉ khi hữu ích (≤8 từ); pinyin có dấu thanh.
 2. VÍ DỤ CÓ HỒN + ĐÚNG CẤP ĐỘ (quan trọng nhất):
    - Ex1: khẩu ngữ đời thực (cà phê, nhắn tin, than thở, MXH...), cảm xúc thật.
    - Ex2: trang trọng, lịch sự, formal (công việc, hội họp, thư từ).
    - Cấp độ ví dụ khớp HSK: HSK1 → câu cực ngắn; HSK2-3 → đơn giản; HSK4 → trung bình; HSK5-6 → phức tạp, thành ngữ. TUYỆT ĐỐI không nhồi từ khó vào từ cấp thấp.
-   - TRÁNH câu SGK vô hồn ("我是学生"). Từ đa nghĩa → 2 nghĩa khác nhau ở 2 ví dụ. Ví dụ ngắn gọn, 5-12 từ.
-3. CHỐNG TRÙNG: bỏ qua mọi từ trong "TỪ ĐÃ CÓ".
-4. CHÍNH XÁC: pinyin, ngữ pháp, từ vựng chuẩn. topic ngắn, đúng HSK.
-5. Xuất theo thứ tự xuất hiện trong văn bản.
+   - Tránh câu SGK; từ đa nghĩa dùng 2 nghĩa; ví dụ 5-12 từ.
+3. Bỏ qua mọi từ trong "TỪ ĐÃ CÓ".
+4. KIỂM: giản/thể cùng từ; pinyin dấu thanh; nghĩa đúng ngữ cảnh; example_vn đủ chủ-vị, đúng câu; Ex chứa từ đích; topic đúng HSK.
+5. Giữ thứ tự văn bản.
 
 ĐẦU RA: CHỈ mảng JSON thuần, không markdown, không giải thích thừa. Cuối: {{"_comment":"≤15 từ"}}"""
 
@@ -65,15 +65,15 @@ TEMPLATE:
 {_CHINESE_JSON_TEMPLATE_EN}
 
 RULES:
-1. Fill 13 core fields + usage_note only when useful (collocation/register, ≤8 words); example pinyin is always tone-marked.
+1. Fill 13 fields; usage_note only when useful (≤8 words); all pinyin is tone-marked.
 2. VIVID EXAMPLES MATCHING THE LEVEL (most important):
    - Ex1: real-life casual speech (coffee, texting, venting, social media...), genuine emotion.
    - Ex2: formal, polite (work, meetings, letters).
    - Level matches HSK: HSK1 → very short; HSK2-3 → simple; HSK4 → intermediate; HSK5-6 → complex, idioms. NEVER cram hard words into low-level entries.
-   - AVOID lifeless textbook sentences ("我是学生"). Polysemous words → 2 different meanings in 2 examples. Keep examples short, 5-12 words.
-3. DEDUP: skip every word listed in "EXISTING WORDS".
-4. ACCURACY: correct pinyin, grammar, vocabulary. topic short, matching HSK.
-5. Output in order of appearance in the text.
+   - Avoid textbook sentences; use two senses for polysemy; examples 5-12 words.
+3. Skip every word in "EXISTING WORDS".
+4. CHECK: matching simplified/traditional pair; tone-marked pinyin; contextual meaning; exact subject–verb example translation; target appears in Ex; topic matches HSK.
+5. Keep text order.
 
 OUTPUT: ONLY a plain JSON array, no markdown, no extra explanation. End with: {{"_comment":"≤15 words"}}"""
 
@@ -110,7 +110,7 @@ LUẬT:
    - Ex1: khẩu ngữ đời thực, cảm xúc thật. Ex2: trang trọng, formal.
    - Cấp độ ví dụ khớp HSK của pattern; KHÔNG nhồi từ khó. Ví dụ 5-12 từ.
    - MỌI ví dụ PHẢI kèm pinyin đầy đủ, có dấu thanh.
-7. CHÍNH XÁC: ngữ pháp, pinyin, cách dùng chuẩn. topic ngắn, đúng trọng tâm.
+7. KIỂM: pattern có thật trong ví dụ (bọc <b>); pinyin mọi trường có dấu thanh; dịch ví dụ đủ chủ-vị; không đổi nghĩa/cấp độ đã cho.
 8. NHƯ GIẢNG VIÊN ĐỌC GIÁO TRÌNH: Đọc kỹ TOÀN BỘ văn bản, hiểu ngữ cảnh + từ vựng đi kèm rồi mới trích. Ví dụ phải bám ngữ cảnh thực của bài, dùng từ vựng ĐA DẠNG (không lặp cùng 1 cụm từ trong mọi ví dụ).
 9. CÙNG PATTERN – KHÁC NGHĨA: Nếu 1 pattern xuất hiện nhiều lần với từ đi kèm khác nhau tạo NGHĨA/CÁCH DÙNG khác nhau → tạo NHIỀU entry riêng (meaning khác nhau, ví dụ khác nhau) thay vì gộp. Không tạo trùng lặp máy móc nếu thực sự giống nghĩa.
 10. ĐÁNH DẤU PATTERN: Trong example/example_2, BỌC phần thể hiện pattern bằng <b>…</b> để nổi bật trên thẻ (Anki render HTML, ví dụ: "我把作业做<b>完了</b>。").
@@ -150,7 +150,7 @@ RULES:
    - Ex1: real-life casual speech, genuine emotion. Ex2: formal.
    - Example level matches the pattern's HSK; NEVER cram hard words. Examples 5-12 words.
    - EVERY example must include full tone-marked pinyin.
-7. ACCURACY: correct grammar, pinyin, usage. topic short and on point.
+7. CHECK: pattern occurs in bold in examples; every pinyin field has tones; exact subject–verb example translation; preserve supplied meaning/level.
 8. LIKE A LECTURER READING A TEXTBOOK: read the WHOLE text carefully, understand context + accompanying vocabulary before extracting. Examples must follow the text's real context and use DIVERSE vocabulary.
 9. SAME PATTERN – DIFFERENT MEANING: if a pattern appears multiple times with different accompanying words producing DIFFERENT meanings/usages → create MULTIPLE entries instead of merging.
 10. MARK THE PATTERN: in example/example_2, WRAP the pattern instance in <b>…</b> (Anki renders HTML, e.g. "我把作业做<b>完了</b>。").

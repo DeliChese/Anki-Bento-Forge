@@ -49,7 +49,57 @@ def test_detect_card_warnings_flags_placeholder_and_wrong_example_script():
         "example": "I eat at home.",
     }, lang="japanese")
 
-    assert warnings == ("placeholder_meaning", "example_wrong_script")
+    assert warnings == (
+        "placeholder_meaning",
+        "example_wrong_script",
+        "missing_furigana",
+    )
+
+
+def test_cjk_candidates_warn_when_core_pronunciation_is_missing():
+    japanese = detect_card_warnings(
+        {"front": "食べる", "meaning": "ăn", "example": "毎日食べる。"},
+        lang="japanese",
+    )
+    chinese = detect_card_warnings(
+        {"simplified": "学习", "meaning": "học", "example": "我学习。"},
+        lang="chinese",
+    )
+    korean = detect_card_warnings(
+        {"front": "먹다", "meaning": "ăn", "example": "매일 먹어요."},
+        lang="korean",
+    )
+
+    assert "missing_furigana" in japanese
+    assert "missing_pinyin" in chinese
+    assert "missing_romanization" in korean
+
+
+def test_english_candidates_warn_when_ipa_is_missing():
+    warnings = detect_card_warnings(
+        {
+            "front": "reliable",
+            "meaning": "đáng tin cậy",
+            "example": "This source is reliable.",
+        },
+        lang="english",
+    )
+
+    assert warnings == ("missing_pronunciation",)
+
+
+def test_korean_romanization_must_not_use_a_hyphen():
+    warnings = detect_card_warnings(
+        {
+            "front": "친구",
+            "romanization": "chin-gu",
+            "meaning": "bạn",
+            "example": "친구를 만나요.",
+        },
+        lang="korean",
+    )
+
+    assert warnings == ("romanization_contains_hyphen",)
 
 
 def test_chinese_target_check_is_exact_and_advisory():
@@ -61,8 +111,8 @@ def test_chinese_target_check_is_exact_and_advisory():
 
     assert candidate["score"] == 100
     assert candidate["complete"] is True
-    assert candidate["warnings"] == ("target_not_in_example",)
-    assert candidate["issues"] == ("target_not_in_example",)
+    assert candidate["warnings"] == ("target_not_in_example", "missing_pinyin")
+    assert candidate["issues"] == ("target_not_in_example", "missing_pinyin")
     assert candidate["has_warnings"] is True
 
 

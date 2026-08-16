@@ -34,6 +34,7 @@ from .ai_extractor import (
 )
 from .ai_response_parser import parse_ai_json_with_comment as _parse_ai_json_with_comment
 from .ai_response_guard import enable_deepseek_json_output, get_final_model_content
+from .ai_output_repairs import repair_vocabulary_cards
 from .ai_http_client import (
     get_rate_limit_delay as _get_rate_limit_delay,
     post_json as _http_post_json,
@@ -311,8 +312,9 @@ LIST OF WORDS TO PROCESS:
 For EACH word in the list above, create a complete JSON object following this template:
 {template}
 
-QUALITY: Preserve any supplied meaning/level. Follow the system rules exactly; keep the
-contextual sense, correct form and usage, concise topic, and two natural distinct examples
+QUALITY: Preserve any supplied meaning/level. If a meaning is supplied, use it consistently
+in meaning, both examples, and both translations; never switch to another sense. Follow the
+system rules exactly; keep correct form/usage, concise topic, and two natural distinct examples
 at the assigned proficiency level. Fill every schema field; never invent missing facts.
 """
         else:
@@ -325,9 +327,10 @@ DANH SÁCH TỪ CẦN XỬ LÝ:
 Với MỖI từ trong danh sách trên, tạo một object JSON đầy đủ theo mẫu:
 {template}
 
-CHẤT LƯỢNG: Giữ nghĩa/cấp độ đã cung cấp. Tuân thủ chính xác system prompt; giữ đúng
-nghĩa ngữ cảnh, dạng từ/cách dùng chuẩn, topic gọn và hai ví dụ tự nhiên khác ngữ cảnh,
-đúng cấp độ đã gán. Điền đủ schema; không bịa dữ kiện còn thiếu.
+CHẤT LƯỢNG: Giữ nghĩa/cấp độ đã cung cấp. Nếu có nghĩa, meaning, hai ví dụ và hai bản dịch
+phải cùng nghĩa đó, không đổi sang nghĩa khác. Tuân thủ system prompt; giữ dạng từ/cách dùng
+chuẩn, topic gọn và hai ví dụ tự nhiên khác ngữ cảnh, đúng cấp độ đã gán. Điền đủ schema;
+không bịa dữ kiện còn thiếu.
 """
     
     # Thêm existing words context — CHỈ gửi từ trùng với batch này (tối ưu token)
@@ -454,6 +457,7 @@ def _call_ai_for_batch(
     vocab_list, comment = _parse_ai_json_with_comment(
         content, lambda preview: t("error_ai_json_parse", content=preview)
     )
+    vocab_list = repair_vocabulary_cards(vocab_list, lang)
     
     if progress_callback and comment:
         progress_callback(f"  💬 {comment[:100]}")

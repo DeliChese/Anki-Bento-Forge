@@ -70,3 +70,9 @@ def test_all_prompt_registries_cover_supported_languages():
 def test_ai_extractor_reexports_legacy_prompt_symbols_by_identity():
     for name in defaults.__all__:
         assert getattr(ai_extractor, name) is getattr(defaults, name)
+
+
+def test_cjk_prompts_keep_language_specific_quality_contracts():
+    assert "質問を聞く là hỏi" in japanese._JAPANESE_SYSTEM_PROMPT
+    assert "giản/thể cùng từ" in chinese._CHINESE_SYSTEM_PROMPT
+    assert "Romanization Revised không gạch nối" in korean._KOREAN_SYSTEM_PROMPT

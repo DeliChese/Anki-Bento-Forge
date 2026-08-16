@@ -72,6 +72,14 @@ class TestBatchPromptExistingContext:
         assert "学校" not in prompt
         assert "会社" not in prompt
 
+    def test_supplied_meaning_must_be_consistent_in_batch_examples(self):
+        from utils.batch_processor import _build_batch_user_prompt
+        prompt = _build_batch_user_prompt(
+            [{"front": "available", "meaning": "có sẵn"}],
+            "english", [], batch_num=1, total_batches=1, grammar=False,
+        )
+        assert "không đổi sang nghĩa khác" in prompt
+
     def test_no_overlap(self):
         from utils.batch_processor import _build_batch_user_prompt
         words = [{"front": "食べる", "meaning": "ăn", "level": "N5"}]
@@ -89,6 +97,12 @@ class TestSystemPromptCompactness:
             assert "MẪU:" in sp
             assert "ĐẦU RA" in sp
             assert len(sp) < 1400
+
+    def test_english_vocab_prompt_keeps_examples_in_one_sense(self):
+        from utils.ai_extractor import _SYSTEM_PROMPTS
+        prompt = _SYSTEM_PROMPTS["english"]
+        assert "cả hai ví dụ phải dùng đúng nghĩa đó" in prompt
+        assert "tuyệt đối không đổi nghĩa giữa hai ví dụ" in prompt
 
     def test_grammar_prompts_compact(self):
         from utils.ai_extractor import _GRAMMAR_SYSTEM_PROMPTS

@@ -1,0 +1,15 @@
+{
+  "id": "korean_vocab_20_v1",
+  "language": "korean",
+  "grammar": false,
+  "expected_terms": [
+    "먹다", "마시다", "보다", "가다", "오다", "학교", "선생님", "친구", "크다", "새롭다",
+    "재미있다", "빠르다", "오늘", "내일", "시간", "공부하다", "읽다", "쓰다", "듣다", "약속"
+  ],
+  "source_items": [
+    {"front": "먹다"}, {"front": "마시다"}, {"front": "보다"}, {"front": "가다"}, {"front": "오다"},
+    {"front": "학교"}, {"front": "선생님"}, {"front": "친구"}, {"front": "크다"}, {"front": "새롭다"},
+    {"front": "재미있다"}, {"front": "빠르다"}, {"front": "오늘"}, {"front": "내일"}, {"front": "시간"},
+    {"front": "공부하다"}, {"front": "읽다"}, {"front": "쓰다"}, {"front": "듣다"}, {"front": "약속"}
+  ]
+}
