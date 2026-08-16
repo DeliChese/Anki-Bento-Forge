@@ -31,12 +31,12 @@ from .user_data import atomic_write_json, get_user_data_path, migrate_legacy_jso
 logger = get_logger()
 
 # Version của cấu trúc prompt config — bump khi thay đổi defaults (cache invalidation)
-PROMPT_CONFIG_VERSION = 5
+PROMPT_CONFIG_VERSION = 6
 
 _LEGACY_CONFIG_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "ai_prompts.json")
 CONFIG_PATH = get_user_data_path("ai_prompts.json")
 
-LANGS = ("japanese", "chinese", "korean")
+LANGS = ("japanese", "chinese", "korean", "english")
 KINDS = ("vocab", "grammar")
 
 # Placeholder đánh dấu chỗ chèn JSON template vào system prompt (dạng RAW)

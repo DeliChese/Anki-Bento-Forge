@@ -1,13 +1,13 @@
 # Compatibility Matrix
 
 `manifest.json` is the authoritative source for the Bento Forge version and the
-minimum/maximum Anki versions. For 17.1.0 it declares exactly Anki 2.1.50; this
+minimum/maximum Anki versions. For 17.2.0 it declares exactly Anki 2.1.50; this
 document explains that scope without widening it. A version
 outside this matrix may run because the add-on detects missing public hooks and
 disables only the affected feature, but it is not a supported release target.
 
 Publication status is separate from the declared compatibility scope. The
-17.1.0 release record remains pending until CI and real-Anki smoke evidence are
+17.2.0 release record remains pending until CI and real-Anki smoke evidence are
 recorded in `RELEASE_CHECKLIST.md`.
 
 | Anki | Bundled Python | Status | Evidence |

@@ -39,6 +39,7 @@ class TestComboTemplates:
         assert len(LANG_TEMPLATES["japanese"]) == 10
         assert len(LANG_TEMPLATES["chinese"]) == 10
         assert len(LANG_TEMPLATES["korean"]) == 10
+        assert len(LANG_TEMPLATES["english"]) == 10
 
     def test_japanese_combo_question_has_mode_bar(self):
         from mode.templates import tmpl_ja_combo_q
@@ -99,6 +100,15 @@ class TestComboTemplates:
         assert "{{Romanization}}" in html
         assert "{{Meaning}}" in html
 
+    def test_english_combo_contract(self):
+        from mode.templates import tmpl_en_combo_q, tmpl_en_combo_a
+        question = tmpl_en_combo_q()
+        answer = tmpl_en_combo_a()
+        for panel in ("qa", "vn", "wb", "pron", "lg"):
+            assert f'id="mode-panel-{panel}"' in question
+        assert "{{Pronunciation}}" in question
+        assert "{{CEFR Level}}" in answer
+
 
 class TestComboCss:
     def test_css_has_mode_styles(self):
@@ -124,7 +134,7 @@ class TestComboConfig:
     def test_template_names_and_opt_in_field(self):
         from Language import LANG_CONFIG
         from mode import LANG_TEMPLATES
-        for lang in ("japanese", "chinese", "korean"):
+        for lang in ("japanese", "chinese", "korean", "english"):
             assert len(LANG_CONFIG[lang]["template_names"]) == 5
             assert len(LANG_TEMPLATES[lang]) == 10
             assert "SRS Independent" in LANG_CONFIG[lang]["all_fields"]
@@ -137,11 +147,13 @@ class TestComboConfig:
         from mode.templates import (
             tmpl_ja_vn_q, tmpl_ja_vn_a, tmpl_zh_vn_q, tmpl_zh_vn_a,
             tmpl_ko_vn_q, tmpl_ko_vn_a,
+            tmpl_en_vn_q, tmpl_en_vn_a,
         )
         for question, answer in (
             (tmpl_ja_vn_q, tmpl_ja_vn_a),
             (tmpl_zh_vn_q, tmpl_zh_vn_a),
             (tmpl_ko_vn_q, tmpl_ko_vn_a),
+            (tmpl_en_vn_q, tmpl_en_vn_a),
         ):
             assert "{{type:Front}}" in question()
             assert "{{type:Front}}" in answer()

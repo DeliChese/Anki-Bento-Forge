@@ -42,7 +42,7 @@ jobs:
         run: ./scripts/test_isolated.ps1 -Python python
 
       - name: Compile check (syntax)
-        run: python -m py_compile __init__.py utils/*.py ui/*.py workers/*.py mode/*.py audio/*.py hooks/*.py Language/*.py
+        run: python -m py_compile $(git ls-files '*.py')
 
       - name: Package and clean-profile install smoke
         if: matrix.python-version == '3.11'

@@ -215,7 +215,7 @@ def add_to_import_history(vocab_list: list, lang: str, deck_name: str = "", sour
 
     Args:
         vocab_list: Danh sách dict item (từ vựng hoặc cấu trúc ngữ pháp)
-        lang: "japanese" / "chinese" / "korean"
+        lang: "japanese" / "chinese" / "korean" / "english"
         deck_name: Tên deck được import vào
         source: Nguồn gốc ("manual", "ai_extract", "ai_chat", "file_import")
         kind: "vocab" hoặc "grammar" — lưu riêng 2 mục trong lịch sử
@@ -471,8 +471,9 @@ def get_history_summary_text(lang: str = None, max_words_for_ai: int = 50) -> st
         parts.append(t("history_ai_overview"))
         parts.append("═" * 50)
 
-        for l in ["japanese", "chinese", "korean"]:
-            h = get_import_history(lang=l, limit=max_words_for_ai // 3)
+        languages = ["japanese", "chinese", "korean", "english"]
+        for l in languages:
+            h = get_import_history(lang=l, limit=max_words_for_ai // len(languages))
             summary_text = _build_single_lang_summary(h, l)
             if summary_text:
                 parts.append(summary_text)
@@ -489,6 +490,7 @@ def _build_single_lang_summary(history: dict, lang: str) -> str:
         "japanese": "history_ai_lang_japanese",
         "chinese": "history_ai_lang_chinese",
         "korean": "history_ai_lang_korean",
+        "english": "history_ai_lang_english",
     }.get(lang, "history_ai_lang_japanese")
     parts.append(t(language_key))
 

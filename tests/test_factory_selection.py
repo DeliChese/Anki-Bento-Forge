@@ -50,9 +50,10 @@ for _n in ("QVBoxLayout", "QHBoxLayout", "QGridLayout", "QFormLayout", "QLabel",
            "QListWidget", "QListWidgetItem", "QProgressBar", "QTextBrowser", "QTextEdit", "QTableWidget",
            "QTableWidgetItem", "QScrollArea", "QWidget", "QAbstractItemView",
            "QTimer", "QAction", "QTreeWidget", "QTreeWidgetItem", "QInputDialog",
-           "QMenu", "QMessageBox", "QPoint", "QTabWidget", "QHeaderView"):
+           "QMenu", "QMessageBox", "QPoint", "QTabWidget", "QHeaderView", "QDateEdit"):
     aqt_qt.__dict__[_n] = lambda *a, **k: MagicMock()
 aqt_qt.QColor = type("QColor", (), {})
+aqt_qt.QDate = type("QDate", (), {"currentDate": staticmethod(lambda: MagicMock())})
 aqt_qt.QApplication = MagicMock()
 aqt_qt.QFileDialog = MagicMock()
 aqt_qt.QKeySequence = lambda *a: MagicMock()

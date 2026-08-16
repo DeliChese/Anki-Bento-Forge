@@ -7,6 +7,7 @@ in one module per target language.
 from .japanese import *  # noqa: F403
 from .chinese import *  # noqa: F403
 from .korean import *  # noqa: F403
+from .english import *  # noqa: F403
 from .japanese import (
     tmpl_ja_combo_q, tmpl_ja_combo_a, tmpl_ja_g_q, tmpl_ja_g_a,
     tmpl_ja_g_rev_q, tmpl_ja_g_rev_a, tmpl_ja_vn_q, tmpl_ja_vn_a,
@@ -24,6 +25,12 @@ from .korean import (
     tmpl_ko_g_rev_q, tmpl_ko_g_rev_a, tmpl_ko_vn_q, tmpl_ko_vn_a,
     tmpl_ko_wb_q, tmpl_ko_wb_a, tmpl_ko_pron_q, tmpl_ko_pron_a,
     tmpl_ko_lg_q, tmpl_ko_lg_a,
+)
+from .english import (
+    tmpl_en_combo_q, tmpl_en_combo_a, tmpl_en_g_q, tmpl_en_g_a,
+    tmpl_en_g_rev_q, tmpl_en_g_rev_a, tmpl_en_vn_q, tmpl_en_vn_a,
+    tmpl_en_wb_q, tmpl_en_wb_a, tmpl_en_pron_q, tmpl_en_pron_a,
+    tmpl_en_lg_q, tmpl_en_lg_a,
 )
 from .common import _independent_template
 
@@ -57,6 +64,13 @@ LANG_TEMPLATES = {
         *_independent_pair(tmpl_ko_pron_q, tmpl_ko_pron_a, "pronunciation", "Ph?t ?m"),
         *_independent_pair(tmpl_ko_lg_q, tmpl_ko_lg_a, "letter-gap", "Nh? m?t ch?"),
     ),
+    "english": (
+        tmpl_en_combo_q, tmpl_en_combo_a,
+        *_independent_pair(tmpl_en_vn_q, tmpl_en_vn_a, "production", "Sản xuất"),
+        *_independent_pair(tmpl_en_wb_q, tmpl_en_wb_a, "spelling", "Chính tả"),
+        *_independent_pair(tmpl_en_pron_q, tmpl_en_pron_a, "pronunciation", "Phát âm"),
+        *_independent_pair(tmpl_en_lg_q, tmpl_en_lg_a, "letter-gap", "Nhớ mặt chữ"),
+    ),
 }
 
 
@@ -64,6 +78,7 @@ LANG_GRAMMAR_TEMPLATES = {
     "japanese": (tmpl_ja_g_q, tmpl_ja_g_a, tmpl_ja_g_rev_q, tmpl_ja_g_rev_a),
     "chinese": (tmpl_zh_g_q, tmpl_zh_g_a, tmpl_zh_g_rev_q, tmpl_zh_g_rev_a),
     "korean": (tmpl_ko_g_q, tmpl_ko_g_a, tmpl_ko_g_rev_q, tmpl_ko_g_rev_a),
+    "english": (tmpl_en_g_q, tmpl_en_g_a, tmpl_en_g_rev_q, tmpl_en_g_rev_a),
 }
 
 

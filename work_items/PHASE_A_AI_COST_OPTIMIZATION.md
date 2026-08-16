@@ -1,5 +1,7 @@
 # Phase A — Tối ưu chi phí AI
 
+> **PHẠM VI PERSONAL (2026-08-16):** Chỉ benchmark và tối ưu model/prompt mà chủ dự án thật sự dùng. Không xây routing đa người dùng. Mọi item mới phải xuất phát từ P1-01/P1-02 trong `PERSONAL_ROADMAP.md`; benchmark/prompt dùng `gpt-5.6-sol` / `high`, utility/test nhỏ dùng `gpt-5.6-luna` / `medium`.
+
 > **Nguồn:** `ACADEMIC_ASSESSMENT.md` — Phase A (Ưu tiên #1 — SỐNG CÒN)
 > **Trạng thái:** `Đang benchmark 2026-08-15` — có bộ mẫu phiên bản hóa để so sánh model trước khi thay đổi chi phí hoặc routing.
 > **Mục tiêu:** Giảm token/chi phí tối đa cho free tier

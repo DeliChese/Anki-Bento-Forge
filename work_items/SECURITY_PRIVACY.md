@@ -1,5 +1,7 @@
 # Bảo mật & Quyền riêng tư — Cải thiện
 
+> **PHẠM VI PERSONAL (2026-08-16):** Vẫn là ràng buộc P0 không được phá vỡ, dù add-on không phát hành công khai. Chỉ mở security task khi thay đổi chạm API key, dữ liệu profile, network, backup hoặc log; khuyến nghị `gpt-5.6-sol` / `high` và review thủ công trước khi dùng collection thật.
+
 > **Nguồn:** `ACADEMIC_ASSESSMENT.md` — Mục 2.3 Bảo mật & Quyền riêng tư (Điểm: 9.0/10)
 > **Trạng thái:** `Hoàn thành` — policy đã được review nội bộ và toàn bộ kiểm tra tự động trong phạm vi S1 đạt.
 > **Mục tiêu:** Nâng bảo mật từ 9.0 lên 9.5+

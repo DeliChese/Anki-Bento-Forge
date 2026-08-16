@@ -63,6 +63,26 @@ def test_json_mode_is_enabled_only_for_direct_deepseek_requests():
     assert "response_format" not in gemini_payload
 
 
+def test_v4_card_requests_default_to_benchmarked_non_thinking_mode():
+    payload = {}
+    enable_deepseek_json_output(
+        payload,
+        dict(_DEEPSEEK_CONFIG, model="deepseek-v4-flash"),
+    )
+
+    assert payload["thinking"] == {"type": "disabled"}
+
+
+def test_v4_thinking_mode_can_be_explicitly_enabled():
+    payload = {}
+    enable_deepseek_json_output(
+        payload,
+        dict(_DEEPSEEK_CONFIG, model="deepseek-v4-pro", thinking_mode="enabled"),
+    )
+
+    assert payload["thinking"] == {"type": "enabled"}
+
+
 def test_vocab_rejects_reasoning_only_response(monkeypatch):
     _mock_extractor_response(monkeypatch, _response("", reasoning="internal thinking"))
 

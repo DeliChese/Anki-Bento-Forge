@@ -2,6 +2,8 @@
 
 import json
 import re
+import subprocess
+import sys
 from pathlib import Path
 
 
@@ -72,3 +74,23 @@ def test_ci_uses_the_same_two_round_isolated_harness():
     assert "BENTO_FORGE_TEST_TMP" in harness
     assert "Remove-Item -LiteralPath $runRoot -Recurse -Force -ErrorAction Stop" in harness
     assert "./scripts/test_isolated.ps1 -Python python" in workflow
+
+
+def test_every_tracked_python_file_compiles():
+    """Keep auxiliary scripts inside the syntax gate, not just add-on modules."""
+    tracked_python = subprocess.run(
+        ["git", "ls-files", "*.py"],
+        cwd=ROOT,
+        capture_output=True,
+        check=True,
+        text=True,
+    ).stdout.splitlines()
+
+    result = subprocess.run(
+        [sys.executable, "-m", "py_compile", *tracked_python],
+        cwd=ROOT,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 0, result.stderr

@@ -1,5 +1,7 @@
 # Phase E — Bằng chứng học thuật
 
+> **PHẠM VI PERSONAL (2026-08-16):** `Đóng băng`. Không xây báo cáo học thuật/analytics riêng, trừ khi Anki Stats không trả lời được một câu hỏi học tập cá nhân cụ thể. Khi đó mở P2 với `gpt-5.6-terra` / `medium` và chỉ dùng dữ liệu local.
+
 > **Nguồn:** `ACADEMIC_ASSESSMENT.md` — Phase E (Không phình to)
 > **Trạng thái:** `Có điều kiện` — Anki đã có thống kê; chỉ làm báo cáo Bento riêng khi có câu hỏi người dùng rõ ràng.
 > **Mục tiêu:** Dùng **Anki review log có sẵn** — không cần AI, không cần phình to

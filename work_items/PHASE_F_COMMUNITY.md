@@ -1,5 +1,8 @@
 # Phase F — Cộng đồng
 
+> **QUYẾT ĐỊNH THAY THẾ (2026-08-16):** `Đóng băng theo personal scope`. Không xây website, Discord/Reddit, video tutorial, beta public, case study hoặc mục tiêu user base.
+> **Ưu tiên / độ khó / model khi mở lại:** Chỉ sau một quyết định phát hành công khai. README/FAQ: 🟢 Dễ, `gpt-5.6-luna` / `medium`; compatibility/install: 🟡 Trung bình, `gpt-5.6-terra` / `medium`. Community/forum/video không lên lịch trước.
+
 > **Nguồn:** `ACADEMIC_ASSESSMENT.md` — Phase F (Tăng user base)
 > **Trạng thái:** `Có điều kiện` — README hiện đã có install/config/quick start; ưu tiên FAQ và troubleshooting ngắn trước.
 > **Mục tiêu:** Xây dựng cộng đồng người dùng

@@ -63,6 +63,10 @@ _TRANSLATIONS = {
         "vi": "🇰🇷 Tiếng Hàn",
         "en": "🇰🇷 Korean",
     },
+    "lang_english": {
+        "vi": "🇬🇧 Tiếng Anh",
+        "en": "🇬🇧 English",
+    },
 
     # ── Deck & File ─────────────────────────────────────
     "deck_label": {
@@ -734,8 +738,8 @@ _TRANSLATIONS = {
         "en": "🎤 Uses Edge TTS Online (needs internet, falls back to gTTS)",
     },
     "ai_input_placeholder_vocab": {
-        "vi": "📥 Nạp Quặng/Nguyên Liệu Thô/ Văn Bản Thô (300-800 ký tự tối ưu, ~50-100 từ). Hỗ trợ Nhật, Trung & Hàn.",
-        "en": "📥 Load Ore/Raw Material/Raw Text (300-800 chars optimal, ~50-100 words). Supports Japanese, Chinese & Korean.",
+        "vi": "📥 Nạp Quặng/Nguyên Liệu Thô/ Văn Bản Thô (300-800 ký tự tối ưu, ~50-100 từ). Hỗ trợ Nhật, Trung, Hàn & Anh.",
+        "en": "📥 Load Ore/Raw Material/Raw Text (300-800 chars optimal, ~50-100 words). Supports Japanese, Chinese, Korean & English.",
     },
     "ai_input_placeholder_grammar": {
         "vi": "📥 Nạp Quặng/Nguyên Liệu Thô (NGỮ PHÁP) — cấu trúc, cách dùng, công thức, ví dụ...",
@@ -2093,6 +2097,10 @@ _TRANSLATIONS = {
         "vi": "🇰🇷 Ngữ pháp Tiếng Hàn",
         "en": "🇰🇷 Korean Grammar",
     },
+    "lang_english_grammar": {
+        "vi": "🇬🇧 Ngữ pháp Tiếng Anh",
+        "en": "🇬🇧 English Grammar",
+    },
     "filter_all_levels": {
         "vi": "Tất cả",
         "en": "All",
@@ -2695,6 +2703,7 @@ _TRANSLATIONS = {
     "organizer_lang_japanese": {"vi": "Tiếng Nhật", "en": "Japanese"},
     "organizer_lang_chinese": {"vi": "Tiếng Trung", "en": "Chinese"},
     "organizer_lang_korean": {"vi": "Tiếng Hàn", "en": "Korean"},
+    "organizer_lang_english": {"vi": "Tiếng Anh", "en": "English"},
     "organizer_topic_parent": {"vi": "{language} Theo Chủ Đề", "en": "{language} by Topic"},
     "organizer_level_parent": {"vi": "{language} Theo Cấp Độ", "en": "{language} by Level"},
     "organizer_topic_description": {"vi": "Từ vựng về {topic}", "en": "Vocabulary about {topic}"},
@@ -2759,6 +2768,10 @@ _TRANSLATIONS = {
     "history_ai_lang_korean": {
         "vi": "🇰🇷 TIẾNG HÀN",
         "en": "🇰🇷 KOREAN",
+    },
+    "history_ai_lang_english": {
+        "vi": "🇬🇧 TIẾNG ANH",
+        "en": "🇬🇧 ENGLISH",
     },
     "history_ai_total": {
         "vi": "📊 Tổng: {count} mục đã nhập",

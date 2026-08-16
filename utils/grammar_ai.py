@@ -28,6 +28,7 @@ _LANG_EN = {
     "japanese": "Japanese",
     "chinese": "Chinese",
     "korean": "Korean",
+    "english": "English",
 }
 
 

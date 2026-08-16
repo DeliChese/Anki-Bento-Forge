@@ -36,12 +36,19 @@ VOICE_OPTIONS = {
         {"id": "ko-KR-JiMinNeural",   "name": "JiMin (Nữ)",     "gender": "female"},
         {"id": "ko-KR-HyunsuNeural",  "name": "Hyunsu (Nam)",   "gender": "male"},
     ],
+    "en": [
+        {"id": "en-GB-SoniaNeural", "name": "Sonia (Nữ, UK)", "gender": "female"},
+        {"id": "en-GB-RyanNeural", "name": "Ryan (Nam, UK)", "gender": "male"},
+        {"id": "en-US-JennyNeural", "name": "Jenny (Nữ, US)", "gender": "female"},
+        {"id": "en-US-GuyNeural", "name": "Guy (Nam, US)", "gender": "male"},
+    ],
 }
 
 VOICE_SAMPLE = {
     "ja": "こんにちは、今日もよく頑張りましょう！",
     "zh": "你好，今天也要加油哦！",
     "ko": "안녕하세요, 오늘도 힘내세요!",
+    "en": "Hello! Let's make today a good learning day.",
 }
 
 # Voice đang được chọn cho mỗi ngôn ngữ (thread-safe)
@@ -100,6 +107,8 @@ _MODEL_LANG_MAP = {
     "AnkiTool Chinese Grammar V16.0 (Add-on)": "zh",
     "AnkiTool Korean V17.0 (Add-on)": "ko",
     "AnkiTool Korean Grammar V17.0 (Add-on)": "ko",
+    "AnkiTool English V17.0 (Add-on)": "en",
+    "AnkiTool English Grammar V17.0 (Add-on)": "en",
 }
 
 

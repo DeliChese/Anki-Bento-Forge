@@ -33,7 +33,7 @@ def _force_vi_lang():
     yield
 
 
-LANGS = ("japanese", "chinese", "korean")
+LANGS = ("japanese", "chinese", "korean", "english")
 KINDS = ("vocab", "grammar")
 
 
@@ -61,6 +61,8 @@ class TestUILanguagePromptSelection:
         assert "to eat" in tpl
         gsp = pc.get_system_prompt("chinese", "grammar")
         assert "Chinese GRAMMAR expert" in gsp
+        assert "English language expert" in pc.get_system_prompt("english", "vocab")
+        assert "British IPA" in pc.get_system_prompt("english", "vocab")
 
     def test_vi_ui_uses_vietnamese_prompt(self, clean_config):
         from utils.i18n import set_language
@@ -196,8 +198,18 @@ class TestOverrideLifecycle:
                 assert set(e.keys()) >= {"json_template", "system_prompt", "system_prompt_raw",
                                          "fields", "field_count", "modified"}
                 assert isinstance(e["system_prompt_raw"], str)
+                assert e["system_prompt_raw"].strip()
+                assert pc.TEMPLATE_PLACEHOLDER in e["system_prompt_raw"]
                 assert e["field_count"] == len(e["fields"])
                 assert e["modified"] is False
+
+    def test_english_defaults_encode_quality_without_schema_bloat(self, clean_config):
+        vocab = pc.get_system_prompt("english", "vocab")
+        grammar = pc.get_system_prompt("english", "grammar")
+        assert all(rule in vocab for rule in ("nghĩa đúng ngữ cảnh", "CEFR", "collocation/register"))
+        assert all(rule in grammar for rule in ("form–meaning pair", "TỐI ĐA 2 câu", "<b>…</b>"))
+        assert len(json.loads(pc.get_json_template("english", "vocab"))) == 10
+        assert len(json.loads(pc.get_json_template("english", "grammar"))) == 11
 
 
 class TestSignature:
@@ -241,7 +253,7 @@ class TestFieldMap:
             assert "usage_note" in template
             assert field_map["usage_note"] == "Usage Note"
             assert "Usage Note" in base["all_fields"]
-            assert "usage_note khi cần" in pc.get_system_prompt(lang, "vocab")
+            assert "usage_note" in pc.get_system_prompt(lang, "vocab")
 
     def test_override_changes_field_map(self, clean_config):
         pc.save_config({}, field_map={

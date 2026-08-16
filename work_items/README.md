@@ -1,5 +1,8 @@
 # 📋 Bento Forge — Work Items
 
+> **PHẠM VI HIỆN HÀNH (2026-08-16):** Bento Forge là add-on cá nhân. [PERSONAL_ROADMAP.md](PERSONAL_ROADMAP.md) là nguồn ưu tiên duy nhất cho công việc mới, bao gồm độ ưu tiên, độ khó, model và effort khuyến nghị. Các phase bên dưới được giữ làm lịch sử/chuyên môn; không phải cam kết phát triển công khai.
+> **Định hướng:** Ưu tiên workflow cá nhân, an toàn collection, baseline test và benchmark cho ngôn ngữ chủ dự án thực sự học. Không mở rộng đại trà, không xây community và không thêm feature để cạnh tranh.
+
 > **Nguồn:** `ACADEMIC_ASSESSMENT.md` — Đánh giá học thuật V17.1.0
 > **Ngày tạo:** 2026-08-15
 > **Mục đích:** Chuyển các điểm cần cải thiện từ đánh giá học thuật sang các file công việc để tiến hành triển khai
@@ -23,7 +26,9 @@ Các file công việc được tạo từ `ACADEMIC_ASSESSMENT.md`, chia theo P
 | [SECURITY_PRIVACY.md](SECURITY_PRIVACY.md) | Bảo mật — Quyền riêng tư | S1 threat model và review nội bộ hoàn thành | ✅ Hoàn thành |
 | [UX_ACCESSIBILITY.md](UX_ACCESSIBILITY.md) | UX — Accessibility | Manual audit NVDA/WCAG trước UI release | 🟡 Có nền tảng |
 
-## Thứ tự triển khai hiện hành
+## Thứ tự triển khai lịch sử
+
+> Phần này được thay thế bởi `PERSONAL_ROADMAP.md`. Chỉ dùng để hiểu bối cảnh các item cũ.
 
 1. Hoàn tất B1/B2 deterministic validation trong preview — đã triển khai và kiểm thử; các kiểm tra semantic vẫn cần corpus/review.
 2. C1/C2/C3/C5 đã hoàn thành; chỉ mở C4/C6 khi có nhu cầu thực tế.
@@ -31,7 +36,9 @@ Các file công việc được tạo từ `ACADEMIC_ASSESSMENT.md`, chia theo P
 4. U1/U2 và FAQ: audit thủ công trước release UI kế tiếp.
 5. D/E/F: chỉ bắt đầu khi có nhu cầu, scope và người sở hữu rõ ràng.
 
-## Lộ trình 12 tháng lịch sử (từ ACADEMIC_ASSESSMENT.md)
+## Lộ trình 12 tháng lịch sử (đã đóng băng)
+
+> Không thực hiện theo lộ trình này. Đặc biệt, toàn bộ mục tiêu mở rộng ngôn ngữ và community đã chuyển sang backlog đóng băng của `PERSONAL_ROADMAP.md`.
 
 ### Tháng 1-2: Nền tảng (Phase A + C) — SỐNG CÒN
 - [ ] A1: Model Routing thông minh

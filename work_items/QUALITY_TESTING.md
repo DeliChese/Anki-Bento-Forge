@@ -1,5 +1,17 @@
 # Chất lượng Test — Cải thiện
 
+> **ƯU TIÊN THAY THẾ (2026-08-16):** P0 personal reliability — đưa baseline test/compile về xanh trước khi theo đuổi property, mutation hay UI automation testing. Khuyến nghị `gpt-5.6-terra` / `high`.
+
+## T0. Baseline xanh cho personal workflow
+
+**Trạng thái:** `Làm trước T1–T3`.
+
+- **Độ khó:** 🟡 Trung bình
+- **Ưu tiên:** P0
+- **Model / effort:** `gpt-5.6-terra` / `high`
+- **Phạm vi:** `scripts/test_isolated.ps1`, test mock/fixture, script Python, CI compile gate và test của flow bị lỗi.
+- **Tiêu chí hoàn tất:** isolated harness chạy hai vòng xanh; mọi script Python tracked được compile; lỗi có regression test; không dùng test count/coverage làm KPI.
+
 > **Nguồn:** `ACADEMIC_ASSESSMENT.md` — Mục 2.2 Chất lượng Test (Điểm: 8.0/10)
 > **Trạng thái:** `Có điều kiện` — CI, isolated harness và 30 file test đã tồn tại; chỉ mở rộng test khi có boundary phù hợp.
 > **Mục tiêu:** Nâng chất lượng test từ 8.0 lên 9.0+

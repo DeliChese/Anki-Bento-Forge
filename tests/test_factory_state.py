@@ -56,9 +56,10 @@ for _n in ("QVBoxLayout", "QHBoxLayout", "QGridLayout", "QFormLayout", "QLabel",
            "QListWidget", "QListWidgetItem", "QProgressBar", "QTextBrowser", "QTextEdit", "QTableWidget",
            "QTableWidgetItem", "QScrollArea", "QWidget", "QAbstractItemView",
            "QTimer", "QAction", "QTreeWidget", "QTreeWidgetItem", "QInputDialog",
-           "QMenu", "QTabWidget", "QHeaderView"):
+           "QMenu", "QTabWidget", "QHeaderView", "QDateEdit"):
     aqt_qt.__dict__[_n] = lambda *a, **k: MagicMock()
 aqt_qt.QColor = type("QColor", (), {})
+aqt_qt.QDate = type("QDate", (), {"currentDate": staticmethod(lambda: MagicMock())})
 aqt_qt.QApplication = MagicMock()
 aqt_qt.QMessageBox = MagicMock()
 aqt_qt.QFileDialog = MagicMock()
@@ -239,8 +240,15 @@ class TestComboMigration:
                   "Vocab Audio", "Example", "Example Romanization",
                   "Example in Vietnamese", "Example2", "Example2 in Vietnamese"):
             assert f in ko, f"Thiếu field {f}"
+        en = collect_template_fields(LANG_TEMPLATES["english"])
+        for f in ("Front", "Pronunciation", "CEFR Level", "Meaning", "Usage Note",
+                  "Vocab Audio", "Example", "Example in Vietnamese", "Example2"):
+            assert f in en, f"Thiếu field {f}"
         g = collect_template_fields(LANG_GRAMMAR_TEMPLATES["japanese"])
         assert "Pattern" in g
         gko = collect_template_fields(LANG_GRAMMAR_TEMPLATES["korean"])
         assert "Pattern" in gko
         assert "Romanization" in gko
+        gen = collect_template_fields(LANG_GRAMMAR_TEMPLATES["english"])
+        assert "Pattern" in gen
+        assert "Pronunciation" in gen

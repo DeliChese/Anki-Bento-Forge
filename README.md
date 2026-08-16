@@ -1,6 +1,6 @@
 # 🌐 Bento Forge — AnkiTool Multi-Language V17.2.0
 
-> **Vocabulary Factory cho Anki** — Tạo thẻ từ vựng tiếng Nhật, Trung & Hàn với AI, TTS, và interactive templates.
+> **Vocabulary Factory cho Anki** — Tạo thẻ từ vựng tiếng Nhật, Trung, Hàn & Anh với AI, TTS, và interactive templates.
 
 [![Version](https://img.shields.io/badge/version-17.2.0-blue)](manifest.json)
 [![Anki](https://img.shields.io/badge/anki-2.1.50-green)](COMPATIBILITY.md)
@@ -13,12 +13,12 @@ Version và phạm vi Anki lấy từ [`manifest.json`](manifest.json); tài li�
 
 ## ✨ Tính năng
 
-### 🇯🇵🇨🇳🇰🇷 Đa ngôn ngữ (3 ngôn ngữ)
+### 🇯🇵🇨🇳🇰🇷🇬🇧 Đa ngôn ngữ (4 ngôn ngữ)
 | Tính năng | Mô tả |
 |-----------|-------|
-| 🌍 **3 Ngôn Ngữ** | Nhật Bản, Trung Quốc & **Hàn Quốc** (mới V17.0) — mỗi ngôn ngữ có cấu hình riêng: bộ lọc cấp độ (JLPT N5-N1 / HSK 1-6 / **TOPIK I-II**) |
-| 🔤 **Romanization** | Furigana/Pinyin cho Nhật-Trung, **Romanization chuẩn Revised Romanization cho tiếng Hàn** (field + ví dụ hiển thị trên thẻ) |
-| 🎤 **TTS Đa Engine** | Edge TTS (chất lượng cao) → gTTS (fallback) → VoiceVox (local JP). Giọng Hàn ko-KR cho tiếng Hàn |
+| 🌍 **4 Ngôn Ngữ** | Nhật, Trung, Hàn & Anh — bộ lọc riêng JLPT / HSK / TOPIK / CEFR A1-C2 |
+| 🔤 **Cách đọc** | Furigana, Pinyin, Revised Romanization và IPA tiếng Anh hiển thị trực tiếp trên thẻ |
+| 🎤 **TTS Đa Engine** | Edge TTS → gTTS fallback → VoiceVox (local JP); có giọng Nhật, Trung, Hàn và Anh UK/US |
 
 ### 🎯 Combo Mode và SRS độc lập
 | Tính năng | Mô tả |
@@ -35,7 +35,7 @@ Version và phạm vi Anki lấy từ [`manifest.json`](manifest.json); tài li�
 | 🧠 **Mức độ suy nghĩ AI** | Bộ chọn Thấp/Trung bình/Cao (reasoning_effort) trong Cài Đặt AI → cân bằng chất lượng vs token. |
 | ✏️ **Sửa Prompt / Schema / Field Map (không cần code)** | Nút "✏️ Sửa Prompt / Schema AI" trong Cài Đặt AI → chỉnh System Prompt + mẫu JSON + map key→Field Anki (chọn mặt hiển thị: sau/trước/cả hai) cho từng ngôn ngữ; **field mới tự thêm vào Note Type và TỰ HIỆN TRÊN THẺ khi lưu**; sửa prompt → cache AI tự làm mới (`utils/ai_prompts.json`, gitignored). |
 | 📎 **Kẹp File Tham Khảo** | Đính kèm TXT/MD/CSV/PDF/DOCX/XLSX làm tài liệu → AI đọc nội dung để trích xuất từ vựng/ngữ pháp. |
-| 📘 **Ngữ pháp** | Note Type ngữ pháp riêng cho cả 3 ngôn ngữ: thẻ 2 chiều "Cấu trúc→Nghĩa" & "Nghĩa→Cấu trúc", AI trích xuất pattern + công thức + cách dùng + ví dụ (có đánh dấu `<b>…</b>` trong ví dụ). |
+| 📘 **Ngữ pháp** | Note Type ngữ pháp riêng cho cả 4 ngôn ngữ: thẻ 2 chiều "Cấu trúc→Nghĩa" & "Nghĩa→Cấu trúc", AI trích xuất pattern + công thức + cách dùng + ví dụ (có đánh dấu `<b>…</b>` trong ví dụ). |
 | 🤖 **AI Trích Xuất** | Dùng OpenAI/DeepSeek/Ollama để trích xuất từ vựng từ văn bản. Tự động tránh từ đã có trong deck. |
 | 💬 **AI Chat** | Trợ lý học tập thông minh, hiểu ngữ cảnh Anki của bạn. |
 | ⚡ **Tối ưu Token** | Chỉ gửi từ vựng/ngữ pháp trùng với nội dung vào prompt (thay vì toàn bộ deck → giảm mạnh input); tổng hợp token/chi phí theo toàn bộ chunk. |
@@ -110,7 +110,7 @@ git clone https://github.com/DeliChese/Anki-Bento-Forge.git
 4. Bấm **🚀 XUẤT XƯỞNG**
 
 ### Cách 2: AI Trích Xuất
-1. Dán văn bản tiếng Nhật/Trung/Hàn vào ô "📝 Dán văn bản..."
+1. Dán văn bản tiếng Nhật/Trung/Hàn/Anh vào ô "📝 Dán văn bản..."
 2. (Optional) Thêm lời nhắn: "Chỉ lấy từ N3+, chủ đề ẩm thực"
 3. Bấm **🤖 AI Trích Xuất**
 4. Xem trước, chỉnh sửa, xóa nếu cần
@@ -130,13 +130,13 @@ git clone https://github.com/DeliChese/Anki-Bento-Forge.git
 Anki-Bento-Forge/          # (đóng gói thành bento-forge.ankiaddon khi release)
 ├── __init__.py           # Entry point + Main Dialog (AnkiSmartFactory)
 ├── audio/                # TTS engines (Edge, gTTS, VoiceVox) — router engine.py
-├── Language/             # Language configs (Japanese, Chinese, Korean + grammar)
+├── Language/             # Language configs (Japanese, Chinese, Korean, English + grammar)
 ├── mode/                 # Card templates, CSS, JS games (combo mode) + card_render.py (tự append field)
 ├── ui/                   # UI dialogs (ai_dialogs, ai_preview, batch, deck_manager, theme, prompt_editor, history...)
 ├── workers/              # Background threads (import, AI, preview, batch, deck scan)
 ├── utils/                # AI extractor, batch processor, prompt_config, JSON parser, logger, i18n, deck cache, deck manager
 ├── hooks/                # Reviewer hooks (speed, letter gap) + overview_mode.py (mode selector)
-├── tests/                # 411 unit & integration tests (29 file)
+├── tests/                # 488 unit & integration tests
 ├── .claude/              # 🆕 Hệ thống SKILL cho AI — nguồn kiến thức chính thức
 │   ├── CLAUDE.md         # Memory gốc + index skills (đọc trước)
 │   └── skills/           # 12 skill theo chủ đề (bảo trì/nâng cấp tiết kiệm token)

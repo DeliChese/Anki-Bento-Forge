@@ -36,13 +36,14 @@ _LANG_LABEL_KEYS = {
     "japanese": "lang_japanese",
     "chinese": "lang_chinese",
     "korean": "lang_korean",
+    "english": "lang_english",
 }
 _KIND_LABEL_KEYS = {
     "vocab": "prompt_kind_vocab",
     "grammar": "prompt_kind_grammar",
 }
 _KINDS = ("vocab", "grammar")
-_LANGS = ("japanese", "chinese", "korean")
+_LANGS = ("japanese", "chinese", "korean", "english")
 # Vị trí hiển thị field tuỳ chỉnh trên thẻ (Mức 2)
 _SIDE_LABEL_KEYS = [
     ("back", "prompt_side_back"),
@@ -74,9 +75,12 @@ class PromptEditorDialog(QDialog):
         self._fm_edits = {}     # {kind: {lang: {json_key: anki_field}}}
         self._fm_show_edits = {}  # {kind: {lang: {anki_field: "front"|"back"|"both"}}}
         self._last_prompt_kind = _KINDS[0]
+        self._loaded_prompt_lang = {}
 
         self._build_ui()
-        self._load_prompt_editor(_KINDS[0])
+        for kind in _KINDS:
+            self._loaded_prompt_lang[kind] = self._tab_widgets[kind]["cbo_lang"].currentData()
+            self._load_prompt_editor(kind)
         self._build_fm_table()
 
     # ── UI ────────────────────────────────────────────────
@@ -200,7 +204,7 @@ class PromptEditorDialog(QDialog):
         """Lưu nội dung CẢ HAI prompt tab vào self._edits (gọi trước khi chuyển tab/ngôn ngữ)."""
         for kind in _KINDS:
             w = self._tab_widgets[kind]
-            lang = w["cbo_lang"].currentData()
+            lang = self._loaded_prompt_lang.get(kind, w["cbo_lang"].currentData())
             self._edits.setdefault(kind, {})[lang] = {
                 "json_template": w["txt_json"].toPlainText(),
                 "system_prompt": w["txt_prompt"].toPlainText(),
@@ -209,6 +213,7 @@ class PromptEditorDialog(QDialog):
     def _load_prompt_editor(self, kind):
         w = self._tab_widgets[kind]
         lang = w["cbo_lang"].currentData()
+        self._loaded_prompt_lang[kind] = lang
         entry = self._data[kind][lang]
         if kind in self._edits and lang in self._edits[kind]:
             entry = self._edits[kind][lang]
@@ -239,6 +244,8 @@ class PromptEditorDialog(QDialog):
             )
 
     def _on_prompt_lang_change(self, kind):
+        if kind not in self._tab_widgets:
+            return
         self._sync_all_prompt_edits()
         self._load_prompt_editor(kind)
 
@@ -486,7 +493,8 @@ class PromptEditorDialog(QDialog):
         self._edits = {}
         self._fm_edits = {}
         self._fm_show_edits = {}
-        self._load_prompt_editor(_KINDS[0])
+        for kind in _KINDS:
+            self._load_prompt_editor(kind)
         self._build_fm_table()
         tooltip(t("prompt_reset_done"))
 

@@ -23,6 +23,7 @@ def _lang_options():
         (t("lang_japanese"), "japanese"),
         (t("lang_chinese"), "chinese"),
         (t("lang_korean"), "korean"),
+        (t("lang_english"), "english"),
     ]
 
 
@@ -38,6 +39,7 @@ _LANG_TAG = {
     "japanese": "🇯🇵",
     "chinese": "🇨🇳",
     "korean": "🇰🇷",
+    "english": "🇬🇧",
 }
 
 
@@ -46,7 +48,7 @@ class HistoryBrowserDialog(QDialog):
 
     def __init__(self, parent=None, current_lang="japanese"):
         super().__init__(parent)
-        self.current_lang = current_lang if current_lang in ("japanese", "chinese", "korean") else "japanese"
+        self.current_lang = current_lang if current_lang in _LANG_TAG else "japanese"
         self.accepted_items = []
         self.accepted_lang = self.current_lang
         self._all_entries = []   # [(lang, item_dict), ...]

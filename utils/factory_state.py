@@ -65,7 +65,7 @@ class FactoryStateStore:
         if not isinstance(state, dict):
             return {}
         clean = {}
-        for lang in ("japanese", "chinese", "korean"):
+        for lang in ("japanese", "chinese", "korean", "english"):
             lang_state = state.get(lang)
             if not isinstance(lang_state, dict):
                 continue

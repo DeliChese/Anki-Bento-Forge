@@ -5,15 +5,15 @@ description: Cấu hình ngôn ngữ — Language/ (japanese, chinese, korean). 
 
 # 🈺 SKILL-07: LANGUAGE CONFIG
 
-> Mỗi ngôn ngữ 1 file: `Language/japanese.py` (100 dòng), `Language/chinese.py`, `Language/korean.py`. Registry tại `Language/__init__.py`.
+> Mỗi ngôn ngữ 1 file: `Language/japanese.py`, `Language/chinese.py`, `Language/korean.py`, `Language/english.py`. Registry tại `Language/__init__.py`.
 
 ## REGISTRY (`Language/__init__.py`)
 
 ```python
-LANG_CONFIG          = {"japanese": _JA, "chinese": _ZH, "korean": _KO}   # dòng 8
-LANG_GRAMMAR_CONFIG  = {"japanese": _JA_G, "chinese": _ZH_G, "korean": _KO_G}  # dòng 14
+LANG_CONFIG          = {"japanese": _JA, "chinese": _ZH, "korean": _KO, "english": _EN}
+LANG_GRAMMAR_CONFIG  = {"japanese": _JA_G, "chinese": _ZH_G, "korean": _KO_G, "english": _EN_G}
 LANG_KEYS            = list(LANG_CONFIG.keys())
-LANG_SELECTOR_INFO   = [("japanese","🇯🇵 日本語","JP"), ("chinese","🇨🇳 中文","CN"), ("korean","🇰🇷 한국어","KR")]  # dòng 21
+LANG_SELECTOR_INFO   = [("japanese","🇯🇵 日本語","JP"), ("chinese","🇨🇳 中文","CN"), ("korean","🇰🇷 한국어","KR"), ("english","🇬🇧 English","EN")]
 ```
 
 ## CẤU TRÚC LANG_CONFIG (japanese.py:3)

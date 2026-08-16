@@ -44,6 +44,13 @@ from .prompt_config import (
 
 logger = get_logger()
 
+_LEVEL_RE = re.compile(r"^(?:N[1-5]|HSK[1-6]|TOPIK\s*(?:I{1,2}|[1-6])|[ABC][12])$", re.IGNORECASE)
+
+
+def _normalized_level(value: str) -> str:
+    value = str(value or "").strip().upper()
+    return re.sub(r"^TOPIK\s*", "TOPIK ", value) if value.startswith("TOPIK") else value
+
 # ═══════════════════════════════════════════════════════════
 #  CONSTANTS
 # ═══════════════════════════════════════════════════════════
@@ -86,7 +93,7 @@ def parse_word_list(raw_text: str, lang: str = "japanese") -> List[Dict[str, str
     
     Args:
         raw_text: Text người dùng paste vào
-        lang: "japanese" hoặc "chinese"
+        lang: target-language key (japanese/chinese/korean/english)
     
     Returns:
         List[Dict] với keys: front, meaning (nếu có), level (nếu có)
@@ -109,7 +116,7 @@ def parse_word_list(raw_text: str, lang: str = "japanese") -> List[Dict[str, str
                                 or item.get("word") or item.get("pattern") or ""
                             ).strip(),
                             "meaning": str(item.get("meaning") or "").strip(),
-                            "level": str(item.get("jlptlevel") or item.get("hsk_level") or item.get("topik_level") or item.get("level") or "").strip(),
+                            "level": str(item.get("jlptlevel") or item.get("hsk_level") or item.get("topik_level") or item.get("cefr_level") or item.get("level") or "").strip(),
                             "topic": str(item.get("topic") or "").strip(),
                         })
                     elif isinstance(item, str):
@@ -156,16 +163,16 @@ def parse_word_list(raw_text: str, lang: str = "japanese") -> List[Dict[str, str
         if len(parts) >= 2:
             # Check if second part looks like a level (N5, HSK1, etc.)
             second = parts[1]
-            if re.match(r'^(N[1-5]|HSK[1-6])$', second, re.IGNORECASE):
-                entry["level"] = second.upper()
+            if _LEVEL_RE.match(second):
+                entry["level"] = _normalized_level(second)
             else:
                 entry["meaning"] = second
         
         if len(parts) >= 3:
             # Third part: level or topic
             third = parts[2]
-            if re.match(r'^(N[1-5]|HSK[1-6])$', third, re.IGNORECASE):
-                entry["level"] = third.upper()
+            if _LEVEL_RE.match(third):
+                entry["level"] = _normalized_level(third)
             elif not entry["level"]:
                 entry["level"] = third
             else:
@@ -190,7 +197,7 @@ def smart_group_words(words: List[Dict[str, str]], batch_size: int = DEFAULT_BAT
     Nhóm từ thông minh để tối ưu chất lượng AI.
     
     Chiến lược:
-    1. Nhóm theo level (N5→N1, HSK1→HSK6) nếu có
+    1. Nhóm theo level (JLPT/HSK/TOPIK/CEFR) nếu có
     2. Trong cùng level, nhóm theo độ dài từ (ngắn trước, dài sau)
     3. Đảm bảo mỗi batch có độ đa dạng topic
     
@@ -205,8 +212,12 @@ def smart_group_words(words: List[Dict[str, str]], batch_size: int = DEFAULT_BAT
     without_level = [w for w in words if not w.get("level")]
     
     # Sort by level
-    level_order = {"N5": 0, "N4": 1, "N3": 2, "N2": 3, "N1": 4,
-                   "HSK1": 0, "HSK2": 1, "HSK3": 2, "HSK4": 3, "HSK5": 4, "HSK6": 5}
+    level_order = {
+        "N5": 0, "N4": 1, "N3": 2, "N2": 3, "N1": 4,
+        "HSK1": 0, "HSK2": 1, "HSK3": 2, "HSK4": 3, "HSK5": 4, "HSK6": 5,
+        "TOPIK I": 0, "TOPIK II": 1,
+        "A1": 0, "A2": 1, "B1": 2, "B2": 3, "C1": 4, "C2": 5,
+    }
     
     with_level.sort(key=lambda w: (level_order.get(w["level"].upper(), 99), len(w["front"])))
     without_level.sort(key=lambda w: len(w["front"]))
@@ -271,13 +282,9 @@ LIST OF PATTERNS TO PROCESS:
 For EACH pattern in the list above, create a complete JSON object following this template:
 {template}
 
-⚠️ HIGH QUALITY REQUIREMENTS:
-1. pattern: the MAIN grammar structure, mark slots clearly (〜 / V / N / Adj).
-2. usage: a specific, memorable formula.
-3. explanation: a CONCISE explanation of usage + nuance + common learner mistakes + synonyms.
-4. VIVID EXAMPLES: Example 1 casual real-life, Example 2 formal. Match JLPT/HSK level.
-5. For Chinese: EVERY example MUST include full tone-marked pinyin.
-6. If the user already provided a meaning/level → keep and enhance it.
+QUALITY: Preserve any supplied meaning/level. Follow the system rules exactly; keep one
+context-supported sense per item, concise usage/explanation, and natural distinct examples
+at the assigned proficiency level. Fill every schema field; never invent missing facts.
 """
         else:
             prompt = f"""📝 BATCH {batch_num}/{total_batches} — XỬ LÝ {len(words)} CẤU TRÚC NGỮ PHÁP
@@ -289,13 +296,9 @@ DANH SÁCH CẤU TRÚC CẦN XỬ LÝ:
 Với MỖI cấu trúc trong danh sách trên, tạo một object JSON đầy đủ theo mẫu:
 {template}
 
-⚠️ YÊU CẦU CHẤT LƯỢNG CAO:
-1. pattern: cấu trúc ngữ pháp CHÍNH, ghi rõ chỗ điền (〜 / V / N / Adj).
-2. usage: CÔNG THỨC ghép cụ thể, dễ nhớ.
-3. explanation: giải thích NGẮN GỌN cách dùng + sắc thái + lỗi người Việt hay mắc + đồng nghĩa.
-4. VÍ DỤ PHẢI CÓ HỒN: Example 1 khẩu ngữ đời thực, Example 2 trang trọng. Đúng cấp độ JLPT/HSK.
-5. Với tiếng Trung: MỌI ví dụ PHẢI kèm pinyin đầy đủ, có dấu thanh.
-6. Nếu người dùng đã cung cấp nghĩa/cấp độ → giữ nguyên và bổ sung.
+CHẤT LƯỢNG: Giữ nghĩa/cấp độ đã cung cấp. Tuân thủ chính xác system prompt; mỗi item
+chỉ giữ một nghĩa có bằng chứng ngữ cảnh, usage/explanation gọn, hai ví dụ tự nhiên khác
+ngữ cảnh và đúng cấp độ đã gán. Điền đủ schema; không bịa dữ kiện còn thiếu.
 """
     else:
         if en:
@@ -308,15 +311,9 @@ LIST OF WORDS TO PROCESS:
 For EACH word in the list above, create a complete JSON object following this template:
 {template}
 
-⚠️ HIGH QUALITY REQUIREMENTS:
-1. FILL ALL fields completely for every word.
-2. VIVID EXAMPLES:
-   - Example 1: natural CASUAL speech, genuine emotion, real-life situation
-   - Example 2: FORMAL, polite
-   - NEVER use lifeless textbook sentences
-3. If the user already provided a meaning/level → keep and enhance it
-4. Analyze the correct topic for each word
-5. For polysemous words → show different meanings in the 2 examples
+QUALITY: Preserve any supplied meaning/level. Follow the system rules exactly; keep the
+contextual sense, correct form and usage, concise topic, and two natural distinct examples
+at the assigned proficiency level. Fill every schema field; never invent missing facts.
 """
         else:
             prompt = f"""📝 BATCH {batch_num}/{total_batches} — XỬ LÝ {len(words)} TỪ VỰNG
@@ -328,15 +325,9 @@ DANH SÁCH TỪ CẦN XỬ LÝ:
 Với MỖI từ trong danh sách trên, tạo một object JSON đầy đủ theo mẫu:
 {template}
 
-⚠️ YÊU CẦU CHẤT LƯỢNG CAO:
-1. ĐIỀN ĐẦY ĐỦ tất cả các trường cho từng từ.
-2. VÍ DỤ PHẢI CÓ HỒN:
-   - Example 1: KHẨU NGỮ tự nhiên, cảm xúc thật, tình huống đời thực
-   - Example 2: TRANG TRỌNG, lịch sự, formal
-   - TUYỆT ĐỐI TRÁNH câu sách giáo khoa vô hồn
-3. Nếu người dùng đã cung cấp nghĩa/cấp độ → giữ nguyên và bổ sung
-4. PHÂN TÍCH chủ đề (topic) chính xác cho từng từ
-5. Với từ đa nghĩa → thể hiện các nghĩa khác nhau trong 2 ví dụ
+CHẤT LƯỢNG: Giữ nghĩa/cấp độ đã cung cấp. Tuân thủ chính xác system prompt; giữ đúng
+nghĩa ngữ cảnh, dạng từ/cách dùng chuẩn, topic gọn và hai ví dụ tự nhiên khác ngữ cảnh,
+đúng cấp độ đã gán. Điền đủ schema; không bịa dữ kiện còn thiếu.
 """
     
     # Thêm existing words context — CHỈ gửi từ trùng với batch này (tối ưu token)
@@ -979,6 +970,7 @@ def _fallback_deck_organization(vocab_list: List[dict], lang: str) -> dict:
         "japanese": "organizer_lang_japanese",
         "chinese": "organizer_lang_chinese",
         "korean": "organizer_lang_korean",
+        "english": "organizer_lang_english",
     }.get(lang, "organizer_lang_japanese"))
     
     if by_topic:

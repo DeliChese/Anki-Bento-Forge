@@ -1,5 +1,7 @@
 # UX & Accessibility — Cải thiện
 
+> **PHẠM VI PERSONAL (2026-08-16):** Chỉ audit/sửa màn hình và keyboard flow chủ dự án thật sự dùng; không chạy theo điểm UX/accessibility công khai. Khi mở lỗi UX cụ thể: P2, 🟡 Trung bình, `gpt-5.6-terra` / `medium`, kiểm chứng thủ công trên phiên bản Anki đang dùng.
+
 > **Nguồn:** `ACADEMIC_ASSESSMENT.md` — Mục 2.4 UX & Accessibility (Điểm: 7.5/10)
 > **Trạng thái:** `Có nền tảng` — dialog chính đã có accessible name/tab order; cần audit thủ công trên Anki thật.
 > **Mục tiêu:** Nâng UX & Accessibility từ 7.5 lên 8.5+

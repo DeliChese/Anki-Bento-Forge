@@ -1,5 +1,7 @@
 # Phase C — Kiến trúc (Giảm nợ kỹ thuật)
 
+> **PHẠM VI PERSONAL (2026-08-16):** `Để sau`. Chỉ tách một lát nhỏ khi nó giải trực tiếp lỗi hoặc ma sát trong workflow cá nhân; không refactor để chuẩn bị cho 12 ngôn ngữ. Mở qua `PERSONAL_ROADMAP.md`, khuyến nghị `gpt-5.6-terra` / `high`; không big-bang rewrite.
+
 > **Nguồn:** `ACADEMIC_ASSESSMENT.md` — Phase C (TIỀN ĐỀ cho mở rộng ngôn ngữ)
 > **Trạng thái:** `Đang làm có kiểm soát` — chỉ tách từng responsibility có regression test; không chạy theo chỉ tiêu số dòng đơn thuần.
 > **Mục tiêu:** Giảm chi phí bảo trì, tăng tốc phát triển, CHUẨN BỊ cho 12 ngôn ngữ

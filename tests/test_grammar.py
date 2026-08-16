@@ -69,9 +69,17 @@ class TestGrammarConfigs:
         assert cfg["json_field_map"]["example_romanization"] == "Example Romanization"
         assert cfg["level_json_key"] == "topik_level"
 
+    def test_english_grammar_config_fields(self):
+        from Language import LANG_GRAMMAR_CONFIG
+        cfg = LANG_GRAMMAR_CONFIG["english"]
+        assert cfg["model_name"] == "AnkiTool English Grammar V17.0 (Add-on)"
+        assert cfg["lang_code"] == "en"
+        assert cfg["json_field_map"]["pronunciation"] == "Pronunciation"
+        assert cfg["level_json_key"] == "cefr_level"
+
     def test_lang_grammar_config_registry(self):
         from Language import LANG_GRAMMAR_CONFIG
-        assert set(LANG_GRAMMAR_CONFIG.keys()) == {"japanese", "chinese", "korean"}
+        assert set(LANG_GRAMMAR_CONFIG.keys()) == {"japanese", "chinese", "korean", "english"}
 
 
 # ═══════════════════════════════════════════════════════════
@@ -81,10 +89,11 @@ class TestGrammarConfigs:
 class TestGrammarTemplates:
     def test_registry_has_all_langs(self):
         from mode import LANG_GRAMMAR_TEMPLATES
-        assert set(LANG_GRAMMAR_TEMPLATES.keys()) == {"japanese", "chinese", "korean"}
+        assert set(LANG_GRAMMAR_TEMPLATES.keys()) == {"japanese", "chinese", "korean", "english"}
         assert len(LANG_GRAMMAR_TEMPLATES["japanese"]) == 4  # 2 cặp Q/A
         assert len(LANG_GRAMMAR_TEMPLATES["chinese"]) == 4
         assert len(LANG_GRAMMAR_TEMPLATES["korean"]) == 4
+        assert len(LANG_GRAMMAR_TEMPLATES["english"]) == 4
 
     def test_japanese_question_html(self):
         from mode.templates import tmpl_ja_g_q
@@ -145,6 +154,12 @@ class TestGrammarTemplates:
         assert "{{Pattern}}" in html
         assert "{{Romanization}}" in html
 
+    def test_english_grammar_templates(self):
+        from mode.templates import tmpl_en_g_q, tmpl_en_g_a, tmpl_en_g_rev_q
+        assert "{{type:Meaning}}" in tmpl_en_g_q()
+        assert "{{Pronunciation}}" in tmpl_en_g_a()
+        assert "{{type:Pattern}}" in tmpl_en_g_rev_q()
+
 
 # ═══════════════════════════════════════════════════════════
 #  GRAMMAR CSS
@@ -153,7 +168,7 @@ class TestGrammarTemplates:
 class TestGrammarCss:
     def test_css_registry(self):
         from mode import LANG_GRAMMAR_CSS
-        assert set(LANG_GRAMMAR_CSS.keys()) == {"japanese", "chinese", "korean"}
+        assert set(LANG_GRAMMAR_CSS.keys()) == {"japanese", "chinese", "korean", "english"}
 
     def test_japanese_grammar_css_content(self):
         from mode.css import css_japanese_grammar
@@ -176,6 +191,12 @@ class TestGrammarCss:
         assert ".hanzi" in css
         assert ".cw" in css
 
+    def test_english_grammar_css_content(self):
+        from mode.css import css_english_grammar
+        css = css_english_grammar()
+        assert ".hanzi" in css
+        assert ".cw" in css
+
 
 # ═══════════════════════════════════════════════════════════
 #  GRAMMAR AI PROMPTS
@@ -186,8 +207,9 @@ class TestGrammarAiPrompts:
         from utils.ai_extractor import (
             _GRAMMAR_SYSTEM_PROMPTS, _GRAMMAR_JSON_TEMPLATES,
         )
-        assert set(_GRAMMAR_SYSTEM_PROMPTS.keys()) == {"japanese", "chinese", "korean"}
-        assert set(_GRAMMAR_JSON_TEMPLATES.keys()) == {"japanese", "chinese", "korean"}
+        expected = {"japanese", "chinese", "korean", "english"}
+        assert set(_GRAMMAR_SYSTEM_PROMPTS.keys()) == expected
+        assert set(_GRAMMAR_JSON_TEMPLATES.keys()) == expected
 
     def test_get_grammar_json_template_japanese(self):
         from utils.ai_extractor import get_grammar_json_template
@@ -215,6 +237,13 @@ class TestGrammarAiPrompts:
         assert "example_romanization" in data
         assert "topik_level" in data
 
+    def test_get_grammar_json_template_english(self):
+        from utils.ai_extractor import get_grammar_json_template
+        data = json.loads(get_grammar_json_template("english"))
+        assert "pattern" in data
+        assert "pronunciation" in data
+        assert "cefr_level" in data
+
     def test_grammar_system_prompt_content(self):
         from utils.ai_extractor import _GRAMMAR_SYSTEM_PROMPTS
         jp = _GRAMMAR_SYSTEM_PROMPTS["japanese"]
@@ -223,6 +252,7 @@ class TestGrammarAiPrompts:
         assert "NGỮ PHÁP" in zh or "语法" in zh
         ko = _GRAMMAR_SYSTEM_PROMPTS["korean"]
         assert "NGỮ PHÁP" in ko or "문법" in ko
+        assert "NGỮ PHÁP" in _GRAMMAR_SYSTEM_PROMPTS["english"]
 
     def test_extract_grammar_with_ai_signature(self):
         """Hàm extract ngữ pháp tồn tại và nhận existing_patterns."""
@@ -268,6 +298,16 @@ class TestBatchProcessorGrammar:
         assert result[0]["front"] == "〜てもいい"
         assert result[0]["level"] == "N5"
 
+    def test_parse_english_cefr_from_json_and_text(self):
+        from utils.batch_processor import parse_word_list
+        from_json = parse_word_list(
+            '[{"front":"take for granted","meaning":"coi là hiển nhiên","cefr_level":"B2"}]',
+            "english",
+        )
+        from_text = parse_word_list("resilient : C1", "english")
+        assert from_json[0]["level"] == "B2"
+        assert from_text[0] == {"front": "resilient", "meaning": "", "level": "C1", "topic": ""}
+
 
 # ═══════════════════════════════════════════════════════════
 #  AUDIO ENGINE — model → lang map cho thẻ ngữ pháp
@@ -298,6 +338,9 @@ class TestAudioEngineGrammarMap:
 
     def test_detect_korean_grammar_model(self):
         assert _engine_mock.detect_lang_from_model("AnkiTool Korean Grammar V17.0 (Add-on)") == "ko"
+
+    def test_detect_english_grammar_model(self):
+        assert _engine_mock.detect_lang_from_model("AnkiTool English Grammar V17.0 (Add-on)") == "en"
 
     def test_detect_unknown_model(self):
         assert _engine_mock.detect_lang_from_model("Unknown Model") == ""

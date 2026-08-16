@@ -6,10 +6,10 @@ from pathlib import Path
 from utils import ai_extractor
 from utils import ai_prompt_defaults as defaults
 from utils import prompt_config
-from utils.prompts import chinese, japanese, korean
+from utils.prompts import chinese, english, japanese, korean
 
 
-LANGS = {"japanese", "chinese", "korean"}
+LANGS = {"japanese", "chinese", "korean", "english"}
 
 
 def _imports(module) -> set:
@@ -29,7 +29,7 @@ def _imports(module) -> set:
 def test_prompt_defaults_are_a_small_facade_over_pure_language_data():
     assert _imports(defaults) == {"prompts"}
     assert len(Path(defaults.__file__).read_text(encoding="utf-8").splitlines()) < 500
-    assert all(_imports(module) == set() for module in (japanese, chinese, korean))
+    assert all(_imports(module) == set() for module in (japanese, chinese, korean, english))
 
 
 def test_each_language_module_owns_its_vocab_and_grammar_defaults():
@@ -37,6 +37,7 @@ def test_each_language_module_owns_its_vocab_and_grammar_defaults():
         "japanese": (japanese, "JAPANESE"),
         "chinese": (chinese, "CHINESE"),
         "korean": (korean, "KOREAN"),
+        "english": (english, "ENGLISH"),
     }
 
     for lang, (module, prefix) in expected.items():

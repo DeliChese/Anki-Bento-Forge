@@ -5,9 +5,10 @@
 > Các thay đổi đã merge sau 17.1.0. Chỉ chuyển mục này thành bản phát hành khi `manifest.json`, bằng chứng CI và smoke Anki đã sẵn sàng.
 
 ### ✨ Added
+- Tiếng Anh trở thành ngôn ngữ đích thứ tư: có Note Type từ vựng/ngữ pháp, CEFR A1–C2, IPA, 5 chế độ học, prompt VI/EN, AI preview/chat, lịch sử, Edge TTS giọng UK/US và regression test riêng.
 - V17.2: Nhấp vào thanh chi phí AI ở góc dưới trái để xem lịch sử từng request theo model, thời điểm, thời lượng, loại công việc, input/output token và chi phí. Có lọc theo model/công việc/ngày hoặc khoảng ngày, sắp xếp chi phí và input/output cao–thấp, tổng cho tập dữ liệu đang lọc, cùng thao tác xóa lịch sử. Lịch sử chỉ giữ metadata usage (tối đa 2.000 lượt) trong Anki profile; không giữ prompt, phản hồi, API key hay URL API.
 - B6: Thẻ từ vựng mặc định có field `Usage Note` hiển thị ở mặt sau khi có nội dung; prompt chỉ yêu cầu ghi chú collocation/register ngắn khi thực sự giúp phân biệt cách dùng. Field `Usage` của thẻ ngữ pháp cũng nhận thêm ghi chú này khi cần, không thêm schema/output field mới.
-- Bộ benchmark AI có phiên bản hóa cho cùng một danh sách 20 từ tiếng Nhật: đo coverage, cấu trúc có thể đưa vào Xưởng, cảnh báo xác định được, token/chi phí/thời gian mỗi thẻ và rubric review thủ công. Báo cáo local không chứa API key hoặc dữ liệu benchmark riêng.
+- Bộ benchmark AI có phiên bản hóa cho cùng một danh sách 20 từ tiếng Nhật: runner tự gọi nhiều model/chế độ thinking qua provider đã cấu hình, lưu card/run JSON và bảng so sánh coverage, cấu trúc có thể đưa vào Xưởng, cảnh báo xác định được, token/chi phí/thời gian mỗi thẻ cùng rubric review ngữ nghĩa. Báo cáo local không chứa API key hoặc dữ liệu benchmark riêng.
 - Dữ liệu người dùng (cấu hình, trạng thái Factory, lịch sử import và cache) được lưu theo Anki profile, ghi JSON atomic, có migration/backup và giới hạn dung lượng hoặc TTL.
 - API key sử dụng OS credential store; log tự che API key, token và Authorization header. AI, batch và import có cancellation xuyên suốt để dừng tác vụ dài an toàn hơn.
 - Giới hạn phiên AI theo ký tự đầu vào, token và chi phí; UI hiển thị ước lượng trước khi chạy nhưng chỉ lưu số liệu tổng hợp.
@@ -18,6 +19,8 @@
 - Thêm `DEBUGGING.md`, `COMPATIBILITY.md`, `RELEASE_CHECKLIST.md`, artifact build có SHA-256/SBOM, cùng harness kiểm thử cô lập hai vòng dùng chung với CI.
 
 ### 🔧 Changed
+- Prompt tiếng Anh ưu tiên đúng nghĩa ngữ cảnh, lemma/IPA/CEFR, collocation/register và ví dụ tự nhiên ngắn; prompt batch/chat bỏ phần hướng dẫn lặp để tăng chất lượng với ít input token hơn. Prompt mặc định/cache được nâng version để không dùng lại kết quả cũ.
+- DeepSeek V4 card generation now explicitly defaults to non-thinking mode, selected by the Japanese 3×20 benchmark: the same 100% quality score as Flash thinking and Pro non-thinking at materially lower measured cost and latency.
 - V17.2: Cập nhật preset model AI theo catalog hiện hành: DeepSeek V4 Flash/Pro, OpenAI GPT-5.6 (Sol/Terra/Luna), Gemini 3.6/3.5/3.1 và 2.5, Claude 5/Haiku 4.5; OpenRouter có alias `~openai/gpt-latest`; Ollama/LM Studio thêm Qwen 3.5 và Gemma 4. Các model cũ phổ biến vẫn còn để không làm hỏng cấu hình đã lưu.
 - `AnkiSmartFactory` và wiring Qt/Anki chuyển sang `ui/factory_dialog.py`; package root chỉ còn compatibility facade.
 - Thao tác Collection, import, model lifecycle và kiểm định thẻ được cô lập rõ hơn; phát hiện near-duplicate nhưng không tự merge, báo cáo import không chứa nội dung thẻ hoặc lỗi chi tiết.
@@ -25,6 +28,8 @@
 - Chuẩn hóa compatibility theo `manifest.json`, diagnostic event code và logging theo Anki profile.
 
 ### 🐛 Fixed
+- Prompt Editor trong Cài đặt AI nay nạp sẵn cả tab Từ vựng lẫn Ngữ pháp và lưu nội dung theo ngôn ngữ vừa rời khỏi, tránh tab prompt rỗng hoặc ghi nhầm dữ liệu khi đổi ngôn ngữ.
+- Compile gate now covers every tracked Python file, including `scripts/`; invalid markers that prevented `scripts/fetch_ankiforge_info.py` from compiling were removed.
 - V17.2: API key nay được cô lập theo từng AI provider (và từng endpoint Custom). Chuyển provider trong Cài đặt AI sẽ nạp key đã lưu của provider đó, không còn dùng hoặc ghi đè key của provider trước.
 - **Kiểm định lô hàng chống lách theo mode/lô AI:** Chuẩn hóa Unicode, khoảng trắng và dấu câu trước khi đối chiếu; lập chỉ mục cả các mục đã được chấp nhận trong lô hiện tại để chặn mục lặp xuất hiện sau đó. So khớp cùng nghĩa không còn phụ thuộc vào việc chọn cấp độ. Cùng mặt chữ/pattern nhưng khác nghĩa, kể cả Grammar mode, luôn phải được người dùng phê duyệt rõ ràng trước khi thêm.
 - Phản hồi từ DeepSeek reasoning model nay lấy đúng final content khi `content` rỗng, đồng thời bật JSON mode cho API gốc để giảm lỗi parse JSON.

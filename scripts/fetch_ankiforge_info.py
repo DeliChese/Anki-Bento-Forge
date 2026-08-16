@@ -41,5 +41,3 @@ try:
         print(f"  Content length: {len(content)}")
 except Exception as e:
     print(f"  Error: {e}")
-</｜DSML｜>
-</write_to_file>

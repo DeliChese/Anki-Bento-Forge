@@ -2,7 +2,28 @@
 
 `japanese_vocab_20_v1.json` is the fixed first case: 20 Japanese vocabulary items sent through the same Xưởng/batch flow, with an empty deck and cache miss. Do not alter its terms while comparing models.
 
-For each model, retain only the generated card JSON (never an API key or source text), then score it:
+The automated runner uses the provider configured in Bento Forge, retains only generated
+cards and aggregate usage (never an API key), and writes all run reports plus a comparison:
+
+```powershell
+python scripts/benchmark_ai_models.py run `
+  --case benchmarks/japanese_vocab_20_v1.json `
+  --data-dir "C:\Users\<you>\AppData\Roaming\Anki2\<profile>\bento_forge" `
+  --max-tokens 32768 `
+  --variant deepseek-v4-flash@disabled `
+  --variant deepseek-v4-flash@enabled `
+  --variant deepseek-v4-pro@disabled
+```
+
+If provider metadata is missing but the key is already in the OS credential store, add
+`--provider __custom__ --api-base https://api.deepseek.com/v1`. The key remains in the
+credential store and is never accepted as a command-line argument.
+
+Thinking-mode suffixes are optional and useful when a provider exposes one model in two
+distinct modes. The command always bypasses Bento Forge's result cache so model latency
+and cost remain comparable.
+
+If a response was captured elsewhere, score it with the fallback command below:
 
 ```powershell
 python scripts/benchmark_ai_models.py score `

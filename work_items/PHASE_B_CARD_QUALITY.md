@@ -1,5 +1,7 @@
 # Phase B — Chất lượng thẻ
 
+> **PHẠM VI PERSONAL (2026-08-16):** B1/B2 structural đã có. Chỉ mở cải tiến khi corpus hoặc trải nghiệm học cá nhân chỉ ra lỗi lặp lại; mục tiêu là “đủ tốt để học”, không phải “tốt nhất thị trường”. Schema/prompt/template cần phán đoán ngôn ngữ: `gpt-5.6-sol` / `high`; warning deterministic/test: `gpt-5.6-terra` / `medium`.
+
 > **Nguồn:** `ACADEMIC_ASSESSMENT.md` — Phase B (Core competency)
 > **Trạng thái:** `Đang làm` — B1 và phần structural của B2 đã hoàn thành; không dùng AI để “chấm AI”.
 > **Mục tiêu:** Thẻ tạo ra phải là tốt nhất thị trường

@@ -188,11 +188,44 @@ def css_korean():
     return _KO_THEME + _BASE_CSS + _KO_SPECIFIC + _KO_EXTRA + _SHARED_UI_CSS
 
 
+# ═══════════════════════════════════════════════════════════
+#  ENGLISH CSS
+# ═══════════════════════════════════════════════════════════
+
+_EN_THEME = '''
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&family=Merriweather:wght@700&display=swap');
+:root {
+    --bg:#f4f7fb;--card-bg:#ffffff;--border:#dce4ef;--text:#152238;
+    --muted:#718096;--accent:#c8102e;--accent-soft:#fdecef;
+    --accent2:#1f5fa8;--accent2-soft:#eaf2fb;
+    --ex-bg:#f8fafc;--ex-border:#d9e2ec;--shadow:0 4px 20px rgba(31,70,110,.09);--r:16px;
+    --flag:"🇬🇧";
+}
+body{font-family:'Inter','Segoe UI',Arial,sans-serif;}
+'''
+
+_EN_SPECIFIC = '''
+.pinyin{font-size:16px;color:var(--accent2);letter-spacing:.03em;min-height:22px;margin-bottom:5px;}
+.hanzi{font-family:'Merriweather',Georgia,serif;font-size:50px;font-weight:700;color:var(--text);line-height:1.2;}
+'''
+
+_EN_EXTRA = '''
+body{background:linear-gradient(150deg,#f4f7fb 0%,#fff5f6 100%);}
+.ch{background:linear-gradient(135deg,#1f5fa8 0%,#173f72 60%,#c8102e 100%);}
+.cw{border-left:3px solid #1f5fa8;}
+'''
+
+
+def css_english():
+    return _EN_THEME + _BASE_CSS + _EN_SPECIFIC + _EN_EXTRA + _SHARED_UI_CSS
+
+
 # LANG_CSS Registry
 LANG_CSS = {
     "japanese": css_japanese,
     "chinese":  css_chinese,
     "korean":   css_korean,
+    "english":  css_english,
 }
 
 
@@ -231,9 +264,14 @@ def css_korean_grammar():
     return _KO_THEME + _BASE_CSS + _KO_SPECIFIC + _GRAMMAR_EXTRA + _SHARED_UI_CSS
 
 
+def css_english_grammar():
+    return _EN_THEME + _BASE_CSS + _EN_SPECIFIC + _GRAMMAR_EXTRA + _SHARED_UI_CSS
+
+
 # LANG_GRAMMAR_CSS Registry
 LANG_GRAMMAR_CSS = {
     "japanese": css_japanese_grammar,
     "chinese":  css_chinese_grammar,
     "korean":   css_korean_grammar,
+    "english":  css_english_grammar,
 }

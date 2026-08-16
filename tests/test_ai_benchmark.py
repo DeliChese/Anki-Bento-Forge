@@ -8,6 +8,7 @@ from utils.ai_benchmark import (
     evaluate_cards,
     render_markdown_comparison,
 )
+from scripts.benchmark_ai_models import _parse_variant, _safe_run_name
 
 
 CASE = {
@@ -78,3 +79,17 @@ def test_report_rejects_incomplete_human_review_and_comparison_is_markdown():
     table = render_markdown_comparison([report])
     assert "| Provider / model |" in table
     assert "gemini / flash" in table
+
+
+def test_benchmark_variant_parses_thinking_mode_and_safe_name():
+    assert _parse_variant("deepseek-v4-flash@enabled") == (
+        "deepseek-v4-flash",
+        "enabled",
+    )
+    assert _parse_variant("openai/gpt-5.6") == ("openai/gpt-5.6", None)
+    assert _safe_run_name("openai/gpt-5.6", None) == "openai-gpt-5.6"
+
+
+def test_benchmark_variant_rejects_unknown_thinking_mode():
+    with pytest.raises(ValueError, match="thinking mode"):
+        _parse_variant("deepseek-v4-pro@sometimes")

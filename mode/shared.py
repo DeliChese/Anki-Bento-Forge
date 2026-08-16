@@ -37,7 +37,7 @@ _HW_CSS = '''
 _WB_JS_BODY = (
     '(function(){'
     'var word=_wbWord,pool=_wbPool;'
-    'var chars=Array.from(word);'
+    'var chars=Array.from(word).filter(function(c){return !/\\s/.test(c);});'
     'var extra=[];'
     'var need=Math.max(3,Math.ceil(chars.length*0.8));'
     'var p=pool.slice();'
@@ -60,7 +60,7 @@ _WB_JS_BODY = (
     '[ans,bank].forEach(function(z){z.addEventListener("dragover",function(e){e.preventDefault();var d=window._wbEl;if(!d)return;var a=gpos(this,e.clientX);if(!a)this.appendChild(d);else this.insertBefore(a,d);});});'
     '})();'
     'window.wbCheck=function(){'
-    'var w=_wbWord,ts=document.getElementById("wb-ans").querySelectorAll(".wb-tile"),a="";'
+    'var w=Array.from(_wbWord).filter(function(c){return !/\\s/.test(c);}).join(""),ts=document.getElementById("wb-ans").querySelectorAll(".wb-tile"),a="";'
     '[].forEach.call(ts,function(t){a+=t.textContent;});'
     'var r=document.getElementById("wb-result");r.style.display="block";'
     'if(a===w){r.className="wb-result wb-ok";r.textContent="✅ Chính xác!";'
@@ -158,6 +158,7 @@ WB_POOLS = {
     "japanese": JA_WB_POOL,
     "chinese":  ZH_WB_POOL,
     "korean":   KO_WB_POOL,
+    "english":  EN_WB_POOL,
 }
 
 

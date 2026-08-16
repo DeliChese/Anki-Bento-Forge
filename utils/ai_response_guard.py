@@ -4,9 +4,13 @@ from .i18n import t
 
 
 def enable_deepseek_json_output(payload: dict, cfg: dict) -> dict:
-    """Enable DeepSeek's native JSON mode for direct API calls."""
+    """Enable native JSON and the benchmarked V4 card-generation mode."""
     if "api.deepseek.com" in (cfg.get("api_base") or "").lower():
         payload["response_format"] = {"type": "json_object"}
+        if (cfg.get("model") or "").lower().startswith("deepseek-v4-"):
+            mode = (cfg.get("thinking_mode") or "disabled").lower()
+            if mode in ("enabled", "disabled"):
+                payload["thinking"] = {"type": mode}
     return payload
 
 

@@ -125,6 +125,7 @@ _LANG_LABEL_KEYS = {
     "japanese": "lang_japanese",
     "chinese": "lang_chinese",
     "korean": "lang_korean",
+    "english": "lang_english",
 }
 
 
@@ -1121,7 +1122,16 @@ class AnkiSmartFactory(QDialog):
                     border: 2px solid #c60c30;
                     font-size: 15px;
                 }
-            """
+            """,
+            "english": """
+                QPushButton:checked {
+                    background: qlineargradient(x1:0, y1:0, x2:1, y2:1,
+                        stop:0 #f5f9ff, stop:1 #fff3f5);
+                    color: #1f5fa8;
+                    border: 2px solid #1f5fa8;
+                    font-size: 15px;
+                }
+            """,
         }
 
         for key, btn in self.btn_lang.items():
@@ -2899,7 +2909,7 @@ class AnkiSmartFactory(QDialog):
         """Đưa các từ đã chọn từ lịch sử vào xưởng (json_input + kho hàng) để kiểm định lại."""
         if not items:
             return
-        if lang and lang in ("japanese", "chinese", "korean") and lang != self._current_lang:
+        if lang and lang in LANG_CONFIG and lang != self._current_lang:
             self._current_lang = lang
             self._on_lang_changed()
         json_str = json.dumps(items, indent=2, ensure_ascii=False)

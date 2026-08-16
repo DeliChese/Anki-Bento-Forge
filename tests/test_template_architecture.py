@@ -3,7 +3,7 @@
 from pathlib import Path
 
 import mode.templates as templates
-from mode.templates import chinese, japanese, korean
+from mode.templates import chinese, english, japanese, korean
 
 
 def _template_functions(module, prefix):
@@ -24,18 +24,18 @@ def test_templates_are_a_package_with_a_small_compatibility_facade():
 
 
 def test_each_supported_language_owns_its_template_functions():
-    expected_counts = {"tmpl_ja_": 16, "tmpl_zh_": 16, "tmpl_ko_": 14}
+    expected_counts = {"tmpl_ja_": 16, "tmpl_zh_": 16, "tmpl_ko_": 14, "tmpl_en_": 14}
 
     for module, (prefix, expected_count) in zip(
-        (japanese, chinese, korean), expected_counts.items()
+        (japanese, chinese, korean, english), expected_counts.items()
     ):
         functions = _template_functions(module, prefix)
         assert len(functions) == expected_count
         assert all(callable(template) and template() for template in functions.values())
 
 
-def test_registry_preserves_all_three_language_template_contracts():
-    for language in ("japanese", "chinese", "korean"):
+def test_registry_preserves_all_language_template_contracts():
+    for language in ("japanese", "chinese", "korean", "english"):
         vocab_templates = templates.LANG_TEMPLATES[language]
         grammar_templates = templates.LANG_GRAMMAR_TEMPLATES[language]
 

@@ -84,7 +84,7 @@ class TestBatchPromptExistingContext:
 class TestSystemPromptCompactness:
     def test_vocab_prompts_compact(self):
         from utils.ai_extractor import _SYSTEM_PROMPTS
-        for lang in ("japanese", "chinese", "korean"):
+        for lang in ("japanese", "chinese", "korean", "english"):
             sp = _SYSTEM_PROMPTS[lang]
             assert "MẪU:" in sp
             assert "ĐẦU RA" in sp
@@ -92,7 +92,7 @@ class TestSystemPromptCompactness:
 
     def test_grammar_prompts_compact(self):
         from utils.ai_extractor import _GRAMMAR_SYSTEM_PROMPTS
-        for lang in ("japanese", "chinese", "korean"):
+        for lang in ("japanese", "chinese", "korean", "english"):
             sp = _GRAMMAR_SYSTEM_PROMPTS[lang]
             assert "MẪU:" in sp
             assert "ĐẦU RA" in sp
@@ -100,7 +100,7 @@ class TestSystemPromptCompactness:
 
     def test_output_conciseness_rule(self):
         from utils.ai_extractor import _GRAMMAR_SYSTEM_PROMPTS
-        for lang in ("japanese", "chinese", "korean"):
+        for lang in ("japanese", "chinese", "korean", "english"):
             assert "TỐI ĐA 2 câu" in _GRAMMAR_SYSTEM_PROMPTS[lang]
 
 
