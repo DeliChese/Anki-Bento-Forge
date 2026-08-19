@@ -1,9 +1,8 @@
 """HTTP transport for OpenAI-compatible AI providers.
 
 This module owns only network concerns: TLS policy, per-thread connection reuse,
-rate-limit backoff, retry, cancellation, and bounded response reads.  It must
-remain independent from Anki/Qt, user configuration, prompts, and AI response
-parsing so callers can use and test it outside the Anki runtime.
+rate-limit backoff, retry, cancellation, and bounded response reads. It remains
+independent from Anki/Qt, user configuration, prompts, and response parsing.
 """
 
 import http.client
@@ -17,8 +16,6 @@ from urllib.parse import urlparse
 from .i18n import t
 
 
-# Cloud providers use normal certificate verification.  The relaxed context is
-# limited to loopback hosts used by local Ollama/LM Studio installations.
 _SSL_CONTEXT_SECURE = ssl.create_default_context()
 _SSL_CONTEXT_LOCAL = ssl.create_default_context()
 _SSL_CONTEXT_LOCAL.check_hostname = False
@@ -26,6 +23,11 @@ _SSL_CONTEXT_LOCAL.verify_mode = ssl.CERT_NONE
 
 _LOCAL_HOSTS = {"localhost", "127.0.0.1", "::1", "0.0.0.0"}
 _OPENROUTER_MARKERS = ("openrouter.ai", "openrouter")
+_MAX_RESPONSE_BYTES = 16 * 1024 * 1024
+
+
+class ResponseTooLargeError(RuntimeError):
+    """Raised when an AI provider response exceeds the transport safety bound."""
 
 
 def is_openrouter(api_base: str) -> bool:
@@ -41,8 +43,19 @@ def _pick_ssl_context(host: str) -> ssl.SSLContext:
     return _SSL_CONTEXT_SECURE
 
 
-# Connections and adaptive delay are thread-local: callers may run concurrent
-# AI tasks without sharing a non-thread-safe HTTPConnection or throttling state.
+def _parse_http_url(url: str):
+    """Validate an HTTP(S) endpoint and return connection components."""
+    parsed = urlparse(url)
+    if parsed.scheme not in {"http", "https"} or not parsed.hostname:
+        raise ValueError("AI endpoint must be an absolute http:// or https:// URL")
+    host = parsed.hostname
+    port = parsed.port or (443 if parsed.scheme == "https" else 80)
+    path = parsed.path or "/"
+    if parsed.query:
+        path += "?" + parsed.query
+    return parsed.scheme, host, port, path
+
+
 _conn_pool_local = threading.local()
 _rate_limit_state = threading.local()
 
@@ -72,6 +85,8 @@ def _get_thread_conn(
         _conn_pool_local.pool = pool
     conn = pool.get(pool_key)
     if force_new or conn is None:
+        if conn is not None:
+            conn.close()
         conn = _create_conn(host, port, use_ssl, timeout, ssl_context)
         pool[pool_key] = conn
     return conn
@@ -105,10 +120,54 @@ def abortable_wait(
             raise RuntimeError(t("error_cancelled_by_user"))
         before = time.monotonic()
         time.sleep(min(0.1, deadline - before))
-        # Test doubles may replace sleep() with a no-op. Avoid spinning for the
-        # real-time duration when the monotonic clock does not advance.
         if time.monotonic() <= before:
             return
+
+
+def _read_bounded_response(
+    resp,
+    progress_callback: Optional[Callable[[str], None]],
+    should_abort: Optional[Callable[[], bool]],
+    conn,
+) -> str:
+    """Read a response body without allowing an unbounded allocation."""
+    raw_length = resp.getheader("Content-Length")
+    try:
+        content_length = int(raw_length) if raw_length is not None else 0
+    except (TypeError, ValueError):
+        content_length = 0
+
+    if content_length > _MAX_RESPONSE_BYTES:
+        conn.close()
+        raise ResponseTooLargeError(
+            f"AI response exceeds {_MAX_RESPONSE_BYTES} byte safety limit"
+        )
+
+    chunks = []
+    total_read = 0
+    while True:
+        if should_abort and should_abort():
+            conn.close()
+            raise RuntimeError(t("error_cancelled_by_user"))
+        chunk = resp.read(8192)
+        if not chunk:
+            break
+        total_read += len(chunk)
+        if total_read > _MAX_RESPONSE_BYTES:
+            conn.close()
+            raise ResponseTooLargeError(
+                f"AI response exceeds {_MAX_RESPONSE_BYTES} byte safety limit"
+            )
+        chunks.append(chunk)
+        if (
+            progress_callback
+            and content_length > 0
+            and total_read % 65536 < 8192
+        ):
+            pct = min(99, total_read * 100 // content_length)
+            progress_callback(t("status_receiving_data", percent=pct))
+
+    return b"".join(chunks).decode("utf-8")
 
 
 def post_json(
@@ -120,27 +179,20 @@ def post_json(
     should_abort: Optional[Callable[[], bool]] = None,
     total_timeout: int = 900,
 ) -> str:
-    """POST JSON and return a decoded response body.
-
-    The transport reuses one HTTP/1.1 connection per worker thread, streams the
-    response in chunks, retries transient connection failures, and treats HTTP
-    429 with its Retry-After value plus adaptive per-thread throttling.
-    """
-    parsed = urlparse(url)
-    host = parsed.hostname or "localhost"
-    port = parsed.port or (443 if parsed.scheme == "https" else 80)
-    path = parsed.path + ("?" + parsed.query if parsed.query else "")
-    use_ssl = parsed.scheme == "https"
+    """POST JSON and return a decoded, size-bounded response body."""
+    scheme, host, port, path = _parse_http_url(url)
+    use_ssl = scheme == "https"
     ssl_context = _pick_ssl_context(host)
 
     if should_abort and should_abort():
         raise RuntimeError(t("error_cancelled_by_user"))
     deadline = time.monotonic() + total_timeout
-    pool_key = f"{host}:{port}"
+    pool_key = f"{scheme}://{host}:{port}|timeout={timeout}"
     conn = _get_thread_conn(pool_key, host, port, use_ssl, timeout, ssl_context)
 
     body_bytes = json.dumps(payload).encode("utf-8")
-    headers["Content-Length"] = str(len(body_bytes))
+    request_headers = dict(headers or {})
+    request_headers["Content-Length"] = str(len(body_bytes))
 
     rate_delay = get_rate_limit_delay()
     if rate_delay > 0:
@@ -167,7 +219,7 @@ def post_json(
                     force_new=True,
                 )
 
-            conn.request("POST", path, body=body_bytes, headers=headers)
+            conn.request("POST", path, body=body_bytes, headers=request_headers)
             resp = conn.getresponse()
 
             if resp.status == 429:
@@ -176,7 +228,7 @@ def post_json(
                 _bump_rate_limit_delay()
                 if retry_after:
                     try:
-                        wait = float(retry_after)
+                        wait = max(0.0, float(retry_after))
                     except ValueError:
                         wait = 30.0
                 else:
@@ -198,27 +250,9 @@ def post_json(
                     f"HTTP {resp.status} {resp.reason}: {err_body}"
                 )
 
-            chunks = []
-            total_read = 0
-            content_length = int(resp.getheader("Content-Length", 0))
-            while True:
-                if should_abort and should_abort():
-                    conn.close()
-                    raise RuntimeError(t("error_cancelled_by_user"))
-                chunk = resp.read(8192)
-                if not chunk:
-                    break
-                chunks.append(chunk)
-                total_read += len(chunk)
-                if (
-                    progress_callback
-                    and content_length > 0
-                    and total_read % 65536 < 8192
-                ):
-                    pct = min(99, total_read * 100 // content_length)
-                    progress_callback(t("status_receiving_data", percent=pct))
-
-            body = b"".join(chunks).decode("utf-8")
+            body = _read_bounded_response(
+                resp, progress_callback, should_abort, conn
+            )
             _reset_rate_limit_delay()
             return body
 
@@ -227,21 +261,25 @@ def post_json(
             if attempt < max_retries:
                 delay = 2.0 * (2 ** attempt)
                 if progress_callback:
-                    progress_callback(t(
-                        "status_retrying",
-                        attempt=attempt + 1,
-                        maximum=max_retries,
-                        seconds=delay,
-                    ))
+                    progress_callback(
+                        t(
+                            "status_retrying",
+                            attempt=attempt + 1,
+                            maximum=max_retries,
+                            seconds=delay,
+                        )
+                    )
                 abortable_wait(
                     min(delay, max(0.0, deadline - time.monotonic())),
                     should_abort,
                 )
                 continue
-            raise RuntimeError(t(
-                "error_connection_retries",
-                attempts=max_retries + 1,
-                error=last_error,
-            ))
+            raise RuntimeError(
+                t(
+                    "error_connection_retries",
+                    attempts=max_retries + 1,
+                    error=last_error,
+                )
+            )
 
     raise RuntimeError(t("error_connection", error=last_error))
