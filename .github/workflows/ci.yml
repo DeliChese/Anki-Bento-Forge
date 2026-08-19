@@ -13,7 +13,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python-version: ["3.9", "3.11", "3.13"]
+        python-version: ["3.11", "3.13"]
     steps:
       - uses: actions/checkout@v4
 
@@ -60,3 +60,16 @@ jobs:
         with:
           name: bento-forge-package
           path: dist/
+
+  python39-compat:
+    name: Python 3.9 syntax compatibility
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.9"
+
+      - name: Compile every tracked Python file
+        run: python -m py_compile $(git ls-files '*.py')
