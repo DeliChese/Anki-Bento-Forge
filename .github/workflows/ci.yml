@@ -13,7 +13,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python-version: ["3.9", "3.11"]
+        python-version: ["3.9", "3.11", "3.13"]
     steps:
       - uses: actions/checkout@v4
 
@@ -45,7 +45,7 @@ jobs:
         run: python -m py_compile $(git ls-files '*.py')
 
       - name: Package and clean-profile install smoke
-        if: matrix.python-version == '3.11'
+        if: matrix.python-version == '3.13'
         run: |
           pwsh -File scripts/build_addon.ps1
           cp dist/bento-forge.ankiaddon dist/bento-forge-smoke.zip
@@ -55,7 +55,7 @@ jobs:
           BENTO_FORGE_DATA_DIR="$(mktemp -d)" python -m py_compile clean-profile/addons21/bento-forge/__init__.py clean-profile/addons21/bento-forge/utils/*.py clean-profile/addons21/bento-forge/ui/*.py clean-profile/addons21/bento-forge/workers/*.py clean-profile/addons21/bento-forge/mode/*.py clean-profile/addons21/bento-forge/audio/*.py clean-profile/addons21/bento-forge/hooks/*.py clean-profile/addons21/bento-forge/Language/*.py
 
       - name: Upload release evidence
-        if: matrix.python-version == '3.11'
+        if: matrix.python-version == '3.13'
         uses: actions/upload-artifact@v4
         with:
           name: bento-forge-package
