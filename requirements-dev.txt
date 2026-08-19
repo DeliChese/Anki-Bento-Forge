@@ -1,7 +1,4 @@
 # Direct development-tool lock. Update deliberately and review in CI.
-# pytest 9.x requires Python >=3.10. Keep the newest 8.x line for the legacy
-# Python 3.9 compatibility lane and use the patched current line elsewhere.
-pytest==8.4.2; python_version < "3.10"
-pytest==9.1.1; python_version >= "3.10"
+pytest==9.1.1
 ruff==0.11.0
 pip-audit==2.8.0
