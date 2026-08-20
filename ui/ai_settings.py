@@ -287,6 +287,12 @@ def show_ai_settings_dialog(parent):
     """Mở dialog cấu hình API Key & Provider.
     Trả về True nếu người dùng đã lưu."""
     cfg = get_api_config()
+    preferred_models = dict(cfg.get("default_models") or {}) \
+        if isinstance(cfg.get("default_models"), dict) else {}
+    active_provider = str(cfg.get("provider") or "").strip()
+    active_model = str(cfg.get("model") or "").strip()
+    if active_provider and active_model:
+        preferred_models.setdefault(active_provider, active_model)
 
     dlg = QDialog(parent)
     dlg.setWindowTitle(t("dlg_ai_settings"))
@@ -554,14 +560,21 @@ def show_ai_settings_dialog(parent):
         # Model combo: chỉ model của provider
         cbo_model.blockSignals(True)
         cbo_model.clear()
+        preferred_model = preferred_models.get(provider_id, "")
         if prow:
             models = prow["models"]
             default_model = prow.get("default", models[0] if models else "")
             cbo_model.addItems(list(models))
-            if current_model and current_model in models:
+            if keep_current_model and current_model and current_model in models:
                 cbo_model.setCurrentText(current_model)
+            elif preferred_model in models:
+                cbo_model.setCurrentText(preferred_model)
             else:
                 cbo_model.setCurrentText(default_model)
+        elif preferred_model:
+            cbo_model.setEditText(preferred_model)
+        elif keep_current_model and current_model:
+            cbo_model.setEditText(current_model)
         cbo_model.blockSignals(False)
 
         if prow:
@@ -594,7 +607,7 @@ def show_ai_settings_dialog(parent):
         return -1
 
     # ── Chọn provider ban đầu ──
-    saved_provider = cfg.get("provider", "")
+    saved_provider = cfg.get("default_provider") or cfg.get("provider", "")
     detected = saved_provider or detect_provider(cfg.get("api_base", ""), cfg.get("model", ""))
     provider_ids = [p["id"] for p in AI_PROVIDERS]
     target_id = detected if detected in provider_ids else "__custom__"
@@ -602,9 +615,12 @@ def show_ai_settings_dialog(parent):
     if idx < 0:
         idx = _find_provider_index("__custom__")
     cbo_provider.setCurrentIndex(idx)
-    _apply_provider(target_id, keep_current_model=True)
+    _apply_provider(target_id, keep_current_model=False)
     # Giữ model người dùng đang cấu hình (nếu nó có trong list provider)
-    if cfg.get("model") and target_id != "__custom__":
+    if (
+        not preferred_models.get(target_id)
+        and cfg.get("model") and target_id != "__custom__"
+    ):
         prow = get_provider(target_id)
         if prow and cfg["model"] in prow["models"]:
             cbo_model.setCurrentText(cfg["model"])
@@ -631,6 +647,13 @@ def show_ai_settings_dialog(parent):
     btn_edit_prompts.clicked.connect(lambda: show_prompt_editor_dialog(dlg))
     btn_layout.addWidget(btn_edit_prompts)
 
+    btn_set_default = QPushButton(t("btn_set_ai_default"))
+    btn_set_default.setStyleSheet(
+        "padding:8px 16px;background:#d68910;color:white;font-weight:bold;border-radius:6px;"
+    )
+    btn_set_default.setToolTip(t("btn_set_ai_default_tip"))
+    btn_layout.addWidget(btn_set_default)
+
     btn_layout.addStretch()
 
     btn_cancel = QPushButton(t("btn_cancel_short"))
@@ -642,11 +665,13 @@ def show_ai_settings_dialog(parent):
         "padding:8px 20px;background:#27ae60;color:white;font-weight:bold;border-radius:6px;"
     )
 
-    def save_settings():
+    def save_settings(*, make_default=False, close_dialog=True):
+        provider_id = _provider_id_from_data(cbo_provider.currentData())
+        selected_model = cbo_model.currentText().strip()
         saved = save_api_config(
             txt_key.text().strip(),
             txt_base.text().strip(),
-            cbo_model.currentText().strip(),
+            selected_model,
             spin_temp.value(),
             45000,                          # max_chars (mặc định 45k)
             spin_chunk.value(),             # chunk_size
@@ -654,12 +679,22 @@ def show_ai_settings_dialog(parent):
             spin_session_input.value(),
             spin_session_tokens.value(),
             spin_session_cost.value(),
-            _provider_id_from_data(cbo_provider.currentData()),
+            provider_id,
+            make_default=make_default,
         )
-        dlg.accept()
-        tooltip(t("tooltip_saved_config") if saved else t("ai_set_secret_store_save_failed"))
+        if make_default:
+            preferred_models[provider_id or "__custom__"] = selected_model
+        if close_dialog:
+            dlg.accept()
+        success_key = "tooltip_saved_ai_default" if make_default else "tooltip_saved_config"
+        tooltip(t(success_key) if saved else t("ai_set_secret_store_save_failed"))
 
-    btn_save.clicked.connect(save_settings)
+    btn_set_default.clicked.connect(
+        lambda: save_settings(make_default=True, close_dialog=False)
+    )
+    btn_save.clicked.connect(
+        lambda: save_settings(make_default=False, close_dialog=True)
+    )
     btn_layout.addWidget(btn_save)
     root.addLayout(btn_layout)
 

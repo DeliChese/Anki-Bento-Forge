@@ -106,6 +106,7 @@ def test_chat_worker_uses_current_token_and_can_be_cleared():
         lang="korean",
         conversation_history=[{"role": "user", "content": "earlier"}],
         anki_context={"cards": 2},
+        card_kind="grammar",
         on_progress=progress.append,
         on_finished=finished.append,
         on_error=errors.append,
@@ -115,6 +116,7 @@ def test_chat_worker_uses_current_token_and_can_be_cleared():
     assert worker.started
     assert worker.kwargs["cancel_event"] is token
     assert worker.kwargs["anki_context"] == {"cards": 2}
+    assert worker.kwargs["card_kind"] == "grammar"
     coordinator.clear_chat_worker()
     assert coordinator.chat_worker is None
 

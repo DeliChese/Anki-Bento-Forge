@@ -34,7 +34,7 @@ def _adapted(content, *, finish_reason="stop", parsed=None):
 
 def _chat_result(
     monkeypatch, *, content="", parsed=None, finish_reason="stop",
-    reasoning_content="", lang="english",
+    reasoning_content="", lang="english", card_kind="vocab",
 ):
     message = {"content": content}
     if parsed is not None:
@@ -57,7 +57,7 @@ def _chat_result(
         lambda *args, **kwargs: json.dumps(provider_result),
     )
     return ai_extractor.chat_with_ai(
-        "test request", lang=lang, quick=True,
+        "test request", lang=lang, quick=True, card_kind=card_kind,
     )
 
 
@@ -198,6 +198,35 @@ def test_chat_grammar_shape_is_rejected_in_vocab_flow(monkeypatch):
     }]))
     assert result["vocab_json"] is None
     assert result["card_error"] == "schema_mismatch"
+
+
+def test_chat_grammar_mode_returns_validated_raw_cards(monkeypatch):
+    card = {
+        "pattern": "used to + V",
+        "meaning": "past habit",
+        "usage": "S + used to + V",
+        "cefr_level": "B1",
+    }
+    result = _chat_result(
+        monkeypatch, content=json.dumps([card]), card_kind="grammar",
+    )
+    assert result["card_kind"] == "grammar"
+    assert result["card_json"] == [card]
+    assert result["vocab_json"] == [card]
+    assert result["card_error"] is None
+
+
+def test_chat_prompt_requests_only_the_selected_grammar_schema(monkeypatch):
+    requested = []
+    monkeypatch.setattr(ai_extractor, "_ui_lang_en", lambda: True)
+    monkeypatch.setattr(
+        ai_extractor, "get_effective_json_template",
+        lambda lang, kind: requested.append((lang, kind)) or f"{kind.upper()}_SCHEMA",
+    )
+    prompt = ai_extractor._get_chat_system_prompt("english", "grammar")
+    assert requested == [("english", "grammar")]
+    assert "GRAMMAR_SCHEMA" in prompt
+    assert "VOCAB_SCHEMA" not in prompt
 
 
 def test_chat_prose_with_ordinary_braces_is_not_a_card_error(monkeypatch):

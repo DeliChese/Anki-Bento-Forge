@@ -141,12 +141,16 @@ class AiChatThread(QThread):
     finished = pyqtSignal(dict)
     error = pyqtSignal(str)
 
-    def __init__(self, message, lang, conversation_history=None, anki_context=None, cancel_event=None):
+    def __init__(
+        self, message, lang, conversation_history=None, anki_context=None,
+        card_kind="vocab", cancel_event=None,
+    ):
         super().__init__()
         self.message = message
         self.lang = lang
         self.conversation_history = conversation_history
         self.anki_context = anki_context
+        self.card_kind = card_kind
         self.cancel_event = cancel_event or threading.Event()
 
     def run(self):
@@ -159,6 +163,7 @@ class AiChatThread(QThread):
                 progress_callback=lambda msg: self.progress.emit(msg),
                 should_abort=self.cancel_event.is_set,
                 anki_context=self.anki_context,
+                card_kind=self.card_kind,
             )
 
             if self.cancel_event.is_set():

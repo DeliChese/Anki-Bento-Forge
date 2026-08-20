@@ -2981,6 +2981,8 @@ class AnkiSmartFactory(QDialog):
         self.btn_ai_batch.setEnabled(self._learning_mode == "language")
         self.btn_ai_settings.setEnabled(True)
         self.btn_ai_clear_text.setEnabled(True)
+        self.btn_mode_vocab.setEnabled(True)
+        self.btn_mode_grammar.setEnabled(True)
         self.btn_learning_language.setEnabled(True)
         self.btn_learning_knowledge.setEnabled(True)
         self.btn_ai_stop.setVisible(False)
@@ -3098,6 +3100,8 @@ class AnkiSmartFactory(QDialog):
         self.btn_ai_batch.setEnabled(False)
         self.btn_ai_settings.setEnabled(False)
         self.btn_ai_clear_text.setEnabled(False)
+        self.btn_mode_vocab.setEnabled(False)
+        self.btn_mode_grammar.setEnabled(False)
 
         # Khởi tạo conversation history nếu chưa có
         if not hasattr(self, '_ai_chat_history'):
@@ -3146,6 +3150,7 @@ class AnkiSmartFactory(QDialog):
             lang=self._current_lang,
             conversation_history=self._ai_chat_history if len(self._ai_chat_history) > 0 else None,
             anki_context=anki_context,
+            card_kind="grammar" if self._is_grammar else "vocab",
             on_progress=self._on_ai_chat_progress,
             on_finished=self._on_ai_chat_finished,
             on_error=self._on_ai_chat_error,
@@ -3234,7 +3239,8 @@ class AnkiSmartFactory(QDialog):
     def _show_ai_chat_dialog(self, result: dict):
         """Hiển thị dialog chat với phản hồi của AI"""
         reply_text = result.get("reply", "")
-        vocab_json = result.get("vocab_json")
+        vocab_json = result.get("card_json", result.get("vocab_json"))
+        card_kind = result.get("card_kind", "vocab")
         error = result.get("error")
         card_warning = result.get("card_warning")
 
@@ -3243,11 +3249,15 @@ class AnkiSmartFactory(QDialog):
             vocab_json=vocab_json,
             error=error,
             card_warning=card_warning,
+            card_kind=card_kind,
             parent=self,
         )
 
         if dlg.exec() == QDialog.DialogCode.Accepted and dlg.accepted_vocab:
-            # Người dùng muốn đổ từ vựng vào xưởng
+            # Đổ đúng card kind đã snapshot khi gửi request vào RAW/Xưởng.
+            wants_grammar = card_kind == "grammar"
+            if bool(getattr(self, "_is_grammar", False)) != wants_grammar:
+                self._select_mode(wants_grammar)
             json_str = json.dumps(dlg.accepted_vocab, indent=2, ensure_ascii=False)
             self.json_input.setPlainText(json_str)
             self._schedule_analyze()
@@ -3260,14 +3270,22 @@ class AnkiSmartFactory(QDialog):
                     self._current_lang,
                     deck_name=deck_name,
                     source="ai_chat",
-                    kind="grammar" if getattr(self, '_is_grammar', False) else "vocab",
+                    kind=card_kind,
                 )
             except Exception as e:
                 logger.warning("Lỗi ghi lịch sử AI chat: %s", e)
 
-            self.lbl_ai_status.setText(t("status_poured_vocab", count=len(dlg.accepted_vocab)))
+            status_key = (
+                "status_poured_grammar" if card_kind == "grammar"
+                else "status_poured_vocab"
+            )
+            message_key = (
+                "msg_chat_poured_grammar" if card_kind == "grammar"
+                else "msg_chat_poured"
+            )
+            self.lbl_ai_status.setText(t(status_key, count=len(dlg.accepted_vocab)))
             self.lbl_ai_status.setStyleSheet("color:#27ae60;font-size:11px;font-weight:bold;")
-            showInfo(t("msg_chat_poured", count=len(dlg.accepted_vocab)))
+            showInfo(t(message_key, count=len(dlg.accepted_vocab)))
 
     # ═══════════════════════════════════════════════════════
     #  DIALOG XEM TRƯỚC & CHỈNH SỬA THẺ SAU AI (wired → ui/ai_preview.py)
@@ -3305,6 +3323,13 @@ class AnkiSmartFactory(QDialog):
         self.json_input.setPlainText(json_str)
         self._schedule_analyze()
 
+        final_kind = (
+            "grammar"
+            if getattr(self, "_learning_mode", "language") == "language"
+            and getattr(self, "_is_grammar", False)
+            else "vocab"
+        )
+
         # Language preserves its legacy preview history. Knowledge is recorded
         # only after a successful CollectionOp import.
         if getattr(self, "_learning_mode", "language") == "language":
@@ -3315,12 +3340,16 @@ class AnkiSmartFactory(QDialog):
                     self._current_lang,
                     deck_name=deck_name,
                     source="ai_extract",
-                    kind="grammar" if getattr(self, '_is_grammar', False) else "vocab",
+                    kind=final_kind,
                 )
             except Exception as e:
                 logger.warning("Lỗi ghi lịch sử AI extract: %s", e)
 
-        self.lbl_ai_status.setText(t("status_poured_vocab", count=len(final_list)))
+        status_key = (
+            "status_poured_grammar" if final_kind == "grammar"
+            else "status_poured_vocab"
+        )
+        self.lbl_ai_status.setText(t(status_key, count=len(final_list)))
         self.lbl_ai_status.setStyleSheet("color:#27ae60;font-size:11px;font-weight:bold;")
 
         showInfo(t("msg_extract_poured", count=len(final_list)))

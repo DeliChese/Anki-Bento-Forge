@@ -7,10 +7,14 @@ minimum semantics và completeness đều có bằng chứng deterministic; gi�
 lệ và retry riêng phần chưa hoàn tất trước release 18.0.0. Mọi card payload từ Chat cũng
 phải đi qua contract này trong khi prose-only vẫn là phản hồi chat hợp lệ.
 
+Follow-up release gate: Chat phải snapshot đúng `vocab|grammar` để grammar JSON có thể
+vào RAW/Xưởng; provider/model mặc định và usage history phải sống qua restart/profile load.
+
 ## Không làm
 
 - Không thêm card type, field ngôn ngữ, AI Study Sessions/history mới, OCR/image hoặc model routing.
 - Không tự điền field, viết tiếp JSON bị cắt hoặc suy đoán candidate mapping.
+- Không lưu API key, prompt, response hoặc conversation trong JSON usage/config.
 - Không bump 18.0.0; smoke Anki thật vẫn do chủ dự án chạy trên profile backup.
 
 ## Nguồn đã đọc
@@ -22,6 +26,7 @@ phải đi qua contract này trong khi prose-only vẫn là phản hồi chat h�
   `extract_grammar_with_ai`, `extract_grammar_long_text`
 - `utils/ai_response_parser.py`, `utils/ai_response_guard.py`,
   `utils/ai_reliability.py`, `utils/ai_text_recovery.py`,
+  `utils/ai_usage_history.py`, `utils/user_data.py`, `ui/ai_settings.py`,
   `utils/ai_output_repairs.py`, `utils/ai_http_client.py`, `utils/ai_providers.py`,
   `utils/ai_session_policy.py`, `utils/ai_result_cache.py`, `utils/ai_workflow.py`
 - `utils/batch_processor.py:_call_ai_for_batch`, `process_large_word_list`
@@ -38,6 +43,8 @@ phải đi qua contract này trong khi prose-only vẫn là phản hồi chat h�
 - Khi một source phải split, kết quả hai child span là authoritative; không cộng provisional
   prefix của parent vào lại. Merge child theo identity + meaning để giữ distinct senses.
 - Provider transient retry vẫn thuộc HTTP transport; semantic/output recovery tối đa hai tầng.
+- User-data path phải resolve sau khi Anki profile sẵn sàng; test override vẫn được tôn trọng.
+- Card kind là snapshot của request, không suy từ payload và không đổi chéo vocab/grammar.
 
 ## Kế hoạch tối thiểu
 
@@ -46,6 +53,7 @@ phải đi qua contract này trong khi prose-only vẫn là phản hồi chat h�
 3. Candidate reconciliation, partial retry, adaptive split, partial-success UI.
 4. Regression matrix, provider-free benchmark, isolated suite và smoke handoff.
 5. Hợp nhất optional Chat card parsing vào adapter/parser/validator hiện có; loại parser regex riêng.
+6. Truyền card kind vào Chat/Xưởng và làm profile path + provider/model default bền qua restart.
 
 ## Acceptance criteria
 
@@ -59,18 +67,22 @@ phải đi qua contract này trong khi prose-only vẫn là phản hồi chat h�
 - [x] Hai vòng full isolated suite xanh trên trạng thái cuối.
 - [x] Chat prose/card/structured/schema/ambiguity/truncation cùng dùng reliability contract.
 - [x] Split text recovery không cộng lại provisional prefix và merge deterministic.
+- [x] Grammar Chat payload vào RAW/Xưởng với grammar validator và preview columns đúng.
+- [x] Provider/model default và usage history sống qua restart/profile switch giả lập.
 - [ ] Smoke Anki profile backup và manual large-batch provider run do chủ dự án xác nhận.
 
 ## Handoff / kết quả
 
 - Quyết định: batch mặc định Quality V2 là 8–12 card tùy language/mode; UI mặc định 10,
-  policy runtime có thể hạ thấp hơn cấu hình người dùng. Chat giữ scope vocab và optional
-  card payload phải qua adapter → parser → validator → normalization; split child là
+  policy runtime có thể hạ thấp hơn cấu hình người dùng. Chat optional card payload phải
+  qua adapter → parser → validator → normalization và truyền snapshot vocab/grammar để
+  grammar RAW dùng cùng contract; split child là
   authoritative khi text recovery phải chia source. Card payload bị reject có warning
   không-fatal trong dialog để prose hữu ích vẫn hiển thị.
 - Files đã đổi: parser/adapter/validator/reliability/cache/batch domain; worker/UI partial
-  summary; i18n; Chat integration; text recovery; tests; simulated benchmark; roadmap/changelog.
-- Kiểm chứng đã chạy và kết quả: Chat/reliability regression `50 passed`; targeted AI gate
-  `129 passed`; hai vòng isolated suite `608 passed` mỗi vòng; compile toàn bộ Python và
+  summary; i18n; Chat vocab/grammar integration; profile-dynamic AI config/cache/usage
+  history; text recovery; tests; simulated benchmark; roadmap/changelog.
+- Kiểm chứng đã chạy và kết quả: targeted AI/persistence gate `135 passed`; hai vòng
+  isolated suite `614 passed` mỗi vòng; compile toàn bộ Python và
   critical Ruff lint (`E9,F63,F7,F82`) xanh; benchmark artifact xanh.
 - Còn lại / blocker: smoke Anki thật và real-provider 30-card metrics trên profile backup.

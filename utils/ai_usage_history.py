@@ -16,7 +16,9 @@ from .user_data import atomic_write_json, get_user_data_path, read_json
 
 logger = get_logger()
 
-_PATH = get_user_data_path("ai_usage_history.json")
+# Optional compatibility override for tests. Resolve the active profile lazily;
+# this module is often imported before Anki's profile manager is ready.
+_PATH: Optional[str] = None
 _MAX_ENTRIES = 2_000
 _LOCK = threading.RLock()
 
@@ -37,7 +39,8 @@ def _integer(value: Any) -> int:
 
 
 def _load() -> Dict[str, List[dict]]:
-    document = read_json(_PATH, {"version": 1, "entries": []}, _valid_document)
+    path = _PATH or get_user_data_path("ai_usage_history.json")
+    document = read_json(path, {"version": 1, "entries": []}, _valid_document)
     entries = [entry for entry in document.get("entries", []) if isinstance(entry, dict)]
     return {"version": 1, "entries": entries[-_MAX_ENTRIES:]}
 
@@ -75,7 +78,7 @@ def record_usage(
             document = _load()
             document["entries"].append(entry)
             document["entries"] = document["entries"][-_MAX_ENTRIES:]
-            atomic_write_json(_PATH, document)
+            atomic_write_json(_PATH or get_user_data_path("ai_usage_history.json"), document)
         except Exception as error:
             logger.warning("Could not persist AI usage history: %s", error)
 
@@ -90,7 +93,10 @@ def clear_usage_history() -> None:
     """Remove only usage metadata after an explicit user action."""
     with _LOCK:
         try:
-            atomic_write_json(_PATH, {"version": 1, "entries": []})
+            atomic_write_json(
+                _PATH or get_user_data_path("ai_usage_history.json"),
+                {"version": 1, "entries": []},
+            )
         except Exception as error:
             logger.warning("Could not clear AI usage history: %s", error)
 

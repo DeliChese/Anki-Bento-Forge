@@ -12,32 +12,32 @@ description: Lõi AI của add-on — utils/ai_extractor.py (~1.489 dòng). Conf
 
 | Vùng | Dòng | Nội dung |
 |------|------|----------|
-| Encryption API key | 75-114 | `_get_machine_key`:75, `_derive_fernet_key`:82, `_decrypt_legacy_api_key`:95 |
-| Config | 203-343 | `_load_config`:203, `get_api_config`:237, `save_api_config`:290, `_apply_reasoning_effort`:335 |
-| Cost tracking | 364-400 | `_calculate_cost`:375, `_format_token_report`:392 |
-| Cache compatibility | 408-448 | `_PROMPT_VERSION`:408, `_ai_cache_key`:423, `_ai_cache_get`:432, `_ai_cache_set`:439, `clear_cache`:446 |
+| Encryption API key | 90-123 | `_get_machine_key`:90, `_derive_fernet_key`:97, `_decrypt_legacy_api_key`:110 |
+| Config | 233-425 | `_load_config`:233, `get_api_config`:283, `save_api_config`:351; profile path resolve lazy |
+| Cost tracking | 448-491 | `_calculate_cost`:448, `_format_token_report`:481 |
+| Cache compatibility | 494-538 | `_PROMPT_VERSION`:494, `_ai_cache_key`:511, `_ai_cache_get`:522, `_ai_cache_set`:529, `clear_cache`:536 |
 | Cache owner | `utils/ai_result_cache.py:23-160` | key + prompt dimensions, migration/pruning, TTL 7/14 ngày, persistence, clear; không phụ thuộc AI/Anki/UI |
-| Prompt compatibility | 460-505 | re-export 32 symbol cũ; `get_json_template`:499, `get_grammar_json_template`:504 |
+| Prompt compatibility | 550-604 | re-export 32 symbol cũ; `get_json_template`:599, `get_grammar_json_template`:604 |
 | Prompt defaults owner | `utils/ai_prompt_defaults.py:12-528` | schema/prompt VI+EN cho vocab/grammar; dữ liệu thuần, không dependency runtime |
-| File extraction compatibility | 514-529 | re-export từ `utils/document_extractors.py` |
-| Vocab extract | 600-750 | `extract_vocabulary_with_ai`:600; parser được inject qua compatibility alias |
+| File extraction compatibility | 616-631 | re-export từ `utils/document_extractors.py` |
+| Vocab extract | 700-850 | `extract_vocabulary_with_ai`:700; parser được inject qua compatibility alias |
 | Response parser owner | `utils/ai_response_parser.py:9-64` | code fence/list/dict/comment/embedded/fallback/error; chỉ phụ thuộc `json_parser` |
-| Chat | 757-1117 | `query_anki_context`:757, `_build_anki_context_text`:843, `chat_with_ai`:965 |
-| Long text | 1124-1209 | `extract_vocabulary_long_text`:1124 |
-| Grammar extract | 1217-1455 | `extract_grammar_with_ai`:1217, `extract_grammar_long_text`:1376 |
-| Import-history compatibility | 1458-1489 | re-export API cũ; `init_import_history`:1484 inject Anki scan context lazy |
+| Chat | 858-1184 | `query_anki_context`:858, `_build_anki_context_text`:944, `chat_with_ai`:1031; `card_kind` snapshot vocab/grammar |
+| Long text | 1191-1280 | `extract_vocabulary_long_text`:1191 |
+| Grammar extract | 1290-1532 | `extract_grammar_with_ai`:1290, `extract_grammar_long_text`:1451 |
+| Import-history compatibility | 1539-1563 | re-export API cũ; `init_import_history`:1556 inject Anki scan context lazy |
 | Import-history owner | `utils/import_history.py:30-522` | storage/TTL/scan aggregation/add/query/items/search/summary; không import Anki/UI/AI |
 
 ## API CÔNG KHAI (dùng từ nơi khác)
 
 ```python
 get_api_config() -> dict          # api_key(decrypted), api_base, model, temperature, max_tokens, max_chars, chunk_size, reasoning_effort
-save_api_config(api_key, api_base, model, temperature=0.3, max_chars=45000, chunk_size=8000, reasoning_effort="")
+save_api_config(api_key, api_base, model, temperature=0.3, max_chars=45000, chunk_size=8000, reasoning_effort="", ..., provider="", make_default=False)
 extract_vocabulary_with_ai(text, lang, custom_instruction="", existing_words=None, progress_callback=None, force_refresh=False, token_callback=None) -> list[dict]
 extract_vocabulary_long_text(text, lang, custom_instruction="", existing_words=None, chunk_size=None, progress_callback=None, force_refresh=False) -> list[dict]
 extract_grammar_with_ai(text, lang, custom_instruction="", existing_patterns=None, progress_callback=None, force_refresh=False, token_callback=None) -> list[dict]
 extract_grammar_long_text(text, lang, custom_instruction="", existing_patterns=None, chunk_size=None, progress_callback=None, force_refresh=False) -> list[dict]
-chat_with_ai(user_message, lang="japanese", conversation_history=None, progress_callback=None) -> dict{reply, vocab_json, token_info, error}
+chat_with_ai(user_message, lang="japanese", conversation_history=None, progress_callback=None, ..., card_kind="vocab") -> dict{reply, card_json, card_kind, token_info, error}
 query_anki_context(user_message, lang="japanese") -> dict   # context Anki thông minh
 extract_text_from_file(filepath) -> str    # trích text file đính kèm
 extract_text_from_files(filepaths) -> list[(name, text)]

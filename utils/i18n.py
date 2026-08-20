@@ -1175,6 +1175,10 @@ _TRANSLATIONS = {
         "vi": "✅ Đã đổ {count} từ vựng vào xưởng!",
         "en": "✅ Poured {count} vocabulary into the factory!",
     },
+    "status_poured_grammar": {
+        "vi": "✅ Đã đưa {count} thẻ ngữ pháp RAW vào Xưởng!",
+        "en": "✅ Sent {count} RAW grammar cards to the Factory!",
+    },
     "status_pulled_history": {
         "vi": "📥 Đã đưa {count} từ từ lịch sử vào xưởng!",
         "en": "📥 Pulled {count} words from history into the factory!",
@@ -1221,9 +1225,17 @@ _TRANSLATIONS = {
         "vi": "📝 AI Đề Xuất {count} Từ Vựng",
         "en": "📝 AI Suggested {count} Vocabulary",
     },
+    "chat_grammar_group": {
+        "vi": "📝 AI Đề Xuất {count} Thẻ Ngữ Pháp",
+        "en": "📝 AI Suggested {count} Grammar Cards",
+    },
     "chat_vocab_hint": {
         "vi": "AI đã trích xuất từ vựng từ phản hồi. Bạn có thể <b>đổ vào xưởng</b> để import vào Anki.",
         "en": "AI extracted vocabulary from the reply. You can <b>pour it into the factory</b> to import into Anki.",
+    },
+    "chat_grammar_hint": {
+        "vi": "AI đã trích xuất cấu trúc ngữ pháp. Bạn có thể đưa dữ liệu RAW vào Xưởng để kiểm định trước khi import.",
+        "en": "AI extracted grammar patterns. You can send the RAW data to the Factory for validation before import.",
     },
     "chat_close": {
         "vi": "❌ Đóng",
@@ -1232,6 +1244,10 @@ _TRANSLATIONS = {
     "chat_accept": {
         "vi": "✅ Đổ {count} Từ Vựng Vào Xưởng",
         "en": "✅ Pour {count} Vocabulary Into Factory",
+    },
+    "chat_accept_grammar": {
+        "vi": "✅ Đưa {count} Thẻ Ngữ Pháp Vào Xưởng",
+        "en": "✅ Send {count} Grammar Cards Into Factory",
     },
     "chat_copy": {
         "vi": "📋 Copy Phản Hồi",
@@ -1350,6 +1366,14 @@ _TRANSLATIONS = {
     "btn_save": {
         "vi": "💾 Lưu",
         "en": "💾 Save",
+    },
+    "btn_set_ai_default": {
+        "vi": "⭐ Đặt Provider + Model Mặc Định",
+        "en": "⭐ Set Provider + Model Default",
+    },
+    "btn_set_ai_default_tip": {
+        "vi": "Lưu provider và model đang chọn làm mặc định cho lần mở Anki tiếp theo.",
+        "en": "Save the selected provider and model as the default for the next Anki launch.",
     },
     "tooltip_updated_card": {
         "vi": "✅ Đã cập nhật thẻ #{row}",
@@ -1897,6 +1921,10 @@ _TRANSLATIONS = {
         "vi": "🤖 AI Chat Hoàn Tất!\n\n📊 Đã đổ {count} từ vựng vào khung JSON.\n👉 Nhấn <b>'Kiểm Định Lô Hàng'</b> để kiểm tra và import.",
         "en": "🤖 AI Chat Complete!\n\n📊 Poured {count} vocabulary into the JSON box.\n👉 Click <b>'Verify Batch'</b> to check and import.",
     },
+    "msg_chat_poured_grammar": {
+        "vi": "🤖 AI Chat Hoàn Tất!\n\n📊 Đã đưa {count} thẻ ngữ pháp RAW vào khung JSON.\n👉 Nhấn <b>'Kiểm Định Lô Hàng'</b> để kiểm tra và import.",
+        "en": "🤖 AI Chat Complete!\n\n📊 Sent {count} RAW grammar cards to the JSON box.\n👉 Click <b>'Verify Batch'</b> to check and import.",
+    },
     "msg_extract_poured": {
         "vi": "🤖 AI Trích Xuất Hoàn Tất!\n\n📊 Đã đổ {count} từ vựng vào khung JSON.\n👉 Nhấn <b>'Kiểm Định Lô Hàng'</b> để kiểm tra và import.",
         "en": "🤖 AI Extraction Complete!\n\n📊 Poured {count} vocabulary into the JSON box.\n👉 Click <b>'Verify Batch'</b> to check and import.",
@@ -2058,6 +2086,10 @@ _TRANSLATIONS = {
     "tooltip_saved_config": {
         "vi": "✅ Đã lưu cấu hình AI!",
         "en": "✅ AI config saved!",
+    },
+    "tooltip_saved_ai_default": {
+        "vi": "⭐ Đã lưu Provider + Model mặc định!",
+        "en": "⭐ Default provider and model saved!",
     },
 
     # ── Verify Dialog ────────────────────────────────────

@@ -19,7 +19,7 @@ class AiChatDialog(QDialog):
 
     def __init__(
         self, reply_text="", vocab_json=None, error=None,
-        card_warning=None, parent=None,
+        card_warning=None, card_kind="vocab", parent=None,
     ):
         super().__init__(parent)
         self.setWindowTitle(t("dlg_ai_chat"))
@@ -32,7 +32,9 @@ class AiChatDialog(QDialog):
         )
 
         self.accepted_vocab = None
+        self.accepted_cards = None
         self._vocab_json = vocab_json
+        self._card_kind = card_kind if card_kind in {"vocab", "grammar"} else "vocab"
 
         self._setup_ui(reply_text, error, card_warning)
 
@@ -86,16 +88,22 @@ class AiChatDialog(QDialog):
 
         # Vocab section
         if self._vocab_json and len(self._vocab_json) > 0:
-            vocab_grp = QGroupBox(t("chat_vocab_group", count=len(self._vocab_json)))
+            group_key = (
+                "chat_grammar_group" if self._card_kind == "grammar"
+                else "chat_vocab_group"
+            )
+            vocab_grp = QGroupBox(t(group_key, count=len(self._vocab_json)))
             vocab_grp.setStyleSheet(
                 "QGroupBox{font-weight:bold;font-size:13px;color:#27ae60;"
                 "border:2px solid #27ae60;border-radius:8px;padding:10px;margin-top:10px;}"
             )
             vocab_layout = QVBoxLayout()
 
-            lbl_hint = QLabel(
-                f"<span style='color:#555;'>{t('chat_vocab_hint')}</span>"
+            hint_key = (
+                "chat_grammar_hint" if self._card_kind == "grammar"
+                else "chat_vocab_hint"
             )
+            lbl_hint = QLabel(f"<span style='color:#555;'>{t(hint_key)}</span>")
             lbl_hint.setWordWrap(True)
             vocab_layout.addWidget(lbl_hint)
 
@@ -104,7 +112,13 @@ class AiChatDialog(QDialog):
             table.setAlternatingRowColors(True)
 
             # Xác định cột
-            if self._vocab_json[0].get("simplified"):
+            if self._card_kind == "grammar":
+                columns = [
+                    "pattern", "meaning", "explanation", "usage", "example",
+                    "example_vn", "jlptlevel", "hsk_level", "topik_level",
+                    "cefr_level", "topic",
+                ]
+            elif self._vocab_json[0].get("simplified"):
                 columns = ["simplified", "traditional", "pinyin", "meaning", "hsk_level", "topic"]
             else:
                 columns = ["front", "furigana", "meaning", "jlptlevel", "topic"]
@@ -141,7 +155,11 @@ class AiChatDialog(QDialog):
         btn_layout.addStretch()
 
         if self._vocab_json and len(self._vocab_json) > 0:
-            btn_accept = QPushButton(t("chat_accept", count=len(self._vocab_json)))
+            accept_key = (
+                "chat_accept_grammar" if self._card_kind == "grammar"
+                else "chat_accept"
+            )
+            btn_accept = QPushButton(t(accept_key, count=len(self._vocab_json)))
             btn_accept.setStyleSheet(
                 "padding:10px 25px;background:#27ae60;color:white;"
                 "font-weight:bold;border-radius:8px;font-size:13px;"
@@ -165,8 +183,9 @@ class AiChatDialog(QDialog):
         vl.addLayout(btn_layout)
 
     def _accept_vocab(self):
-        """Chấp nhận từ vựng và đóng dialog"""
+        """Chấp nhận card payload đã validate và đóng dialog."""
         self.accepted_vocab = self._vocab_json
+        self.accepted_cards = self._vocab_json
         self.accept()
 
     @staticmethod

@@ -139,9 +139,10 @@ def is_openrouter(api_base: str = None) -> bool:
 #  PATHS
 # ═══════════════════════════════════════════════════════════
 _LEGACY_CONFIG_DIR = os.path.dirname(os.path.abspath(__file__))
-_CONFIG_DIR = get_user_data_path("")
-_CONFIG_PATH = get_user_data_path("ai_config.json")
-_CACHE_DIR = get_user_data_path("cache")
+# Optional compatibility overrides for tests. Runtime paths are resolved lazily
+# because this module can be imported before Anki finishes loading a profile.
+_CONFIG_PATH: Optional[str] = None
+_CACHE_DIR: Optional[str] = None
 _LEGACY_CONFIG_PATH = os.path.join(_LEGACY_CONFIG_DIR, "ai_config.json")
 _LEGACY_CACHE_DIR = os.path.join(_LEGACY_CONFIG_DIR, "ai_cache")
 _DECK_VOCAB_CACHE_TTL = 30 * 60  # 30 phút
@@ -230,13 +231,14 @@ def _record_token_info(
 #  CONFIG
 # ═══════════════════════════════════════════════════════════
 def _load_config() -> dict:
-    migrate_legacy_json(_LEGACY_CONFIG_PATH, _CONFIG_PATH, lambda value: isinstance(value, dict))
-    return read_json(_CONFIG_PATH, {}, lambda value: isinstance(value, dict))
+    config_path = _CONFIG_PATH or get_user_data_path("ai_config.json")
+    migrate_legacy_json(_LEGACY_CONFIG_PATH, config_path, lambda value: isinstance(value, dict))
+    return read_json(config_path, {}, lambda value: isinstance(value, dict))
 
 
 def _save_config(cfg: dict):
     """Ghi config với atomic write (tmp → rename) để tránh mất dữ liệu nếu crash."""
-    atomic_write_json(_CONFIG_PATH, cfg)
+    atomic_write_json(_CONFIG_PATH or get_user_data_path("ai_config.json"), cfg)
 
 
 def get_api_key_storage_status() -> dict:
@@ -287,6 +289,8 @@ def get_api_config() -> dict:
         "api_base": "https://api.openai.com/v1",
         "model": "gpt-4o-mini",
         "provider": "",
+        "default_provider": "",
+        "default_models": {},
         "temperature": 0.3,
         "max_tokens": 8192,
         # Độ dài nội dung tối đa gửi trong 1 request (ký tự) — DeepSeek 64k context
@@ -303,6 +307,8 @@ def get_api_config() -> dict:
     cfg = _load_config()
     for k, v in defaults.items():
         cfg.setdefault(k, v)
+    if not isinstance(cfg.get("default_models"), dict):
+        cfg["default_models"] = {}
     # Sanitize các giá trị đã lưu (VD bản cũ đang để chunk 45k → gây cắt output)
     try:
         cfg["max_chars"] = max(10000, min(45000, int(cfg.get("max_chars") or 45000)))
@@ -346,7 +352,7 @@ def save_api_config(api_key: str, api_base: str, model: str, temperature: float 
                     max_chars: int = 45000, chunk_size: int = 8000,
                     reasoning_effort: str = "", session_max_input_chars: int = 90000,
                     session_max_tokens: int = 120000, session_max_cost_usd: float = 2.0,
-                    provider: str = ""):
+                    provider: str = "", make_default: bool = False):
     # Sanitize input
     api_base = api_base.strip().rstrip("/")
     if api_base and not api_base.startswith(("http://", "https://")):
@@ -371,11 +377,22 @@ def save_api_config(api_key: str, api_base: str, model: str, temperature: float 
         delete_api_key(provider_scope)
         key_storage = "none"
 
+    previous = _load_config()
+    default_provider = str(previous.get("default_provider") or "").strip()
+    default_models = dict(previous.get("default_models") or {}) \
+        if isinstance(previous.get("default_models"), dict) else {}
+    if make_default:
+        default_provider = provider_id
+        if model:
+            default_models[provider_id or "__custom__"] = model
+
     cfg = {
         "api_key_storage": key_storage,
         "api_base": api_base,
         "model": model,
         "provider": provider_id,
+        "default_provider": default_provider,
+        "default_models": default_models,
         "api_key_provider_migration_done": True,
         "temperature": temperature,
         "max_tokens": 8192,
@@ -481,7 +498,7 @@ def _ai_cache_options(kind: str) -> dict:
     prompt_version = KNOWLEDGE_PROMPT_VERSION if kind == "knowledge" else _PROMPT_VERSION
     prompt_signature = "" if kind == "knowledge" else get_prompt_signature()
     return {
-        "cache_dir": _CACHE_DIR,
+        "cache_dir": _CACHE_DIR or get_user_data_path("cache"),
         "legacy_cache_dir": _LEGACY_CACHE_DIR,
         "prompt_signature": prompt_signature,
         "kind": kind,
@@ -518,7 +535,7 @@ def _ai_cache_set(text: str, lang: str, instruction: str, existing_hash: str, vo
 
 def clear_cache():
     """Xóa toàn bộ cache"""
-    _clear_ai_result_cache(_CACHE_DIR)
+    _clear_ai_result_cache(_CACHE_DIR or get_user_data_path("cache"))
 
 
 # ═══════════════════════════════════════════════════════════
@@ -974,9 +991,8 @@ _CHAT_PROMPT_COMPACT_VI = """Bạn là gia sư {target} cho người Việt: ấ
 - Ví dụ ngắn, đa dạng, đúng cấp độ; không bịa nghĩa, collocation hoặc quy tắc.
 - Khi sửa lỗi: nói rõ phần đúng, lỗi, lý do và một bản sửa tự nhiên.
 - Chỉ dùng dữ liệu Anki được cung cấp; không đề xuất lại mục đã có.
-- Nếu người dùng muốn nhập thẻ, trả đúng JSON theo schema bên dưới trong một khối ```json```; ngoài trường hợp đó không ép trả JSON.
-Schema từ vựng: {vocab_schema}
-Schema ngữ pháp: {grammar_schema}
+- Xưởng hiện ở chế độ {card_kind_label}. Nếu người dùng muốn nhập thẻ, chỉ trả đúng JSON theo schema hiện tại trong một khối ```json```; ngoài trường hợp đó không ép trả JSON.
+Schema hiện tại: {card_schema}
 Trả lời bằng tiếng Việt."""
 
 _CHAT_PROMPT_COMPACT_EN = """You are a warm, precise, concise {target} tutor for English speakers.
@@ -984,23 +1000,31 @@ _CHAT_PROMPT_COMPACT_EN = """You are a warm, precise, concise {target} tutor for
 - Keep examples short, varied, and level-appropriate; never invent senses, collocations, or rules.
 - For corrections, identify what works, the error, why, and one natural revision.
 - Use only the supplied Anki data and never resuggest an existing item.
-- If the user requests importable cards, return the exact schema below in one ```json``` block; otherwise do not force JSON.
-Vocabulary schema: {vocab_schema}
-Grammar schema: {grammar_schema}
+- The Factory is currently in {card_kind_label} mode. If the user requests importable cards, return only the exact current schema below in one ```json``` block; otherwise do not force JSON.
+Current schema: {card_schema}
 Reply in English."""
 
 
-def _get_chat_system_prompt(lang: str = "japanese") -> str:
-    """Compact target-aware chat prompt; sends only the selected language schemas."""
+def _get_chat_system_prompt(
+    lang: str = "japanese", card_kind: str = "vocab",
+) -> str:
+    """Compact target-aware Chat prompt with one explicit Factory card kind."""
+    if card_kind not in {"vocab", "grammar"}:
+        raise ValueError("unsupported chat card kind")
     target = {
         "japanese": "Japanese", "chinese": "Chinese",
         "korean": "Korean", "english": "English",
     }.get(lang, "Japanese")
-    base = _CHAT_PROMPT_COMPACT_EN if _ui_lang_en() else _CHAT_PROMPT_COMPACT_VI
+    english_ui = _ui_lang_en()
+    base = _CHAT_PROMPT_COMPACT_EN if english_ui else _CHAT_PROMPT_COMPACT_VI
+    card_kind_label = (
+        ("grammar" if card_kind == "grammar" else "vocabulary")
+        if english_ui else ("ngữ pháp" if card_kind == "grammar" else "từ vựng")
+    )
     return base.format(
         target=target,
-        vocab_schema=get_effective_json_template(lang, "vocab"),
-        grammar_schema=get_effective_json_template(lang, "grammar"),
+        card_kind_label=card_kind_label,
+        card_schema=get_effective_json_template(lang, card_kind),
     )
 
 
@@ -1012,6 +1036,7 @@ def chat_with_ai(
     quick: bool = False,
     should_abort: Optional[Callable[[], bool]] = None,
     anki_context: Optional[dict] = None,
+    card_kind: str = "vocab",
 ) -> dict:
     """
     Gửi tin nhắn đến AI và nhận phản hồi. AI có ngữ cảnh Anki.
@@ -1025,6 +1050,8 @@ def chat_with_ai(
     Returns:
         dict với keys: "reply" (text phản hồi), "vocab_json" (nếu AI xuất từ vựng), "error"
     """
+    if card_kind not in {"vocab", "grammar"}:
+        raise ValueError("unsupported chat card kind")
     cfg = get_api_config()
     if not cfg.get("api_key") and "localhost" not in cfg.get("api_base", ""):
         return {"reply": "", "vocab_json": None, "error": t("error_api_key_missing")}
@@ -1053,7 +1080,7 @@ def chat_with_ai(
         context_text = _build_anki_context_text(context)
         if progress_callback:
             progress_callback(t("status_calling_model", model=cfg["model"]))
-        system_content = _get_chat_system_prompt(lang) + "\n\n" + "═" * 50 + "\n"
+        system_content = _get_chat_system_prompt(lang, card_kind) + "\n\n" + "═" * 50 + "\n"
         system_content += (
             "ANKI SYSTEM CONTEXT (use only this data):\n" if _ui_lang_en()
             else "THÔNG TIN HỆ THỐNG ANKI (chỉ dùng dữ liệu này):\n"
@@ -1126,7 +1153,7 @@ def chat_with_ai(
         }
 
     optional_cards = _extract_optional_card_payload(
-        adapted, lang=lang, kind="vocab",
+        adapted, lang=lang, kind=card_kind,
     )
     reply_text = optional_cards.reply
     vocab_json = list(optional_cards.cards) or None
@@ -1148,6 +1175,8 @@ def chat_with_ai(
     return {
         "reply": reply_text,
         "vocab_json": vocab_json,
+        "card_json": vocab_json,
+        "card_kind": card_kind,
         "token_info": token_info,
         "error": None,
         "card_error": optional_cards.rejection_category,

@@ -129,3 +129,70 @@ def test_generic_key_migrates_once_to_the_active_provider():
     assert save.call_args.args == ("legacy-key", "deepseek")
     delete.assert_called_once_with()
     assert save_config.call_args.args[0]["api_key_provider_migration_done"] is True
+
+
+def test_config_path_is_resolved_after_active_profile_changes(tmp_path):
+    from utils import ai_extractor
+
+    active = {"root": tmp_path / "profile-a"}
+    seen_paths = []
+    with patch.object(ai_extractor, "_CONFIG_PATH", None), patch.object(
+        ai_extractor, "get_user_data_path",
+        side_effect=lambda name: str(active["root"] / name),
+    ), patch.object(ai_extractor, "migrate_legacy_json"), patch.object(
+        ai_extractor, "read_json",
+        side_effect=lambda path, default, validator: seen_paths.append(path) or {},
+    ):
+        ai_extractor.get_api_config()
+        active["root"] = tmp_path / "profile-b"
+        ai_extractor.get_api_config()
+
+    assert seen_paths == [
+        str(tmp_path / "profile-a" / "ai_config.json"),
+        str(tmp_path / "profile-b" / "ai_config.json"),
+    ]
+
+
+def test_explicit_default_provider_and_model_are_persisted():
+    from utils.ai_extractor import save_api_config
+
+    existing = {
+        "default_provider": "deepseek",
+        "default_models": {"deepseek": "deepseek-chat"},
+    }
+    with patch("utils.ai_extractor._load_config", return_value=existing), patch(
+        "utils.ai_extractor.save_api_key", return_value=True,
+    ), patch("utils.ai_extractor._save_config") as save:
+        save_api_config(
+            "openai-key", "https://api.openai.com/v1", "gpt-5.6-luna",
+            provider="openai", make_default=True,
+        )
+
+    persisted = save.call_args.args[0]
+    assert persisted["provider"] == "openai"
+    assert persisted["model"] == "gpt-5.6-luna"
+    assert persisted["default_provider"] == "openai"
+    assert persisted["default_models"] == {
+        "deepseek": "deepseek-chat", "openai": "gpt-5.6-luna",
+    }
+    assert "api_key" not in persisted
+
+
+def test_normal_save_preserves_explicit_defaults():
+    from utils.ai_extractor import save_api_config
+
+    existing = {
+        "default_provider": "deepseek",
+        "default_models": {"deepseek": "deepseek-v4-flash"},
+    }
+    with patch("utils.ai_extractor._load_config", return_value=existing), patch(
+        "utils.ai_extractor.save_api_key", return_value=True,
+    ), patch("utils.ai_extractor._save_config") as save:
+        save_api_config(
+            "openai-key", "https://api.openai.com/v1", "gpt-5.6-luna",
+            provider="openai",
+        )
+
+    persisted = save.call_args.args[0]
+    assert persisted["default_provider"] == "deepseek"
+    assert persisted["default_models"] == {"deepseek": "deepseek-v4-flash"}

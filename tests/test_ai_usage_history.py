@@ -47,3 +47,20 @@ def test_usage_history_can_be_cleared(tmp_path, monkeypatch):
     history.record_usage({"model": "model", "total_tokens": 1}, operation="ai_chat")
     history.clear_usage_history()
     assert history.get_usage_entries() == []
+
+
+def test_usage_history_resolves_profile_path_lazily(tmp_path, monkeypatch):
+    active = {"root": tmp_path / "profile-a"}
+    monkeypatch.setattr(history, "_PATH", None)
+    monkeypatch.setattr(
+        history, "get_user_data_path",
+        lambda name: str(active["root"] / name),
+    )
+
+    history.record_usage(
+        {"model": "stable-model", "total_tokens": 7}, operation="ai_chat",
+    )
+    active["root"] = tmp_path / "profile-b"
+    assert history.get_usage_entries() == []
+    active["root"] = tmp_path / "profile-a"
+    assert history.get_usage_entries()[0]["model"] == "stable-model"

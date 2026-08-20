@@ -94,6 +94,7 @@ class AiWorkflowCoordinator:
         on_progress: ProgressCallback,
         on_finished: ChatFinishedCallback,
         on_error: ErrorCallback,
+        card_kind: str = "vocab",
     ) -> Optional[Any]:
         """Build, wire, and start a chat worker for the current token."""
         if self.is_cancelled():
@@ -104,6 +105,7 @@ class AiWorkflowCoordinator:
             lang=lang,
             conversation_history=conversation_history,
             anki_context=anki_context,
+            card_kind=card_kind,
             cancel_event=self._cancel_event,
         )
         worker.progress.connect(on_progress)
