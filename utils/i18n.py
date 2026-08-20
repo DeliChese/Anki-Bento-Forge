@@ -1245,6 +1245,22 @@ _TRANSLATIONS = {
         "vi": "Không có phản hồi.",
         "en": "No reply.",
     },
+    "chat_card_warning_truncation": {
+        "vi": "⚠️ Dữ liệu thẻ bị cắt nên không được đưa vào Xưởng. Phần trả lời chat còn lại vẫn được giữ.",
+        "en": "⚠️ The card data was truncated and was not sent to the Factory. The remaining chat reply is still shown.",
+    },
+    "chat_card_warning_schema": {
+        "vi": "⚠️ Dữ liệu thẻ không khớp ngôn ngữ hoặc loại thẻ hiện tại nên không được đưa vào Xưởng.",
+        "en": "⚠️ The card data did not match the current language or card type and was not sent to the Factory.",
+    },
+    "chat_card_warning_ambiguous": {
+        "vi": "⚠️ Phản hồi chứa nhiều payload thẻ nên hệ thống không tự chọn và không đưa thẻ vào Xưởng.",
+        "en": "⚠️ The response contained multiple card payloads, so none was selected or sent to the Factory.",
+    },
+    "chat_card_warning_rejected": {
+        "vi": "⚠️ Dữ liệu thẻ không vượt qua kiểm tra an toàn nên không được đưa vào Xưởng.",
+        "en": "⚠️ The card data did not pass safety validation and was not sent to the Factory.",
+    },
 
     # ── AI Preview Dialog ────────────────────────────────
     "item_label_vocab": {

@@ -2,14 +2,37 @@
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from typing import Callable, Optional
 
-from .ai_reliability import AiOutputFailure
+from .ai_reliability import (
+    AiOutputFailure, canonical_identity, card_identity,
+)
 from .i18n import t
 
 
 MAX_TEXT_RECOVERY_DEPTH = 2
 MIN_TEXT_RECOVERY_CHARS = 1000
+
+
+def _merge_recovered_cards(left: list, right: list, *, kind: str) -> list:
+    """Merge child spans deterministically without collapsing distinct senses."""
+    merged = []
+    seen = set()
+    for card in [*left, *right]:
+        if not isinstance(card, Mapping):
+            merged.append(card)
+            continue
+        identity = card_identity(card, kind)
+        if not identity:
+            merged.append(card)
+            continue
+        key = (identity, canonical_identity(card.get("meaning")))
+        if key in seen:
+            continue
+        seen.add(key)
+        merged.append(card)
+    return merged
 
 
 def _split_source_text(text: str) -> tuple[str, str]:
@@ -34,9 +57,10 @@ def recover_text_chunk(
     *,
     progress_callback: Optional[Callable[[str], None]],
     should_abort: Optional[Callable[[], bool]],
+    kind: str = "vocab",
     depth: int = 0,
 ) -> tuple[list, int]:
-    """Keep a valid prefix and retry only its failed source span at smaller size."""
+    """Use split children as authoritative when a source call must be retried."""
     if should_abort and should_abort():
         raise RuntimeError(t("error_cancelled_by_user"))
     try:
@@ -61,13 +85,16 @@ def recover_text_chunk(
             ))
         left_cards, left_unresolved = recover_text_chunk(
             call, left, progress_callback=progress_callback,
-            should_abort=should_abort, depth=depth + 1,
+            should_abort=should_abort, kind=kind, depth=depth + 1,
         )
         right_cards, right_unresolved = recover_text_chunk(
             call, right, progress_callback=progress_callback,
-            should_abort=should_abort, depth=depth + 1,
+            should_abort=should_abort, kind=kind, depth=depth + 1,
         )
-        return recovered + left_cards + right_cards, left_unresolved + right_unresolved
+        return (
+            _merge_recovered_cards(left_cards, right_cards, kind=kind),
+            left_unresolved + right_unresolved,
+        )
 
 
 __all__ = [

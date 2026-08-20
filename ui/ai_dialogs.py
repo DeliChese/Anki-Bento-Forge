@@ -17,7 +17,10 @@ from utils.i18n import t
 class AiChatDialog(QDialog):
     """Dialog hiển thị phản hồi chat từ AI, có thể chứa từ vựng JSON"""
 
-    def __init__(self, reply_text="", vocab_json=None, error=None, parent=None):
+    def __init__(
+        self, reply_text="", vocab_json=None, error=None,
+        card_warning=None, parent=None,
+    ):
         super().__init__(parent)
         self.setWindowTitle(t("dlg_ai_chat"))
         self.setMinimumSize(700, 500)
@@ -31,9 +34,9 @@ class AiChatDialog(QDialog):
         self.accepted_vocab = None
         self._vocab_json = vocab_json
 
-        self._setup_ui(reply_text, error)
+        self._setup_ui(reply_text, error, card_warning)
 
-    def _setup_ui(self, reply_text, error):
+    def _setup_ui(self, reply_text, error, card_warning):
         vl = QVBoxLayout(self)
 
         # Header
@@ -55,6 +58,15 @@ class AiChatDialog(QDialog):
             err_lbl.setWordWrap(True)
             vl.addWidget(err_lbl)
         else:
+            if card_warning:
+                warning_lbl = QLabel(
+                    "<div style='background:#fff4d6;border:1px solid #d39e00;"
+                    "border-radius:8px;padding:12px;color:#7a5900;'>"
+                    f"{card_warning}</div>"
+                )
+                warning_lbl.setWordWrap(True)
+                vl.addWidget(warning_lbl)
+
             # Text browser cho reply — màu tường minh để không bị trùng theme
             self.text_browser = QTextBrowser()
             self.text_browser.setOpenExternalLinks(True)

@@ -35,6 +35,7 @@ class ParsedAiPayload:
     comment: str = ""
     recovery: str = "direct"
     truncated: bool = False
+    residual_text: str = ""
 
 
 def _strip_safe_envelope(content: str) -> tuple[str, str]:
@@ -83,7 +84,9 @@ def _coerce_payload(data: Any) -> tuple[list[Any], str, str]:
     raise AiResponseParseError("invalid_wrapper")
 
 
-def _complete_json_candidates(text: str) -> list[tuple[list[Any], str, str]]:
+def _complete_json_candidates(
+    text: str,
+) -> list[tuple[list[Any], str, str, int, int]]:
     decoder = json.JSONDecoder()
     candidates = []
     index = 0
@@ -101,7 +104,8 @@ def _complete_json_candidates(text: str) -> list[tuple[list[Any], str, str]]:
             index = start + 1
             continue
         try:
-            candidates.append(_coerce_payload(data))
+            items, comment, recovery = _coerce_payload(data)
+            candidates.append((items, comment, recovery, start, start + consumed))
         except AiResponseParseError:
             pass
         index = start + consumed
@@ -139,7 +143,10 @@ def parse_ai_payload(content: str, *, structured_data: Any = None) -> ParsedAiPa
     """Extract one unambiguous card payload and retain truncation metadata."""
     if structured_data is not None:
         items, comment, recovery = _coerce_payload(structured_data)
-        return ParsedAiPayload(tuple(items), comment, f"structured:{recovery}")
+        return ParsedAiPayload(
+            tuple(items), comment, f"structured:{recovery}",
+            residual_text=str(content or "").strip(),
+        )
 
     text, envelope_recovery = _strip_safe_envelope(content)
     if not text:
@@ -162,12 +169,18 @@ def parse_ai_payload(content: str, *, structured_data: Any = None) -> ParsedAiPa
         prefix = _parse_complete_array_prefix(text)
         if prefix is not None:
             items, comment = prefix
-            return ParsedAiPayload(tuple(items), comment, "partial_array_prefix", True)
+            return ParsedAiPayload(
+                tuple(items), comment, "partial_array_prefix", True, text,
+            )
 
     candidates = _complete_json_candidates(text)
     if len(candidates) == 1:
-        items, comment, recovery = candidates[0]
-        return ParsedAiPayload(tuple(items), comment, f"prose:{recovery}")
+        items, comment, recovery, start, end = candidates[0]
+        residual_text = (text[:start] + text[end:]).strip()
+        return ParsedAiPayload(
+            tuple(items), comment, f"prose:{recovery}",
+            residual_text=residual_text,
+        )
     if len(candidates) > 1:
         raise AiResponseParseError("ambiguous_json_payloads", text[:400])
     raise AiResponseParseError("malformed_json", text[:400])

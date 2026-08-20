@@ -3236,11 +3236,13 @@ class AnkiSmartFactory(QDialog):
         reply_text = result.get("reply", "")
         vocab_json = result.get("vocab_json")
         error = result.get("error")
+        card_warning = result.get("card_warning")
 
         dlg = AiChatDialog(
             reply_text=reply_text,
             vocab_json=vocab_json,
             error=error,
+            card_warning=card_warning,
             parent=self,
         )
 

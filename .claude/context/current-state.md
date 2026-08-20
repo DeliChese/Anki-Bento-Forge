@@ -17,13 +17,13 @@
 |---|---|---|
 | P0-01 baseline | local gate xanh | Giữ compile tracked Python và hai vòng isolated suite xanh trước merge/release. |
 | P0-02 smoke profile | chờ chủ dự án | Chạy checklist trên profile Anki đã backup trước merge/release. |
-| P0-05 AI Output Reliability | local implementation xanh | Hai vòng `592 passed`; còn smoke profile backup và manual large-batch provider run trước 18.0.0. |
+| P0-05 AI Output Reliability | local implementation xanh | Chat/Batch chung reliability contract, split recovery authoritative; hai vòng `608 passed`. Còn smoke profile backup và manual large-batch provider run trước 18.0.0. |
 | P1-05 Usage Guide | đã kiểm chứng | Dùng benchmark/fixture hiện có làm regression gate. |
 | P1-06 Confusion Guard | local implementation xanh | Exact curated same-deck warning đã có fixtures bốn ngôn ngữ; chờ smoke profile backup, vẫn chỉ advisory và không tự sửa note/SRS. |
 
 ## Evidence and boundaries
 
-- Bằng chứng baseline gần nhất: `592 passed` trong hai vòng isolated suite; chi tiết và điều kiện hiện hành ở [Personal Roadmap](../../work_items/PERSONAL_ROADMAP.md).
+- Bằng chứng baseline gần nhất: `608 passed` trong hai vòng isolated suite; chi tiết và điều kiện hiện hành ở [Personal Roadmap](../../work_items/PERSONAL_ROADMAP.md).
 - Bằng chứng P1-05: `19/20` (`95%`), `$0.002035`, `1.69 giây/card`; xem [benchmark](../../benchmarks/usage_guide_review_v1.json).
 - Trước mutation collection, cần backup/undo và smoke liên quan. Con người xác nhận mọi thao tác Anki thật.
 - Không coi số liệu trong tài liệu `historical` là trạng thái hiện tại nếu chúng mâu thuẫn roadmap/evidence mới hơn.

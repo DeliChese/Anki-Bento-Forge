@@ -4,7 +4,7 @@ import json
 
 import pytest
 
-from utils import batch_processor
+from utils import ai_extractor, batch_processor
 from utils.ai_output_validation import validate_ai_cards
 from utils.ai_reliability import (
     AiCardResponse,
@@ -29,6 +29,35 @@ def _adapted(content, *, finish_reason="stop", parsed=None):
     return adapt_chat_completion_response(
         {"choices": [{"finish_reason": finish_reason, "message": message}]},
         {"api_base": "https://api.openai.com/v1", "model": "test-model"},
+    )
+
+
+def _chat_result(
+    monkeypatch, *, content="", parsed=None, finish_reason="stop",
+    reasoning_content="", lang="english",
+):
+    message = {"content": content}
+    if parsed is not None:
+        message["parsed"] = parsed
+    if reasoning_content:
+        message["reasoning_content"] = reasoning_content
+    provider_result = {
+        "choices": [{"finish_reason": finish_reason, "message": message}],
+    }
+    monkeypatch.setattr(ai_extractor, "get_api_config", lambda: {
+        "api_key": "test-key",
+        "api_base": "https://api.openai.com/v1",
+        "model": "test-model",
+        "temperature": 0.3,
+        "max_tokens": 8192,
+    })
+    monkeypatch.setattr(ai_extractor, "ensure_ai_session_budget", lambda _text: {})
+    monkeypatch.setattr(
+        ai_extractor, "_http_post_json",
+        lambda *args, **kwargs: json.dumps(provider_result),
+    )
+    return ai_extractor.chat_with_ai(
+        "test request", lang=lang, quick=True,
     )
 
 
@@ -91,6 +120,126 @@ def test_provider_finish_reason_marks_complete_json_as_truncated():
         process_ai_card_response(response, lang="english", kind="vocab")
     assert exc_info.value.category == "truncation"
     assert list(exc_info.value.cards) == [_card("a")]
+
+
+def test_chat_prose_only_remains_a_normal_reply(monkeypatch):
+    result = _chat_result(
+        monkeypatch,
+        content="Opportunity is broader than chance in many contexts.",
+    )
+    assert result["reply"].startswith("Opportunity is broader")
+    assert result["vocab_json"] is None
+    assert result["card_error"] is None
+    assert result["card_warning"] is None
+    assert result["error"] is None
+
+
+def test_chat_fenced_vocab_uses_shared_parser_and_removes_raw_json(monkeypatch):
+    card = _card("opportunity", cefr_level="B1")
+    result = _chat_result(
+        monkeypatch, content=f"```json\n{json.dumps([card])}\n```",
+    )
+    assert result["vocab_json"] == [card]
+    assert result["reply"] == ""
+    assert result["card_error"] is None
+
+
+def test_chat_prose_plus_json_preserves_only_surrounding_prose(monkeypatch):
+    card = _card("chance", cefr_level="A2")
+    result = _chat_result(
+        monkeypatch,
+        content=f"Here are your cards:\n\n{json.dumps([card])}\n\nImport them now.",
+    )
+    assert result["vocab_json"] == [card]
+    assert result["reply"] == "Here are your cards:\n\n\n\nImport them now."
+    assert json.dumps([card]) not in result["reply"]
+
+
+def test_chat_known_cards_wrapper_is_accepted(monkeypatch):
+    card = _card("reliable", cefr_level="B2")
+    result = _chat_result(
+        monkeypatch, content=json.dumps({"cards": [card]}),
+    )
+    assert result["vocab_json"] == [card]
+    assert result["card_error"] is None
+
+
+def test_chat_provider_structured_cards_are_accepted(monkeypatch):
+    card = _card("structured", cefr_level="B1")
+    result = _chat_result(
+        monkeypatch, content="Cards are ready.", parsed={"cards": [card]},
+    )
+    assert result["reply"] == "Cards are ready."
+    assert result["vocab_json"] == [card]
+
+
+def test_chat_english_cefr_card_is_accepted(monkeypatch):
+    card = _card("precise", cefr_level="C1")
+    result = _chat_result(monkeypatch, content=json.dumps([card]))
+    assert result["vocab_json"] == [card]
+
+
+def test_chat_english_hsk_card_never_reaches_factory(monkeypatch):
+    result = _chat_result(
+        monkeypatch,
+        content=json.dumps([_card("opportunity", hsk_level="B1")]),
+    )
+    assert result["vocab_json"] is None
+    assert result["card_error"] == "schema_mismatch"
+    assert result["card_warning"]
+    assert result["error"] is None
+
+
+def test_chat_grammar_shape_is_rejected_in_vocab_flow(monkeypatch):
+    result = _chat_result(monkeypatch, content=json.dumps([{
+        "pattern": "used to + V",
+        "meaning": "past habit",
+        "usage": "S + used to + V",
+    }]))
+    assert result["vocab_json"] is None
+    assert result["card_error"] == "schema_mismatch"
+
+
+def test_chat_prose_with_ordinary_braces_is_not_a_card_error(monkeypatch):
+    result = _chat_result(
+        monkeypatch, content="Use {braces} when describing a placeholder.",
+    )
+    assert result["reply"] == "Use {braces} when describing a placeholder."
+    assert result["vocab_json"] is None
+    assert result["card_error"] is None
+
+
+def test_chat_two_json_payloads_are_not_auto_selected(monkeypatch):
+    result = _chat_result(
+        monkeypatch,
+        content=(
+            f"First option:\n{json.dumps([_card('first', cefr_level='A1')])}\n"
+            f"Second option:\n{json.dumps([_card('second', cefr_level='A1')])}"
+        ),
+    )
+    assert result["vocab_json"] is None
+    assert result["card_error"] == "ambiguous_json_payloads"
+    assert result["card_warning"]
+
+
+def test_chat_truncated_card_prefix_is_not_imported(monkeypatch):
+    result = _chat_result(
+        monkeypatch,
+        content='[{"front":"safe","meaning":"ok","cefr_level":"A1"},{"front":"cut"',
+        finish_reason="length",
+    )
+    assert result["vocab_json"] is None
+    assert result["card_error"] == "truncation"
+    assert result["card_warning"]
+
+
+def test_chat_reasoning_only_never_becomes_card_data(monkeypatch):
+    result = _chat_result(
+        monkeypatch, content="", reasoning_content='[{"front":"private"}]',
+    )
+    assert result["vocab_json"] is None
+    assert result["reply"] == ""
+    assert result["error"]
 
 
 def test_language_level_identity_accepts_en_and_zh_contracts():
@@ -261,7 +410,7 @@ def test_cancellation_is_checked_before_recovery_retry(monkeypatch):
         )
 
 
-def test_text_extraction_retries_failed_source_spans_without_losing_prefix(monkeypatch):
+def test_text_recovery_discards_parent_prefix_when_split_is_authoritative(monkeypatch):
     monkeypatch.setattr(ai_text_recovery, "MIN_TEXT_RECOVERY_CHARS", 1)
 
     def size_limited(source):
@@ -274,8 +423,73 @@ def test_text_extraction_retries_failed_source_spans_without_losing_prefix(monke
     )
     assert unresolved == 0
     assert [card["front"] for card in cards] == [
-        "prefix-12", "prefix-6", "abc", "def", "prefix-6", "ghi", "jkl",
+        "abc", "def", "ghi", "jkl",
     ]
+
+
+def test_text_recovery_deduplicates_overlapping_child_identity(monkeypatch):
+    monkeypatch.setattr(ai_text_recovery, "MIN_TEXT_RECOVERY_CHARS", 1)
+
+    def overlap(source):
+        if len(source) > 3:
+            raise AiOutputFailure("truncation", cards=[_card("provisional")])
+        return [_card("shared", meaning="same sense"), _card(source)]
+
+    cards, unresolved = ai_text_recovery.recover_text_chunk(
+        overlap, "abcdef", progress_callback=None, should_abort=None,
+    )
+    assert unresolved == 0
+    assert [card["front"] for card in cards] == ["shared", "abc", "def"]
+
+
+def test_text_recovery_preserves_same_lemma_with_distinct_senses(monkeypatch):
+    monkeypatch.setattr(ai_text_recovery, "MIN_TEXT_RECOVERY_CHARS", 1)
+
+    def distinct_senses(source):
+        if len(source) > 3:
+            raise AiOutputFailure("truncation")
+        meaning = "illumination" if source == "abc" else "not heavy"
+        return [_card("light", meaning=meaning)]
+
+    cards, unresolved = ai_text_recovery.recover_text_chunk(
+        distinct_senses, "abcdef", progress_callback=None, should_abort=None,
+    )
+    assert unresolved == 0
+    assert [card["meaning"] for card in cards] == ["illumination", "not heavy"]
+
+
+def test_text_recovery_depth_remains_bounded(monkeypatch):
+    monkeypatch.setattr(ai_text_recovery, "MIN_TEXT_RECOVERY_CHARS", 1)
+    calls = []
+
+    def always_truncated(source):
+        calls.append(source)
+        raise AiOutputFailure("truncation", cards=[_card(source)])
+
+    cards, unresolved = ai_text_recovery.recover_text_chunk(
+        always_truncated, "abcdefghijkl", progress_callback=None,
+        should_abort=None,
+    )
+    assert len(calls) == 7
+    assert unresolved == 4
+    assert [card["front"] for card in cards] == ["abc", "def", "ghi", "jkl"]
+
+
+def test_text_recovery_cancellation_between_children_still_works(monkeypatch):
+    monkeypatch.setattr(ai_text_recovery, "MIN_TEXT_RECOVERY_CHARS", 1)
+    state = {"calls": 0}
+
+    def cancel_after_left(source):
+        state["calls"] += 1
+        if len(source) > 3:
+            raise AiOutputFailure("truncation")
+        return [_card(source)]
+
+    with pytest.raises(RuntimeError):
+        ai_text_recovery.recover_text_chunk(
+            cancel_after_left, "abcdef", progress_callback=None,
+            should_abort=lambda: state["calls"] >= 2,
+        )
 
 
 def test_grammar_batch_merge_uses_pattern_identity(monkeypatch):

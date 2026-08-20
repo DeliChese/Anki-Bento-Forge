@@ -45,6 +45,17 @@ class AiCardResponse:
     finish_reason: str
     provider: str
     model: str
+    residual_text: str = ""
+
+
+@dataclass(frozen=True)
+class OptionalCardPayload:
+    """Validated optional card data plus the prose safe to display in Chat."""
+
+    cards: tuple[dict, ...]
+    reply: str
+    rejection_category: str | None = None
+    recovery: str = ""
 
 
 @dataclass(frozen=True)
@@ -65,9 +76,11 @@ class AiOutputFailure(RuntimeError):
 
     def __init__(
         self, category: str, *, cards: Sequence[dict] = (), message: str | None = None,
+        source_category: str | None = None,
     ) -> None:
         self.category = category
         self.cards = tuple(dict(card) for card in cards)
+        self.source_category = source_category or category
         super().__init__(message or category)
 
 
@@ -82,7 +95,9 @@ def process_ai_card_response(
     except AiResponseParseError as exc:
         category = "truncation" if response.truncated else exc.category
         message = t("error_model_output_truncated") if category == "truncation" else None
-        raise AiOutputFailure(category, message=message) from exc
+        raise AiOutputFailure(
+            category, message=message, source_category=exc.category,
+        ) from exc
 
     validation = validate_ai_cards(parsed.items, lang=lang, kind=kind)
     truncated = response.truncated or parsed.truncated
@@ -97,6 +112,7 @@ def process_ai_card_response(
         response.finish_reason,
         response.provider,
         response.model,
+        parsed.residual_text,
     )
     if truncated:
         raise AiOutputFailure(
@@ -112,6 +128,66 @@ def process_ai_card_response(
         )
         raise AiOutputFailure(category)
     return result
+
+
+def extract_optional_card_payload(
+    response: AdaptedAiResponse, *, lang: str, kind: str = "vocab",
+) -> OptionalCardPayload:
+    """Treat prose as prose and admit only a wholly validated card payload."""
+    try:
+        result = process_ai_card_response(response, lang=lang, kind=kind)
+    except AiOutputFailure as exc:
+        if exc.source_category in {"empty_response", "malformed_json"} and not exc.cards:
+            logger.debug(
+                "AI chat prose provider=%s model=%s lang=%s kind=%s",
+                response.provider, response.model, lang, kind,
+            )
+            return OptionalCardPayload((), response.text.strip())
+        logger.warning(
+            "AI chat card payload rejected category=%s provider=%s model=%s lang=%s kind=%s",
+            exc.category, response.provider, response.model, lang, kind,
+        )
+        return OptionalCardPayload(
+            (), response.text.strip(), exc.category,
+        )
+
+    if not result.cards:
+        logger.warning(
+            "AI chat card payload rejected category=empty_card_payload provider=%s model=%s lang=%s kind=%s",
+            response.provider, response.model, lang, kind,
+        )
+        return OptionalCardPayload(
+            (), response.text.strip(), "empty_card_payload", result.recovery,
+        )
+    if result.invalid:
+        categories = {issue.category for issue in result.invalid}
+        category = (
+            "schema_mismatch"
+            if any("mismatch" in item or "_flow" in item for item in categories)
+            else "semantic_validation"
+        )
+        logger.warning(
+            "AI chat card payload rejected category=%s provider=%s model=%s lang=%s kind=%s invalid=%d",
+            category, response.provider, response.model, lang, kind,
+            len(result.invalid),
+        )
+        return OptionalCardPayload(
+            (), response.text.strip(), category, result.recovery,
+        )
+
+    cards = list(result.cards)
+    cards = (
+        repair_vocabulary_cards(cards, lang)
+        if kind == "vocab" else normalize_language_cards(cards)
+    )
+    logger.info(
+        "AI chat card payload validated provider=%s model=%s lang=%s kind=%s raw=%d valid=%d duplicates=%d recovery=%s",
+        response.provider, response.model, lang, kind, result.raw_count,
+        len(cards), result.duplicate_count, result.recovery,
+    )
+    return OptionalCardPayload(
+        tuple(cards), result.residual_text, None, result.recovery,
+    )
 
 
 def validated_cards_from_result(
@@ -224,7 +300,8 @@ def reconcile_expected_candidates(
 
 
 __all__ = [
-    "AiCardResponse", "AiOutputFailure", "CompletenessReport",
+    "AiCardResponse", "AiOutputFailure", "CompletenessReport", "OptionalCardPayload",
     "canonical_identity", "card_identity", "process_ai_card_response",
-    "reconcile_expected_candidates", "validated_cards_from_result",
+    "extract_optional_card_payload", "reconcile_expected_candidates",
+    "validated_cards_from_result",
 ]

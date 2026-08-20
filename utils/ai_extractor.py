@@ -36,9 +36,13 @@ from .ai_result_cache import (
     set_cached_result as _set_cached_ai_result,
 )
 from .ai_response_parser import parse_ai_json_with_comment as _parse_ai_json_with_comment
-from .ai_response_guard import enable_deepseek_json_output, get_final_model_content
+from .ai_response_guard import (
+    adapt_chat_completion_response, enable_deepseek_json_output,
+    get_final_model_content,
+)
 from .ai_reliability import (
     AiOutputFailure,
+    extract_optional_card_payload as _extract_optional_card_payload,
     validated_cards_from_result as _validated_cards_from_result,
 )
 from .ai_text_recovery import recover_text_chunk as _recover_text_chunk
@@ -1113,51 +1117,27 @@ def chat_with_ai(
             duration_seconds=time.monotonic() - request_started_monotonic,
         )
     
-    msg = result["choices"][0]["message"]
-    content = msg.get("content", "") or ""
-    
-    # DeepSeek Reasoner: nếu content rỗng, thử lấy từ reasoning_content
-    if not content.strip():
-        reasoning = msg.get("reasoning_content", "") or ""
-        if reasoning.strip():
-            # Dùng reasoning_content làm phản hồi (thường là quá trình suy nghĩ)
-            content = t("chat_reasoning_only", reasoning=reasoning.strip())
-            if progress_callback:
-                progress_callback(t("status_reasoning_only"))
-        else:
-            return {"reply": "", "vocab_json": None, "token_info": None,
-                    "error": t("error_model_empty")}
-    
-    # Tách JSON từ vựng nếu có
-    reply_text = content
-    vocab_json = None
-    
-    # Tìm JSON block trong phản hồi
-    json_match = re.search(r'```(?:json)?\s*\n?(.*?)\n?```', content, re.DOTALL)
-    if json_match:
-        json_str = json_match.group(1).strip()
-        try:
-            parsed = json.loads(json_str)
-            if isinstance(parsed, list) and len(parsed) > 0:
-                vocab_json = parsed
-                # Xóa JSON block khỏi reply
-                reply_text = content[:json_match.start()] + content[json_match.end():]
-                reply_text = reply_text.strip()
-        except Exception:
-            pass
-    
-    # Nếu không có JSON block, thử tìm JSON array trực tiếp (non-greedy)
-    if not vocab_json:
-        array_match = re.search(r'\[\s*\{.*?\}\s*\]', content, re.DOTALL)
-        if array_match:
-            try:
-                parsed = json.loads(array_match.group(0))
-                if isinstance(parsed, list) and len(parsed) > 0:
-                    vocab_json = parsed
-                    reply_text = content[:array_match.start()] + content[array_match.end():]
-                    reply_text = reply_text.strip()
-            except Exception:
-                pass
+    try:
+        adapted = adapt_chat_completion_response(result, cfg)
+    except RuntimeError as error:
+        return {
+            "reply": "", "vocab_json": None, "token_info": token_info,
+            "error": str(error),
+        }
+
+    optional_cards = _extract_optional_card_payload(
+        adapted, lang=lang, kind="vocab",
+    )
+    reply_text = optional_cards.reply
+    vocab_json = list(optional_cards.cards) or None
+    warning_key = {
+        "truncation": "chat_card_warning_truncation",
+        "schema_mismatch": "chat_card_warning_schema",
+        "ambiguous_json_payloads": "chat_card_warning_ambiguous",
+    }.get(optional_cards.rejection_category, "chat_card_warning_rejected")
+    card_warning = (
+        t(warning_key) if optional_cards.rejection_category else None
+    )
     
     if progress_callback:
         end_msg = t("status_complete")
@@ -1165,7 +1145,14 @@ def chat_with_ai(
             end_msg += f"\n{_format_token_report(token_info)}"
         progress_callback(end_msg)
     
-    return {"reply": reply_text or content, "vocab_json": vocab_json, "token_info": token_info, "error": None}
+    return {
+        "reply": reply_text,
+        "vocab_json": vocab_json,
+        "token_info": token_info,
+        "error": None,
+        "card_error": optional_cards.rejection_category,
+        "card_warning": card_warning,
+    }
 
 
 # ═══════════════════════════════════════════════════════════
@@ -1230,7 +1217,7 @@ def extract_vocabulary_long_text(
 
             vocab_chunk, unresolved_spans = _recover_text_chunk(
                 _call_vocab, chunk, progress_callback=progress_callback,
-                should_abort=should_abort,
+                should_abort=should_abort, kind="vocab",
             )
             for item in vocab_chunk:
                 if not isinstance(item, dict):
@@ -1485,7 +1472,7 @@ def extract_grammar_long_text(
 
             grammar_chunk, unresolved_spans = _recover_text_chunk(
                 _call_grammar, chunk, progress_callback=progress_callback,
-                should_abort=should_abort,
+                should_abort=should_abort, kind="grammar",
             )
             for item in grammar_chunk:
                 if not isinstance(item, dict):

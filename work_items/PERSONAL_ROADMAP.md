@@ -16,9 +16,9 @@ Output:
 
 | Việc | Trạng thái | Điều cần biết ngay |
 | --- | --- | --- |
-| P0-01 — baseline test | 🟢 Local xanh | Compile toàn bộ Python và hai vòng isolated suite đều xanh `592 passed`; vẫn cần giữ gate này xanh trước merge/release. |
+| P0-01 — baseline test | 🟢 Local xanh | Compile toàn bộ Python và hai vòng isolated suite đều xanh `608 passed`; vẫn cần giữ gate này xanh trước merge/release. |
 | P0-02 — smoke profile | ⏳ Chờ chủ dự án | Cần chạy toàn flow trực quan trên profile Anki backup trước merge/release; không chặn việc mở P1-06. |
-| P0-05 — AI Output Reliability | 🟡 Local implementation xanh | Parser/schema/partial/adaptive gate và hai vòng `592 passed` xanh; còn smoke profile backup và manual large-batch provider run trước 18.0.0. |
+| P0-05 — AI Output Reliability | 🟡 Local implementation xanh | Batch và Chat dùng chung parser/schema gate; text split recovery không cộng provisional prefix; hai vòng `608 passed` xanh. Còn smoke profile backup và manual large-batch provider run trước 18.0.0. |
 | P1-05 — Usage Guide V1 | ✅ Đã kiểm chứng | Benchmark model thật đạt `19/20` (`95%`), `$0.002035`, `1.69 giây/card`; smoke collection thật Anki 26.5 xanh đủ bốn ngôn ngữ. |
 | P1-06 — Confusion Guard | 🟡 Local implementation xanh | Exact curated same-deck pairs + advisory preview đã có positive/negative fixtures bốn ngôn ngữ; còn smoke trên profile backup trước khi đánh dấu verified. |
 | Knowledge beta | 🧊 Dormant | Ẩn UI, không nằm trong release plan. |
