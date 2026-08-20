@@ -3023,8 +3023,18 @@ class AnkiSmartFactory(QDialog):
             vocab_list = dlg.get_result_vocab()
             if vocab_list:
                 label = t("item_label_grammar_short") if self._is_grammar else t("item_label_vocab_short")
-                self.lbl_ai_status.setText(t("status_batch_done", count=len(vocab_list), label=label))
-                self.lbl_ai_status.setStyleSheet("color:#27ae60;font-size:11px;font-weight:bold;")
+                reliability = dlg.get_reliability_report()
+                if reliability.get("missing"):
+                    self.lbl_ai_status.setText(t(
+                        "batch_status_partial_complete",
+                        requested=reliability.get("requested", len(vocab_list)),
+                        valid=len(vocab_list), unresolved=reliability["missing"],
+                        retries=reliability.get("retries", 0),
+                    ))
+                    self.lbl_ai_status.setStyleSheet("color:#e67e22;font-size:11px;font-weight:bold;")
+                else:
+                    self.lbl_ai_status.setText(t("status_batch_done", count=len(vocab_list), label=label))
+                    self.lbl_ai_status.setStyleSheet("color:#27ae60;font-size:11px;font-weight:bold;")
                 # Đổ JSON vào text input để hiển thị trong xưởng
                 import json as _json
                 json_str = _json.dumps(vocab_list, indent=2, ensure_ascii=False)

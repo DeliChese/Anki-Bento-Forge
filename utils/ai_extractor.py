@@ -37,8 +37,12 @@ from .ai_result_cache import (
 )
 from .ai_response_parser import parse_ai_json_with_comment as _parse_ai_json_with_comment
 from .ai_response_guard import enable_deepseek_json_output, get_final_model_content
-from .ai_output_repairs import repair_vocabulary_cards
-from .usage_guide import normalize_language_cards
+from .ai_reliability import (
+    AiOutputFailure,
+    validated_cards_from_result as _validated_cards_from_result,
+)
+from .ai_text_recovery import recover_text_chunk as _recover_text_chunk
+from .ai_output_validation import cache_payload_is_compatible
 from .ai_prompt_defaults import KNOWLEDGE_PROMPT_VERSION
 from .ai_usage_history import record_usage as _record_usage
 from .user_data import (
@@ -703,7 +707,7 @@ def extract_vocabulary_with_ai(
     # Cache
     if not force_refresh:
         cached = _ai_cache_get(text, lang, custom_instruction, existing_hash)
-        if cached is not None:
+        if cached is not None and cache_payload_is_compatible(cached, lang=lang, kind="vocab"):
             if progress_callback:
                 progress_callback(t("status_cache_vocab", count=len(cached)))
             return cached
@@ -793,14 +797,12 @@ def extract_vocabulary_with_ai(
             except Exception:
                 pass
 
-    content = get_final_model_content(result["choices"][0])
-
     if progress_callback:
         progress_callback(t("status_parsing_json"))
 
-    _check_truncated_output(content, progress_callback)
-    vocab_list, comment = _parse_ai_json_with_comment(content, lambda p: t("error_ai_json_parse", content=p))
-    vocab_list = repair_vocabulary_cards(vocab_list, lang)
+    vocab_list, comment = _validated_cards_from_result(
+        result, cfg, lang=lang, kind="vocab", progress_callback=progress_callback,
+    )
 
     # Lọc bỏ từ trùng với existing_words (safety net)
     if existing_words:
@@ -1184,13 +1186,6 @@ def extract_vocabulary_long_text(
     ensure_ai_session_budget(text)
     if chunk_size is None:
         chunk_size = get_api_config().get("chunk_size", 8000)
-    if len(text) <= chunk_size:
-        return extract_vocabulary_with_ai(
-            text, lang, custom_instruction, existing_words,
-            progress_callback, force_refresh,
-            should_abort=should_abort,
-        )
-
     chunks = [text[i:i + chunk_size] for i in range(0, len(text), chunk_size)]
     if progress_callback:
         progress_callback(t("status_chunks_vocab", count=len(chunks)))
@@ -1224,20 +1219,34 @@ def extract_vocabulary_long_text(
 
         try:
             combined_existing = (existing_words or []) + prior_fronts
-            vocab_chunk = extract_vocabulary_with_ai(
-                chunk, lang, custom_instruction, combined_existing,
-                progress_callback=None, force_refresh=force_refresh,
-                token_callback=_acc,
+
+            def _call_vocab(source):
+                return extract_vocabulary_with_ai(
+                    source, lang, custom_instruction, combined_existing,
+                    progress_callback=None, force_refresh=force_refresh,
+                    token_callback=_acc,
+                    should_abort=should_abort,
+                )
+
+            vocab_chunk, unresolved_spans = _recover_text_chunk(
+                _call_vocab, chunk, progress_callback=progress_callback,
                 should_abort=should_abort,
             )
             for item in vocab_chunk:
                 if not isinstance(item, dict):
                     continue
-                key = (item.get("front") or item.get("simplified") or "").strip().lower()
-                if key and key not in seen and key not in existing_set:
+                front = (item.get("front") or item.get("simplified") or "").strip().lower()
+                meaning = (item.get("meaning") or "").strip().lower()
+                key = f"{front}|{meaning}"
+                if front and key not in seen and front not in existing_set:
                     seen.add(key)
                     all_vocab.append(item)
-                    prior_fronts.append(key)
+                    prior_fronts.append(front)
+            if unresolved_spans and progress_callback:
+                progress_callback(t(
+                    "status_ai_partial_spans",
+                    valid=len(all_vocab), unresolved=unresolved_spans,
+                ))
             # Giới hạn danh sách prior để tránh phình prompt
             if len(prior_fronts) > 400:
                 prior_fronts = prior_fronts[-400:]
@@ -1293,7 +1302,7 @@ def extract_grammar_with_ai(
     # Cache
     if not force_refresh:
         cached = _ai_cache_get(text, lang, custom_instruction, existing_hash, kind="grammar")
-        if cached is not None:
+        if cached is not None and cache_payload_is_compatible(cached, lang=lang, kind="grammar"):
             if progress_callback:
                 progress_callback(t("status_cache_grammar", count=len(cached)))
             return cached
@@ -1384,14 +1393,12 @@ def extract_grammar_with_ai(
             except Exception:
                 pass
 
-    content = get_final_model_content(result["choices"][0])
-
     if progress_callback:
         progress_callback(t("status_parsing_json"))
 
-    _check_truncated_output(content, progress_callback)
-    grammar_list, comment = _parse_ai_json_with_comment(content, lambda p: t("error_ai_json_parse", content=p))
-    grammar_list = normalize_language_cards(grammar_list)
+    grammar_list, comment = _validated_cards_from_result(
+        result, cfg, lang=lang, kind="grammar", progress_callback=progress_callback,
+    )
 
     # Chỉ giữ các item có pattern
     grammar_list = [
@@ -1439,13 +1446,6 @@ def extract_grammar_long_text(
     ensure_ai_session_budget(text)
     if chunk_size is None:
         chunk_size = get_api_config().get("chunk_size", 8000)
-    if len(text) <= chunk_size:
-        return extract_grammar_with_ai(
-            text, lang, custom_instruction, existing_patterns,
-            progress_callback, force_refresh,
-            should_abort=should_abort,
-        )
-
     chunks = [text[i:i + chunk_size] for i in range(0, len(text), chunk_size)]
     if progress_callback:
         progress_callback(t("status_chunks_grammar", count=len(chunks)))
@@ -1475,10 +1475,16 @@ def extract_grammar_long_text(
             progress_callback(t("status_chunk", current=idx + 1, total=len(chunks)))
 
         try:
-            grammar_chunk = extract_grammar_with_ai(
-                chunk, lang, custom_instruction, existing_patterns,
-                progress_callback=None, force_refresh=force_refresh,
-                token_callback=_acc,
+            def _call_grammar(source):
+                return extract_grammar_with_ai(
+                    source, lang, custom_instruction, existing_patterns,
+                    progress_callback=None, force_refresh=force_refresh,
+                    token_callback=_acc,
+                    should_abort=should_abort,
+                )
+
+            grammar_chunk, unresolved_spans = _recover_text_chunk(
+                _call_grammar, chunk, progress_callback=progress_callback,
                 should_abort=should_abort,
             )
             for item in grammar_chunk:
@@ -1490,6 +1496,11 @@ def extract_grammar_long_text(
                 if pat and key not in seen and pat not in existing_set:
                     seen.add(key)
                     all_grammar.append(item)
+            if unresolved_spans and progress_callback:
+                progress_callback(t(
+                    "status_ai_partial_spans",
+                    valid=len(all_grammar), unresolved=unresolved_spans,
+                ))
         except Exception as e:
             if progress_callback:
                 progress_callback(t("status_chunk_error", current=idx + 1, error=e))

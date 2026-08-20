@@ -2628,6 +2628,18 @@ _TRANSLATIONS = {
         "vi": "⚠️ Kết quả bị cắt do giới hạn token đầu ra (max_tokens).\n💡 Giảm 'Độ dài xử lý mỗi lần gọi' trong Cài Đặt AI (ví dụ 6k–10k) hoặc chia nhỏ văn bản.",
         "en": "⚠️ The result was truncated by the output-token limit (max_tokens).\n💡 Reduce 'Chunk size per request' in AI Settings (for example, 6k–10k) or split the text.",
     },
+    "status_ai_invalid_ignored": {
+        "vi": "⚠️ Giữ {valid} thẻ hợp lệ; bỏ {invalid} mục sai schema hoặc thiếu dữ liệu tối thiểu.",
+        "en": "⚠️ Kept {valid} valid cards; ignored {invalid} items with a schema or minimum-data error.",
+    },
+    "status_ai_recovery_split": {
+        "vi": "🔄 Output lỗi ({reason}); tự chia nguồn thành {first} + {second} ký tự để thử lại.",
+        "en": "🔄 Output failed ({reason}); retrying the source as {first} + {second} characters.",
+    },
+    "status_ai_partial_spans": {
+        "vi": "⚠️ Đã giữ {valid} thẻ hợp lệ; còn {unresolved} đoạn nguồn chưa hoàn thành sau retry.",
+        "en": "⚠️ Kept {valid} valid cards; {unresolved} source spans remain unresolved after retry.",
+    },
     "status_cache_vocab": {
         "vi": "📦 Cache: {count} từ vựng!",
         "en": "📦 Cache: {count} vocabulary items!",
@@ -2837,6 +2849,14 @@ _TRANSLATIONS = {
     "batch_status_rate_wait": {
         "vi": "⏳ Đang chờ {seconds:.1f}s vì giới hạn tốc độ đang hoạt động...",
         "en": "⏳ Waiting {seconds:.1f}s while rate limiting is active...",
+    },
+    "batch_status_partial_retry": {
+        "vi": "🔄 Đã giữ {valid} mục hợp lệ; thử lại riêng {missing} mục thiếu (vòng {attempt}/{maximum}).",
+        "en": "🔄 Kept {valid} valid items; retrying only {missing} missing items (round {attempt}/{maximum}).",
+    },
+    "batch_status_partial_complete": {
+        "vi": "⚠️ Đã tạo {valid}/{requested} thẻ hợp lệ. {unresolved} mục chưa hoàn thành sau {retries} lần retry; bạn vẫn có thể tiếp tục với phần hợp lệ.",
+        "en": "⚠️ Created {valid}/{requested} valid cards. {unresolved} items remain unresolved after {retries} retries; you can continue with the valid cards.",
     },
     "batch_status_complete": {
         "vi": "🎉 Hoàn tất! Tổng: {count} {label} đã xử lý ({batches} batch, {errors} lỗi)",

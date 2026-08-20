@@ -1,0 +1,13 @@
+{
+  "version": 1,
+  "benchmark_type": "provider_free_simulation",
+  "failure_model": "truncate when request has more than 6 cards",
+  "max_recovery_depth": 2,
+  "resource_metrics": "not measured without a real provider call",
+  "scenarios": [
+    {"requested_cards": 5, "batch_size": 10, "provider_calls": 1, "retry_calls": 0, "truncations": 0, "completed_cards": 5, "complete_card_rate": 1.0, "success": true, "average_cards_per_request": 5.0, "output_tokens": null, "cost_usd": null, "latency_seconds": null},
+    {"requested_cards": 10, "batch_size": 10, "provider_calls": 3, "retry_calls": 2, "truncations": 1, "completed_cards": 10, "complete_card_rate": 1.0, "success": true, "average_cards_per_request": 3.333, "output_tokens": null, "cost_usd": null, "latency_seconds": null},
+    {"requested_cards": 20, "batch_size": 10, "provider_calls": 6, "retry_calls": 4, "truncations": 2, "completed_cards": 20, "complete_card_rate": 1.0, "success": true, "average_cards_per_request": 3.333, "output_tokens": null, "cost_usd": null, "latency_seconds": null},
+    {"requested_cards": 30, "batch_size": 10, "provider_calls": 9, "retry_calls": 6, "truncations": 3, "completed_cards": 30, "complete_card_rate": 1.0, "success": true, "average_cards_per_request": 3.333, "output_tokens": null, "cost_usd": null, "latency_seconds": null}
+  ]
+}

@@ -32,7 +32,7 @@ class BatchProcessThread(QThread):
     finished = pyqtSignal(list)           # vocab_list
     error = pyqtSignal(str)               # Error message
 
-    def __init__(self, raw_text, lang, custom_instruction="", existing_words=None, batch_size=40, grammar=False, slow_mode=False):
+    def __init__(self, raw_text, lang, custom_instruction="", existing_words=None, batch_size=10, grammar=False, slow_mode=False):
         super().__init__()
         self.raw_text = raw_text
         self.lang = lang
@@ -42,6 +42,7 @@ class BatchProcessThread(QThread):
         self.grammar = grammar
         self.slow_mode = slow_mode
         self.cancel_event = threading.Event()
+        self.last_report = {}
 
     def run(self):
         try:
@@ -50,7 +51,9 @@ class BatchProcessThread(QThread):
 
             # Báo cáo ước tính
             word_count = len(self.raw_text.split("\n"))
-            estimate = estimate_batch_cost(word_count, self.lang, self.batch_size)
+            estimate = estimate_batch_cost(
+                word_count, self.lang, self.batch_size, grammar=self.grammar,
+            )
             self.progress.emit(t(
                 "batch_worker_estimate",
                 batches=estimate["estimated_batches"],
@@ -68,6 +71,7 @@ class BatchProcessThread(QThread):
                 should_abort=self.cancel_event.is_set,
                 grammar=self.grammar,
                 slow_mode=self.slow_mode,
+                report_callback=lambda report: setattr(self, "last_report", report),
             )
 
             if self.cancel_event.is_set():

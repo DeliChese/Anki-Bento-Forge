@@ -189,6 +189,16 @@ AI_PROVIDERS = [
 
 PROVIDER_MAP = {p["id"]: p for p in AI_PROVIDERS}
 
+_PROVIDER_CAPABILITIES = {
+    "deepseek": {"supports_json_mode": True, "supports_structured_output": False},
+    "openai": {"supports_json_mode": True, "supports_structured_output": True},
+    "gemini": {"supports_json_mode": False, "supports_structured_output": True},
+    "anthropic": {"supports_json_mode": False, "supports_structured_output": True},
+    "openrouter": {"supports_json_mode": False, "supports_structured_output": False},
+    "ollama": {"supports_json_mode": False, "supports_structured_output": False},
+    "lmstudio": {"supports_json_mode": False, "supports_structured_output": False},
+}
+
 
 def get_providers():
     """Trả về danh sách provider preset (bản copy)."""
@@ -223,3 +233,17 @@ def detect_provider(api_base, model=""):
     if "openai" in base or base == "https://api.openai.com/v1":
         return "openai"
     return ""
+
+
+def get_provider_capabilities(api_base: str, model: str = "") -> dict:
+    """Return provider metadata without model-name conditionals in workflows."""
+    provider = detect_provider(api_base, model) or "custom"
+    capabilities = dict(_PROVIDER_CAPABILITIES.get(provider, {}))
+    capabilities.update({
+        "provider": provider,
+        "finish_reason_truncation": (
+            "length", "max_tokens", "max_output_tokens", "incomplete",
+        ),
+        "known_card_wrappers": ("cards", "items", "results"),
+    })
+    return capabilities

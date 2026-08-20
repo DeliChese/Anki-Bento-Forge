@@ -5,6 +5,7 @@
 > Các thay đổi đã merge sau 17.1.0. Chỉ chuyển mục này thành bản phát hành khi `manifest.json`, bằng chứng CI và smoke Anki đã sẵn sàng.
 
 ### ✨ Added
+- AI Output Reliability release gate: provider-neutral response adapter, deterministic JSON extraction (raw/fenced/prose/known wrapper/native structured data), language/mode schema validation, minimum semantic checks, requested/received reconciliation, bounded partial retry và adaptive batch splitting; valid partial cards vẫn có thể vào preview an toàn.
 - Language Card Quality V2 cho vocab/grammar Nhật–Trung–Hàn–Anh: Usage Pattern/Note/Collocation hỗ trợ tối đa ba mục có information gain riêng; Example3/4 là field tùy chọn không audio, chỉ hiện thu gọn ở mặt sau; benchmark V2 đo density/size nhưng không thưởng quota.
 - Confusion Guard lát cắt đầu tiên: cảnh báo advisory-only khi entry mới có exact curated near-confusable pair trong cùng deck; không chặn import, không merge, không tạo card và không đổi SRS.
 - Usage Guide V1 cho vocab Nhật/Trung/Hàn/Anh: ba field tùy chọn `Usage Pattern`, `Usage Note`, `Collocation` (tối đa một cụm có nghĩa) hiển thị riêng ở mặt sau và tự ẩn khi trống. Output AI được chuẩn hóa để bỏ placeholder, nội dung lặp, collocation thiếu nghĩa và ví dụ thứ hai trùng; migration chỉ thêm field/template còn thiếu, không tạo card hay lịch SRS mới.
@@ -25,6 +26,7 @@
 - Thêm `DEBUGGING.md`, `COMPATIBILITY.md`, `RELEASE_CHECKLIST.md`, artifact build có SHA-256/SBOM, cùng harness kiểm thử cô lập hai vòng dùng chung với CI.
 
 ### 🔧 Changed
+- Quality V2 batch policy dùng giới hạn bảo thủ 8–12 card/request tùy language/mode và output budget thay cho mặc định 80; cache AI/batch tăng schema boundary để không hồi sinh partial hoặc wrong-language payload.
 - Prompt cache mặc định và batch-cache boundary được tăng/ghép prompt signature để kết quả trước Quality V2 hoặc override cũ không bị tái sử dụng; migration Example3/4 chỉ thêm field còn thiếu và chạy lặp an toàn.
 - Knowledge beta được giữ trong mã nguồn nhưng tắt trên giao diện; profile/deck đã từng chọn Knowledge tự quay về Language mà không ghi đè preference hoặc draft beta. Manifest và tài liệu hiện chỉ công bố workflow ngoại ngữ, không bump `18.0.0`.
 - Mở compatibility manifest từ Anki 2.1.50 đến 26.5, bổ sung metadata cài `.ankiaddon` chuẩn (`package`/point version), và dùng `Collection.update_note()` để add/update/rollback nằm trong undo-aware operation trên Anki hiện tại; vẫn giữ fallback cho runtime legacy.
@@ -40,6 +42,7 @@
 - Chuẩn hóa compatibility theo `manifest.json`, diagnostic event code và logging theo Anki profile.
 
 ### 🐛 Fixed
+- English AI output chứa `hsk_level`, response sai vocab/grammar mode, prose-only, wrapper không whitelist hoặc JSON chỉ hoàn thành một phần không còn silently lọt vào Xưởng; truncated tail không được tự đóng ngoặc hay bịa field.
 - Knowledge đổi hành động AI thành `GỬI & TẠO THẺ`, làm rõ ô `Yêu cầu thêm` và giữ nó trên pipeline tạo thẻ/schema Knowledge thay vì AI Chat của Language.
 - Knowledge không còn hiển thị hoặc gọi gián tiếp công cụ `Batch Từ Vựng`; nhiều Knowledge card tiếp tục đi qua AI extract/schema riêng có chunking thay vì workflow Vocabulary/Grammar của Language.
 - Import Knowledge chỉ quét duplicate theo Question/Concept đã chuẩn hóa trong đúng Knowledge model + deck; cancel giữa batch tự phục hồi phần đã ghi và Undo batch gần nhất xóa note mới đồng thời khôi phục note đã update mà không chạm note Language.

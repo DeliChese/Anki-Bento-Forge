@@ -29,15 +29,12 @@ def test_single_dict_is_wrapped_and_comment_removed():
     assert parser.parse_ai_json_with_comment(content) == ([{"front": "먹다"}], "one")
 
 
-def test_embedded_array_and_concatenated_object_fallbacks_are_preserved():
+def test_embedded_array_is_preserved_and_ambiguous_payloads_are_rejected():
     embedded = 'AI result: [{"front":"行く"}] end.'
     assert parser.parse_ai_json_with_comment(embedded) == ([{"front": "行く"}], "")
 
-    concatenated = '{"front":"a"}{"front":"b"}'
-    assert parser.parse_ai_json_with_comment(concatenated) == (
-        [{"front": "a"}, {"front": "b"}],
-        "",
-    )
+    with pytest.raises(RuntimeError):
+        parser.parse_ai_json_with_comment('{"front":"a"}{"front":"b"}')
 
 
 def test_invalid_response_raises_bounded_actionable_error():
@@ -47,7 +44,7 @@ def test_invalid_response_raises_bounded_actionable_error():
 
     message = str(exc_info.value)
     assert "Không parse được JSON" in message
-    assert "8k-12k" in message
+    assert "batch nhỏ hơn" in message
     assert "x" * 400 in message
     assert "x" * 401 not in message
 
@@ -61,5 +58,5 @@ def test_parser_owner_is_pure_and_ai_extractor_reexports_legacy_name():
         elif isinstance(node, ast.ImportFrom) and node.module:
             imports.add(node.module)
 
-    assert imports <= {"json", "re", "json_parser"}
+    assert imports <= {"__future__", "json", "re", "dataclasses", "typing"}
     assert ai_extractor._parse_ai_json_with_comment is parser.parse_ai_json_with_comment

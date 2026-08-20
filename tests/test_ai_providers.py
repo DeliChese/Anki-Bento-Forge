@@ -7,6 +7,7 @@ from utils.ai_providers import (
     PROVIDER_MAP,
     detect_provider,
     get_provider,
+    get_provider_capabilities,
     get_providers,
 )
 
@@ -119,3 +120,13 @@ def test_every_preset_detects_its_own_base():
         assert detect_provider(provider["base"]) == provider["id"], (
             f"detect_provider failed for {provider['id']}"
         )
+
+
+def test_provider_capabilities_expose_generic_response_contract():
+    deepseek = get_provider_capabilities("https://api.deepseek.com/v1", "deepseek-v4-flash")
+    custom = get_provider_capabilities("https://example.invalid/v1", "local")
+    assert deepseek["provider"] == "deepseek"
+    assert deepseek["supports_json_mode"] is True
+    assert "length" in deepseek["finish_reason_truncation"]
+    assert custom["provider"] == "custom"
+    assert custom["known_card_wrappers"] == ("cards", "items", "results")

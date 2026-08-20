@@ -22,6 +22,11 @@ examples/patterns/micro-notes/collocations and serialized size without awarding 
 higher score merely for producing more optional content. Semantic accuracy,
 naturalness, hallucination, level, and true information gain remain human gates.
 
+`ai_output_reliability_v1.json` is a provider-free failure-injection benchmark for
+5/10/20/30-card jobs. It records completion, calls, retries, truncations, and average
+cards/request when calls above six cards deterministically truncate. Token, cost, and
+latency stay `null` because a simulation must not present invented provider metrics.
+
 The automated runner uses the provider configured in Bento Forge, retains only generated
 cards and aggregate usage (never an API key), and writes all run reports plus a comparison:
 

@@ -18,6 +18,7 @@ import time
 import hashlib
 import urllib.request
 import urllib.error
+from dataclasses import dataclass, replace
 from typing import Optional, Callable, List, Dict
 
 from .logger import get_logger
@@ -33,8 +34,18 @@ from .ai_extractor import (
     is_openrouter,
 )
 from .ai_response_parser import parse_ai_json_with_comment as _parse_ai_json_with_comment
-from .ai_response_guard import enable_deepseek_json_output, get_final_model_content
+from .ai_response_guard import adapt_chat_completion_response, enable_deepseek_json_output
+from .ai_reliability import (
+    AiCardResponse,
+    AiOutputFailure,
+    reconcile_expected_candidates,
+)
+from .ai_output_validation import (
+    AI_OUTPUT_SCHEMA_VERSION,
+    cache_payload_is_compatible,
+)
 from .ai_output_repairs import repair_vocabulary_cards
+from .usage_guide import normalize_language_cards
 from .ai_result_cache import DEFAULT_PROMPT_VERSION
 from .ai_http_client import (
     get_rate_limit_delay as _get_rate_limit_delay,
@@ -56,14 +67,32 @@ def _normalized_level(value: str) -> str:
 # ═══════════════════════════════════════════════════════════
 #  CONSTANTS
 # ═══════════════════════════════════════════════════════════
-DEFAULT_BATCH_SIZE = 80          # Số từ mỗi batch gửi AI
-MAX_WORDS_PER_REQUEST = 100       # Tối đa từ trong 1 request
+DEFAULT_BATCH_SIZE = 10          # Conservative Quality V2 request size
+MAX_WORDS_PER_REQUEST = 30       # UI ceiling; policy may choose a smaller size
 MIN_DELAY_BETWEEN_BATCHES = 1.5  # Giây delay giữa các batch
-MAX_RETRIES = 3                  # Số lần retry tối đa
-RETRY_BASE_DELAY = 2.0           # Delay cơ sở cho exponential backoff
+MAX_RECOVERY_RETRIES = 2
+MIN_ADAPTIVE_BATCH_SIZE = 1
 _LEGACY_CACHE_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "ai_cache")
 CACHE_DIR = get_user_data_path("cache")
 CACHE_TTL = 14 * 24 * 3600       # Cache 14 ngày
+
+
+def recommended_quality_v2_batch_size(
+    lang: str,
+    *,
+    grammar: bool = False,
+    max_output_tokens: int = 8192,
+) -> int:
+    """Return a conservative, deterministic Quality V2 output budget."""
+    vocab_sizes = {"english": 12, "japanese": 10, "chinese": 8, "korean": 8}
+    grammar_sizes = {"english": 10, "japanese": 8, "chinese": 8, "korean": 8}
+    size = (grammar_sizes if grammar else vocab_sizes).get(lang, 8)
+    tokens = max(1, int(max_output_tokens or 8192))
+    if tokens < 4096:
+        size = max(3, size // 2)
+    elif tokens < 6144:
+        size = max(4, round(size * 0.7))
+    return size
 
 
 def _wait_for_cancel(seconds: float, should_abort: Optional[Callable[[], bool]] = None):
@@ -232,11 +261,6 @@ def smart_group_words(words: List[Dict[str, str]], batch_size: int = DEFAULT_BAT
         batch = all_sorted[i:i + batch_size]
         batches.append(batch)
     
-    # Nếu batch cuối quá nhỏ (< 10 từ), gộp với batch trước
-    if len(batches) >= 2 and len(batches[-1]) < 10:
-        small_batch = batches.pop()
-        batches[-1].extend(small_batch)
-    
     logger.info("Grouped %d words into %d batches (avg %d/batch)", 
                 len(words), len(batches), len(words) // max(1, len(batches)))
     return batches
@@ -386,7 +410,7 @@ không bịa dữ kiện còn thiếu.
     return prompt
 
 
-def _call_ai_for_batch(
+def _call_ai_for_batch_response(
     words: List[Dict[str, str]],
     lang: str,
     existing_words: List[str],
@@ -396,8 +420,8 @@ def _call_ai_for_batch(
     progress_callback: Optional[Callable[[str], None]] = None,
     grammar: bool = False,
     should_abort: Optional[Callable[[], bool]] = None,
-) -> list:
-    """Gọi AI API cho một batch từ vựng (hoặc cấu trúc ngữ pháp)"""
+) -> AiCardResponse:
+    """Call one batch and return validated response diagnostics."""
     cfg = get_api_config()
     if not cfg.get("api_key") and "localhost" not in cfg.get("api_base", ""):
         raise ValueError(t("error_api_key_missing"))
@@ -453,17 +477,43 @@ def _call_ai_for_batch(
             duration_seconds=time.monotonic() - request_started_monotonic,
         )
     
-    content = get_final_model_content(result["choices"][0])
-    
-    vocab_list, comment = _parse_ai_json_with_comment(
-        content, lambda preview: t("error_ai_json_parse", content=preview)
+    adapted = adapt_chat_completion_response(result, cfg)
+    from .ai_reliability import process_ai_card_response
+
+    try:
+        response = process_ai_card_response(
+            adapted, lang=lang, kind="grammar" if grammar else "vocab",
+        )
+    except AiOutputFailure as exc:
+        cards = list(exc.cards)
+        cards = (
+            normalize_language_cards(cards)
+            if grammar else repair_vocabulary_cards(cards, lang)
+        )
+        raise AiOutputFailure(exc.category, cards=cards, message=str(exc)) from exc
+
+    cards = list(response.cards)
+    cards = (
+        normalize_language_cards(cards)
+        if grammar else repair_vocabulary_cards(cards, lang)
     )
-    vocab_list = repair_vocabulary_cards(vocab_list, lang)
+    response = replace(response, cards=tuple(cards))
     
-    if progress_callback and comment:
-        progress_callback(f"  💬 {comment[:100]}")
+    if progress_callback and response.comment:
+        progress_callback(f"  💬 {response.comment[:100]}")
     
-    return vocab_list
+    logger.info(
+        "Batch AI output provider=%s model=%s lang=%s kind=%s requested=%d raw=%d valid=%d invalid=%d duplicates=%d recovery=%s",
+        response.provider, response.model, lang, "grammar" if grammar else "vocab",
+        len(words), response.raw_count, len(response.cards), len(response.invalid),
+        response.duplicate_count, response.recovery,
+    )
+    return response
+
+
+def _call_ai_for_batch(*args, **kwargs) -> list:
+    """Compatibility wrapper returning only validated cards."""
+    return list(_call_ai_for_batch_response(*args, **kwargs).cards)
 
 
 # ═══════════════════════════════════════════════════════════
@@ -480,10 +530,22 @@ def _ensure_cache_dir():
 def _batch_cache_key(words: List[Dict[str, str]], lang: str, instruction: str, existing_hash: str, grammar: bool = False) -> str:
     """Tạo cache key cho một batch"""
     kind = "grammar" if grammar else "vocab"
-    fronts = ",".join(sorted(w["front"] for w in words))
+    candidates = json.dumps(
+        [
+            {
+                "front": w.get("front", ""),
+                "meaning": w.get("meaning", ""),
+                "level": w.get("level", ""),
+                "topic": w.get("topic", ""),
+            }
+            for w in words
+        ],
+        ensure_ascii=False,
+        separators=(",", ":"),
+    )
     raw = (
         f"batch|prompt:{DEFAULT_PROMPT_VERSION}|signature:{get_signature()}|"
-        f"{kind}|{lang}|{instruction}|{existing_hash}|{fronts}"
+        f"{kind}|{lang}|{instruction}|{existing_hash}|{candidates}"
     )
     return hashlib.md5(raw.encode("utf-8")).hexdigest()
 
@@ -496,8 +558,17 @@ def _batch_cache_get(words: List[Dict[str, str]], lang: str, instruction: str, e
     if os.path.exists(cache_file):
         try:
             data = read_json(cache_file, {}, lambda value: isinstance(value, dict))
-            if time.time() - data.get("_cached_at", 0) < CACHE_TTL:
-                return data.get("vocab", [])
+            kind = "grammar" if grammar else "vocab"
+            cards = data.get("vocab", [])
+            if (
+                data.get("_schema_version") == AI_OUTPUT_SCHEMA_VERSION
+                and data.get("_lang") == lang
+                and data.get("_kind") == kind
+                and data.get("_count") == len(words)
+                and time.time() - data.get("_cached_at", 0) < CACHE_TTL
+                and cache_payload_is_compatible(cards, lang=lang, kind=kind)
+            ):
+                return cards
         except Exception:
             pass
     return None
@@ -513,10 +584,118 @@ def _batch_cache_set(words: List[Dict[str, str]], lang: str, instruction: str, e
             "vocab": vocab_list,
             "_cached_at": time.time(),
             "_lang": lang,
+            "_kind": "grammar" if grammar else "vocab",
+            "_schema_version": AI_OUTPUT_SCHEMA_VERSION,
             "_count": len(vocab_list),
         })
     except Exception:
         pass
+
+
+@dataclass(frozen=True)
+class BatchResolution:
+    cards: tuple[dict, ...]
+    unresolved: tuple[dict, ...]
+    invalid: int = 0
+    duplicates: int = 0
+    unexpected: int = 0
+    attempts: int = 0
+    truncations: int = 0
+    reasons: tuple[str, ...] = ()
+
+
+def _resolve_batch_adaptively(
+    batch: List[Dict[str, str]],
+    lang: str,
+    existing_words: List[str],
+    custom_instruction: str,
+    batch_num: int,
+    total_batches: int,
+    progress_callback: Optional[Callable[[str], None]],
+    *,
+    grammar: bool,
+    should_abort: Optional[Callable[[], bool]],
+    depth: int = 0,
+) -> BatchResolution:
+    """Keep valid cards, retry unresolved identities, and split boundedly."""
+    if should_abort and should_abort():
+        raise RuntimeError(t("error_cancelled_by_user"))
+
+    invalid = duplicates = unexpected = truncations = 0
+    reasons: tuple[str, ...] = ()
+    try:
+        response = _call_ai_for_batch_response(
+            batch, lang, existing_words, custom_instruction,
+            batch_num, total_batches, progress_callback, grammar=grammar,
+            should_abort=should_abort,
+        )
+        cards = list(response.cards)
+        invalid = len(response.invalid)
+        duplicates = response.duplicate_count
+    except AiOutputFailure as exc:
+        cards = list(exc.cards)
+        reasons = (exc.category,)
+        truncations = int(exc.category == "truncation")
+
+    reconciliation = reconcile_expected_candidates(
+        batch, cards, kind="grammar" if grammar else "vocab",
+        invalid_count=invalid, duplicate_count=duplicates,
+        truncated=bool(truncations),
+    )
+    invalid = reconciliation.invalid
+    duplicates = reconciliation.duplicates
+    unexpected = reconciliation.unexpected
+    if not reconciliation.unresolved or depth >= MAX_RECOVERY_RETRIES:
+        return BatchResolution(
+            reconciliation.cards, reconciliation.unresolved, invalid, duplicates,
+            unexpected, 1, truncations, reasons,
+        )
+
+    unresolved = list(reconciliation.unresolved)
+    if progress_callback:
+        progress_callback(t(
+            "batch_status_partial_retry",
+            valid=len(reconciliation.cards), missing=len(unresolved),
+            attempt=depth + 1, maximum=MAX_RECOVERY_RETRIES,
+        ))
+
+    # A total failure proves the current output budget unsafe. Split it. A
+    # partial success already identifies the smaller unresolved sub-batch.
+    if len(unresolved) == len(batch) and len(unresolved) > MIN_ADAPTIVE_BATCH_SIZE:
+        midpoint = max(1, len(unresolved) // 2)
+        retry_groups = [unresolved[:midpoint], unresolved[midpoint:]]
+    else:
+        retry_groups = [unresolved]
+
+    retry_cards = []
+    attempts = 1
+    for retry_group in retry_groups:
+        if not retry_group:
+            continue
+        child = _resolve_batch_adaptively(
+            retry_group, lang, existing_words, custom_instruction,
+            batch_num, total_batches, progress_callback, grammar=grammar,
+            should_abort=should_abort, depth=depth + 1,
+        )
+        retry_cards.extend(child.cards)
+        invalid += child.invalid
+        duplicates += child.duplicates
+        unexpected += child.unexpected
+        attempts += child.attempts
+        truncations += child.truncations
+        reasons += child.reasons
+
+    merged = reconcile_expected_candidates(
+        batch, [*reconciliation.cards, *retry_cards],
+        kind="grammar" if grammar else "vocab",
+        invalid_count=invalid, duplicate_count=duplicates,
+        truncated=bool(truncations),
+    )
+    return BatchResolution(
+        merged.cards, merged.unresolved, merged.invalid, merged.duplicates,
+        unexpected + merged.unexpected, attempts, truncations,
+        tuple(dict.fromkeys(reasons)),
+    )
 
 
 # ═══════════════════════════════════════════════════════════
@@ -533,6 +712,7 @@ def process_large_word_list(
     should_abort: Optional[Callable[[], bool]] = None,
     grammar: bool = False,
     slow_mode: bool = False,
+    report_callback: Optional[Callable[[dict], None]] = None,
 ) -> List[dict]:
     """
     🚀 XỬ LÝ DANH SÁCH TỪ VỰNG LỚN QUA AI.
@@ -585,24 +765,36 @@ def process_large_word_list(
     if progress_callback:
         progress_callback(t("batch_status_remaining", count=len(words), label=label))
     
-    # ── Step 3: Smart grouping ────────────────────────────
-    batches = smart_group_words(words, batch_size)
+    # ── Step 3: Output-budget-aware grouping ──────────────
+    cfg = get_api_config()
+    policy_size = recommended_quality_v2_batch_size(
+        lang, grammar=grammar, max_output_tokens=cfg.get("max_tokens", 8192),
+    )
+    effective_batch_size = max(1, min(int(batch_size or DEFAULT_BATCH_SIZE), policy_size))
+    batches = smart_group_words(words, effective_batch_size)
     
     if progress_callback:
         progress_callback(t(
             "batch_status_groups",
             batches=len(batches),
-            size=batch_size,
+            size=effective_batch_size,
             label=label,
         ))
     
     # ── Step 4: Process từng batch ────────────────────────
     existing_hash = _make_existing_hash(existing_words or [])
     all_vocab = []
-    seen_fronts = set()
+    seen_cards = set()
     existing_set = set(w.lower().strip() for w in (existing_words or []))
     total_batches = len(batches)
     total_errors = 0
+    requested_count = len(words)
+    total_invalid = 0
+    total_duplicates = 0
+    total_unexpected = 0
+    total_retries = 0
+    total_truncations = 0
+    unresolved_inputs = []
 
     # Rate limit theo provider + slow_mode:
     # - slow_mode=True (mặc định khi OpenRouter): delay 3.2s/batch → ~18 req/phút (an toàn < 20)
@@ -624,6 +816,9 @@ def process_large_word_list(
     for idx, batch in enumerate(batches):
         # Check abort
         if should_abort and should_abort():
+            unresolved_inputs.extend(
+                item for pending in batches[idx:] for item in pending
+            )
             if progress_callback:
                 progress_callback(t(
                     "batch_status_cancelled", current=idx, total=total_batches
@@ -648,9 +843,13 @@ def process_large_word_list(
                 ))
             new_count = 0
             for item in cached:
-                front = (item.get("front") or item.get("simplified") or "").strip().lower()
-                if front and front not in seen_fronts and front not in existing_set:
-                    seen_fronts.add(front)
+                front = (
+                    (item.get("pattern") or "") if grammar
+                    else (item.get("front") or item.get("simplified") or "")
+                ).strip().lower()
+                card_key = (front, (item.get("meaning") or "").strip().lower())
+                if front and card_key not in seen_cards and front not in existing_set:
+                    seen_cards.add(card_key)
                     all_vocab.append(item)
                     new_count += 1
             if progress_callback:
@@ -662,22 +861,35 @@ def process_large_word_list(
                 ))
         
         else:
-            # Gọi AI
+            # Gọi AI với completeness reconciliation + bounded recovery.
             try:
-                vocab_batch = _call_ai_for_batch(
+                resolution = _resolve_batch_adaptively(
                     batch, lang, existing_words or [], custom_instruction,
                     batch_num, total_batches, progress_callback, grammar=grammar,
                     should_abort=should_abort,
                 )
+                vocab_batch = list(resolution.cards)
+                total_invalid += resolution.invalid
+                total_duplicates += resolution.duplicates
+                total_unexpected += resolution.unexpected
+                total_retries += max(0, resolution.attempts - 1)
+                total_truncations += resolution.truncations
+                unresolved_inputs.extend(resolution.unresolved)
+                if resolution.unresolved:
+                    total_errors += 1
                  
                 # Lọc trùng
                 new_count = 0
                 for item in vocab_batch:
                     if not isinstance(item, dict):
                         continue
-                    front = (item.get("front") or item.get("simplified") or "").strip().lower()
-                    if front and front not in seen_fronts and front not in existing_set:
-                        seen_fronts.add(front)
+                    front = (
+                        (item.get("pattern") or "") if grammar
+                        else (item.get("front") or item.get("simplified") or "")
+                    ).strip().lower()
+                    card_key = (front, (item.get("meaning") or "").strip().lower())
+                    if front and card_key not in seen_cards and front not in existing_set:
+                        seen_cards.add(card_key)
                         all_vocab.append(item)
                         new_count += 1
                  
@@ -690,7 +902,7 @@ def process_large_word_list(
                     ))
                  
                 # Cache kết quả
-                if vocab_batch:
+                if vocab_batch and not resolution.unresolved and len(vocab_batch) == len(batch):
                     _batch_cache_set(batch, lang, custom_instruction, existing_hash, vocab_batch, grammar=grammar)
                 
             except Exception as e:
@@ -701,9 +913,7 @@ def process_large_word_list(
                         "batch_progress_error", batch=batch_num, error=e
                     ))
                 
-                # Nếu lỗi quá nhiều, dừng
-                if total_errors >= 3:
-                    raise RuntimeError(t("batch_error_too_many", count=total_errors))
+                unresolved_inputs.extend(batch)
         
         # Rate limiting giữa các batch — CHỈ khi không phải cache hit (tiết kiệm thời gian)
         # Dùng delay động: nếu đang bị rate limit (từ _http_post_json), tăng dần
@@ -715,15 +925,44 @@ def process_large_word_list(
                 progress_callback(t("batch_status_rate_wait", seconds=delay))
             _wait_for_cancel(delay, should_abort)
     
-    # ── Step 5: Tổng kết ──────────────────────────────────
+    # ── Step 5: Completeness summary ──────────────────────
+    summary_report = {
+        "requested": requested_count,
+        "valid": len(all_vocab),
+        "invalid": total_invalid,
+        "duplicates": total_duplicates,
+        "missing": len(unresolved_inputs),
+        "unexpected": total_unexpected,
+        "retries": total_retries,
+        "truncations": total_truncations,
+        "batch_size": effective_batch_size,
+        "batches": total_batches,
+        "complete": len(unresolved_inputs) == 0,
+    }
+    if report_callback:
+        report_callback(dict(summary_report))
     if progress_callback:
-        progress_callback(t(
-            "batch_status_complete",
-            count=len(all_vocab),
-            label=label,
-            batches=total_batches,
-            errors=total_errors,
-        ))
+        if unresolved_inputs:
+            progress_callback(t(
+                "batch_status_partial_complete",
+                requested=requested_count, valid=len(all_vocab),
+                unresolved=len(unresolved_inputs), retries=total_retries,
+            ))
+        else:
+            progress_callback(t(
+                "batch_status_complete",
+                count=len(all_vocab),
+                label=label,
+                batches=total_batches,
+                errors=total_errors,
+            ))
+
+    logger.info(
+        "Batch reliability lang=%s kind=%s requested=%d valid=%d invalid=%d duplicates=%d missing=%d unexpected=%d retries=%d truncations=%d batch_size=%d",
+        lang, "grammar" if grammar else "vocab", requested_count,
+        len(all_vocab), total_invalid, total_duplicates, len(unresolved_inputs),
+        total_unexpected, total_retries, total_truncations, effective_batch_size,
+    )
     
     return all_vocab
 
@@ -1144,18 +1383,31 @@ def create_decks_from_organization(
 #  UTILITY: Estimate cost
 # ═══════════════════════════════════════════════════════════
 
-def estimate_batch_cost(word_count: int, lang: str, batch_size: int = DEFAULT_BATCH_SIZE) -> dict:
+def estimate_batch_cost(
+    word_count: int,
+    lang: str,
+    batch_size: int = DEFAULT_BATCH_SIZE,
+    *,
+    grammar: bool = False,
+) -> dict:
     """
     Ước tính chi phí API cho việc xử lý batch.
     
     Returns:
         dict với estimated_batches, estimated_tokens, estimated_cost (USD)
     """
-    batches = max(1, (word_count + batch_size - 1) // batch_size)
+    max_tokens = get_api_config().get("max_tokens", 8192)
+    effective_size = min(
+        max(1, int(batch_size or DEFAULT_BATCH_SIZE)),
+        recommended_quality_v2_batch_size(
+            lang, grammar=grammar, max_output_tokens=max_tokens,
+        ),
+    )
+    batches = max(1, (word_count + effective_size - 1) // effective_size)
     
-    # Ước tính token: ~150 token/từ cho input context + ~200 token/từ cho output
-    input_tokens = word_count * 150
-    output_tokens = word_count * 200
+    # Quality V2 carries more examples/usage data than the legacy card schema.
+    input_tokens = word_count * 200 + batches * 800
+    output_tokens = word_count * (800 if grammar else 650)
     
     # Giá tham khảo (DeepSeek):
     # deepseek-chat: $0.14/1M input, $0.28/1M output
@@ -1166,7 +1418,8 @@ def estimate_batch_cost(word_count: int, lang: str, batch_size: int = DEFAULT_BA
     
     return {
         "total_words": word_count,
-        "batch_size": batch_size,
+        "batch_size": effective_size,
+        "requested_batch_size": batch_size,
         "estimated_batches": batches,
         "estimated_input_tokens": input_tokens,
         "estimated_output_tokens": output_tokens,

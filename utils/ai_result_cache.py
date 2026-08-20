@@ -20,7 +20,8 @@ from .user_data import (
 )
 
 
-DEFAULT_PROMPT_VERSION = 22
+DEFAULT_PROMPT_VERSION = 23
+AI_RESULT_SCHEMA_VERSION = 2
 DEFAULT_MAX_BYTES = 25 * 1024 * 1024
 DEFAULT_MAX_FILES = 200
 DEFAULT_TTL_SECONDS = 7 * 24 * 3600
@@ -101,7 +102,12 @@ def get_cached_result(
     try:
         data = read_json(cache_file, {}, lambda value: isinstance(value, dict))
         ttl = OPENROUTER_TTL_SECONDS if is_openrouter() else DEFAULT_TTL_SECONDS
-        if now() - data.get("_cached_at", 0) < ttl:
+        if (
+            data.get("_schema_version") == AI_RESULT_SCHEMA_VERSION
+            and data.get("_lang") == lang
+            and data.get("_kind") == kind
+            and now() - data.get("_cached_at", 0) < ttl
+        ):
             return data.get("vocab", [])
     except Exception:
         pass
@@ -146,6 +152,7 @@ def set_cached_result(
             {
                 "vocab": vocab_list,
                 "_kind": kind,
+                "_schema_version": AI_RESULT_SCHEMA_VERSION,
                 "_cached_at": time.time(),
                 "_lang": lang,
             },

@@ -16,8 +16,9 @@ Output:
 
 | Việc | Trạng thái | Điều cần biết ngay |
 | --- | --- | --- |
-| P0-01 — baseline test | 🟢 Local xanh | Compile toàn bộ Python tracked và hai vòng isolated suite đều xanh `557 passed`; vẫn cần giữ gate này xanh trước merge/release. |
+| P0-01 — baseline test | 🟢 Local xanh | Compile toàn bộ Python và hai vòng isolated suite đều xanh `592 passed`; vẫn cần giữ gate này xanh trước merge/release. |
 | P0-02 — smoke profile | ⏳ Chờ chủ dự án | Cần chạy toàn flow trực quan trên profile Anki backup trước merge/release; không chặn việc mở P1-06. |
+| P0-05 — AI Output Reliability | 🟡 Local implementation xanh | Parser/schema/partial/adaptive gate và hai vòng `592 passed` xanh; còn smoke profile backup và manual large-batch provider run trước 18.0.0. |
 | P1-05 — Usage Guide V1 | ✅ Đã kiểm chứng | Benchmark model thật đạt `19/20` (`95%`), `$0.002035`, `1.69 giây/card`; smoke collection thật Anki 26.5 xanh đủ bốn ngôn ngữ. |
 | P1-06 — Confusion Guard | 🟡 Local implementation xanh | Exact curated same-deck pairs + advisory preview đã có positive/negative fixtures bốn ngôn ngữ; còn smoke trên profile backup trước khi đánh dấu verified. |
 | Knowledge beta | 🧊 Dormant | Ẩn UI, không nằm trong release plan. |
@@ -62,6 +63,7 @@ Nếu không thỏa điều kiện nào, ghi vào backlog `Để sau`, không tr
 | P0-02 | Xác nhận flow cá nhân trên profile Anki đã backup: extract → preview → import/update → undo → TTS → review | P0 — an toàn dữ liệu | 🟡 Trung bình | Chủ dự án thao tác; `gpt-5.6-terra` / `medium` hỗ trợ checklist/triage | 1–2 giờ mỗi phiên bản Anki | Có checklist ngày chạy, phiên bản Anki và kết quả từng flow; không mất note/media/config |
 | P0-03 | Thiết lập “personal contract”: bốn ngôn ngữ đang học, phiên bản Anki đang dùng, 2–3 flow hằng tuần và giới hạn chi phí tháng | P0 — định hướng | 🟢 Dễ | Chủ dự án; `gpt-5.6-luna` / `low` để ghi tài liệu | 20 phút | Ghi trong snapshot/history; mọi task mới liên hệ được với một flow |
 | P0-04 | Kiểm chứng artifact phát hành: build phải đóng gói `workers/`, không kèm Python cache và có regression test nội dung gói | P0 — chặn feature/release hỏng | 🟡 Trung bình | `gpt-5.6-terra` / `medium` | 1–3 giờ | Artifact clean-profile có đủ runtime modules, không có `__pycache__`/`.pyc`; test build xanh |
+| P0-05 | **AI Output Reliability**: adapter provider-neutral, safe JSON recovery, language/mode validation, completeness reconciliation, partial retry và adaptive Quality V2 batching | P0 — release gate 18.0.0 | 🔴 Rất khó | `gpt-5.6-sol` / `high` | 8–16 giờ | Parser/schema/partial/adaptive tests và full isolated suite xanh; valid partial result không mất; không semantic repair; smoke profile backup + manual large batch được xác nhận |
 | P1-01 | Chạy benchmark model/prompt cho ngôn ngữ chính; chấm thủ công nghĩa, ví dụ, lỗi cấu trúc, cost và latency | P1 — trước tối ưu AI | 🟠 Khó | `gpt-5.6-sol` / `high` | 4–8 giờ | Ít nhất 3 model × 20 mục; có run JSON; chọn default và ngưỡng chấp nhận theo số liệu |
 | P1-02 | Tinh chỉnh prompt/schema/template cho ngôn ngữ chính dựa trên benchmark và thẻ đã học | P1 — khi P1-01 có dữ liệu | 🟠 Khó | `gpt-5.6-sol` / `high` | 3–8 giờ mỗi vòng | So sánh trước/sau trên cùng corpus; không giảm điểm benchmark; prompt version/cache được xử lý đúng |
 | P1-03 | Rà soát backup, rollback, duplicate/update và giới hạn batch cho collection cá nhân | P1 — giảm rủi ro | 🟡 Trung bình | `gpt-5.6-terra` / `high` | 2–5 giờ | Có test và thao tác phục hồi đã được thử trên profile bản sao |

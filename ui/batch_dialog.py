@@ -58,6 +58,7 @@ class BatchWordListDialog(QDialog):
             "japanese": t("lang_japanese"),
             "chinese": t("lang_chinese"),
             "korean": t("lang_korean"),
+            "english": t("lang_english"),
         }.get(self.lang, t("lang_japanese"))
         item_label = t("item_label_grammar") if self.grammar else t("item_label_vocab")
         header_key = "batch_header_grammar" if self.grammar else "batch_header_vocab"
@@ -105,8 +106,8 @@ class BatchWordListDialog(QDialog):
         # Batch size
         settings_layout.addWidget(QLabel(t("batch_batch_size_label")))
         self.spin_batch = QSpinBox()
-        self.spin_batch.setRange(30, 100)
-        self.spin_batch.setValue(80)
+        self.spin_batch.setRange(3, 30)
+        self.spin_batch.setValue(10)
         self.spin_batch.setToolTip(t("batch_batch_size_tip"))
         self.spin_batch.valueChanged.connect(self._update_estimate)
         settings_layout.addWidget(self.spin_batch)
@@ -221,7 +222,10 @@ class BatchWordListDialog(QDialog):
         words = parse_word_list(text, self.lang)
         word_count = len(words)
         batch_size = self.spin_batch.value()
-        estimate = estimate_batch_cost(word_count, self.lang, batch_size)
+        estimate = estimate_batch_cost(
+            word_count, self.lang, batch_size, grammar=self.grammar,
+        )
+        effective_size = estimate["batch_size"]
 
         # Ước tính thời gian thực tế theo chế độ (OpenRouter slow = 3.2s/batch + thời gian AI phản hồi)
         batches = estimate["estimated_batches"]
@@ -236,7 +240,7 @@ class BatchWordListDialog(QDialog):
         self.lbl_estimate.setText(
             f"<div style='background:#fef9e7;border:1px solid #f39c12;border-radius:8px;"
             f"padding:10px;color:#7d6608;'>"
-            f"{t('batch_estimate_line', total=estimate['total_words'], batches=batches, size=batch_size, cost=estimate['estimated_cost_usd'], seconds=est_seconds)} | "
+            f"{t('batch_estimate_line', total=estimate['total_words'], batches=batches, size=effective_size, cost=estimate['estimated_cost_usd'], seconds=est_seconds)} | "
             f"~{estimate['estimated_input_tokens']:,} input + "
             f"~{estimate['estimated_output_tokens']:,} output tokens"
             f"</div>"
@@ -290,7 +294,17 @@ class BatchWordListDialog(QDialog):
         self.progress_bar.setRange(0, 100)
         self.progress_bar.setValue(100)
         label = t("item_label_grammar_lower") if self.grammar else t("item_label_vocab_lower")
-        self.lbl_status.setText(t("batch_status_finished", count=len(vocab_list), label=label))
+        report = getattr(self._batch_thread, "last_report", {}) if self._batch_thread else {}
+        if report.get("missing"):
+            self.lbl_status.setText(t(
+                "batch_status_partial_complete",
+                requested=report.get("requested", len(vocab_list)),
+                valid=len(vocab_list),
+                unresolved=report["missing"],
+                retries=report.get("retries", 0),
+            ))
+        else:
+            self.lbl_status.setText(t("batch_status_finished", count=len(vocab_list), label=label))
 
         # Nếu chọn auto organize deck
         if self.chk_auto_deck.isChecked() and vocab_list:
@@ -406,3 +420,9 @@ class BatchWordListDialog(QDialog):
     def get_result_vocab(self):
         """Trả về danh sách từ vựng đã xử lý"""
         return self.result_vocab
+
+    def get_reliability_report(self):
+        """Return aggregate counts only; no prompt or card content is exposed."""
+        if not self._batch_thread:
+            return {}
+        return dict(getattr(self._batch_thread, "last_report", {}) or {})
