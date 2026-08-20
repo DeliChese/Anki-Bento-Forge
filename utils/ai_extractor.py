@@ -1046,6 +1046,7 @@ def chat_with_ai(
     
     effective_kind = card_mode or card_kind
     context_summary = ""
+    context_summary_marker = ""
     context_estimated_tokens = 0
     context = anki_context if anki_context is not None else {}
     # Thu thập ngữ cảnh Anki THÔNG MINH dựa trên yêu cầu.
@@ -1076,6 +1077,7 @@ def chat_with_ai(
         )
         messages = list(prepared.messages)
         context_summary = prepared.summary
+        context_summary_marker = prepared.summary_through_message_id
         context_estimated_tokens = prepared.estimated_tokens
     else:
         messages = [{"role": "system", "content": system_content}]
@@ -1198,6 +1200,7 @@ def chat_with_ai(
         "card_warning": card_warning,
         "card_recovery": recovery,
         "session_summary": context_summary,
+        "session_summary_through_message_id": context_summary_marker,
         "context_estimated_tokens": context_estimated_tokens,
     }
 

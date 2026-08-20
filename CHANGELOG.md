@@ -50,6 +50,7 @@
 - Chuẩn hóa compatibility theo `manifest.json`, diagnostic event code và logging theo Anki profile.
 
 ### 🐛 Fixed
+- **AI Study Sessions final polish** — rolling summary dùng marker message bền vững để chỉ compact phần delta chưa từng tóm tắt, giữ recent turns raw và migrate session cũ không marker an toàn; nút Ask AI trong Reviewer dùng màu neutral/translucent thích nghi light/dark thay cho palette sáng cố định. Artifact bubble nay gọi trực tiếp cùng owner Review/Đưa vào Xưởng theo `artifact_id`, không sao chép state hoặc gọi AI lần hai.
 - English AI output chứa `hsk_level`, response sai vocab/grammar mode, prose-only, wrapper không whitelist hoặc JSON chỉ hoàn thành một phần không còn silently lọt vào Xưởng; truncated tail không được tự đóng ngoặc hay bịa field.
 - Knowledge đổi hành động AI thành `GỬI & TẠO THẺ`, làm rõ ô `Yêu cầu thêm` và giữ nó trên pipeline tạo thẻ/schema Knowledge thay vì AI Chat của Language.
 - Knowledge không còn hiển thị hoặc gọi gián tiếp công cụ `Batch Từ Vựng`; nhiều Knowledge card tiếp tục đi qua AI extract/schema riêng có chunking thay vì workflow Vocabulary/Grammar của Language.

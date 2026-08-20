@@ -20,6 +20,7 @@ SUMMARY_MAX_CHARS = 4_000
 class PreparedStudyContext:
     messages: tuple[dict, ...]
     summary: str
+    summary_through_message_id: str
     estimated_tokens: int
     hard_cap_tokens: int
     compacted_message_count: int
@@ -122,43 +123,81 @@ def prepare_study_context(
     if filtered_card:
         fixed.append(_context_system_message(filtered_card))
 
-    history = [
-        {"role": item.get("role"), "content": str(redact_sensitive(item.get("content") or ""))}
-        for item in session.get("messages", [])
-        if item.get("role") in {"user", "assistant"} and item.get("content")
-    ]
+    history = []
+    for index, item in enumerate(session.get("messages", [])):
+        if item.get("role") not in {"user", "assistant"} or not item.get("content"):
+            continue
+        history.append({
+            "id": str(item.get("id") or f"legacy-message-{index}"),
+            "role": item.get("role"),
+            "content": str(redact_sensitive(item.get("content") or "")),
+            "type": str(item.get("type") or item.get("role") or ""),
+        })
     # The current message is normally autosaved before the request. Avoid
     # sending it twice when it is already the last persisted user message.
-    if history and history[-1] == current:
+    if (
+        history
+        and history[-1]["role"] == current["role"]
+        and history[-1]["content"] == current["content"]
+    ):
         history.pop()
 
     fixed_tokens = sum(estimate_tokens(item["content"]) + 8 for item in fixed + [current])
     remaining = max(0, available - fixed_tokens)
-    summary_reserve = min(256, remaining // 4) if history else 0
+    existing_summary = str(session.get("summary") or "").strip()
+    persisted_marker = str(session.get("summary_through_message_id") or "").strip()
+    marker_index = next(
+        (index for index, item in enumerate(history) if item["id"] == persisted_marker),
+        None,
+    ) if persisted_marker else None
+
+    # A persisted marker is the exclusive boundary for raw history. If its
+    # message was pruned by retention, every retained message is newer and is
+    # therefore unsummarized. Legacy summaries intentionally keep an empty
+    # marker until a budget boundary can be inferred below.
+    unsummarized_start = marker_index + 1 if marker_index is not None else 0
+    unsummarized = history[unsummarized_start:]
+    summary_reserve = min(256, remaining // 4) if existing_summary or unsummarized else 0
     recent_budget = max(0, remaining - summary_reserve)
     recent = []
     used = 0
-    for message in reversed(history):
+    for message in reversed(unsummarized):
         cost = estimate_tokens(message["content"]) + 8
         if used + cost > recent_budget:
             break
-        recent.append(message)
+        recent.append({"role": message["role"], "content": message["content"]})
         used += cost
     recent.reverse()
-    compacted_count = max(0, len(history) - len(recent))
-    summary = str(session.get("summary") or "").strip()
-    if compacted_count:
+    fold_count = max(0, len(unsummarized) - len(recent))
+    delta = unsummarized[:fold_count]
+    summary = existing_summary
+    marker = persisted_marker
+
+    if existing_summary and not persisted_marker:
+        # Schema-v1 sessions do not reveal which prefix produced their valid
+        # summary. Treat the currently omitted prefix as that legacy boundary
+        # once, preserving recent raw turns without recursively re-folding it.
+        if delta:
+            marker = delta[-1]["id"]
+            delta = []
+    elif delta:
         summary = compact_session_summary(
-            session.get("messages", [])[:compacted_count],
+            delta,
             existing_summary=summary,
         )
+        marker = delta[-1]["id"]
+    compacted_count = len(delta)
     summary_message = None
+    prompt_summary = ""
     if summary:
         summary_budget = max(0, remaining - used - 16)
         max_chars = min(SUMMARY_MAX_CHARS, summary_budget * 3)
         if max_chars >= 120:
-            summary = summary[-max_chars:]
-            summary_message = {"role": "system", "content": "SESSION SUMMARY:\n" + summary}
+            prompt_summary = summary[-max_chars:]
+            summary_message = {
+                "role": "system",
+                "content": "SESSION SUMMARY:\n" + prompt_summary,
+            }
 
     messages = [system]
     if summary_message:
@@ -170,15 +209,21 @@ def prepare_study_context(
     estimated = sum(estimate_tokens(item["content"]) + 8 for item in messages)
     if estimated > available and summary_message:
         excess_chars = (estimated - available) * 3 + 24
-        summary = summary[:-excess_chars] if excess_chars < len(summary) else ""
+        prompt_summary = (
+            prompt_summary[:-excess_chars]
+            if excess_chars < len(prompt_summary) else ""
+        )
         messages = [item for item in messages if not item["content"].startswith("SESSION SUMMARY:")]
-        if summary:
-            messages.insert(1, {"role": "system", "content": "SESSION SUMMARY:\n" + summary})
+        if prompt_summary:
+            messages.insert(1, {
+                "role": "system",
+                "content": "SESSION SUMMARY:\n" + prompt_summary,
+            })
         estimated = sum(estimate_tokens(item["content"]) + 8 for item in messages)
     if estimated > available:
         raise ValueError("study session context exceeds the configured hard cap")
     return PreparedStudyContext(
-        tuple(messages), summary, estimated, hard_cap, compacted_count,
+        tuple(messages), summary, marker, estimated, hard_cap, compacted_count,
     )
 
 

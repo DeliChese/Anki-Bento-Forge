@@ -6,7 +6,7 @@ from pathlib import Path
 import pytest
 
 from utils.ai_card_artifacts import create_card_artifact, artifact_to_factory_payload
-from utils.ai_context_manager import prepare_study_context
+from utils.ai_context_manager import compact_session_summary, prepare_study_context
 from utils.ai_session_store import SESSION_SCHEMA_VERSION, StudySessionStore
 
 
@@ -15,6 +15,30 @@ ROOT = Path(__file__).resolve().parents[1]
 
 def _english_card(front="opportunity"):
     return {"front": front, "meaning": "cơ hội", "cefr_level": "B1"}
+
+
+def _long_messages(count=24, *, start=0, prefix="message", width=240, id_prefix="msg"):
+    messages = []
+    for index in range(start, start + count):
+        role = "user" if index % 2 == 0 else "assistant"
+        messages.append({
+            "id": f"{id_prefix}-{index:03d}",
+            "role": role,
+            "type": role,
+            "content": f"{prefix} {index} " + "x" * width,
+        })
+    return messages
+
+
+def _prepare_long(session, current="What matters now?"):
+    return prepare_study_context(
+        session,
+        current_user_message=current,
+        system_prompt="Concise tutor",
+        model="unknown-model",
+        session_max_tokens=2_400,
+        max_output_tokens=500,
+    )
 
 
 def test_session_create_save_reload_rename_and_delete(tmp_path):
@@ -52,12 +76,16 @@ def test_legacy_session_document_migrates_on_next_write(tmp_path):
         "sessions": [{
             "id": "legacy", "title": "Legacy", "language": "english",
             "messages": [{"role": "user", "type": "user", "content": "hello"}],
+            "summary": "Learner chose the formal sense.",
             "artifacts": [],
         }],
         "ui_state": {"dock_side": "left"},
     }), encoding="utf-8")
     store = StudySessionStore(str(path))
-    assert store.get_session("legacy")["messages"][0]["content"] == "hello"
+    legacy = store.get_session("legacy")
+    assert legacy["messages"][0]["content"] == "hello"
+    assert legacy["summary"] == "Learner chose the formal sense."
+    assert legacy["summary_through_message_id"] == ""
     store.rename_session("legacy", "Migrated")
     assert json.loads(path.read_text(encoding="utf-8"))["schema_version"] == SESSION_SCHEMA_VERSION
 
@@ -143,10 +171,7 @@ def test_context_short_session_and_card_toggle_are_session_local():
 
 
 def test_long_context_compacts_old_messages_and_respects_hard_cap():
-    messages = []
-    for index in range(80):
-        role = "user" if index % 2 == 0 else "assistant"
-        messages.append({"role": role, "type": role, "content": f"message {index} " + "x" * 350})
+    messages = _long_messages(80, width=350)
     prepared = prepare_study_context(
         {"summary": "", "messages": messages},
         current_user_message="What matters now?", system_prompt="Concise tutor",
@@ -154,9 +179,145 @@ def test_long_context_compacts_old_messages_and_respects_hard_cap():
     )
     assert prepared.compacted_message_count > 0
     assert prepared.summary
+    assert prepared.summary_through_message_id
     assert prepared.estimated_tokens <= 2_400 - 500 - 768 - 512
     joined = "\n".join(item["content"] for item in prepared.messages)
     assert "message 79" in joined and "message 20 " not in joined
+
+
+def test_first_compaction_creates_summary_and_exact_progress_marker():
+    messages = _long_messages()
+    prepared = _prepare_long({"summary": "", "messages": messages})
+
+    assert prepared.summary
+    assert prepared.compacted_message_count > 0
+    assert prepared.summary_through_message_id in {item["id"] for item in messages}
+    marker_index = next(
+        index for index, item in enumerate(messages)
+        if item["id"] == prepared.summary_through_message_id
+    )
+    assert marker_index == prepared.compacted_message_count - 1
+    assert marker_index < len(messages) - 1
+
+
+def test_second_request_does_not_refold_messages_before_marker():
+    messages = _long_messages()
+    first = _prepare_long({"summary": "", "messages": messages})
+    second = _prepare_long({
+        "summary": first.summary,
+        "summary_through_message_id": first.summary_through_message_id,
+        "messages": messages,
+    }, current="Continue the same topic.")
+
+    assert second.compacted_message_count == 0
+    assert second.summary == first.summary
+    assert second.summary_through_message_id == first.summary_through_message_id
+
+
+def test_newly_old_messages_are_folded_once_then_marker_stops():
+    original = _long_messages()
+    first = _prepare_long({"summary": "", "messages": original})
+    added = _long_messages(8, start=len(original), prefix="correction delta")
+    expanded = original + added
+    second = _prepare_long({
+        "summary": first.summary,
+        "summary_through_message_id": first.summary_through_message_id,
+        "messages": expanded,
+    }, current="Apply the correction.")
+    third = _prepare_long({
+        "summary": second.summary,
+        "summary_through_message_id": second.summary_through_message_id,
+        "messages": expanded,
+    }, current="Apply the correction again.")
+
+    assert second.compacted_message_count > 0
+    assert second.summary_through_message_id != first.summary_through_message_id
+    assert "correction delta" in second.summary
+    assert third.compacted_message_count == 0
+    assert third.summary == second.summary
+
+
+def test_recent_unsummarized_messages_remain_raw_and_marker_does_not_cross_them():
+    messages = _long_messages()
+    prepared = _prepare_long({"summary": "", "messages": messages})
+    raw = "\n".join(
+        item["content"] for item in prepared.messages if item["role"] != "system"
+    )
+    marker_index = next(
+        index for index, item in enumerate(messages)
+        if item["id"] == prepared.summary_through_message_id
+    )
+
+    assert messages[-1]["content"] in raw
+    assert messages[marker_index + 1]["content"] in raw
+    assert messages[marker_index]["content"] not in raw
+
+
+def test_legacy_summary_infers_boundary_without_recursive_refold():
+    messages = _long_messages()
+    legacy_summary = "Tutor: agreed correction is already retained"
+    prepared = _prepare_long({"summary": legacy_summary, "messages": messages})
+
+    assert prepared.summary == legacy_summary
+    assert prepared.summary_through_message_id
+    assert prepared.compacted_message_count == 0
+    assert prepared.summary.count("agreed correction") == 1
+
+
+def test_summary_marker_and_content_are_session_local():
+    messages_a = _long_messages(prefix="SESSION-A", id_prefix="a")
+    messages_b = _long_messages(prefix="SESSION-B", id_prefix="b")
+    prepared_a = _prepare_long({"summary": "", "messages": messages_a})
+    prepared_b = _prepare_long({"summary": "", "messages": messages_b})
+
+    assert "SESSION-A" in prepared_a.summary and "SESSION-B" not in prepared_a.summary
+    assert "SESSION-B" in prepared_b.summary and "SESSION-A" not in prepared_b.summary
+    assert prepared_a.summary_through_message_id.startswith("a-")
+    assert prepared_b.summary_through_message_id.startswith("b-")
+
+
+def test_summary_size_stays_bounded_and_prefers_new_tail():
+    messages = _long_messages(80, prefix="correction latest", width=400)
+    summary = compact_session_summary(
+        messages,
+        existing_summary="old summary " * 800,
+        max_chars=4_000,
+    )
+
+    assert len(summary) <= 4_000
+    assert "correction latest 79" in summary
+
+
+def test_correction_and_artifact_references_survive_compaction():
+    messages = _long_messages(8, prefix="incidental")
+    messages.extend([
+        {
+            "id": "msg-correction", "role": "assistant", "type": "assistant",
+            "content": "Correction: use opportunity with to + infinitive.",
+        },
+        {
+            "id": "msg-artifact", "role": "assistant", "type": "artifact_reference",
+            "content": "Artifact created: English Vocabulary · 3 cards.",
+        },
+    ])
+    summary = compact_session_summary(messages)
+
+    assert "Correction: use opportunity" in summary
+    assert "Artifact created" in summary
+
+
+def test_store_persists_summary_marker_and_edit_clears_both(tmp_path):
+    store = StudySessionStore(str(tmp_path / "sessions.json"))
+    session = store.create_session(language="english")
+    first = store.add_message(session["id"], role="user", content="first")
+    store.add_message(session["id"], role="assistant", content="reply")
+    store.update_summary(session["id"], "Learner: first", first["id"])
+
+    restored = StudySessionStore(str(tmp_path / "sessions.json")).get_session(session["id"])
+    assert restored["summary_through_message_id"] == first["id"]
+    edited = store.replace_latest_user_message(session["id"], "edited")
+    assert edited["summary"] == ""
+    assert edited["summary_through_message_id"] == ""
 
 
 def test_question_side_context_omits_answer_fields():
@@ -212,6 +373,10 @@ def test_companion_source_keeps_reviewer_secondary_and_card_mode_one_shot():
     assert "tools.addAction(action)" in companion
     assert "self.hide()" in companion and "web.setFocus()" in companion
     assert "bento_forge_ai:open" in reviewer
+    assert "aria-label" in reviewer
+    assert "getElementById('bento-forge-ai-action')" in reviewer
+    assert "#fffaf0" not in reviewer and "#4d4338" not in reviewer and "#c9bca8" not in reviewer
+    assert "color: inherit" in reviewer and "prefers-color-scheme: dark" in reviewer
     assert "show_ai_study_dialog" in factory
     factory_chat = factory.split("def _ai_chat(self):", 1)[1].split("def _ai_chat_legacy", 1)[0]
     assert "show_ai_study_dialog" in factory_chat
@@ -221,3 +386,9 @@ def test_companion_source_keeps_reviewer_secondary_and_card_mode_one_shot():
     artifact_loader = factory.split("def load_card_artifact", 1)[1].split("def ", 1)[0]
     assert "artifact_to_factory_payload" in artifact_loader
     assert "chat_with_ai" not in artifact_loader
+    assert "forge-artifact://review/" in companion
+    assert "forge-artifact://open/" in companion
+    assert "self.transcript.setOpenLinks(False)" in companion
+    assert "self.review_artifact()" in companion and "self.open_artifact_in_forge()" in companion
+    extractor = (ROOT / "utils" / "ai_extractor.py").read_text(encoding="utf-8")
+    assert '"session_summary_through_message_id": context_summary_marker' in extractor

@@ -37,16 +37,51 @@ def _inject_ai_action(reviewer):
         reviewer.web.eval(f"""
             (() => {{
               if (document.getElementById('bento-forge-ai-action')) return;
+              if (!document.getElementById('bento-forge-ai-action-style')) {{
+                const style = document.createElement('style');
+                style.id = 'bento-forge-ai-action-style';
+                style.textContent = `
+                  #bento-forge-ai-action {{
+                    position: fixed;
+                    right: 12px;
+                    top: 10px;
+                    z-index: 9999;
+                    opacity: .74;
+                    border: 1px solid rgba(127, 127, 127, .42);
+                    border-radius: 10px;
+                    padding: 5px 9px;
+                    background: rgba(127, 127, 127, .14);
+                    color: inherit;
+                    box-shadow: 0 1px 4px rgba(0, 0, 0, .16);
+                    font: inherit;
+                    font-size: 12px;
+                    cursor: pointer;
+                    backdrop-filter: blur(5px);
+                    -webkit-backdrop-filter: blur(5px);
+                  }}
+                  #bento-forge-ai-action:hover,
+                  #bento-forge-ai-action:focus-visible {{
+                    opacity: 1;
+                    border-color: currentColor;
+                    outline: none;
+                  }}
+                  #bento-forge-ai-action:focus-visible {{
+                    box-shadow: 0 0 0 2px rgba(127, 127, 127, .34);
+                  }}
+                  @media (prefers-color-scheme: dark) {{
+                    #bento-forge-ai-action {{
+                      background: rgba(255, 255, 255, .10);
+                      border-color: rgba(255, 255, 255, .28);
+                    }}
+                  }}
+                `;
+                document.head.appendChild(style);
+              }}
               const button = document.createElement('button');
               button.id = 'bento-forge-ai-action';
               button.type = 'button';
               button.textContent = {label};
               button.setAttribute('aria-label', {label});
-              button.style.cssText = 'position:fixed;right:12px;top:10px;z-index:9999;opacity:.72;'
-                + 'border:1px solid #c9bca8;border-radius:10px;padding:5px 9px;background:#fffaf0;'
-                + 'color:#4d4338;font-size:12px;cursor:pointer;';
-              button.onmouseenter = () => button.style.opacity = '1';
-              button.onmouseleave = () => button.style.opacity = '.72';
               button.onclick = () => pycmd('bento_forge_ai:open');
               document.body.appendChild(button);
             }})();

@@ -21,7 +21,7 @@ from .user_data import atomic_write_json, get_user_data_path, read_json
 
 logger = get_logger()
 
-SESSION_SCHEMA_VERSION = 1
+SESSION_SCHEMA_VERSION = 2
 MESSAGE_TYPES = frozenset({"user", "assistant", "system_internal", "artifact_reference"})
 MESSAGE_ROLES = frozenset({"user", "assistant", "system"})
 SUPPORTED_LANGUAGES = frozenset({"japanese", "chinese", "korean", "english"})
@@ -120,6 +120,7 @@ def _session(value: Any, *, max_messages: int, max_artifacts: int) -> Optional[d
     deck_context = value.get("optional_deck_context")
     if not isinstance(deck_context, dict):
         deck_context = None
+    summary = _clean_text(value.get("summary"), 8_000)
     return {
         "id": session_id,
         "title": _clean_text(value.get("title"), 160) or "Study Session",
@@ -129,7 +130,10 @@ def _session(value: Any, *, max_messages: int, max_artifacts: int) -> Optional[d
         "provider": _clean_text(value.get("provider"), 100),
         "model": _clean_text(value.get("model"), 200),
         "messages": messages[-max_messages:],
-        "summary": _clean_text(value.get("summary"), 8_000),
+        "summary": summary,
+        "summary_through_message_id": _clean_text(
+            value.get("summary_through_message_id"), 100,
+        ),
         "artifacts": artifacts[-max_artifacts:],
         "optional_deck_context": redact_sensitive(deck_context) if deck_context else None,
     }
@@ -235,6 +239,7 @@ class StudySessionStore:
                 "model": model,
                 "messages": [],
                 "summary": "",
+                "summary_through_message_id": "",
                 "artifacts": [],
                 "optional_deck_context": optional_deck_context,
             }, max_messages=self.max_messages, max_artifacts=self.max_artifacts)
@@ -324,6 +329,7 @@ class StudySessionStore:
         session["messages"][index]["content"] = _clean_text(content, 50_000)
         session["messages"][index]["created_at"] = _now()
         session["summary"] = ""
+        session["summary_through_message_id"] = ""
         return self.save_session(session)
 
     def delete_message(self, session_id: str, message_id: str) -> bool:
@@ -335,6 +341,7 @@ class StudySessionStore:
             return False
         session["messages"] = messages
         session["summary"] = ""
+        session["summary_through_message_id"] = ""
         self.save_session(session)
         return True
 
@@ -352,14 +359,26 @@ class StudySessionStore:
             return False
         session["messages"] = session["messages"][:index]
         session["summary"] = ""
+        session["summary_through_message_id"] = ""
         self.save_session(session)
         return True
 
-    def update_summary(self, session_id: str, summary: str) -> Optional[dict]:
+    def update_summary(
+        self,
+        session_id: str,
+        summary: str,
+        summary_through_message_id: Optional[str] = None,
+    ) -> Optional[dict]:
         session = self.get_session(session_id)
         if session is None:
             return None
         session["summary"] = _clean_text(summary, 8_000)
+        if summary_through_message_id is not None:
+            session["summary_through_message_id"] = _clean_text(
+                summary_through_message_id, 100,
+            )
+        if not session["summary"]:
+            session["summary_through_message_id"] = ""
         return self.save_session(session)
 
     def add_artifact(self, session_id: str, artifact: dict) -> dict:

@@ -8,8 +8,12 @@ Version trong `manifest.json` có thể là release candidate cục bộ; không
 - [ ] Xác nhận CI xanh trên matrix Python đã công bố.
 - [ ] Chạy smoke thủ công trong Anki 26.5 trên profile mới/đã sao lưu: import/add/update + undo, combo reviewer, TTS cancel/offline và config migration; smoke endpoint 2.1.50 vẫn cần trước khi phát hành với legacy target.
 - [ ] Smoke AI Study Sessions: dock trái/phải, floating/minimize/maximize, hide/reopen, restart restore, session CRUD và shortcut conflict.
+  - [ ] Chat đủ dài để context compact, tiếp tục hỏi cùng topic và xác nhận AI không lặp fact bất thường.
+  - [ ] Restart Anki, mở lại đúng session và xác nhận mạch học cùng rolling summary vẫn tiếp tục.
 - [ ] Smoke Reviewer: Ask AI, quick prompts, current-card context on/off, đổi thẻ khi AI đang chạy, Back to Review và xác nhận SRS không đổi.
+  - [ ] Kiểm tra nút Ask AI trên light/dark: đọc rõ, không che card, click mới mở companion; Esc/Back to Review trả focus.
 - [ ] Smoke Card Mode: Vocab/Grammar artifact, reopen artifact và gửi sang Xưởng không phát sinh AI call thứ hai.
+  - [ ] Từ artifact bubble trong transcript, chạy Review và Đưa vào Xưởng; restart/reopen artifact và xác nhận không gọi AI lại.
 - [x] Rà `git diff` và credential scan: không có API key, raw response, user data hay log profile trong thay đổi V18.
 - [ ] Đối chiếu `CHANGELOG.md` với `git log` kể từ bản phát hành gần nhất: mọi thay đổi có thể phát hành đều ở `[Unreleased]`, chỉ mô tả việc đã hoàn tất và có bằng chứng; xem `.claude/CHANGELOG_POLICY.md`.
 - [ ] Khi phát hành, chuyển `[Unreleased]` thành `V<manifest.version>` với ngày phát hành; không tạo section version khi CI/smoke Anki còn thiếu.
@@ -29,6 +33,6 @@ Knowledge V18 được giữ lại như beta riêng tư nhưng đã tắt khỏi
 
 | Phiên bản | Ngày | CI | Smoke Anki thật | Người xác nhận | Ghi chú |
 | --- | --- | --- | --- | --- | --- |
-| 18.1.0 | Chưa phát hành | Chờ CI | Chờ GUI smoke | — | Local 2026-08-20: compile toàn bộ Python xanh; isolated harness 2 vòng, mỗi vòng `631 passed`; AI Study Sessions release candidate, chưa publish. |
+| 18.1.0 | Chưa phát hành | Chờ CI | Chờ GUI smoke | — | Local 2026-08-20: compile toàn bộ Python xanh; isolated harness 2 vòng, mỗi vòng `640 passed`; AI Study Sessions delta-summary/theme/artifact polish xanh, chưa publish. |
 | 17.2.0 | Chưa phát hành | Chờ CI | Chờ GUI smoke | — | Local 2026-08-16: compatibility mở Anki 2.1.50 đến 26.5; runtime 26.5/Python 3.13.5 chấp nhận packaged manifest và đạt entry/UI/public-hook import cùng collection thật Basic/Cloze add/update/card generation/rollback. Knowledge đã ẩn/chặn workflow Batch Vocabulary của Language và có nút Gửi & tạo thẻ riêng. Isolated harness 2 vòng, mỗi vòng 532 passed; compile toàn bộ Python và diff check xanh. Artifact SHA-256 `8e2d0fc60e725a2ffa728c9f9a35199aa833c8f277aef2cd7a21c7f915a65ea0`. Version vẫn giữ 17.2.0 cho đến khi CI, GUI smoke 26.5 và endpoint legacy đạt. Local ruff chưa chạy vì môi trường thiếu module; `pip-audit` trước đó bị chặn bởi `pytest==8.3.5` / `PYSEC-2026-1845`, nên hai gate này vẫn thuộc CI/security decision trước phát hành. |
 | 17.1.0 | Chưa phát hành lại | Chờ CI | Chưa chạy | — | P0-A local: `py_compile` và `80 passed` (2026-08-13). P0-B/P0-C local (2026-08-14): metadata/temp regression `119 passed`; hai lần gọi isolated harness, mỗi lần hai vòng `383 passed`, cleanup và worktree check đạt. Vẫn không được tăng version/phát hành cho tới khi CI 3.9/3.11 và smoke Anki thật hoàn thành. |

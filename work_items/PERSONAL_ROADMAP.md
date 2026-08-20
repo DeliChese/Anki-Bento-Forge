@@ -16,10 +16,10 @@ Output:
 
 | Việc | Trạng thái | Điều cần biết ngay |
 | --- | --- | --- |
-| P0-01 — baseline test | 🟢 Local xanh | Compile toàn bộ Python và hai vòng isolated suite đều xanh `631 passed`; vẫn cần giữ gate này xanh trước merge/release. |
+| P0-01 — baseline test | 🟢 Local xanh | Compile toàn bộ Python và hai vòng isolated suite đều xanh `640 passed`; vẫn cần giữ gate này xanh trước merge/release. |
 | P0-02 — smoke profile | ⏳ Chờ chủ dự án | Cần chạy toàn flow trực quan trên profile Anki backup trước merge/release; không chặn việc mở P1-06. |
 | P0-05 — AI Output Reliability | 🟡 Local implementation xanh | Batch/Card Mode vocab+grammar dùng chung parser/schema gate; AI config/history dùng profile path động. Chủ dự án báo card output ổn định; còn smoke restart/profile backup và manual large-batch metrics trước khi publish 18.1. |
-| P1-07 — AI Study Sessions | 🟡 Local implementation xanh | Companion dock/floating, session memory, token budget, Reviewer context và artifact → Xưởng đã có regression; hai vòng `631 passed`. Còn GUI smoke Anki/profile restart và CI. |
+| P1-07 — AI Study Sessions | 🟡 Local implementation xanh | Companion dock/floating, delta-summary marker, token budget, Reviewer context/theme và artifact → Xưởng đã có regression; hai vòng `640 passed`. Còn GUI smoke Anki/profile restart và CI. |
 | P1-05 — Usage Guide V1 | ✅ Đã kiểm chứng | Benchmark model thật đạt `19/20` (`95%`), `$0.002035`, `1.69 giây/card`; smoke collection thật Anki 26.5 xanh đủ bốn ngôn ngữ. |
 | P1-06 — Confusion Guard | 🟡 Local implementation xanh | Exact curated same-deck pairs + advisory preview đã có positive/negative fixtures bốn ngôn ngữ; còn smoke trên profile backup trước khi đánh dấu verified. |
 | Knowledge beta | 🧊 Dormant | Ẩn UI, không nằm trong release plan. |

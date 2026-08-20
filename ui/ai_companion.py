@@ -5,6 +5,7 @@ from __future__ import annotations
 import html
 import json
 from typing import Optional
+from urllib.parse import quote, unquote
 
 from aqt import mw
 from aqt.qt import (
@@ -154,6 +155,8 @@ class AiCompanionDock(QDockWidget):
 
         self.transcript = QTextBrowser()
         self.transcript.setOpenExternalLinks(False)
+        self.transcript.setOpenLinks(False)
+        self.transcript.anchorClicked.connect(self._on_transcript_link)
         self.transcript.setAccessibleName(t("study_conversation"))
         body.addWidget(self.transcript, 1)
 
@@ -503,7 +506,11 @@ class AiCompanionDock(QDockWidget):
                 content=result.get("card_warning") or t("study_artifact_rejected"),
             )
         if result.get("session_summary"):
-            self._store.update_summary(session["id"], result["session_summary"])
+            self._store.update_summary(
+                session["id"],
+                result["session_summary"],
+                result.get("session_summary_through_message_id"),
+            )
         selected_id = self._active_session_id or session["id"]
         self._finish_request_ui()
         self._clear_pending_request()
@@ -551,9 +558,19 @@ class AiCompanionDock(QDockWidget):
             if message["type"] == "artifact_reference":
                 artifact = artifacts.get(message.get("artifact_id"))
                 label = artifact_label(artifact) if artifact else t("study_artifact_missing")
+                artifact_id = quote(str(message.get("artifact_id") or ""), safe="")
+                actions = ""
+                if artifact:
+                    actions = (
+                        "<br>"
+                        f"<a style='color:inherit;font-weight:600' href='forge-artifact://review/{artifact_id}'>"
+                        f"{html.escape(t('study_review_artifact'))}</a> &nbsp;·&nbsp; "
+                        f"<a style='color:inherit;font-weight:600' href='forge-artifact://open/{artifact_id}'>"
+                        f"{html.escape(t('study_open_forge'))}</a>"
+                    )
                 blocks.append(
                     "<div style='margin:8px 0;padding:10px;border:1px solid rgba(251,191,36,.55);border-radius:10px;background:rgba(251,191,36,.14)'>"
-                    f"<b>📦 {html.escape(label)}</b><br>{html.escape(message['content'])}</div>"
+                    f"<b>📦 {html.escape(label)}</b><br>{html.escape(message['content'])}{actions}</div>"
                 )
                 continue
             learner = message["role"] == "user"
@@ -588,6 +605,21 @@ class AiCompanionDock(QDockWidget):
         session = self._current_session()
         artifact_id = str(self.cbo_artifact.currentData() or "")
         return self._store.get_artifact(session["id"], artifact_id) if session and artifact_id else None
+
+    def _on_transcript_link(self, url):
+        """Route internal artifact links through the existing artifact owner."""
+        if str(url.scheme()) != "forge-artifact":
+            return
+        action = str(url.host())
+        artifact_id = unquote(str(url.path()).lstrip("/"))
+        index = self.cbo_artifact.findData(artifact_id)
+        if index < 0:
+            return
+        self.cbo_artifact.setCurrentIndex(index)
+        if action == "review":
+            self.review_artifact()
+        elif action == "open":
+            self.open_artifact_in_forge()
 
     def review_artifact(self):
         artifact = self._selected_artifact()
