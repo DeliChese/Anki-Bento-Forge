@@ -143,7 +143,8 @@ class AiChatThread(QThread):
 
     def __init__(
         self, message, lang, conversation_history=None, anki_context=None,
-        card_kind="vocab", cancel_event=None,
+        card_kind="vocab", card_mode=None, study_session=None,
+        use_card_context=False, session_id="", runtime_config=None, cancel_event=None,
     ):
         super().__init__()
         self.message = message
@@ -151,6 +152,11 @@ class AiChatThread(QThread):
         self.conversation_history = conversation_history
         self.anki_context = anki_context
         self.card_kind = card_kind
+        self.card_mode = card_mode
+        self.study_session = study_session
+        self.use_card_context = bool(use_card_context)
+        self.session_id = session_id
+        self.runtime_config = runtime_config
         self.cancel_event = cancel_event or threading.Event()
 
     def run(self):
@@ -164,6 +170,11 @@ class AiChatThread(QThread):
                 should_abort=self.cancel_event.is_set,
                 anki_context=self.anki_context,
                 card_kind=self.card_kind,
+                card_mode=self.card_mode,
+                study_session=self.study_session,
+                use_card_context=self.use_card_context,
+                session_id=self.session_id,
+                runtime_config=self.runtime_config,
             )
 
             if self.cancel_event.is_set():

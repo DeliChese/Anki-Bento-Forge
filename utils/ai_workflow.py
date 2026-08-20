@@ -95,6 +95,11 @@ class AiWorkflowCoordinator:
         on_finished: ChatFinishedCallback,
         on_error: ErrorCallback,
         card_kind: str = "vocab",
+        card_mode: Optional[str] = None,
+        study_session: Optional[dict] = None,
+        use_card_context: bool = False,
+        session_id: str = "",
+        runtime_config: Optional[dict] = None,
     ) -> Optional[Any]:
         """Build, wire, and start a chat worker for the current token."""
         if self.is_cancelled():
@@ -106,6 +111,11 @@ class AiWorkflowCoordinator:
             conversation_history=conversation_history,
             anki_context=anki_context,
             card_kind=card_kind,
+            card_mode=card_mode,
+            study_session=study_session,
+            use_card_context=use_card_context,
+            session_id=session_id,
+            runtime_config=runtime_config,
             cancel_event=self._cancel_event,
         )
         worker.progress.connect(on_progress)

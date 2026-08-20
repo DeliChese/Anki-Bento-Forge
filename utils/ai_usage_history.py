@@ -51,6 +51,8 @@ def record_usage(
     operation: str,
     started_at: Optional[float] = None,
     duration_seconds: Optional[float] = None,
+    provider: str = "",
+    session_id: str = "",
 ) -> None:
     """Append one provider-reported request to profile-scoped history."""
     if not isinstance(token_info, dict):
@@ -61,7 +63,9 @@ def record_usage(
         "timestamp": datetime.fromtimestamp(started).astimezone().isoformat(timespec="seconds"),
         "timestamp_unix": round(started, 3),
         "model": str(token_info.get("model") or "").strip() or "unknown",
+        "provider": str(provider or token_info.get("provider") or "").strip() or "unknown",
         "operation": str(operation or "unknown").strip() or "unknown",
+        "session_id": str(session_id or "").strip(),
         "duration_seconds": round(duration, 3),
         "prompt_tokens": _integer(token_info.get("prompt_tokens")),
         "completion_tokens": _integer(token_info.get("completion_tokens")),

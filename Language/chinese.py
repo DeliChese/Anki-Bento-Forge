@@ -3,8 +3,9 @@
 LANG_CONFIG = {
     "label": "🇨🇳 Tiếng Trung",
     "lang_code": "zh",
-    "model_name": "AnkiTool Chinese V17.0 (Add-on)",
+    "model_name": "AnkiTool Chinese V18.1 (Add-on)",
     "old_model_names": [
+        "AnkiTool Chinese V17.0 (Add-on)",
         "AnkiTool Chinese V16.0 (Add-on)",
         "AnkiTool Chinese V15.0 (Add-on)",
     ],
@@ -74,8 +75,9 @@ LANG_CONFIG = {
 GRAMMAR_CONFIG = {
     "label": "🇨🇳 Ngữ pháp Tiếng Trung",
     "lang_code": "zh",
-    "model_name": "AnkiTool Chinese Grammar V17.0 (Add-on)",
+    "model_name": "AnkiTool Chinese Grammar V18.1 (Add-on)",
     "old_model_names": [
+        "AnkiTool Chinese Grammar V17.0 (Add-on)",
         "AnkiTool Chinese Grammar V16.0 (Add-on)",
     ],
     "all_fields": [

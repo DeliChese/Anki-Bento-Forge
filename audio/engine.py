@@ -94,20 +94,28 @@ def set_default_speed(lang: str, speed: float):
 
 # Map model name → language code để reviewer hook có thể phát hiện ngôn ngữ
 _MODEL_LANG_MAP = {
+    "AnkiTool Japanese V18.1 (Add-on)": "ja",
     "AnkiTool Japanese V17.0 (Add-on)": "ja",
     "AnkiTool Japanese V16.0 (Add-on)": "ja",
     "AnkiTool Japanese V15.0 (Add-on)": "ja",
     "Mẫu Từ Vựng Tiếng Nhật V14.0 (Add-on)": "ja",
+    "AnkiTool Japanese Grammar V18.1 (Add-on)": "ja",
     "AnkiTool Japanese Grammar V17.0 (Add-on)": "ja",
     "AnkiTool Japanese Grammar V16.0 (Add-on)": "ja",
+    "AnkiTool Chinese V18.1 (Add-on)": "zh",
     "AnkiTool Chinese V17.0 (Add-on)": "zh",
     "AnkiTool Chinese V16.0 (Add-on)": "zh",
     "AnkiTool Chinese V15.0 (Add-on)": "zh",
+    "AnkiTool Chinese Grammar V18.1 (Add-on)": "zh",
     "AnkiTool Chinese Grammar V17.0 (Add-on)": "zh",
     "AnkiTool Chinese Grammar V16.0 (Add-on)": "zh",
+    "AnkiTool Korean V18.1 (Add-on)": "ko",
     "AnkiTool Korean V17.0 (Add-on)": "ko",
+    "AnkiTool Korean Grammar V18.1 (Add-on)": "ko",
     "AnkiTool Korean Grammar V17.0 (Add-on)": "ko",
+    "AnkiTool English V18.1 (Add-on)": "en",
     "AnkiTool English V17.0 (Add-on)": "en",
+    "AnkiTool English Grammar V18.1 (Add-on)": "en",
     "AnkiTool English Grammar V17.0 (Add-on)": "en",
 }
 

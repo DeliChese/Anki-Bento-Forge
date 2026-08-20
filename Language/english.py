@@ -4,8 +4,8 @@
 LANG_CONFIG = {
     "label": "🇬🇧 Tiếng Anh",
     "lang_code": "en",
-    "model_name": "AnkiTool English V17.0 (Add-on)",
-    "old_model_names": [],
+    "model_name": "AnkiTool English V18.1 (Add-on)",
+    "old_model_names": ["AnkiTool English V17.0 (Add-on)"],
     "all_fields": [
         "Front", "Pronunciation", "Meaning", "Usage Pattern", "Usage Note", "Collocation", "CEFR Level", "Topic",
         "Example", "Example Fill", "Example in Vietnamese", "Vocab Audio", "Example Audio",
@@ -62,8 +62,8 @@ LANG_CONFIG = {
 GRAMMAR_CONFIG = {
     "label": "🇬🇧 Ngữ pháp Tiếng Anh",
     "lang_code": "en",
-    "model_name": "AnkiTool English Grammar V17.0 (Add-on)",
-    "old_model_names": [],
+    "model_name": "AnkiTool English Grammar V18.1 (Add-on)",
+    "old_model_names": ["AnkiTool English Grammar V17.0 (Add-on)"],
     "all_fields": [
         "Pattern", "Pronunciation", "Meaning", "CEFR Level", "Topic",
         "Usage", "Explanation",

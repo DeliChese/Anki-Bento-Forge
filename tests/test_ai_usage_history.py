@@ -24,12 +24,16 @@ def test_usage_history_persists_only_usage_metadata_and_summarizes(tmp_path, mon
         operation="vocab_extraction",
         started_at=1_700_000_000,
         duration_seconds=1.25,
+        provider="deepseek",
+        session_id="session-a",
     )
 
     entries = history.get_usage_entries()
     assert len(entries) == 1
     assert entries[0]["operation"] == "vocab_extraction"
     assert entries[0]["duration_seconds"] == 1.25
+    assert entries[0]["provider"] == "deepseek"
+    assert entries[0]["session_id"] == "session-a"
     assert "prompt" not in entries[0] and "api_key" not in entries[0]
     assert history.summarize_usage(entries) == {
         "calls": 1,

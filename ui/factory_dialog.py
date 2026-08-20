@@ -3053,7 +3053,16 @@ class AnkiSmartFactory(QDialog):
     #  AI CHAT — Gửi câu hỏi/yêu cầu đến AI (không cần text)
     # ═══════════════════════════════════════════════════════
     def _ai_chat(self):
-        """Gửi yêu cầu đến AI — không cần văn bản trích xuất"""
+        """Open the persistent companion; AI runs only after explicit Send."""
+        user_msg = self.ai_text_input.toPlainText().strip()
+        custom_instr = self.ai_instruction.text().strip()
+        initial = "\n\n".join(part for part in (custom_instr, user_msg) if part)
+        from ui.ai_companion import show_ai_companion
+
+        show_ai_companion(language=self._current_lang, initial_text=initial)
+
+    def _ai_chat_legacy(self):
+        """Legacy one-shot dialog retained temporarily for compatibility."""
         user_msg = self.ai_text_input.toPlainText().strip()
         custom_instr = self.ai_instruction.text().strip()
 
@@ -3305,6 +3314,21 @@ class AnkiSmartFactory(QDialog):
             learning_mode=getattr(self, "_learning_mode", "language"),
         )
 
+    def load_card_artifact(self, artifact):
+        """Load a validated Study Session snapshot into Xưởng without AI."""
+        from utils.ai_card_artifacts import artifact_to_factory_payload
+
+        language, kind, cards = artifact_to_factory_payload(artifact)
+        if getattr(self, "_learning_mode", "language") != "language":
+            self._select_learning_mode("language", persist=False, announce=False)
+        if self._current_lang != language:
+            self._select_lang(language)
+        self._select_mode(kind == "grammar")
+        self.json_input.setPlainText(json.dumps(cards, indent=2, ensure_ascii=False))
+        self._schedule_analyze()
+        self.lbl_ai_status.setText(t("study_sent_forge"))
+        self.lbl_ai_status.setStyleSheet("color:#27ae60;font-size:11px;font-weight:bold;")
+
     def _finalize_ai_vocab(self, final_list):
         """Nhận dữ liệu cuối cùng từ AI preview, đổ vào json_input và phân tích"""
         if not final_list:
@@ -3424,6 +3448,11 @@ def _register_tools_menu_action():
         action.setShortcut(QKeySequence("Ctrl+Shift+I"))
         qconnect(action.triggered, start_smart_factory)
         tools.addAction(action)
+        try:
+            from ui.ai_companion import register_companion_shortcut
+            register_companion_shortcut()
+        except Exception as exc:
+            logger.warning("AI companion shortcut unavailable: %s", exc.__class__.__name__)
         return True
     except Exception:
         return False

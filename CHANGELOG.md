@@ -5,6 +5,10 @@
 > Các thay đổi đã merge sau 17.1.0, được tổng hợp và cập nhật đến ngày 20/08/2026. Chỉ chuyển mục này thành bản phát hành khi `manifest.json`, bằng chứng CI và smoke Anki đã sẵn sàng.
 
 ### ✨ Added
+- **AI Study Sessions / Dockable Learning Companion** — companion dùng chung cho Reviewer và Xưởng, hỗ trợ dock trái/phải, floating, collapse/hide, khôi phục UI state, nhiều phiên cục bộ, rename/delete session và phím tắt `Ctrl+Shift+A` có kiểm tra xung đột.
+- **Reviewer-aware context** — nút Ask AI không gây rối, snapshot tối thiểu của đúng thẻ hiện tại, quick prompts, tùy chọn bỏ context thẻ và hành động quay lại Reviewer; không tự gọi AI, không quét collection và không sửa SRS.
+- **Explicit Card Mode artifacts** — Vocab/Grammar Card Mode là hành động one-shot tường minh, tái dùng reliability pipeline hiện có rồi lưu artifact có schema snapshot để xem lại hoặc gửi sang Xưởng không cần gọi AI lần nữa.
+- **Session memory + token controls** — lưu hội thoại theo profile bằng atomic write/retention, tóm tắt cục bộ theo cửa sổ context của model và ghi usage theo provider/session.
 - AI Output Reliability release gate: provider-neutral response adapter, deterministic JSON extraction (raw/fenced/prose/known wrapper/native structured data), language/mode schema validation, minimum semantic checks, requested/received reconciliation, bounded partial retry và adaptive batch splitting; Chat snapshot đúng vocab/grammar để grammar RAW vào Xưởng qua cùng reliability contract, trong khi prose vẫn là prose, và text split recovery không cộng lại provisional prefix gây trùng; valid partial cards vẫn có thể vào preview an toàn.
 - Cài đặt AI có nút đặt provider + model mặc định theo provider; config, cache và usage history resolve đường dẫn profile khi đọc/ghi để không rơi vào thư mục temp nếu add-on được import trước lúc profile Anki sẵn sàng. API key vẫn chỉ lưu trong OS credential store; usage history vẫn chỉ chứa metadata.
 - Language Card Quality V2 cho vocab/grammar Nhật–Trung–Hàn–Anh: Usage Pattern/Note/Collocation hỗ trợ tối đa ba mục có information gain riêng; Example3/4 là field tùy chọn không audio, chỉ hiện thu gọn ở mặt sau; benchmark V2 đo density/size nhưng không thưởng quota.
@@ -27,6 +31,8 @@
 - Thêm `DEBUGGING.md`, `COMPATIBILITY.md`, `RELEASE_CHECKLIST.md`, artifact build có SHA-256/SBOM, cùng harness kiểm thử cô lập hai vòng dùng chung với CI.
 
 ### 🔧 Changed
+- **Version metadata / Note Types** — nâng release candidate cục bộ lên `18.1.0`; note type hiện hành dùng hậu tố `V18.1` và vẫn nhận diện/migrate các model `V17.0`.
+- **Chat prompt separation** — hội thoại thường dùng compact study-chat prompt, không còn chèn schema card; chỉ Card Mode mới nạp Quality V2 prompt/schema và validation/repair/retry pipeline.
 - Quality V2 batch policy dùng giới hạn bảo thủ 8–12 card/request tùy language/mode và output budget thay cho mặc định 80; cache AI/batch tăng schema boundary để không hồi sinh partial hoặc wrong-language payload.
 - Prompt cache mặc định và batch-cache boundary được tăng/ghép prompt signature để kết quả trước Quality V2 hoặc override cũ không bị tái sử dụng; migration Example3/4 chỉ thêm field còn thiếu và chạy lặp an toàn.
 - Knowledge beta được giữ trong mã nguồn nhưng tắt trên giao diện; profile/deck đã từng chọn Knowledge tự quay về Language mà không ghi đè preference hoặc draft beta. Manifest và tài liệu hiện chỉ công bố workflow ngoại ngữ, không bump `18.0.0`.

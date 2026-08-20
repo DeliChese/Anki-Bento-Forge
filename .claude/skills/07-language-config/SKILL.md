@@ -22,7 +22,7 @@ LANG_SELECTOR_INFO   = [("japanese","🇯🇵 日本語","JP"), ("chinese","🇨
 LANG_CONFIG = {
     "label": "🇯🇵 Tiếng Nhật",
     "lang_code": "ja",                                    # "zh" cho Trung, "ko" cho Hàn
-    "model_name": "AnkiTool Japanese V17.0 (Add-on)",     # ⚠️ format version phải khớp
+    "model_name": "AnkiTool Japanese V18.1 (Add-on)",     # ⚠️ format version phải khớp
     "old_model_names": [...],                              # migration từ bản cũ
     "all_fields": [...],                                   # toàn bộ field của Note Type
     "json_field_map": {...},                               # JSON key → Anki field (front, meaning, furigana/simplified, example...)
@@ -42,7 +42,7 @@ LANG_CONFIG = {
 GRAMMAR_CONFIG = {
     "label": "🇯🇵 Ngữ pháp Tiếng Nhật",
     "lang_code": "ja",
-    "model_name": "AnkiTool Japanese Grammar V17.0 (Add-on)",
+    "model_name": "AnkiTool Japanese Grammar V18.1 (Add-on)",
     "old_model_names": [],
     "all_fields": ["Pattern", "Reading", "Meaning", "JLPT Level", "Topic", ...],  # Trung: Pinyin, HSK
     "json_field_map": {"pattern": "Pattern", "reading": "Reading", "meaning": "Meaning", ...},
@@ -71,7 +71,7 @@ GRAMMAR_CONFIG = {
 
 ## TRAPS
 
-1. `model_name` chứa version (V17.0) — khi nâng cấp version phải đổi + thêm cái cũ vào `old_model_names` (để migration). **Đồng bộ với `audio/engine.py:_MODEL_LANG_MAP` (81).**
+1. `model_name` chứa version (V18.1) — khi nâng cấp version phải đổi + thêm cái cũ vào `old_model_names` (để migration). **Đồng bộ với `audio/engine.py:_MODEL_LANG_MAP`.**
 2. `json_field_map` phải cover đủ key AI trả ra (front/simplified/word/pattern + level jlptlevel/hsk_level/topik_level).
 3. Sửa field → Note Type cũ không tự cập nhật → user phải "Tái Tạo Model" (`_force_rebuild_model:1206`) hoặc `_get_or_migrate_model:1236`.
 4. i18n: thêm label mới vào `utils/i18n.py` (SKILL-06) nếu hiển thị trong UI.

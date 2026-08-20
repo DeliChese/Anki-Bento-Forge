@@ -193,6 +193,14 @@ class TestOverviewModeSelector:
         result = _on_js_message((False, None), "onigiri_study", None)
         assert result == (False, None)
 
+    def test_on_js_message_opens_ai_only_after_explicit_reviewer_action(self):
+        from unittest.mock import patch
+        from hooks.overview_mode import _on_js_message
+        with patch("hooks.reviewer.open_companion_from_reviewer") as open_ai:
+            context = MagicMock()
+            assert _on_js_message((False, None), "bento_forge_ai:open", context) == (True, None)
+            open_ai.assert_called_once_with(context)
+
     def test_mode_and_srs_layout_are_stable_per_deck(self):
         from unittest.mock import patch
         from hooks.overview_mode import (
@@ -251,7 +259,33 @@ class TestReviewerHookCompatibility:
             '<div id="combo-mode-bar"></div><div data-srs-layout="independent"></div>'
         )
         reviewer._on_reviewer_question(review)
-        review.web.eval.assert_not_called()
+        assert not any(
+            "_aiFactoryMode" in call.args[0]
+            for call in review.web.eval.call_args_list
+        )
+
+    def test_reviewer_snapshot_is_minimal_side_aware_and_read_only(self):
+        import hooks.reviewer as reviewer
+
+        review = MagicMock()
+        review._bento_forge_side = "question"
+        review.card.id = 9
+        review.card.did = 42
+        note = MagicMock()
+        note.model.return_value = {"name": "AnkiTool English V17.0 (Add-on)"}
+        note.items.return_value = [
+            ("Front", "affect"), ("Meaning", "ảnh hưởng"),
+            ("Usage Pattern", "affect + object"), ("Private Field", "omit me"),
+        ]
+        review.card.note.return_value = note
+
+        snapshot = reviewer.get_current_card_snapshot(review)
+        assert snapshot["language"] == "english"
+        assert snapshot["side"] == "question"
+        assert snapshot["front"] == "affect"
+        assert snapshot["meaning"] == "ảnh hưởng"
+        assert snapshot["usage_pattern"] == "affect + object"
+        assert "private_field" not in snapshot
 
     def test_missing_reviewer_hook_does_not_disable_available_hook(self):
         from unittest.mock import patch

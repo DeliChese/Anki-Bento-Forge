@@ -1,8 +1,8 @@
-# 🌐 Bento Forge — AnkiTool Multi-Language V17.2.0
+# 🌐 Bento Forge — AnkiTool Multi-Language V18.1.0
 
 > **Vocabulary Factory cho Anki** — Tạo thẻ từ vựng tiếng Nhật, Trung, Hàn & Anh với AI, TTS, và interactive templates.
 
-[![Version](https://img.shields.io/badge/version-17.2.0-blue)](manifest.json)
+[![Version](https://img.shields.io/badge/version-18.1.0-blue)](manifest.json)
 [![Anki](https://img.shields.io/badge/anki-2.1.50_to_26.5-green)](COMPATIBILITY.md)
 [![Python](https://img.shields.io/badge/python-%3E%3D3.9-yellow)](manifest.json)
 [![Tests](https://github.com/DeliChese/Anki-Bento-Forge/actions/workflows/ci.yml/badge.svg)](https://github.com/DeliChese/Anki-Bento-Forge/actions/workflows/ci.yml)
@@ -45,7 +45,7 @@ Knowledge Basic/Cloze được giữ trong mã nguồn như beta riêng tư đ�
 | 📎 **Kẹp File Tham Khảo** | Đính kèm TXT/MD/CSV/PDF/DOCX/XLSX làm tài liệu → AI đọc nội dung để trích xuất từ vựng/ngữ pháp. |
 | 📘 **Ngữ pháp** | Note Type ngữ pháp riêng cho cả 4 ngôn ngữ: thẻ 2 chiều "Cấu trúc→Nghĩa" & "Nghĩa→Cấu trúc", AI trích xuất pattern + công thức + cách dùng + ví dụ (có đánh dấu `<b>…</b>` trong ví dụ). |
 | 🤖 **AI Trích Xuất** | Dùng OpenAI/DeepSeek/Ollama để trích xuất từ vựng từ văn bản. Tự động tránh từ đã có trong deck. |
-| 💬 **AI Chat** | Trợ lý học tập thông minh, hiểu ngữ cảnh Anki của bạn. |
+| 🥟 **AI Study Sessions** | Trợ lý dock/floating có phiên, context thẻ hiện tại và Card Mode tường minh. |
 | ⚡ **Tối ưu Token** | Chỉ gửi từ vựng/ngữ pháp trùng với nội dung vào prompt (thay vì toàn bộ deck → giảm mạnh input); tổng hợp token/chi phí theo toàn bộ chunk. |
 | 💾 **Lưu trạng thái 2 luồng** | Text + file kẹp của Từ vựng và Ngữ pháp (mỗi ngôn ngữ) được lưu riêng, khôi phục khi mở lại Factory — không lẫn nhau, đỡ gọi lại AI. |
 
@@ -124,11 +124,15 @@ git clone https://github.com/DeliChese/Anki-Bento-Forge.git
 4. Xem trước, chỉnh sửa, xóa nếu cần
 5. Bấm **✅ CHẤP NHẬN & ĐỔ VÀO XƯỞNG**
 
-### Cách 3: AI Chat
-1. Viết câu hỏi/yêu cầu vào ô text
-2. Bấm **💬 Gửi**
-3. AI sẽ phân tích hệ thống Anki và trả lời
-4. Nếu AI đề xuất từ vựng → bấm **✅ Đổ Vào Xưởng**
+### Cách 3: AI Study Sessions
+
+1. Mở **Tools > AI Study Sessions** hoặc nhấn `Ctrl+Shift+A` (nếu phím tắt chưa bị add-on khác chiếm).
+2. Giữ companion ở bên phải, kéo sang trái, thả nổi, thu gọn hoặc ẩn; trạng thái được khôi phục ở lần mở sau.
+3. Trong Reviewer, bấm **Ask AI** để dùng snapshot tối thiểu của đúng thẻ hiện tại. Các nút hỏi nhanh vẫn nằm trong cùng phiên.
+4. Bật **Card Mode** chỉ khi muốn tạo một card Từ vựng/Ngữ pháp. Kết quả được lưu thành artifact để xem lại, mở lại hoặc gửi sang Xưởng mà không gọi AI lần nữa.
+5. Bấm **Quay lại Review** để trở về thẻ đang học.
+
+Phiên hội thoại được lưu cục bộ theo profile với ghi file nguyên tử và retention giới hạn. Companion không tự gọi AI khi chuyển thẻ, không quét toàn bộ collection và không sửa lịch SRS.
 
 ---
 

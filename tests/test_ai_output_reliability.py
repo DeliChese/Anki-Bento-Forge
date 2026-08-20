@@ -4,7 +4,7 @@ import json
 
 import pytest
 
-from utils import ai_extractor, batch_processor
+from utils import ai_extractor, ai_study_prompts, batch_processor
 from utils.ai_output_validation import validate_ai_cards
 from utils.ai_reliability import (
     AiCardResponse,
@@ -34,7 +34,7 @@ def _adapted(content, *, finish_reason="stop", parsed=None):
 
 def _chat_result(
     monkeypatch, *, content="", parsed=None, finish_reason="stop",
-    reasoning_content="", lang="english", card_kind="vocab",
+    reasoning_content="", lang="english", card_kind="vocab", card_mode="__selected__",
 ):
     message = {"content": content}
     if parsed is not None:
@@ -56,8 +56,10 @@ def _chat_result(
         ai_extractor, "_http_post_json",
         lambda *args, **kwargs: json.dumps(provider_result),
     )
+    selected_mode = card_kind if card_mode == "__selected__" else card_mode
     return ai_extractor.chat_with_ai(
         "test request", lang=lang, quick=True, card_kind=card_kind,
+        card_mode=selected_mode,
     )
 
 
@@ -126,6 +128,7 @@ def test_chat_prose_only_remains_a_normal_reply(monkeypatch):
     result = _chat_result(
         monkeypatch,
         content="Opportunity is broader than chance in many contexts.",
+        card_mode=None,
     )
     assert result["reply"].startswith("Opportunity is broader")
     assert result["vocab_json"] is None
@@ -220,7 +223,7 @@ def test_chat_prompt_requests_only_the_selected_grammar_schema(monkeypatch):
     requested = []
     monkeypatch.setattr(ai_extractor, "_ui_lang_en", lambda: True)
     monkeypatch.setattr(
-        ai_extractor, "get_effective_json_template",
+        ai_study_prompts, "get_json_template",
         lambda lang, kind: requested.append((lang, kind)) or f"{kind.upper()}_SCHEMA",
     )
     prompt = ai_extractor._get_chat_system_prompt("english", "grammar")
@@ -229,9 +232,25 @@ def test_chat_prompt_requests_only_the_selected_grammar_schema(monkeypatch):
     assert "VOCAB_SCHEMA" not in prompt
 
 
+def test_study_chat_prompt_never_loads_a_card_schema(monkeypatch):
+    requested = []
+    monkeypatch.setattr(ai_study_prompts, "get_json_template", lambda *args: requested.append(args))
+    prompt = ai_extractor._get_study_chat_system_prompt("english", None)
+    assert requested == []
+    assert "Card Mode" in prompt
+
+
+def test_study_chat_treats_unsolicited_json_as_prose(monkeypatch):
+    card = _card("unsolicited", cefr_level="B1")
+    result = _chat_result(monkeypatch, content=json.dumps([card]), card_mode=None)
+    assert result["card_json"] is None
+    assert "unsolicited" in result["reply"]
+    assert result["card_mode"] is None
+
+
 def test_chat_prose_with_ordinary_braces_is_not_a_card_error(monkeypatch):
     result = _chat_result(
-        monkeypatch, content="Use {braces} when describing a placeholder.",
+        monkeypatch, content="Use {braces} when describing a placeholder.", card_mode=None,
     )
     assert result["reply"] == "Use {braces} when describing a placeholder."
     assert result["vocab_json"] is None

@@ -49,6 +49,8 @@ from .ai_text_recovery import recover_text_chunk as _recover_text_chunk
 from .ai_output_validation import cache_payload_is_compatible
 from .ai_prompt_defaults import KNOWLEDGE_PROMPT_VERSION
 from .ai_usage_history import record_usage as _record_usage
+from .ai_providers import detect_provider
+from .ai_study_prompts import build_study_prompt
 from .user_data import (
     atomic_write_json,
     get_user_data_path,
@@ -206,6 +208,8 @@ def _record_token_info(
     operation: str = "unknown",
     started_at: Optional[float] = None,
     duration_seconds: Optional[float] = None,
+    provider: str = "",
+    session_id: str = "",
 ) -> None:
     """Update session counters and retain safe metadata for the usage dialog."""
     if not token_info:
@@ -224,6 +228,8 @@ def _record_token_info(
         operation=operation,
         started_at=started_at,
         duration_seconds=duration_seconds,
+        provider=provider,
+        session_id=session_id,
     )
 
 
@@ -986,46 +992,17 @@ def _build_anki_context_text(context: dict) -> str:
 #  AI CHAT — giao tiếp tự do với AI, không cần text trích xuất
 # ═══════════════════════════════════════════════════════════
 
-_CHAT_PROMPT_COMPACT_VI = """Bạn là gia sư {target} cho người Việt: ấm áp, chính xác và ngắn gọn.
-- Ưu tiên cách dùng tự nhiên có ngữ cảnh; nêu register/sắc thái và đối chiếu gần nghĩa khi hữu ích.
-- Ví dụ ngắn, đa dạng, đúng cấp độ; không bịa nghĩa, collocation hoặc quy tắc.
-- Khi sửa lỗi: nói rõ phần đúng, lỗi, lý do và một bản sửa tự nhiên.
-- Chỉ dùng dữ liệu Anki được cung cấp; không đề xuất lại mục đã có.
-- Xưởng hiện ở chế độ {card_kind_label}. Nếu người dùng muốn nhập thẻ, chỉ trả đúng JSON theo schema hiện tại trong một khối ```json```; ngoài trường hợp đó không ép trả JSON.
-Schema hiện tại: {card_schema}
-Trả lời bằng tiếng Việt."""
-
-_CHAT_PROMPT_COMPACT_EN = """You are a warm, precise, concise {target} tutor for English speakers.
-- Prioritize natural contextual usage; explain register/nuance and near-synonym contrasts when useful.
-- Keep examples short, varied, and level-appropriate; never invent senses, collocations, or rules.
-- For corrections, identify what works, the error, why, and one natural revision.
-- Use only the supplied Anki data and never resuggest an existing item.
-- The Factory is currently in {card_kind_label} mode. If the user requests importable cards, return only the exact current schema below in one ```json``` block; otherwise do not force JSON.
-Current schema: {card_schema}
-Reply in English."""
+def _get_study_chat_system_prompt(
+    lang: str = "japanese", card_mode: Optional[str] = None,
+) -> str:
+    return build_study_prompt(lang, card_mode, english_ui=_ui_lang_en())
 
 
 def _get_chat_system_prompt(
     lang: str = "japanese", card_kind: str = "vocab",
 ) -> str:
-    """Compact target-aware Chat prompt with one explicit Factory card kind."""
-    if card_kind not in {"vocab", "grammar"}:
-        raise ValueError("unsupported chat card kind")
-    target = {
-        "japanese": "Japanese", "chinese": "Chinese",
-        "korean": "Korean", "english": "English",
-    }.get(lang, "Japanese")
-    english_ui = _ui_lang_en()
-    base = _CHAT_PROMPT_COMPACT_EN if english_ui else _CHAT_PROMPT_COMPACT_VI
-    card_kind_label = (
-        ("grammar" if card_kind == "grammar" else "vocabulary")
-        if english_ui else ("ngữ pháp" if card_kind == "grammar" else "từ vựng")
-    )
-    return base.format(
-        target=target,
-        card_kind_label=card_kind_label,
-        card_schema=get_effective_json_template(lang, card_kind),
-    )
+    """Compatibility helper representing an explicitly selected Card Mode."""
+    return _get_study_chat_system_prompt(lang, card_kind)
 
 
 def chat_with_ai(
@@ -1037,6 +1014,11 @@ def chat_with_ai(
     should_abort: Optional[Callable[[], bool]] = None,
     anki_context: Optional[dict] = None,
     card_kind: str = "vocab",
+    card_mode: Optional[str] = None,
+    study_session: Optional[dict] = None,
+    use_card_context: bool = False,
+    session_id: str = "",
+    runtime_config: Optional[dict] = None,
 ) -> dict:
     """
     Gửi tin nhắn đến AI và nhận phản hồi. AI có ngữ cảnh Anki.
@@ -1052,7 +1034,9 @@ def chat_with_ai(
     """
     if card_kind not in {"vocab", "grammar"}:
         raise ValueError("unsupported chat card kind")
-    cfg = get_api_config()
+    if card_mode not in {None, "vocab", "grammar"}:
+        raise ValueError("unsupported study-session card mode")
+    cfg = dict(runtime_config) if isinstance(runtime_config, dict) else get_api_config()
     if not cfg.get("api_key") and "localhost" not in cfg.get("api_base", ""):
         return {"reply": "", "vocab_json": None, "error": t("error_api_key_missing")}
     try:
@@ -1060,40 +1044,54 @@ def chat_with_ai(
     except ValueError as error:
         return {"reply": "", "vocab_json": None, "token_info": None, "error": str(error)}
     
+    effective_kind = card_mode or card_kind
+    context_summary = ""
+    context_estimated_tokens = 0
+    context = anki_context if anki_context is not None else {}
     # Thu thập ngữ cảnh Anki THÔNG MINH dựa trên yêu cầu.
     # quick=True → BỎ qua truy vấn context Anki (nhanh hơn) — dùng cho sinh câu ngữ pháp.
     if quick:
-        target = {
-            "japanese": "Japanese", "chinese": "Chinese",
-            "korean": "Korean", "english": "English",
-        }.get(lang, "Japanese")
-        system_content = (
-            f"You are a concise {target} language tutor. "
-            "Answer exactly what is asked, no extra commentary."
-        )
+        system_content = _get_study_chat_system_prompt(lang, card_mode)
         if progress_callback:
             progress_callback(t("status_calling_model", model=cfg["model"]))
     else:
         if progress_callback:
             progress_callback(t("worker_progress_context"))
-        context = anki_context if anki_context is not None else query_anki_context(user_message, lang)
-        context_text = _build_anki_context_text(context)
         if progress_callback:
             progress_callback(t("status_calling_model", model=cfg["model"]))
-        system_content = _get_chat_system_prompt(lang, card_kind) + "\n\n" + "═" * 50 + "\n"
-        system_content += (
-            "ANKI SYSTEM CONTEXT (use only this data):\n" if _ui_lang_en()
-            else "THÔNG TIN HỆ THỐNG ANKI (chỉ dùng dữ liệu này):\n"
-        ) + context_text
-    
-    messages = [{"role": "system", "content": system_content}]
-    
-    # Thêm lịch sử hội thoại (giới hạn 10 tin gần nhất để tiết kiệm token)
-    if conversation_history:
-        for msg in conversation_history[-20:]:
-            messages.append(msg)
-    
-    messages.append({"role": "user", "content": user_message})
+        system_content = _get_study_chat_system_prompt(lang, card_mode)
+
+    if study_session is not None:
+        from .ai_context_manager import prepare_study_context
+
+        prepared = prepare_study_context(
+            study_session,
+            current_user_message=user_message,
+            system_prompt=system_content,
+            model=cfg.get("model", ""),
+            session_max_tokens=cfg.get("session_max_tokens", 120_000),
+            max_output_tokens=cfg.get("max_tokens", 8192),
+            card_context=context,
+            use_card_context=use_card_context,
+        )
+        messages = list(prepared.messages)
+        context_summary = prepared.summary
+        context_estimated_tokens = prepared.estimated_tokens
+    else:
+        messages = [{"role": "system", "content": system_content}]
+        if not quick and context:
+            context_text = _build_anki_context_text(context)
+            messages.append({
+                "role": "system",
+                "content": (
+                    "ANKI SYSTEM CONTEXT (use only this data):\n" if _ui_lang_en()
+                    else "THÔNG TIN HỆ THỐNG ANKI (chỉ dùng dữ liệu này):\n"
+                ) + context_text,
+            })
+        if conversation_history:
+            for msg in conversation_history[-20:]:
+                messages.append(msg)
+        messages.append({"role": "user", "content": user_message})
     
     payload = {
         "model": cfg["model"],
@@ -1102,6 +1100,8 @@ def chat_with_ai(
         "max_tokens": cfg.get("max_tokens", 8192),
     }
     _apply_reasoning_effort(payload, cfg)
+    if card_mode is not None:
+        enable_deepseek_json_output(payload, cfg)
     
     api_base = cfg["api_base"].rstrip("/")
     url = f"{api_base}/chat/completions"
@@ -1139,9 +1139,11 @@ def chat_with_ai(
         )
         _record_token_info(
             token_info,
-            operation="ai_chat",
+            operation=(f"study_card_{card_mode}" if card_mode else "study_chat"),
             started_at=request_started_at,
             duration_seconds=time.monotonic() - request_started_monotonic,
+            provider=detect_provider(cfg.get("api_base", ""), cfg.get("model", "")) or "custom",
+            session_id=session_id,
         )
     
     try:
@@ -1152,18 +1154,30 @@ def chat_with_ai(
             "error": str(error),
         }
 
-    optional_cards = _extract_optional_card_payload(
-        adapted, lang=lang, kind=card_kind,
-    )
-    reply_text = optional_cards.reply
-    vocab_json = list(optional_cards.cards) or None
+    if card_mode is None:
+        reply_text = adapted.text.strip()
+        if not reply_text and adapted.structured_data is not None:
+            reply_text = json.dumps(adapted.structured_data, ensure_ascii=False)
+        vocab_json = None
+        rejection_category = None
+        recovery = ""
+    else:
+        optional_cards = _extract_optional_card_payload(
+            adapted, lang=lang, kind=effective_kind,
+        )
+        reply_text = optional_cards.reply
+        vocab_json = list(optional_cards.cards) or None
+        rejection_category = optional_cards.rejection_category
+        recovery = optional_cards.recovery
+        if vocab_json is None and rejection_category is None:
+            rejection_category = "missing_card_payload"
     warning_key = {
         "truncation": "chat_card_warning_truncation",
         "schema_mismatch": "chat_card_warning_schema",
         "ambiguous_json_payloads": "chat_card_warning_ambiguous",
-    }.get(optional_cards.rejection_category, "chat_card_warning_rejected")
+    }.get(rejection_category, "chat_card_warning_rejected")
     card_warning = (
-        t(warning_key) if optional_cards.rejection_category else None
+        t(warning_key) if rejection_category else None
     )
     
     if progress_callback:
@@ -1176,11 +1190,15 @@ def chat_with_ai(
         "reply": reply_text,
         "vocab_json": vocab_json,
         "card_json": vocab_json,
-        "card_kind": card_kind,
+        "card_kind": effective_kind,
+        "card_mode": card_mode,
         "token_info": token_info,
         "error": None,
-        "card_error": optional_cards.rejection_category,
+        "card_error": rejection_category,
         "card_warning": card_warning,
+        "card_recovery": recovery,
+        "session_summary": context_summary,
+        "context_estimated_tokens": context_estimated_tokens,
     }
 
 

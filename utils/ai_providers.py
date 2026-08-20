@@ -247,3 +247,33 @@ def get_provider_capabilities(api_base: str, model: str = "") -> dict:
         "known_card_wrappers": ("cards", "items", "results"),
     })
     return capabilities
+
+
+_MODEL_CONTEXT_WINDOWS = {
+    "deepseek-v4-flash": 128_000,
+    "deepseek-v4-pro": 128_000,
+    "deepseek-chat": 64_000,
+    "deepseek-reasoner": 64_000,
+    "gpt-5.6-luna": 256_000,
+    "gpt-5.6-terra": 256_000,
+    "gpt-5.6-sol": 256_000,
+    "gpt-4o": 128_000,
+    "gpt-4o-mini": 128_000,
+    "claude-sonnet-5": 200_000,
+    "claude-opus-5": 200_000,
+    "gemini-3.6-flash": 1_000_000,
+    "gemini-3.5-flash": 1_000_000,
+}
+
+
+def get_model_context_window(model: str, fallback: int = 32_768) -> int:
+    """Return trusted local metadata or a conservative unknown-model budget."""
+    normalized = str(model or "").strip().lower()
+    direct = _MODEL_CONTEXT_WINDOWS.get(normalized)
+    if direct:
+        return direct
+    # OpenRouter uses vendor/model slugs; preserve only a known suffix match.
+    for known, window in _MODEL_CONTEXT_WINDOWS.items():
+        if normalized.endswith("/" + known):
+            return window
+    return max(4_096, int(fallback))

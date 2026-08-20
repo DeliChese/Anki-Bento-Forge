@@ -10,9 +10,96 @@ except Exception:
 from audio.engine import detect_lang_from_model, get_default_speed
 from mode import _SPEED_CTRL_JS, _LG_JS_BODY
 from utils.logger import get_logger, log_event
+from utils.i18n import t
 
 logger = get_logger()
 _REGISTERED_HOOKS = set()
+
+_AI_CONTEXT_FIELDS = {
+    "front": "front", "simplified": "simplified", "traditional": "traditional",
+    "pattern": "pattern", "furigana": "furigana", "pinyin": "pinyin",
+    "romanization": "romanization", "meaning": "meaning", "usage": "usage",
+    "explanation": "explanation", "usage pattern": "usage_pattern",
+    "usage note": "usage_note", "collocation": "collocation", "example": "example",
+    "example in vietnamese": "example_vn", "example2": "example2",
+    "example2 in vietnamese": "example2_vn", "example3": "example3",
+    "example3 in vietnamese": "example3_vn", "example4": "example4",
+    "example4 in vietnamese": "example4_vn", "question": "question",
+    "answer": "answer", "concept": "concept",
+}
+
+
+def _inject_ai_action(reviewer):
+    """Add one subtle opt-in action; it never opens or calls AI automatically."""
+    try:
+        import json
+        label = json.dumps(t("study_reviewer_action"), ensure_ascii=False)
+        reviewer.web.eval(f"""
+            (() => {{
+              if (document.getElementById('bento-forge-ai-action')) return;
+              const button = document.createElement('button');
+              button.id = 'bento-forge-ai-action';
+              button.type = 'button';
+              button.textContent = {label};
+              button.setAttribute('aria-label', {label});
+              button.style.cssText = 'position:fixed;right:12px;top:10px;z-index:9999;opacity:.72;'
+                + 'border:1px solid #c9bca8;border-radius:10px;padding:5px 9px;background:#fffaf0;'
+                + 'color:#4d4338;font-size:12px;cursor:pointer;';
+              button.onmouseenter = () => button.style.opacity = '1';
+              button.onmouseleave = () => button.style.opacity = '.72';
+              button.onclick = () => pycmd('bento_forge_ai:open');
+              document.body.appendChild(button);
+            }})();
+        """)
+    except Exception:
+        pass
+
+
+def get_current_card_snapshot(reviewer, side=None):
+    """Return relevant current-card fields only; never attach review history."""
+    try:
+        card = getattr(reviewer, "card", None)
+        if card is None:
+            return None
+        note = card.note()
+        model = note.model() if note is not None else None
+        model_name = str((model or {}).get("name") or "")
+        lang_code = detect_lang_from_model(model_name)
+        language = {"ja": "japanese", "zh": "chinese", "ko": "korean", "en": "english"}.get(lang_code, "")
+        snapshot = {
+            "language": language,
+            "note_type": model_name,
+            "side": side or getattr(reviewer, "_bento_forge_side", "question"),
+            "card_id": getattr(card, "id", ""),
+        }
+        try:
+            from aqt import mw
+            snapshot["deck"] = mw.col.decks.name(getattr(card, "did", 0))
+        except Exception:
+            pass
+        if note is not None:
+            items = note.items() if callable(getattr(note, "items", None)) else []
+            for field_name, value in items:
+                key = _AI_CONTEXT_FIELDS.get(str(field_name).strip().casefold())
+                if key and str(value or "").strip():
+                    snapshot[key] = str(value).strip()[:4_000]
+        return snapshot
+    except Exception as error:
+        log_event(
+            "AI_CARD_CONTEXT_FAILED", "open_companion_without_card_context",
+            error=error.__class__.__name__,
+        )
+        return None
+
+
+def open_companion_from_reviewer(context):
+    reviewer = getattr(context, "reviewer", None) or context
+    snapshot = get_current_card_snapshot(reviewer)
+    from ui.ai_companion import show_ai_companion
+    return show_ai_companion(
+        snapshot=snapshot,
+        language=str((snapshot or {}).get("language") or ""),
+    )
 
 # Import an toàn module overview_mode (tránh circular import ở mức module load)
 try:
@@ -25,10 +112,12 @@ except Exception:
 def _on_reviewer_question(reviewer):
     """Inject Letter Gap JS khi hiện mặt trước thẻ + sync mode combo."""
     try:
+        reviewer._bento_forge_side = "question"
         card = reviewer.card
         if card is None:
             return
         q = card.q() or ""
+        _inject_ai_action(reviewer)
         # Card combo (1 từ = 1 card, 5 chế độ): đồng bộ mode từ config
         if 'id="combo-mode-bar"' in q and 'data-srs-layout="combo"' in q:
             mode = get_study_mode(getattr(card, "did", None))
@@ -49,9 +138,11 @@ def _on_reviewer_question(reviewer):
 
 def _on_reviewer_answer(reviewer):
     """Inject Speed Control JS khi hiện mặt sau thẻ."""
+    _inject_ai_action(reviewer)
     # Bước 1: Xác định tốc độ mặc định
     default_spd = 1.0
     try:
+        reviewer._bento_forge_side = "answer"
         card = reviewer.card
         if card is not None:
             note = card.note()

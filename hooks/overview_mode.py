@@ -130,6 +130,10 @@ def _on_js_message(handled, message, context):
             return (True, None)
         if message and message.startswith("ai_grammar_sentence:"):
             return _handle_grammar_sentence(message, context)
+        if message == "bento_forge_ai:open":
+            from hooks.reviewer import open_companion_from_reviewer
+            open_companion_from_reviewer(context)
+            return (True, None)
     except Exception as e:
         logger.warning("Lỗi xử lý webview message: %s", e)
     return handled
