@@ -5,6 +5,8 @@
 > Các thay đổi đã merge sau 17.1.0. Chỉ chuyển mục này thành bản phát hành khi `manifest.json`, bằng chứng CI và smoke Anki đã sẵn sàng.
 
 ### ✨ Added
+- Language Card Quality V2 cho vocab/grammar Nhật–Trung–Hàn–Anh: Usage Pattern/Note/Collocation hỗ trợ tối đa ba mục có information gain riêng; Example3/4 là field tùy chọn không audio, chỉ hiện thu gọn ở mặt sau; benchmark V2 đo density/size nhưng không thưởng quota.
+- Confusion Guard lát cắt đầu tiên: cảnh báo advisory-only khi entry mới có exact curated near-confusable pair trong cùng deck; không chặn import, không merge, không tạo card và không đổi SRS.
 - Usage Guide V1 cho vocab Nhật/Trung/Hàn/Anh: ba field tùy chọn `Usage Pattern`, `Usage Note`, `Collocation` (tối đa một cụm có nghĩa) hiển thị riêng ở mặt sau và tự ẩn khi trống. Output AI được chuẩn hóa để bỏ placeholder, nội dung lặp, collocation thiếu nghĩa và ví dụ thứ hai trùng; migration chỉ thêm field/template còn thiếu, không tạo card hay lịch SRS mới.
 - Usage Guide quality gate đạt `19/20` (`95%`) trên benchmark model thật bốn ngôn ngữ với chi phí final `$0.002035` và `1.69 giây/card`; smoke runtime Anki 26.5 xác nhận migration/import/update/undo/rollback và render mặt sau trên collection tạm.
 - Mã beta Knowledge được giữ riêng với Language (model Basic Q&A/Cloze, Explanation, Source và Tags) để có thể khôi phục khi cần; beta không hiện trên UI và không thuộc phạm vi phát hành hiện tại.
@@ -23,6 +25,7 @@
 - Thêm `DEBUGGING.md`, `COMPATIBILITY.md`, `RELEASE_CHECKLIST.md`, artifact build có SHA-256/SBOM, cùng harness kiểm thử cô lập hai vòng dùng chung với CI.
 
 ### 🔧 Changed
+- Prompt cache mặc định và batch-cache boundary được tăng/ghép prompt signature để kết quả trước Quality V2 hoặc override cũ không bị tái sử dụng; migration Example3/4 chỉ thêm field còn thiếu và chạy lặp an toàn.
 - Knowledge beta được giữ trong mã nguồn nhưng tắt trên giao diện; profile/deck đã từng chọn Knowledge tự quay về Language mà không ghi đè preference hoặc draft beta. Manifest và tài liệu hiện chỉ công bố workflow ngoại ngữ, không bump `18.0.0`.
 - Mở compatibility manifest từ Anki 2.1.50 đến 26.5, bổ sung metadata cài `.ankiaddon` chuẩn (`package`/point version), và dùng `Collection.update_note()` để add/update/rollback nằm trong undo-aware operation trên Anki hiện tại; vẫn giữ fallback cho runtime legacy.
 - Knowledge dùng prompt/parser/cache version riêng, schema JSON nghiêm ngặt và history namespace riêng. Source thiếu được giữ rỗng thay vì tự suy đoán; các control Language/TTS không xuất hiện trong Knowledge.

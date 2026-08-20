@@ -3,6 +3,10 @@
 This module is pure data: no configuration, cache, network, Anki, or UI dependencies.
 """
 
+from .quality_v2 import (
+    GRAMMAR_QUALITY_V2_EN, GRAMMAR_QUALITY_V2_VI,
+    VOCAB_QUALITY_V2_EN, VOCAB_QUALITY_V2_VI,
+)
 
 _KOREAN_JSON_TEMPLATE = """{
   "front": "먹다",
@@ -19,7 +23,13 @@ _KOREAN_JSON_TEMPLATE = """{
   "example_vn": "Buổi sáng tôi ăn cơm.",
   "example_2": "친구와 함께 저녁을 먹었어요.",
   "example_2_romanization": "chinguwa hamkke jeonyeogeul meogeosseoyo.",
-  "example_2_vn": "Tôi đã ăn tối cùng bạn bè."
+  "example_2_vn": "Tôi đã ăn tối cùng bạn bè.",
+  "example_3": "",
+  "example_3_romanization": "",
+  "example_3_vn": "",
+  "example_4": "",
+  "example_4_romanization": "",
+  "example_4_vn": ""
 }"""
 
 
@@ -29,12 +39,12 @@ MẪU:
 {_KOREAN_JSON_TEMPLATE}
 
 LUẬT:
-1. Đủ 15 key; field vô ích = "". Usage Guide: MỘT khung đúng tiểu từ/đuôi (kính ngữ: N께 N을/를 드리다); note chỉ ghi kính ngữ/register/lỗi có ích; MỘT collocation từ vựng — nghĩa (묻다: 길을 묻다, KHÔNG 질문을 묻다). Không placeholder, chép ví dụ hoặc lặp field.
-2. Hai ví dụ tự nhiên, khác nhau, 5–12 từ: Ex1 khẩu ngữ, Ex2 존댓말; cùng nghĩa ngữ cảnh và đúng cấp TOPIK.
+1. Đủ 21 key; field tùy chọn không hữu ích = "". Ưu tiên 조사, 어미, speech level, honorific constraint như N께 N을/를 드리다, transitivity và verb–noun/adjective pairing; 묻다: 길을 묻다, KHÔNG 질문을 묻다.
+2. Sinh 2–4 ví dụ tự nhiên, 5–12 từ: Ex1 canonical, Ex2 transfer; Ex3/4 chỉ cho particle/ending/register/contrast hoặc productive variant; cùng nghĩa ngữ cảnh và đúng cấp TOPIK.
 3. KIỂM: bản dịch đúng câu; từ đích có thể chia; Romanization Revised không gạch nối.
 4. Bỏ "TỪ ĐÃ CÓ", giữ thứ tự văn bản; không bịa nghĩa/cách dùng.
 
-ĐẦU RA: CHỈ mảng JSON thuần; cuối có {{"_comment":"≤15 từ"}}."""
+ĐẦU RA: CHỈ mảng JSON thuần; cuối có {{"_comment":"≤15 từ"}}.""" + VOCAB_QUALITY_V2_VI
 
 
 _KOREAN_JSON_TEMPLATE_EN = """{
@@ -51,8 +61,14 @@ _KOREAN_JSON_TEMPLATE_EN = """{
   "example_romanization": "achime babeul meogeoyo.",
   "example_vn": "I eat rice in the morning.",
   "example_2": "친구와 함께 저녁을 먹었어요.",
-  "example_2_romanization": "chin-guwa hamkke jeonyeogeul meogeosseoyo.",
-  "example_2_vn": "I had dinner with my friend."
+  "example_2_romanization": "chinguwa hamkke jeonyeogeul meogeosseoyo.",
+  "example_2_vn": "I had dinner with my friend.",
+  "example_3": "",
+  "example_3_romanization": "",
+  "example_3_vn": "",
+  "example_4": "",
+  "example_4_romanization": "",
+  "example_4_vn": ""
 }"""
 
 
@@ -62,12 +78,12 @@ TEMPLATE:
 {_KOREAN_JSON_TEMPLATE_EN}
 
 RULES:
-1. Fill 15 keys; omit low-value fields. Usage Guide: ONE correct particle/ending frame (honorific: N께 N을/를 드리다); note only useful honorific/register/error guidance; ONE lexical "phrase — meaning" (묻다: 길을 묻다, NEVER 질문을 묻다). No placeholders, copied examples, or repetition.
-2. Write two distinct natural 5–12-word examples: Ex1 casual, Ex2 존댓말; match TOPIK and the same contextual sense.
+1. Fill all 21 keys; optional low-value fields = "". Prioritize 조사, 어미, speech level, honorific constraints, transitivity, and verb–noun/adjective pairing; 묻다: 길을 묻다, NEVER 질문을 묻다.
+2. Write 2–4 natural 5–12-word examples: Ex1 canonical, Ex2 transfer; use Ex3/4 only for a useful particle/ending/register contrast or productive variant; match TOPIK and the same contextual sense.
 3. CHECK exact translation, inflected target use, and Revised Romanization without hyphens.
 4. Skip "EXISTING WORDS", preserve text order, and never invent usage.
 
-OUTPUT: Plain JSON array only; end with {{"_comment":"≤15 words"}}."""
+OUTPUT: Plain JSON array only; end with {{"_comment":"≤15 words"}}.""" + VOCAB_QUALITY_V2_EN
 
 
 _KOREAN_GRAMMAR_JSON_TEMPLATE = """{
@@ -78,12 +94,18 @@ _KOREAN_GRAMMAR_JSON_TEMPLATE = """{
   "topic": "Kết thúc câu",
   "usage": "Động từ/tính từ + 아요 (âm cuối 양/ㅗ/ㅏ) hoặc + 어요 (các âm còn lại)",
   "explanation": "Dạng kết thúc câu lịch sự thông dụng nhất trong giao tiếp. Lỗi người Việt hay nhầm giữa 아요 và 어요.",
-  "example": "지금 학교에 가요.",
+  "example": "지금 학교에 <b>가요</b>.",
   "example_romanization": "jigeum hakgyoe gayo.",
   "example_vn": "Bây giờ tôi đi học.",
-  "example_2": "밥을 맛있게 먹어요.",
-  "example_2_romanization": "babeul masitge meogeoyo.",
-  "example_2_vn": "Tôi ăn cơm ngon lành."
+  "example_2": "이 음식은 <b>맛있어요</b>.",
+  "example_2_romanization": "i eumsigeun masisseoyo.",
+  "example_2_vn": "Món ăn này ngon.",
+  "example_3": "",
+  "example_3_romanization": "",
+  "example_3_vn": "",
+  "example_4": "",
+  "example_4_romanization": "",
+  "example_4_vn": ""
 }"""
 
 
@@ -93,21 +115,11 @@ MẪU:
 {_KOREAN_GRAMMAR_JSON_TEMPLATE}
 
 LUẬT:
-1. Đủ 13 trường; thiếu → "". example_romanization & example_2_romanization LUÔN phải có, romanization chuẩn (Revised Romanization).
-2. pattern: cấu trúc CHÍNH — LUÔN viết bằng HANGUL gốc, ghi rõ chỗ điền bằng "~" hoặc ký hiệu loại từ (V/A/N). KHÔNG dùng romanization làm pattern (VD viết "~아/어요", không viết "a/eoyo").
-3. romanization: phiên âm phần cấu trúc.
-4. usage: CÔNG THỨC ghép dễ nhớ; thêm collocation/register chỉ khi làm rõ cách dùng (≤12 từ).
-5. explanation: TỐI ĐA 2 câu — cách dùng + sắc thái + lỗi người Việt hay mắc + đồng nghĩa (nếu có). Gọn.
-6. VÍ DỤ CÓ HỒN + ĐÚNG CẤP ĐỘ:
-   - Ex1: khẩu ngữ đời thực, cảm xúc thật. Ex2: trang trọng, lịch sự.
-   - Cấp độ ví dụ khớp TOPIK của pattern; KHÔNG nhồi từ khó. Ví dụ 5-12 từ.
-   - MỌI ví dụ PHẢI kèm romanization đầy đủ.
-7. KIỂM: nghĩa đúng ngữ cảnh; example_vn đủ chủ-vị, đúng câu; mỗi ví dụ có pattern đã bọc <b>; Romanization Revised không gạch nối.
-8. NHƯ GIẢNG VIÊN ĐỌC GIÁO TRÌNH: Đọc kỹ TOÀN BỘ văn bản, hiểu ngữ cảnh + từ vựng đi kèm rồi mới trích. Ví dụ phải bám ngữ cảnh thực của bài, dùng từ vựng ĐA DẠNG (không lặp cùng 1 cụm từ trong mọi ví dụ).
-9. CÙNG PATTERN – KHÁC NGHĨA: Nếu 1 pattern xuất hiện nhiều lần với từ đi kèm khác nhau tạo NGHĨA/CÁCH DÙNG khác nhau → tạo NHIỀU entry riêng (meaning khác nhau, ví dụ khác nhau) thay vì gộp. Không tạo trùng lặp máy móc nếu thực sự giống nghĩa.
-10. ĐÁNH DẤU PATTERN: Trong example/example_2, BỌC phần thể hiện pattern bằng <b>…</b> để nổi bật trên thẻ (Anki render HTML, ví dụ: "지금 학교에 <b>가요</b>.").
+1. Đủ 19 trường; optional = "". pattern dùng Hangul + slot ~/V/A/N, không romanization; mọi ví dụ có Revised Romanization không gạch nối.
+2. usage là công thức ngắn; explanation TỐI ĐA 2 câu về function + constraint/contrast/error có căn cứ, kể cả particle/ending/speech level.
+3. Ví dụ 5–12 từ, đúng TOPIK/ngữ cảnh/bản dịch và bọc realization bằng <b>. Cùng form khác nghĩa đáng học → tách; không fake pattern.
 
-ĐẦU RA: CHỈ mảng JSON thuần, không markdown, không giải thích thừa. Cuối: {{"_comment":"≤15 từ"}}"""
+ĐẦU RA: CHỈ mảng JSON thuần, không markdown, không giải thích thừa. Cuối: {{"_comment":"≤15 từ"}}""" + GRAMMAR_QUALITY_V2_VI
 
 
 _KOREAN_GRAMMAR_JSON_TEMPLATE_EN = """{
@@ -118,12 +130,18 @@ _KOREAN_GRAMMAR_JSON_TEMPLATE_EN = """{
   "topic": "Sentence ending",
   "usage": "Verb/Adjective + 아요 or 어요",
   "explanation": "The most common polite informal sentence ending. Common mistake: confusing 아요 and 어요.",
-  "example": "지금 학교에 가요.",
+  "example": "지금 학교에 <b>가요</b>.",
   "example_romanization": "jigeum hakgyoe gayo.",
   "example_vn": "I am going to school now.",
-  "example_2": "밥을 맛있게 먹어요.",
-  "example_2_romanization": "babeul masitge meogeoyo.",
-  "example_2_vn": "I am eating the meal deliciously."
+  "example_2": "이 음식은 <b>맛있어요</b>.",
+  "example_2_romanization": "i eumsigeun masisseoyo.",
+  "example_2_vn": "This food is delicious.",
+  "example_3": "",
+  "example_3_romanization": "",
+  "example_3_vn": "",
+  "example_4": "",
+  "example_4_romanization": "",
+  "example_4_vn": ""
 }"""
 
 
@@ -133,21 +151,11 @@ TEMPLATE:
 {_KOREAN_GRAMMAR_JSON_TEMPLATE_EN}
 
 RULES:
-1. Fill all 13 fields; missing → "". example_romanization & example_2_romanization ALWAYS required, standard Revised Romanization.
-2. pattern: the MAIN structure — ALWAYS in original Hangul, mark slots with "~" or word-type symbols (V/A/N). NEVER use romanization as pattern (write "~아/어요", not "a/eoyo").
-3. romanization: romanization of the structure part.
-4. usage: a memorable formula; add a collocation/register note only when it clarifies use (≤12 words).
-5. explanation: MAX 2 sentences — usage + nuance + common learner mistakes + synonyms (if any). Concise.
-6. VIVID EXAMPLES MATCHING THE LEVEL:
-   - Ex1: real-life casual speech, genuine emotion. Ex2: formal, polite.
-   - Example level matches the pattern's TOPIK; NEVER cram hard words. Examples 5-12 words.
-   - EVERY example must include full romanization.
-7. CHECK: contextual meaning; exact subject–verb example translation; every example contains the bolded pattern; standard Revised Romanization without hyphens.
-8. LIKE A LECTURER READING A TEXTBOOK: read the WHOLE text carefully, understand context + accompanying vocabulary before extracting. Examples must follow the text's real context and use DIVERSE vocabulary.
-9. SAME PATTERN – DIFFERENT MEANING: if a pattern appears multiple times with different accompanying words producing DIFFERENT meanings/usages → create MULTIPLE entries instead of merging.
-10. MARK THE PATTERN: in example/example_2, WRAP the pattern instance in <b>…</b> (Anki renders HTML, e.g. "지금 학교에 <b>가요</b>.").
+1. Fill all 19 fields; optional = "". pattern uses Hangul + ~/V/A/N slots, never romanization; every example needs unhyphenated Revised Romanization.
+2. usage is a short formula; explanation is max 2 sentences for evidenced function + constraint/contrast/error, including particle/ending/speech level.
+3. Examples are 5–12 words with faithful translation/context/TOPIK and bold realization. Split a genuinely different meaning of the same form; never fake a pattern.
 
-OUTPUT: ONLY a plain JSON array, no markdown, no extra explanation. End with: {{"_comment":"≤15 words"}}"""
+OUTPUT: ONLY a plain JSON array, no markdown, no extra explanation. End with: {{"_comment":"≤15 words"}}""" + GRAMMAR_QUALITY_V2_EN
 
 
 __all__ = ['_KOREAN_JSON_TEMPLATE', '_KOREAN_SYSTEM_PROMPT', '_KOREAN_JSON_TEMPLATE_EN', '_KOREAN_SYSTEM_PROMPT_EN', '_KOREAN_GRAMMAR_JSON_TEMPLATE', '_KOREAN_GRAMMAR_SYSTEM_PROMPT', '_KOREAN_GRAMMAR_JSON_TEMPLATE_EN', '_KOREAN_GRAMMAR_SYSTEM_PROMPT_EN']

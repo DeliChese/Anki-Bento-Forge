@@ -1,4 +1,4 @@
-"""Pure Usage Guide V1 normalization and deterministic quality checks."""
+"""Pure Language Card Quality V2 normalization and deterministic checks."""
 
 from __future__ import annotations
 
@@ -12,10 +12,27 @@ _EMPTY_MARKERS = frozenset({
     "", "-", "?", "n/a", "na", "none", "null", "undefined", "unknown",
     "tbd", "todo", "not available", "not applicable",
 })
-_SECOND_EXAMPLE_FIELDS = (
-    "example_2", "example_2_vn", "example_2_pinyin",
-    "example_2_romanization", "example2", "example2_vn",
-)
+_MAX_GUIDE_ITEMS = 3
+_ITEM_SPLIT_RE = re.compile(r"(?:<br\s*/?>|\r?\n)+", re.IGNORECASE)
+_ITEM_PREFIX_RE = re.compile(r"^[\s•*\-–—\d.)]+")
+_EXAMPLE_BUNDLES = {
+    1: ("example", "example_vn", "example_pinyin", "example_romanization"),
+    2: (
+        "example_2", "example_2_vn", "example_2_pinyin", "example_2_romanization",
+        "example2", "example2_vn", "example2_pinyin", "example2_romanization",
+        "example2invietnamese",
+    ),
+    3: (
+        "example_3", "example_3_vn", "example_3_pinyin", "example_3_romanization",
+        "example3", "example3_vn", "example3_pinyin", "example3_romanization",
+        "example3invietnamese",
+    ),
+    4: (
+        "example_4", "example_4_vn", "example_4_pinyin", "example_4_romanization",
+        "example4", "example4_vn", "example4_pinyin", "example4_romanization",
+        "example4invietnamese",
+    ),
+}
 _GENERIC_PREPOSITION_NOTE_RE = re.compile(
     r"^thường dùng với giới từ\s*['\"]?([a-z]+)['\"]?\.?$",
     re.IGNORECASE,
@@ -43,21 +60,45 @@ def _note_only_repeats_pattern(note: str, pattern: object) -> bool:
     return bool(re.search(rf"\b{re.escape(match.group(1))}\b", _clean_text(pattern), re.IGNORECASE))
 
 
-def _first_collocation(value: object) -> str:
-    """Return one displayable ``phrase — meaning`` candidate at most."""
+def _iter_items(value: object):
+    """Yield displayable items from legacy strings or structured AI output."""
     if isinstance(value, Mapping):
         phrase = _clean_text(value.get("phrase"))
         meaning = _clean_text(value.get("meaning"))
-        return f"{phrase} — {meaning}" if phrase and meaning else ""
+        if phrase and meaning:
+            yield f"{phrase} — {meaning}"
+        return
     if isinstance(value, Sequence) and not isinstance(value, (str, bytes, bytearray)):
         for candidate in value:
-            cleaned = _first_collocation(candidate)
-            if cleaned:
-                return cleaned
-        return ""
-    lines = str(value or "").splitlines() if value is not None else []
-    first_line = lines[0] if lines else ""
-    return re.sub(r"^[\s•*\-–—\d.)]+", "", first_line).strip()
+            yield from _iter_items(candidate)
+        return
+    for raw in _ITEM_SPLIT_RE.split(str(value or "")):
+        cleaned = _ITEM_PREFIX_RE.sub("", raw).strip()
+        if cleaned:
+            yield cleaned
+
+
+def _normalize_guide_items(value: object, *, collocation: bool = False) -> list[str]:
+    items = []
+    seen = set()
+    for candidate in _iter_items(value):
+        cleaned = _clean_text(candidate)
+        key = _comparison_key(cleaned)
+        if _is_empty_marker(cleaned) or not key or key in seen:
+            continue
+        if collocation and " — " not in cleaned:
+            continue
+        items.append(cleaned)
+        seen.add(key)
+        if len(items) == _MAX_GUIDE_ITEMS:
+            break
+    return items
+
+
+def _first_example_value(card: Mapping, index: int) -> object:
+    primary = "example" if index == 1 else f"example_{index}"
+    aliases = (primary, f"example{index}") if index > 1 else (primary,)
+    return next((card.get(key) for key in aliases if _clean_text(card.get(key))), "")
 
 
 def _collocation_repeats_pattern(collocation: str, pattern: object) -> bool:
@@ -73,50 +114,54 @@ def _collocation_repeats_pattern(collocation: str, pattern: object) -> bool:
 def normalize_usage_guide_card(card: object) -> object:
     """Normalize optional guide fields without mutating the AI response object.
 
-    Empty placeholders are omitted, only the first collocation is retained, and
-    repeated optional content is removed. If both examples are identical, the
-    second example bundle is omitted so duplicate text never reaches a note.
+    Empty placeholders are omitted, guide values are serialized as at most
+    three unique newline-separated items, and duplicate/orphan example bundles
+    are removed. Existing one-item strings and two-example cards remain valid.
     """
     if not isinstance(card, Mapping):
         return card
 
     normalized = dict(card)
     comparison_values = {
-        _comparison_key(normalized.get("example")),
-        _comparison_key(normalized.get("example_2")),
+        _comparison_key(_first_example_value(normalized, index))
+        for index in range(1, 5)
     }
     comparison_values.discard("")
 
     for field in USAGE_GUIDE_FIELDS:
         raw = normalized.get(field)
-        value = _first_collocation(raw) if field == "collocation" else _clean_text(raw)
-        key = _comparison_key(value)
-        if (
-            _is_empty_marker(value)
-            or not key
-            or key in comparison_values
-            or (field == "collocation" and " — " not in value)
-            or (
-                field == "collocation"
-                and _collocation_repeats_pattern(value, normalized.get("usage_pattern"))
-            )
-            or (
-                field == "usage_note"
-                and _note_only_repeats_pattern(value, normalized.get("usage_pattern"))
-            )
-        ):
+        values = _normalize_guide_items(raw, collocation=field == "collocation")
+        kept = []
+        for value in values:
+            key = _comparison_key(value)
+            if (
+                key in comparison_values
+                or (
+                    field == "collocation"
+                    and _collocation_repeats_pattern(value, normalized.get("usage_pattern"))
+                )
+                or (
+                    field == "usage_note"
+                    and _note_only_repeats_pattern(value, normalized.get("usage_pattern"))
+                )
+            ):
+                continue
+            kept.append(value)
+            comparison_values.add(key)
+        if not kept:
             normalized.pop(field, None)
             continue
-        normalized[field] = value
-        comparison_values.add(key)
+        normalized[field] = "\n".join(kept)
 
-    if (
-        _comparison_key(normalized.get("example"))
-        and _comparison_key(normalized.get("example"))
-        == _comparison_key(normalized.get("example_2"))
-    ):
-        for field in _SECOND_EXAMPLE_FIELDS:
-            normalized.pop(field, None)
+    seen_examples = set()
+    for index in range(1, 5):
+        key = _comparison_key(_first_example_value(normalized, index))
+        if not key or key in seen_examples:
+            if index > 1 or not key:
+                for field in _EXAMPLE_BUNDLES[index]:
+                    normalized.pop(field, None)
+            continue
+        seen_examples.add(key)
 
     return normalized
 
@@ -126,6 +171,10 @@ def normalize_usage_guide_cards(cards: Sequence[object]) -> list[object]:
     return [normalize_usage_guide_card(card) for card in cards]
 
 
+normalize_language_card = normalize_usage_guide_card
+normalize_language_cards = normalize_usage_guide_cards
+
+
 def evaluate_usage_guide_card(card: object) -> dict:
     """Return observable Usage Guide issues for corpus and regression review."""
     if not isinstance(card, Mapping):
@@ -133,36 +182,36 @@ def evaluate_usage_guide_card(card: object) -> dict:
 
     issues = []
     seen = set()
-    example_keys = {
-        _comparison_key(card.get("example")),
-        _comparison_key(card.get("example_2")),
-    }
-    example_keys.discard("")
-    if len(example_keys) == 1 and card.get("example") and card.get("example_2"):
-        issues.append("duplicate_examples")
+    example_keys = set()
+    for index in range(1, 5):
+        raw_example = _first_example_value(card, index)
+        key = _comparison_key(raw_example)
+        if key and key in example_keys:
+            issues.append("duplicate_examples")
+        if key:
+            example_keys.add(key)
 
     for field in USAGE_GUIDE_FIELDS:
         if field not in card:
             continue
         value = card.get(field)
-        cleaned = _first_collocation(value) if field == "collocation" else _clean_text(value)
-        key = _comparison_key(cleaned)
-        if _is_empty_marker(cleaned) or not key:
+        raw_items = list(_iter_items(value))
+        cleaned_items = _normalize_guide_items(value, collocation=field == "collocation")
+        if not cleaned_items:
             issues.append(f"empty_{field}")
             continue
-        if key in seen or key in example_keys:
+        if len(raw_items) > _MAX_GUIDE_ITEMS:
+            issues.append(f"too_many_{field}")
+        raw_keys = [_comparison_key(item) for item in raw_items if _comparison_key(item)]
+        if len(raw_keys) != len(set(raw_keys)):
             issues.append(f"duplicate_{field}")
-        seen.add(key)
-
-    collocation = _first_collocation(card.get("collocation"))
-    if collocation and " — " not in collocation:
-        issues.append("collocation_missing_meaning")
-    raw_collocation = card.get("collocation")
-    if isinstance(raw_collocation, Sequence) and not isinstance(raw_collocation, (str, bytes, bytearray)):
-        if len(raw_collocation) > 1:
-            issues.append("multiple_collocations")
-    elif isinstance(raw_collocation, str) and len(raw_collocation.splitlines()) > 1:
-        issues.append("multiple_collocations")
+        for cleaned in cleaned_items:
+            key = _comparison_key(cleaned)
+            if key in seen or key in example_keys:
+                issues.append(f"duplicate_{field}")
+            seen.add(key)
+        if field == "collocation" and any(" — " not in item for item in raw_items):
+            issues.append("collocation_missing_meaning")
 
     issues = tuple(dict.fromkeys(issues))
     return {
@@ -175,6 +224,8 @@ def evaluate_usage_guide_card(card: object) -> dict:
 __all__ = [
     "USAGE_GUIDE_FIELDS",
     "evaluate_usage_guide_card",
+    "normalize_language_card",
+    "normalize_language_cards",
     "normalize_usage_guide_card",
     "normalize_usage_guide_cards",
 ]

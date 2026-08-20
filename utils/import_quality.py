@@ -15,6 +15,27 @@ _JAPANESE_TEXT_RE = re.compile(r"[\u3400-\u9fff\uf900-\ufaff\u3040-\u30ff]")
 _KOREAN_TEXT_RE = re.compile(r"[\uac00-\ud7af]")
 _PATTERN_LITERAL_RE = re.compile(r"^[\u3400-\u9fff\uf900-\ufaff\u3040-\u30ff\uac00-\ud7af]{2,}$")
 
+# Curated exact-form sets only. This intentionally avoids fuzzy semantic
+# guessing: a warning needs both a known contrast and an exact same-deck peer.
+_CONFUSION_GROUPS = {
+    "english": (
+        ("affect", "effect"), ("economic", "economical"),
+        ("sensible", "sensitive"),
+    ),
+    "japanese": (
+        ("気になる", "気にする"), ("見える", "見られる"),
+        ("開く", "開ける"),
+    ),
+    "chinese": (
+        ("了解", "理解"), ("发现", "发觉"),
+        ("提高", "提升"), ("适合", "合适"),
+    ),
+    "korean": (
+        ("늘다", "늘리다"), ("맞다", "맞추다"),
+        ("알다", "알아보다"),
+    ),
+}
+
 _PLACEHOLDERS = frozenset({
     "-", "?", "n/a", "na", "none", "null", "undefined", "unknown",
     "tbd", "todo", "not available", "not applicable", "chua co", "khong ro",
@@ -88,6 +109,14 @@ def detect_card_warnings(
     meaning = _visible_text(item.get("meaning"))
     example = _visible_text(item.get("example"))
     warnings = []
+    examples = [example]
+    examples.extend(
+        _visible_text(item.get(f"example_{index}") or item.get(f"example{index}"))
+        for index in (2, 3, 4)
+    )
+    example_keys = [normalize_for_comparison(value) for value in examples if value]
+    if len(example_keys) != len(set(example_keys)):
+        warnings.append("duplicate_examples")
 
     for field, value in (("front", front), ("meaning", meaning), ("example", example)):
         if value.casefold() in _PLACEHOLDERS:
@@ -155,17 +184,25 @@ def evaluate_card_candidate(
     *,
     lang: str = "",
     grammar: bool = False,
+    existing_terms: Iterable[object] = (),
 ) -> dict:
     """Return structural score plus deterministic advisory warnings for preview."""
     completeness = evaluate_card_completeness(item, grammar=grammar)
     warnings = () if not isinstance(item, Mapping) else detect_card_warnings(
         item, lang=lang, grammar=grammar,
     )
+    confusion_candidates = ()
+    if isinstance(item, Mapping) and not grammar:
+        front = item.get("front") or item.get("simplified")
+        confusion_candidates = find_confusion_candidates(front, existing_terms, lang=lang)
+        if confusion_candidates:
+            warnings = (*warnings, "confusion_candidate")
     issues = tuple(dict.fromkeys((*completeness["issues"], *warnings)))
     return {
         **completeness,
         "issues": issues,
         "warnings": warnings,
+        "confusion_candidates": confusion_candidates,
         "has_warnings": bool(issues),
     }
 
@@ -184,6 +221,32 @@ def near_duplicate_score(left: object, right: object) -> float:
     if left_normalized == right_normalized:
         return 1.0
     return SequenceMatcher(None, left_normalized, right_normalized, autojunk=False).ratio()
+
+
+def find_confusion_candidates(
+    value: object,
+    candidates: Iterable[object],
+    *,
+    lang: str,
+) -> tuple[str, ...]:
+    """Return curated same-deck contrasts; never mutate or block an import."""
+    target = normalize_for_comparison(value)
+    if not target:
+        return ()
+    candidate_by_key = {
+        normalize_for_comparison(candidate): str(candidate).strip()
+        for candidate in candidates or ()
+        if normalize_for_comparison(candidate)
+    }
+    matches = []
+    for group in _CONFUSION_GROUPS.get(lang, ()):
+        normalized_group = {normalize_for_comparison(term): term for term in group}
+        if target not in normalized_group:
+            continue
+        for key in normalized_group:
+            if key != target and key in candidate_by_key:
+                matches.append(candidate_by_key[key])
+    return tuple(dict.fromkeys(matches))
 
 
 def find_near_duplicate(

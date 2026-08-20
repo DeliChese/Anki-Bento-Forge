@@ -85,34 +85,47 @@ def show_ai_preview_dialog(parent, vocab_list, lang, ai_text_input, ai_instructi
         if lang == "chinese":
             columns = ["pattern", "pinyin", "meaning", "hsk_level", "topic", "usage",
                        "explanation", "example", "example_pinyin", "example_vn",
-                       "example_2", "example_2_pinyin", "example_2_vn"]
+                       "example_2", "example_2_pinyin", "example_2_vn",
+                       "example_3", "example_3_pinyin", "example_3_vn",
+                       "example_4", "example_4_pinyin", "example_4_vn"]
         elif lang == "korean":
             columns = ["pattern", "romanization", "meaning", "topik_level", "topic", "usage",
                        "explanation", "example", "example_romanization", "example_vn",
-                       "example_2", "example_2_romanization", "example_2_vn"]
+                       "example_2", "example_2_romanization", "example_2_vn",
+                       "example_3", "example_3_romanization", "example_3_vn",
+                       "example_4", "example_4_romanization", "example_4_vn"]
         elif lang == "english":
             columns = ["pattern", "pronunciation", "meaning", "cefr_level", "topic", "usage",
-                       "explanation", "example", "example_vn", "example_2", "example_2_vn"]
+                       "explanation", "example", "example_vn", "example_2", "example_2_vn",
+                       "example_3", "example_3_vn", "example_4", "example_4_vn"]
         else:
             columns = ["pattern", "reading", "meaning", "jlptlevel", "topic", "usage",
-                       "explanation", "example", "example_vn", "example_2", "example_2_vn"]
+                       "explanation", "example", "example_vn", "example_2", "example_2_vn",
+                       "example_3", "example_3_vn", "example_4", "example_4_vn"]
     elif lang == "chinese":
         columns = ["simplified", "traditional", "pinyin", "meaning",
                    "usage_pattern", "usage_note", "collocation", "sino_vietnamese",
-                   "hsk_level", "topic", "example", "example_vn", "example_2", "example_2_vn"]
+                   "hsk_level", "topic", "example", "example_pinyin", "example_vn",
+                   "example_2", "example_2_pinyin", "example_2_vn",
+                   "example_3", "example_3_pinyin", "example_3_vn",
+                   "example_4", "example_4_pinyin", "example_4_vn"]
     elif lang == "korean":
         columns = ["front", "romanization", "meaning",
                    "usage_pattern", "usage_note", "collocation", "sino_vietnamese",
                    "topik_level", "topic", "example", "example_romanization", "example_vn",
-                   "example_2", "example_2_romanization", "example_2_vn"]
+                   "example_2", "example_2_romanization", "example_2_vn",
+                   "example_3", "example_3_romanization", "example_3_vn",
+                   "example_4", "example_4_romanization", "example_4_vn"]
     elif lang == "english":
         columns = ["front", "pronunciation", "meaning",
                    "usage_pattern", "usage_note", "collocation", "cefr_level", "topic",
-                   "example", "example_vn", "example_2", "example_2_vn"]
+                   "example", "example_vn", "example_2", "example_2_vn",
+                   "example_3", "example_3_vn", "example_4", "example_4_vn"]
     else:
         columns = ["front", "furigana", "meaning",
                    "usage_pattern", "usage_note", "collocation", "sino-vietnamese",
-                   "jlptlevel", "topic", "example", "example_vn", "example_2", "example_2_vn"]
+                   "jlptlevel", "topic", "example", "example_vn", "example_2", "example_2_vn",
+                   "example_3", "example_3_vn", "example_4", "example_4_vn"]
 
     table.setColumnCount(len(columns))
     table.setHorizontalHeaderLabels(columns)
@@ -134,13 +147,22 @@ def show_ai_preview_dialog(parent, vocab_list, lang, ai_text_input, ai_instructi
     quality_summary = QLabel()
     quality_summary.setWordWrap(True)
     vl.addWidget(quality_summary)
+    existing_terms = ()
+    if learning_mode == "language" and not grammar:
+        try:
+            existing_terms = tuple(get_existing_words_fn() or ())
+        except Exception as error:
+            logger.warning("Could not load same-deck terms for Confusion Guard: %s", error)
 
     def refresh_quality_summary(*_args):
         current = _get_current_vocab_from_table(table, columns, learning_mode=learning_mode)
         if learning_mode == "knowledge":
             _update_knowledge_validation(quality_summary, current)
         else:
-            _update_quality_summary(quality_summary, table, current, lang=lang, grammar=grammar)
+            _update_quality_summary(
+                quality_summary, table, current, lang=lang, grammar=grammar,
+                existing_terms=existing_terms,
+            )
 
     refresh_quality_summary()
     table.itemChanged.connect(refresh_quality_summary)
@@ -245,10 +267,14 @@ def _update_knowledge_validation(label, cards):
         )
 
 
-def _update_quality_summary(label, table, vocab_list, *, lang, grammar):
+def _update_quality_summary(
+    label, table, vocab_list, *, lang, grammar, existing_terms=(),
+):
     """Show deterministic, advisory quality feedback without blocking import."""
     results = [
-        evaluate_card_candidate(item, lang=lang, grammar=grammar)
+        evaluate_card_candidate(
+            item, lang=lang, grammar=grammar, existing_terms=existing_terms,
+        )
         for item in vocab_list
     ]
     _set_quality_tooltips(table, results)
@@ -279,9 +305,16 @@ def _update_quality_summary(label, table, vocab_list, *, lang, grammar):
 def _set_quality_tooltips(table, results):
     """Attach translated, row-level advisory details to editable preview cells."""
     for row, result in enumerate(results):
-        issue_text = "\n".join(
-            t(f"preview_quality_issue_{issue}") for issue in result["issues"]
-        )
+        messages = []
+        for issue in result["issues"]:
+            if issue == "confusion_candidate":
+                messages.append(t(
+                    "preview_quality_issue_confusion_candidate",
+                    candidates=", ".join(result.get("confusion_candidates") or ()),
+                ))
+            else:
+                messages.append(t(f"preview_quality_issue_{issue}"))
+        issue_text = "\n".join(messages)
         for col in range(table.columnCount()):
             cell = table.item(row, col)
             if cell is not None:

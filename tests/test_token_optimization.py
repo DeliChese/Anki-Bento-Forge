@@ -96,13 +96,15 @@ class TestSystemPromptCompactness:
             sp = _SYSTEM_PROMPTS[lang]
             assert "MẪU:" in sp
             assert "ĐẦU RA" in sp
-            assert len(sp) < 1400
+            # V2 carries two optional example bundles but stays below one
+            # compact 2.4k-character prompt budget per language.
+            assert len(sp) < 2400
 
     def test_english_vocab_prompt_keeps_examples_in_one_sense(self):
         from utils.ai_extractor import _SYSTEM_PROMPTS
         prompt = _SYSTEM_PROMPTS["english"]
-        assert "cả hai ví dụ phải dùng đúng nghĩa đó" in prompt
-        assert "tuyệt đối không đổi nghĩa giữa hai ví dụ" in prompt
+        assert "1 entry = 1 lemma/fixed expression + 1 từ loại + 1 sense" in prompt
+        assert "Ex1=Canonical, Ex2=Transfer" in prompt
 
     def test_grammar_prompts_compact(self):
         from utils.ai_extractor import _GRAMMAR_SYSTEM_PROMPTS

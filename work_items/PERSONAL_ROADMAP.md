@@ -5,7 +5,7 @@ Output:
 
 > Status: active
 > Authority: canonical backlog and current product decisions
-> Last verified: 2026-08-16
+> Last verified: 2026-08-20
 > Read when: choosing, scoping or closing work
 
 > **Quyết định sản phẩm:** 2026-08-16 — Bento Forge được duy trì như add-on cá nhân. Không có mục tiêu cạnh tranh thị trường, mở rộng đại trà hay xây cộng đồng.
@@ -16,10 +16,10 @@ Output:
 
 | Việc | Trạng thái | Điều cần biết ngay |
 | --- | --- | --- |
-| P0-01 — baseline test | 🟢 Local xanh | Compile toàn bộ Python tracked và hai vòng isolated suite đều xanh `547 passed`; vẫn cần giữ gate này xanh trước merge/release. |
+| P0-01 — baseline test | 🟢 Local xanh | Compile toàn bộ Python tracked và hai vòng isolated suite đều xanh `557 passed`; vẫn cần giữ gate này xanh trước merge/release. |
 | P0-02 — smoke profile | ⏳ Chờ chủ dự án | Cần chạy toàn flow trực quan trên profile Anki backup trước merge/release; không chặn việc mở P1-06. |
 | P1-05 — Usage Guide V1 | ✅ Đã kiểm chứng | Benchmark model thật đạt `19/20` (`95%`), `$0.002035`, `1.69 giây/card`; smoke collection thật Anki 26.5 xanh đủ bốn ngôn ngữ. |
-| P1-06 — Confusion Guard | 🟢 Đủ điều kiện mở | P1-05 đã đạt benchmark; review/prompt tuning đã ghi nhận các boundary dễ lẫn ở cả bốn ngôn ngữ. Chưa bắt đầu triển khai P1-06. |
+| P1-06 — Confusion Guard | 🟡 Local implementation xanh | Exact curated same-deck pairs + advisory preview đã có positive/negative fixtures bốn ngôn ngữ; còn smoke trên profile backup trước khi đánh dấu verified. |
 | Knowledge beta | 🧊 Dormant | Ẩn UI, không nằm trong release plan. |
 
 **Cách đọc trạng thái:** `🔴` cần xử lý · `🟢` local gate xanh/đủ điều kiện mở · `🟡` đang làm/chờ kiểm chứng · `✅` đã kiểm chứng · `⏳` cần thao tác của chủ dự án · `⚪` chưa mở · `🧊` đóng băng.
@@ -66,7 +66,7 @@ Nếu không thỏa điều kiện nào, ghi vào backlog `Để sau`, không tr
 | P1-02 | Tinh chỉnh prompt/schema/template cho ngôn ngữ chính dựa trên benchmark và thẻ đã học | P1 — khi P1-01 có dữ liệu | 🟠 Khó | `gpt-5.6-sol` / `high` | 3–8 giờ mỗi vòng | So sánh trước/sau trên cùng corpus; không giảm điểm benchmark; prompt version/cache được xử lý đúng |
 | P1-03 | Rà soát backup, rollback, duplicate/update và giới hạn batch cho collection cá nhân | P1 — giảm rủi ro | 🟡 Trung bình | `gpt-5.6-terra` / `high` | 2–5 giờ | Có test và thao tác phục hồi đã được thử trên profile bản sao |
 | P1-05 | **Usage Guide V1 — Nhật/Trung/Hàn/Anh**: sinh có chọn lọc `Usage Pattern`, `Usage Note` và tối đa 1 collocation có nghĩa; pattern/register/cảnh báo dùng sai riêng theo từng ngôn ngữ; hiển thị mặt sau, không tạo thêm card mặc định | P1 — đã kiểm chứng, là quality gate | 🔴 Rất khó | `gpt-5.6-sol` / `high` | 12–20 giờ | Corpus review cho cả 4 ngôn ngữ; pattern/usage đúng ≥90%, không sinh nội dung rỗng hoặc lặp ví dụ; migration field/template idempotent; không giảm benchmark/cost vượt ngưỡng đã chốt |
-| P1-06 | **Confusion Guard — Nhật/Trung/Hàn/Anh**: trước import, dò candidate dễ lẫn trong cùng deck và chỉ cảnh báo/đề xuất phân biệt có evidence; không tự merge hay tạo thẻ phụ | P1 — sau Usage Guide | 🟠 Khó | `gpt-5.6-sol` / `high` | 8–14 giờ | Fixture mỗi ngôn ngữ có positive/negative pairs; không báo trùng sai hàng loạt; preview cho sửa/bỏ; không đổi dữ liệu hoặc lịch SRS cũ |
+| P1-06 | **Confusion Guard — Nhật/Trung/Hàn/Anh**: trước import, dò candidate dễ lẫn trong cùng deck và chỉ cảnh báo/đề xuất phân biệt có evidence; không tự merge hay tạo thẻ phụ | P1 — local code/fixtures xanh, chờ smoke | 🟠 Khó | `gpt-5.6-sol` / `high` | 8–14 giờ | Fixture mỗi ngôn ngữ có positive/negative pairs; không báo trùng sai hàng loạt; preview cho sửa/bỏ; không đổi dữ liệu hoặc lịch SRS cũ |
 | P1-04 | Tích hợp AwesomeTTS tùy chọn theo stored-media và batch an toàn, chấp nhận tốc độ chậm để ổn định | P1 — nâng trải nghiệm TTS | 🟠 Khó | Theo lát cắt trong `P1-04_AWESOMETTS_SAFE_BATCH.md` (`terra`/`sol`) | 8–16 giờ | Đạt checklist provider thiếu/có, media local, retry/cancel/resume và smoke trên profile backup |
 | Knowledge beta | Giữ code/schema/model Knowledge riêng tư nhưng tắt UI; không phát hành V18 và không mở feature mới | Đóng băng | — | — | — | Chỉ mở lại khi chủ dự án yêu cầu, rồi khôi phục smoke/CI riêng |
 | P2-01 | Đơn giản hóa/ẩn các flow không dùng để giảm nhiễu UI và chi phí bảo trì | P2 — chỉ khi gây ma sát | 🟡 Trung bình | `gpt-5.6-terra` / `medium` | 1–4 giờ | Flow còn lại không regression; quyết định được ghi vào nhật ký |
@@ -88,7 +88,7 @@ Nếu không thỏa điều kiện nào, ghi vào backlog `Để sau`, không tr
 
 1. Giữ P0-01 xanh: tái xác nhận baseline trước merge/release và trước feature lớn.
 2. Hoàn tất P0-02 trên profile đã backup trước merge/release.
-3. Triển khai P1-06 Confusion Guard theo boundary advisory-only.
+3. Smoke P1-06 Confusion Guard trên profile backup; chỉ đánh dấu verified sau khi xác nhận preview advisory và import không bị chặn/mutate ngoài flow.
 4. Hoàn tất P0-04 trước mọi lát cắt AwesomeTTS.
 5. Chỉ mở P1-04 AwesomeTTS khi P0-04 xanh và ma sát TTS còn lặp lại.
 6. Chọn P2-03 Production Prompt hoặc P2-04 Review Health theo ma sát học thực tế; Knowledge beta vẫn dormant.
@@ -104,7 +104,7 @@ Nếu không thỏa điều kiện nào, ghi vào backlog `Để sau`, không tr
 - Historical decision and verification records: [history/2026-08.md](history/2026-08.md). They are evidence, not current authority.
 - P0-02 remains owner-operated: use [P0-02 smoke checklist](P0-02_ANKI_SMOKE_CHECKLIST.md) on a backed-up Anki profile before release.
 - P1-04 is planned only: execute its slices only after P0-04, following [AwesomeTTS safe-batch plan](P1-04_AWESOMETTS_SAFE_BATCH.md).
-- P1-06 is the next eligible implementation item; preserve its advisory-only boundary.
+- P1-06 has a locally tested exact-pair advisory slice; preserve its boundary and run owner smoke before verification.
 - Knowledge beta remains dormant; its reactivation procedure is in [V18 learning modes](V18_LEARNING_MODES.md).
 
 For every medium or hard task, create or update a handoff using [the task contract template](../.claude/context/task-contract-template.md).

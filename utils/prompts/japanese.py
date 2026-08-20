@@ -3,6 +3,10 @@
 This module is pure data: no configuration, cache, network, Anki, or UI dependencies.
 """
 
+from .quality_v2 import (
+    GRAMMAR_QUALITY_V2_EN, GRAMMAR_QUALITY_V2_VI,
+    VOCAB_QUALITY_V2_EN, VOCAB_QUALITY_V2_VI,
+)
 
 _JAPANESE_JSON_TEMPLATE = """{
   "front": "食べる",
@@ -17,7 +21,11 @@ _JAPANESE_JSON_TEMPLATE = """{
   "example": "毎日ご飯を食べるよ。",
   "example_vn": "Hàng ngày tớ ăn cơm đó.",
   "example_2": "お客様とご一緒に夕食を召し上がりました。",
-  "example_2_vn": "Tôi đã dùng bữa tối cùng với quý khách."
+  "example_2_vn": "Tôi đã dùng bữa tối cùng với quý khách.",
+  "example_3": "",
+  "example_3_vn": "",
+  "example_4": "",
+  "example_4_vn": ""
 }"""
 
 
@@ -27,12 +35,12 @@ MẪU:
 {_JAPANESE_JSON_TEMPLATE}
 
 LUẬT:
-1. Đủ 13 key; field không hữu ích = "". Usage Guide: usage_pattern là MỘT khung có trợ từ/khe N/V/A; usage_note chỉ ghi register/sắc thái/lỗi hay mắc; collocation tối đa MỘT "cụm — nghĩa" đúng sense. Không placeholder, không chép câu ví dụ, không lặp giữa các field.
-2. Hai ví dụ tự nhiên, khác nhau, 5–12 từ: Ex1 khẩu ngữ, Ex2 lịch sự; độ khó khớp JLPT và cùng nghĩa ngữ cảnh.
+1. Đủ 17 key; field tùy chọn không hữu ích = "". Ưu tiên particle/case, valency, tự động từ/tha động từ, register và fixed construction; không biến mọi noun + particle thành pattern.
+2. Sinh 2–4 ví dụ tự nhiên, 5–12 từ: Ex1 canonical, Ex2 transfer; Ex3/4 chỉ khi làm rõ constraint/contrast hoặc productive variant; độ khó khớp JLPT và cùng nghĩa ngữ cảnh.
 3. KIỂM: đúng trợ từ/collocation; 聞く “hỏi” = Nに聞く, không dịch 質問を聞く là hỏi; bản dịch đúng câu; furigana hiragana.
 4. Bỏ "TỪ ĐÃ CÓ", giữ thứ tự văn bản; không bịa nghĩa/cách dùng.
 
-ĐẦU RA: CHỈ mảng JSON thuần; cuối có {{"_comment":"≤15 từ"}}."""
+ĐẦU RA: CHỈ mảng JSON thuần; cuối có {{"_comment":"≤15 từ"}}.""" + VOCAB_QUALITY_V2_VI
 
 
 _JAPANESE_JSON_TEMPLATE_EN = """{
@@ -48,7 +56,11 @@ _JAPANESE_JSON_TEMPLATE_EN = """{
   "example": "毎日ご飯を食べるよ。",
   "example_vn": "I eat rice every day.",
   "example_2": "お客様とご一緒に夕食を召し上がりました。",
-  "example_2_vn": "I had dinner together with the guest."
+  "example_2_vn": "I had dinner together with the guest.",
+  "example_3": "",
+  "example_3_vn": "",
+  "example_4": "",
+  "example_4_vn": ""
 }"""
 
 
@@ -58,12 +70,12 @@ TEMPLATE:
 {_JAPANESE_JSON_TEMPLATE_EN}
 
 RULES:
-1. Fill 13 keys; use "" when not useful. Usage Guide: usage_pattern is ONE reusable particle/N/V/A frame; usage_note only register, nuance, or a common error; collocation at most ONE "phrase — meaning" for this sense. No placeholders, copied examples, or repeated fields.
-2. Write two distinct natural 5–12-word examples: Ex1 casual, Ex2 polite; match JLPT and the same contextual sense.
+1. Fill all 17 keys; optional low-value fields = "". Prioritize particle/case, valency, transitivity, register, and fixed constructions; do not turn every noun + particle into a pattern.
+2. Write 2–4 natural 5–12-word examples: Ex1 canonical, Ex2 transfer; use Ex3/4 only for a real constraint/contrast or productive variant; match JLPT and the same contextual sense.
 3. CHECK particles/collocations; ask with 聞く = Nに聞く, never translate 質問を聞く as ask; exact translation; hiragana furigana.
 4. Skip "EXISTING WORDS", preserve text order, and never invent usage.
 
-OUTPUT: Plain JSON array only; end with {{"_comment":"≤15 words"}}."""
+OUTPUT: Plain JSON array only; end with {{"_comment":"≤15 words"}}.""" + VOCAB_QUALITY_V2_EN
 
 
 _JAPANESE_GRAMMAR_JSON_TEMPLATE = """{
@@ -74,10 +86,14 @@ _JAPANESE_GRAMMAR_JSON_TEMPLATE = """{
   "topic": "Cho phép / Xin phép",
   "usage": "Vて + もいいです",
   "explanation": "Dùng để xin phép hoặc cho phép ai làm gì. Thân mật: 〜てもいいよ",
-  "example": "ここで写真を撮ってもいいですか。",
-  "example_vn": "Tôi chụp ảnh ở đây được không?",
-  "example_2": "明日は休んでもいいよ。",
-  "example_2_vn": "Mai nghỉ cũng được nhé."
+  "example": "この本を借り<b>てもいい</b>です。",
+  "example_vn": "Bạn có thể mượn cuốn sách này.",
+  "example_2": "少し窓を開け<b>てもいい</b>ですか。",
+  "example_2_vn": "Tôi mở cửa sổ một chút được không?",
+  "example_3": "",
+  "example_3_vn": "",
+  "example_4": "",
+  "example_4_vn": ""
 }"""
 
 
@@ -87,21 +103,11 @@ MẪU:
 {_JAPANESE_GRAMMAR_JSON_TEMPLATE}
 
 LUẬT:
-1. Đủ 11 trường; thiếu → "".
-2. pattern: cấu trúc CHÍNH — LUÔN viết bằng CHỮ GỐC (kanji + kana), ghi rõ chỗ điền bằng "〜" hoặc ký hiệu loại từ (V/イA/ナA/N). KHÔNG dùng romaji (VD viết "〜てもいい", không viết "te mo ii").
-3. reading: cách đọc nếu là từ/trợ từ cụ thể; bỏ trống nếu cấu trúc có biến tố.
-4. usage: CÔNG THỨC ghép dễ nhớ; thêm collocation/register chỉ khi làm rõ cách dùng (≤12 từ).
-5. explanation: TỐI ĐA 2 câu — cách dùng + sắc thái + lỗi người Việt hay mắc + đồng nghĩa/trái nghĩa (nếu có). Gọn, không lan man.
-6. VÍ DỤ CÓ HỒN + ĐÚNG CẤP ĐỘ:
-   - Ex1: khẩu ngữ đời thực (普通体), cảm xúc thật, trợ từ よ/ね/よね.
-   - Ex2: trang trọng, lịch sự (です・ます/敬語).
-   - Cấp độ ví dụ khớp JLPT của pattern; KHÔNG nhồi từ khó. Ví dụ 5-12 từ.
-7. KIỂM: nghĩa đúng ngữ cảnh; example_vn đủ chủ-vị, đúng câu; mỗi ví dụ có pattern đã bọc <b>; reading chuẩn.
-8. NHƯ GIẢNG VIÊN ĐỌC GIÁO TRÌNH: Đọc kỹ TOÀN BỘ văn bản, hiểu ngữ cảnh + từ vựng đi kèm rồi mới trích. Ví dụ phải bám ngữ cảnh thực của bài, dùng từ vựng ĐA DẠNG (không lặp cùng 1 cụm từ trong mọi ví dụ).
-9. CÙNG PATTERN – KHÁC NGHĨA: Nếu 1 pattern xuất hiện nhiều lần với từ đi kèm khác nhau tạo NGHĨA/CÁCH DÙNG khác nhau → tạo NHIỀU entry riêng (meaning khác nhau, ví dụ khác nhau) thay vì gộp. Không tạo trùng lặp máy móc nếu thực sự giống nghĩa.
-10. ĐÁNH DẤU PATTERN: Trong example/example_2, BỌC phần thể hiện pattern bằng <b>…</b> để nổi bật trên thẻ (Anki render HTML, ví dụ: "ここで写真を撮<b>ってもいい</b>ですか。").
+1. Đủ 15 trường; optional = "". pattern dùng kanji+kana với slot 〜/V/イA/ナA/N, không romaji; reading chỉ cho phần cố định hữu ích.
+2. usage là công thức ngắn; explanation TỐI ĐA 2 câu về function + constraint/contrast/error có căn cứ.
+3. Ví dụ 5–12 từ, đúng JLPT/ngữ cảnh/bản dịch; mọi realization bọc <b>. Cùng form nhưng khác nghĩa đáng học → tách; không biến câu thường thành fake pattern.
 
-ĐẦU RA: CHỈ mảng JSON thuần, không markdown, không giải thích thừa. Cuối: {{"_comment":"≤15 từ"}}"""
+ĐẦU RA: CHỈ mảng JSON thuần, không markdown, không giải thích thừa. Cuối: {{"_comment":"≤15 từ"}}""" + GRAMMAR_QUALITY_V2_VI
 
 
 _JAPANESE_GRAMMAR_JSON_TEMPLATE_EN = """{
@@ -112,10 +118,14 @@ _JAPANESE_GRAMMAR_JSON_TEMPLATE_EN = """{
   "topic": "Permission",
   "usage": "Vて + もいいです",
   "explanation": "Used to ask for or give permission. Casual: 〜てもいいよ",
-  "example": "ここで写真を撮ってもいいですか。",
-  "example_vn": "May I take a photo here?",
-  "example_2": "明日は休んでもいいよ。",
-  "example_2_vn": "You may take tomorrow off."
+  "example": "この本を借り<b>てもいい</b>です。",
+  "example_vn": "You may borrow this book.",
+  "example_2": "少し窓を開け<b>てもいい</b>ですか。",
+  "example_2_vn": "May I open the window a little?",
+  "example_3": "",
+  "example_3_vn": "",
+  "example_4": "",
+  "example_4_vn": ""
 }"""
 
 
@@ -125,21 +135,11 @@ TEMPLATE:
 {_JAPANESE_GRAMMAR_JSON_TEMPLATE_EN}
 
 RULES:
-1. Fill all 11 fields; missing → "".
-2. pattern: the MAIN structure — ALWAYS in original characters (kanji + kana), mark slots with "〜" or word-type symbols (V/イA/ナA/N). NEVER romaji (write "〜てもいい", not "te mo ii").
-3. reading: how to read if a concrete word/particle; leave empty for inflected structures.
-4. usage: a memorable formula; add a collocation/register note only when it clarifies use (≤12 words).
-5. explanation: MAX 2 sentences — usage + nuance + common learner mistakes + synonyms/antonyms (if any). Concise.
-6. VIVID EXAMPLES MATCHING THE LEVEL:
-   - Ex1: real-life casual speech (普通体), genuine emotion, particles よ/ね/よね.
-   - Ex2: formal, polite (です・ます/keigo).
-   - Example level matches the pattern's JLPT; NEVER cram hard words. Examples 5-12 words.
-7. CHECK: contextual meaning; exact subject–verb example translation; every example contains the bolded pattern; correct reading.
-8. LIKE A LECTURER READING A TEXTBOOK: read the WHOLE text carefully, understand context + accompanying vocabulary before extracting. Examples must follow the text's real context and use DIVERSE vocabulary (don't repeat the same phrase in every example).
-9. SAME PATTERN – DIFFERENT MEANING: if a pattern appears multiple times with different accompanying words producing DIFFERENT meanings/usages → create MULTIPLE entries (different meaning, different examples) instead of merging. Don't create mechanical duplicates when meanings are truly the same.
-10. MARK THE PATTERN: in example/example_2, WRAP the pattern instance in <b>…</b> to highlight on the card (Anki renders HTML, e.g. "ここで写真を撮<b>ってもいい</b>ですか。").
+1. Fill all 15 fields; optional = "". pattern uses kanji+kana with 〜/V/イA/ナA/N slots, never romaji; reading only for a useful fixed part.
+2. usage is a short formula; explanation is max 2 sentences for evidenced function + constraint/contrast/error.
+3. Examples are 5–12 words with faithful translation/context/JLPT and bold realization. Split a genuinely different meaning of the same form; never turn an ordinary sentence into a fake pattern.
 
-OUTPUT: ONLY a plain JSON array, no markdown, no extra explanation. End with: {{"_comment":"≤15 words"}}"""
+OUTPUT: ONLY a plain JSON array, no markdown, no extra explanation. End with: {{"_comment":"≤15 words"}}""" + GRAMMAR_QUALITY_V2_EN
 
 
 __all__ = ['_JAPANESE_JSON_TEMPLATE', '_JAPANESE_SYSTEM_PROMPT', '_JAPANESE_JSON_TEMPLATE_EN', '_JAPANESE_SYSTEM_PROMPT_EN', '_JAPANESE_GRAMMAR_JSON_TEMPLATE', '_JAPANESE_GRAMMAR_SYSTEM_PROMPT', '_JAPANESE_GRAMMAR_JSON_TEMPLATE_EN', '_JAPANESE_GRAMMAR_SYSTEM_PROMPT_EN']

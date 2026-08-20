@@ -129,7 +129,9 @@ def test_normalizer_omits_empty_invalid_repeated_content_and_duplicate_example()
     assert original["usage_pattern"].startswith("  ")
     assert normalized["usage_pattern"] == "depend on + N"
     assert "usage_note" not in normalized
-    assert normalized["collocation"] == "depend heavily on — phụ thuộc nhiều vào"
+    assert normalized["collocation"].splitlines() == [
+        "depend heavily on — phụ thuộc nhiều vào", "second — hai",
+    ]
     assert "example_2" not in normalized and "example_2_vn" not in normalized
 
 

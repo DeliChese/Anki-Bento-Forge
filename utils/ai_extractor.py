@@ -38,6 +38,7 @@ from .ai_result_cache import (
 from .ai_response_parser import parse_ai_json_with_comment as _parse_ai_json_with_comment
 from .ai_response_guard import enable_deepseek_json_output, get_final_model_content
 from .ai_output_repairs import repair_vocabulary_cards
+from .usage_guide import normalize_language_cards
 from .ai_prompt_defaults import KNOWLEDGE_PROMPT_VERSION
 from .ai_usage_history import record_usage as _record_usage
 from .user_data import (
@@ -1390,6 +1391,7 @@ def extract_grammar_with_ai(
 
     _check_truncated_output(content, progress_callback)
     grammar_list, comment = _parse_ai_json_with_comment(content, lambda p: t("error_ai_json_parse", content=p))
+    grammar_list = normalize_language_cards(grammar_list)
 
     # Chỉ giữ các item có pattern
     grammar_list = [

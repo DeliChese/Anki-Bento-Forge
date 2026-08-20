@@ -35,12 +35,13 @@ from .ai_extractor import (
 from .ai_response_parser import parse_ai_json_with_comment as _parse_ai_json_with_comment
 from .ai_response_guard import enable_deepseek_json_output, get_final_model_content
 from .ai_output_repairs import repair_vocabulary_cards
+from .ai_result_cache import DEFAULT_PROMPT_VERSION
 from .ai_http_client import (
     get_rate_limit_delay as _get_rate_limit_delay,
     post_json as _http_post_json,
 )
 from .prompt_config import (
-    get_system_prompt, get_json_template,
+    get_system_prompt, get_json_template, get_signature,
 )
 
 logger = get_logger()
@@ -480,7 +481,10 @@ def _batch_cache_key(words: List[Dict[str, str]], lang: str, instruction: str, e
     """Tạo cache key cho một batch"""
     kind = "grammar" if grammar else "vocab"
     fronts = ",".join(sorted(w["front"] for w in words))
-    raw = f"batch|{kind}|{lang}|{instruction}|{existing_hash}|{fronts}"
+    raw = (
+        f"batch|prompt:{DEFAULT_PROMPT_VERSION}|signature:{get_signature()}|"
+        f"{kind}|{lang}|{instruction}|{existing_hash}|{fronts}"
+    )
     return hashlib.md5(raw.encode("utf-8")).hexdigest()
 
 

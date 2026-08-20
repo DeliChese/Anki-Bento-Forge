@@ -1065,6 +1065,38 @@ _TRANSLATIONS = {
         "vi": "Ví dụ chỉ lặp lại từ/mẫu, chưa có ngữ cảnh.",
         "en": "Example only repeats the word/pattern and provides no context.",
     },
+    "preview_quality_issue_duplicate_examples": {
+        "vi": "Hai ví dụ trùng nội dung; hãy bỏ ví dụ không có information gain riêng.",
+        "en": "Two examples duplicate each other; remove the one with no independent information gain.",
+    },
+    "preview_quality_issue_missing_pronunciation": {
+        "vi": "Thiếu IPA tiếng Anh.",
+        "en": "Missing English IPA.",
+    },
+    "preview_quality_issue_missing_pinyin": {
+        "vi": "Thiếu pinyin.",
+        "en": "Missing pinyin.",
+    },
+    "preview_quality_issue_missing_furigana": {
+        "vi": "Thiếu furigana cho từ có kanji.",
+        "en": "Missing furigana for a kanji headword.",
+    },
+    "preview_quality_issue_missing_reading": {
+        "vi": "Thiếu cách đọc của mẫu ngữ pháp.",
+        "en": "Missing the grammar pattern reading.",
+    },
+    "preview_quality_issue_missing_romanization": {
+        "vi": "Thiếu Revised Romanization.",
+        "en": "Missing Revised Romanization.",
+    },
+    "preview_quality_issue_romanization_contains_hyphen": {
+        "vi": "Romanization có dấu gạch nối; Bento Forge dùng Revised Romanization không gạch nối.",
+        "en": "Romanization contains a hyphen; Bento Forge uses unhyphenated Revised Romanization.",
+    },
+    "preview_quality_issue_confusion_candidate": {
+        "vi": "Confusion Guard: deck đã có mục dễ nhầm ({candidates}). Hãy kiểm tra contrast; cảnh báo này không chặn import.",
+        "en": "Confusion Guard: the deck contains a confusable item ({candidates}). Review the contrast; this warning never blocks import.",
+    },
 
     # ── Main Window Status / Tooltips ────────────────────
     "status_history_count": {

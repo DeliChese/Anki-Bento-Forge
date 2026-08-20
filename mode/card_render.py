@@ -17,6 +17,51 @@ import re
 
 # Danh sách field đặc biệt của Anki — không coi là field nội dung
 _SKIP_FIELDS = {"FrontSide", "Tags", "Deck", "Subdeck", "Card", "Type"}
+_QUALITY_V2_EXAMPLE_FIELDS = {
+    f"Example{index}{suffix}"
+    for index in (3, 4)
+    for suffix in ("", " Pinyin", " Romanization", " in Vietnamese")
+}
+
+
+def quality_v2_examples_block(cfg: dict) -> str:
+    """Render optional examples 3/4 on the answer side with disclosure."""
+    fields = set(cfg.get("all_fields") or [])
+    parts = []
+    roles = {3: "Đối chiếu / ràng buộc", 4: "Sản sinh / nâng cao"}
+    for index in (3, 4):
+        example = f"Example{index}"
+        if example not in fields:
+            continue
+        pronunciation = next(
+            (
+                candidate for candidate in (
+                    f"Example{index} Pinyin", f"Example{index} Romanization",
+                )
+                if candidate in fields
+            ),
+            "",
+        )
+        translation = f"Example{index} in Vietnamese"
+        body = (
+            f'{{{{#{example}}}}}<details class="quality-v2-example" '
+            'style="margin-top:10px;text-align:left;">'
+            f'<summary style="cursor:pointer;font-weight:700;">Ví dụ {index} · {roles[index]}</summary>'
+            f'<div class="ej" style="margin-top:8px;">{{{{{example}}}}}</div>'
+        )
+        if pronunciation:
+            body += (
+                f'{{{{#{pronunciation}}}}}<div class="ep">{{{{{pronunciation}}}}}</div>'
+                f'{{{{/{pronunciation}}}}}'
+            )
+        if translation in fields:
+            body += (
+                f'{{{{#{translation}}}}}<div class="ev">{{{{{translation}}}}}</div>'
+                f'{{{{/{translation}}}}}'
+            )
+        body += f'</details>{{{{/{example}}}}}'
+        parts.append(body)
+    return "".join(parts)
 
 
 def base_template_fields(tmpls) -> set:
@@ -91,12 +136,15 @@ def extra_fields_block(cfg: dict, base_fields=None, side: str = "back") -> str:
 def build_qfmt(cfg: dict, tmpls, index_q: int = 0) -> str:
     """qfmt (mặt trước) = template gốc + khối field tuỳ chỉnh mặt trước."""
     front = tmpls[index_q]() if callable(tmpls[index_q]) else tmpls[index_q]
-    block = extra_fields_block(cfg, base_template_fields(tmpls), "front")
+    base_fields = base_template_fields(tmpls) | _QUALITY_V2_EXAMPLE_FIELDS
+    block = extra_fields_block(cfg, base_fields, "front")
     return front + ("\n" + block if block else "")
 
 
 def build_afmt(cfg: dict, tmpls, index_a: int = 1) -> str:
     """afmt (mặt sau) = template gốc + khối field tuỳ chỉnh mặt sau."""
     back = tmpls[index_a]() if callable(tmpls[index_a]) else tmpls[index_a]
-    block = extra_fields_block(cfg, base_template_fields(tmpls), "back")
-    return back + ("\n" + block if block else "")
+    quality_block = quality_v2_examples_block(cfg)
+    base_fields = base_template_fields(tmpls) | _QUALITY_V2_EXAMPLE_FIELDS
+    block = extra_fields_block(cfg, base_fields, "back")
+    return back + ("\n" + quality_block if quality_block else "") + ("\n" + block if block else "")

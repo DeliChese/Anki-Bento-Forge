@@ -1,0 +1,46 @@
+{
+  "version": "2",
+  "description": "Provider-neutral source corpus for Language Card Quality V2. Dimensions are coverage requirements, not output quotas.",
+  "rubric": {
+    "vocab_points": 10,
+    "human_gate_percent": 90,
+    "hard_failures": [
+      "fabricated_usage",
+      "wrong_collocation",
+      "wrong_grammar_formula",
+      "sense_drift",
+      "false_contrast",
+      "duplicate_or_filler_example",
+      "malformed_json"
+    ]
+  },
+  "cases": [
+    {"id":"en-window","language":"english","kind":"vocab","target":"window","dimensions":["basic_lexical","two_examples","zero_usage_note","zero_collocation"]},
+    {"id":"en-issue","language":"english","kind":"vocab","target":"issue","dimensions":["polysemy","near_synonym","register_sensitive","multiple_micro_notes"]},
+    {"id":"en-commit","language":"english","kind":"vocab","target":"commit","dimensions":["collocation_restriction","multiple_patterns","multiple_collocations","three_four_examples"]},
+    {"id":"en-take-for-granted","language":"english","kind":"vocab","target":"take for granted","dimensions":["fixed_phrase","two_examples","zero_collocation","negative_overgeneration"]},
+    {"id":"en-would-rather","language":"english","kind":"grammar","target":"would rather","dimensions":["tricky_grammar","three_four_examples","register_sensitive"]},
+    {"id":"en-light","language":"english","kind":"vocab","target":"light","dimensions":["ambiguous_function","near_synonym","negative_overgeneration"]},
+
+    {"id":"ja-neko","language":"japanese","kind":"vocab","target":"猫","dimensions":["basic_lexical","two_examples","zero_usage_note","zero_collocation"]},
+    {"id":"ja-kininaru","language":"japanese","kind":"vocab","target":"気になる","dimensions":["polysemy","near_synonym","register_sensitive","multiple_micro_notes"]},
+    {"id":"ja-kidzuku","language":"japanese","kind":"vocab","target":"気づく","dimensions":["collocation_restriction","multiple_patterns","multiple_collocations","three_four_examples"]},
+    {"id":"ja-yakusoku","language":"japanese","kind":"vocab","target":"約束を守る","dimensions":["fixed_phrase","two_examples","zero_collocation","negative_overgeneration"]},
+    {"id":"ja-temoii","language":"japanese","kind":"grammar","target":"〜てもいい","dimensions":["tricky_grammar","three_four_examples","register_sensitive"]},
+    {"id":"ja-hiraku","language":"japanese","kind":"vocab","target":"開く","dimensions":["ambiguous_function","near_synonym","negative_overgeneration"]},
+
+    {"id":"zh-lanse","language":"chinese","kind":"vocab","target":"蓝色","dimensions":["basic_lexical","two_examples","zero_usage_note","zero_collocation"]},
+    {"id":"zh-liaojie","language":"chinese","kind":"vocab","target":"了解","dimensions":["polysemy","near_synonym","register_sensitive","multiple_micro_notes"]},
+    {"id":"zh-tigao","language":"chinese","kind":"vocab","target":"提高","dimensions":["collocation_restriction","multiple_patterns","multiple_collocations","three_four_examples"]},
+    {"id":"zh-dasuan","language":"chinese","kind":"vocab","target":"打算","dimensions":["fixed_phrase","two_examples","zero_collocation","negative_overgeneration"]},
+    {"id":"zh-ba","language":"chinese","kind":"grammar","target":"把 + N + V","dimensions":["tricky_grammar","three_four_examples","register_sensitive"]},
+    {"id":"zh-fangbian","language":"chinese","kind":"vocab","target":"方便","dimensions":["ambiguous_function","near_synonym","negative_overgeneration"]},
+
+    {"id":"ko-uija","language":"korean","kind":"vocab","target":"의자","dimensions":["basic_lexical","two_examples","zero_usage_note","zero_collocation"]},
+    {"id":"ko-neulda","language":"korean","kind":"vocab","target":"늘다","dimensions":["polysemy","near_synonym","register_sensitive","multiple_micro_notes"]},
+    {"id":"ko-gwansim","language":"korean","kind":"vocab","target":"관심이 있다","dimensions":["collocation_restriction","multiple_patterns","multiple_collocations","three_four_examples"]},
+    {"id":"ko-gireul-mutda","language":"korean","kind":"vocab","target":"길을 묻다","dimensions":["fixed_phrase","two_examples","zero_collocation","negative_overgeneration"]},
+    {"id":"ko-aeoyo","language":"korean","kind":"grammar","target":"~아/어요","dimensions":["tricky_grammar","three_four_examples","register_sensitive"]},
+    {"id":"ko-matda","language":"korean","kind":"vocab","target":"맞다","dimensions":["ambiguous_function","near_synonym","negative_overgeneration"]}
+  ]
+}

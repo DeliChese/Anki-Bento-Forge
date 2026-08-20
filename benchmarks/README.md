@@ -13,6 +13,15 @@ CJK quality corpora. Their reviewed baseline and acceptance contract are in
 `english_vocab_20_v1.json` is the fixed English vocabulary corpus. Its reviewed
 baseline and IPA requirement are in [`ENGLISH_QUALITY.md`](ENGLISH_QUALITY.md).
 
+`language_quality_v2.json` is the provider-neutral Quality V2 coverage corpus for
+English, Japanese, Chinese, and Korean. It covers simple items, polysemy,
+near-synonyms, lexical restrictions, meaningful multi-pattern/multi-example cases,
+grammar variants, and negative over-generation cases. Its dimensions are test
+coverage, never output quotas. `summarize_quality_v2_cards()` reports average
+examples/patterns/micro-notes/collocations and serialized size without awarding a
+higher score merely for producing more optional content. Semantic accuracy,
+naturalness, hallucination, level, and true information gain remain human gates.
+
 The automated runner uses the provider configured in Bento Forge, retains only generated
 cards and aggregate usage (never an API key), and writes all run reports plus a comparison:
 

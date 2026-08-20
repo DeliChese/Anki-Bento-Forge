@@ -3,15 +3,125 @@
 from __future__ import annotations
 
 import json
+import re
 from typing import Any, Mapping, Sequence
 
 from .ai_response_parser import parse_ai_json_with_comment
 from .import_quality import evaluate_card_candidate, normalize_for_comparison
 
 
-BENCHMARK_VERSION = "1"
+BENCHMARK_VERSION = "2"
 AUTOMATED_GATE = 0.95
 HUMAN_QUALITY_GATE = 0.90
+QUALITY_V2_DIMENSIONS = frozenset({
+    "basic_lexical", "polysemy", "near_synonym", "collocation_restriction",
+    "multiple_patterns", "fixed_phrase", "register_sensitive",
+    "ambiguous_function", "tricky_grammar", "two_examples",
+    "three_four_examples", "zero_usage_note", "multiple_micro_notes",
+    "zero_collocation", "multiple_collocations", "negative_overgeneration",
+})
+_QUALITY_ITEM_SPLIT_RE = re.compile(r"(?:<br\s*/?>|\r?\n)+", re.IGNORECASE)
+
+
+def _quality_items(value: object) -> list[str]:
+    if isinstance(value, Sequence) and not isinstance(value, (str, bytes, bytearray)):
+        raw = [str(item).strip() for item in value]
+    else:
+        raw = _QUALITY_ITEM_SPLIT_RE.split(str(value or ""))
+    return [item for item in raw if item.strip()]
+
+
+def evaluate_quality_v2_card(card: Mapping[str, Any], *, grammar: bool = False) -> dict:
+    """Check observable V2 structure without claiming semantic correctness."""
+    issues = []
+    examples = [str(card.get("example") or "").strip()]
+    examples.extend(
+        str(card.get(f"example_{index}") or card.get(f"example{index}") or "").strip()
+        for index in (2, 3, 4)
+    )
+    present_examples = [example for example in examples if example]
+    example_keys = [normalize_for_comparison(example) for example in present_examples]
+    if len(present_examples) < 2:
+        issues.append("fewer_than_two_examples")
+    if len(example_keys) != len(set(example_keys)):
+        issues.append("duplicate_examples")
+
+    counts = {}
+    if not grammar:
+        for field in ("usage_pattern", "usage_note", "collocation"):
+            items = _quality_items(card.get(field))
+            counts[field] = len(items)
+            keys = [normalize_for_comparison(item) for item in items]
+            if len(items) > 3:
+                issues.append(f"too_many_{field}")
+            if len(keys) != len(set(keys)):
+                issues.append(f"duplicate_{field}")
+        if any(" — " not in item for item in _quality_items(card.get("collocation"))):
+            issues.append("collocation_missing_meaning")
+
+    for index in (2, 3, 4):
+        example = str(card.get(f"example_{index}") or "").strip()
+        companion_keys = [key for key in card if key.startswith(f"example_{index}_")]
+        if not example and any(str(card.get(key) or "").strip() for key in companion_keys):
+            issues.append(f"orphan_example_{index}_metadata")
+
+    return {
+        "valid": not issues,
+        "issues": tuple(dict.fromkeys(issues)),
+        "example_count": len(present_examples),
+        "usage_pattern_count": counts.get("usage_pattern", 0),
+        "usage_note_count": counts.get("usage_note", 0),
+        "collocation_count": counts.get("collocation", 0),
+        "human_review_required": (
+            "sense_accuracy", "naturalness", "information_gain", "hallucination",
+            "level_appropriateness",
+        ),
+    }
+
+
+def summarize_quality_v2_cards(
+    cards: Sequence[Mapping[str, Any]], *, grammar: bool = False,
+) -> dict:
+    """Report density/size without rewarding cards for filling optional quotas."""
+    results = [evaluate_quality_v2_card(card, grammar=grammar) for card in cards]
+    count = len(results)
+    average = lambda key: round(sum(item[key] for item in results) / count, 3) if count else 0.0
+    serialized_size = len(json.dumps(list(cards), ensure_ascii=False, separators=(",", ":")))
+    return {
+        "benchmark_version": BENCHMARK_VERSION,
+        "card_count": count,
+        "automated_valid_count": sum(item["valid"] for item in results),
+        "over_generation_count": sum(
+            any(issue.startswith("too_many_") for issue in item["issues"])
+            for item in results
+        ),
+        "average_examples": average("example_count"),
+        "average_patterns": average("usage_pattern_count"),
+        "average_micro_notes": average("usage_note_count"),
+        "average_collocations": average("collocation_count"),
+        "output_characters": serialized_size,
+        "average_output_characters_per_card": round(serialized_size / count, 1) if count else 0.0,
+        "results": results,
+    }
+
+
+def validate_quality_v2_corpus(corpus: Mapping[str, Any]) -> dict:
+    """Require every language to cover the same benchmark dimensions."""
+    cases = corpus.get("cases")
+    if str(corpus.get("version")) != BENCHMARK_VERSION or not isinstance(cases, list):
+        raise ValueError("quality corpus needs benchmark version 2 and a cases list")
+    coverage = {}
+    for language in ("english", "japanese", "chinese", "korean"):
+        dimensions = {
+            dimension
+            for case in cases if case.get("language") == language
+            for dimension in case.get("dimensions", ())
+        }
+        missing = sorted(QUALITY_V2_DIMENSIONS - dimensions)
+        if missing:
+            raise ValueError(f"{language} corpus misses dimensions: {', '.join(missing)}")
+        coverage[language] = sorted(dimensions)
+    return {"case_count": len(cases), "coverage": coverage}
 
 
 def validate_case(case: Mapping[str, Any]) -> dict:
