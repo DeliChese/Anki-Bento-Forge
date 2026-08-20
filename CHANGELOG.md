@@ -1,8 +1,8 @@
 # 📋 CHANGELOG
 
-## [Unreleased] - 2026-08-15
+## [Unreleased] — cập nhật đến 2026-08-20
 
-> Các thay đổi đã merge sau 17.1.0. Chỉ chuyển mục này thành bản phát hành khi `manifest.json`, bằng chứng CI và smoke Anki đã sẵn sàng.
+> Các thay đổi đã merge sau 17.1.0, được tổng hợp và cập nhật đến ngày 20/08/2026. Chỉ chuyển mục này thành bản phát hành khi `manifest.json`, bằng chứng CI và smoke Anki đã sẵn sàng.
 
 ### ✨ Added
 - AI Output Reliability release gate: provider-neutral response adapter, deterministic JSON extraction (raw/fenced/prose/known wrapper/native structured data), language/mode schema validation, minimum semantic checks, requested/received reconciliation, bounded partial retry và adaptive batch splitting; Chat snapshot đúng vocab/grammar để grammar RAW vào Xưởng qua cùng reliability contract, trong khi prose vẫn là prose, và text split recovery không cộng lại provisional prefix gây trùng; valid partial cards vẫn có thể vào preview an toàn.
