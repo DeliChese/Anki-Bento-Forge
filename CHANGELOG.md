@@ -31,6 +31,7 @@
 - Thêm `DEBUGGING.md`, `COMPATIBILITY.md`, `RELEASE_CHECKLIST.md`, artifact build có SHA-256/SBOM, cùng harness kiểm thử cô lập hai vòng dùng chung với CI.
 
 ### 🔧 Changed
+- **Study Sessions surfaces/theme** — Factory giờ mở AI Study Sessions trong dialog độc lập như Settings/Lịch sử; chỉ Reviewer mới dùng dock panel. Companion dùng palette glassmorphism hiện hành thay cho màu sáng hard-code, giữ độ tương phản nhất quán giữa Glass Dark, Glass Light và Midnight.
 - **Version metadata / Note Types** — nâng release candidate cục bộ lên `18.1.0`; note type hiện hành dùng hậu tố `V18.1` và vẫn nhận diện/migrate các model `V17.0`.
 - **Chat prompt separation** — hội thoại thường dùng compact study-chat prompt, không còn chèn schema card; chỉ Card Mode mới nạp Quality V2 prompt/schema và validation/repair/retry pipeline.
 - Quality V2 batch policy dùng giới hạn bảo thủ 8–12 card/request tùy language/mode và output budget thay cho mặc định 80; cache AI/batch tăng schema boundary để không hồi sinh partial hoặc wrong-language payload.

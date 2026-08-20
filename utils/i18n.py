@@ -120,8 +120,8 @@ _TRANSLATIONS = {
         "en": "📋 Batch Vocabulary",
     },
     "ai_chat_btn": {
-        "vi": "💬 Gửi",
-        "en": "💬 Send",
+        "vi": "🥟 AI Study Sessions",
+        "en": "🥟 AI Study Sessions",
     },
     "ai_stop_btn": {
         "vi": "⏹ Dừng",
@@ -614,8 +614,8 @@ _TRANSLATIONS = {
         "en": "Process LARGE vocabulary lists (hundreds/thousands of words).\nAI enriches each word + auto-organizes Parent/Sub Decks by topic.",
     },
     "btn_ai_chat_tip": {
-        "vi": "Gửi câu hỏi/yêu cầu đến AI. AI sẽ làm việc thông minh với hệ thống Anki,\nchỉ truy vấn những gì cần thiết, không quét toàn bộ database.",
-        "en": "Send questions/requests to AI. AI works smartly with the Anki system,\nonly querying what's needed, not scanning the whole database.",
+        "vi": "Mở cửa sổ AI Study Sessions riêng. Câu hỏi hiện tại được chuyển sang đó,\nvà AI chỉ chạy khi bạn bấm Gửi trong session.",
+        "en": "Open the separate AI Study Sessions window. The current question is copied there,\nand AI runs only when you press Send inside the session.",
     },
     "btn_ai_stop_tip": {
         "vi": "Dừng yêu cầu AI đang chạy",

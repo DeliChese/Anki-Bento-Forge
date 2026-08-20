@@ -24,11 +24,13 @@ from utils.ai_usage_history import get_usage_entries, summarize_usage
 from utils.ai_workflow import AiWorkflowCoordinator
 from utils.i18n import t
 from utils.logger import get_logger, log_event
+from ui.theme import apply_theme
 from workers.ai_workers import AiChatThread
 
 
 logger = get_logger()
 _COMPANION = None
+_STUDY_DIALOG = None
 _SHORTCUT_ACTION = None
 
 _LANGUAGE_LABELS = {
@@ -45,21 +47,26 @@ _QUICK_ACTIONS = (
 
 
 class AiCompanionDock(QDockWidget):
-    """One secondary surface; sessions outlive its visibility and Anki restarts."""
+    """Reviewer-only dock surface; its data remains session-local and persistent."""
 
-    def __init__(self, main_window):
-        super().__init__(t("study_title"), main_window)
+    def __init__(self, main_window, *, dockable=True, parent=None):
+        super().__init__(t("study_title"), parent or main_window)
+        self._dockable = bool(dockable)
         self.setObjectName("bentoForgeAiCompanion")
         self.setMinimumWidth(340)
         self.resize(440, 720)
-        self.setAllowedAreas(
-            Qt.DockWidgetArea.LeftDockWidgetArea | Qt.DockWidgetArea.RightDockWidgetArea
-        )
-        self.setFeatures(
-            QDockWidget.DockWidgetFeature.DockWidgetClosable
-            | QDockWidget.DockWidgetFeature.DockWidgetMovable
-            | QDockWidget.DockWidgetFeature.DockWidgetFloatable
-        )
+        if self._dockable:
+            self.setAllowedAreas(
+                Qt.DockWidgetArea.LeftDockWidgetArea | Qt.DockWidgetArea.RightDockWidgetArea
+            )
+            self.setFeatures(
+                QDockWidget.DockWidgetFeature.DockWidgetClosable
+                | QDockWidget.DockWidgetFeature.DockWidgetMovable
+                | QDockWidget.DockWidgetFeature.DockWidgetFloatable
+            )
+        else:
+            self.setFeatures(QDockWidget.DockWidgetFeature.NoDockWidgetFeatures)
+            self.setTitleBarWidget(QWidget(self))
         self._main_window = main_window
         self._store = StudySessionStore()
         self._workflow = AiWorkflowCoordinator()
@@ -74,30 +81,30 @@ class AiCompanionDock(QDockWidget):
         self._geometry_timer.setSingleShot(True)
         self._geometry_timer.timeout.connect(self._persist_floating_geometry)
         self._build_ui()
-        self._restore_state()
+        if self._dockable:
+            self._restore_state()
         self._reload_sessions()
         self._restoring = False
-        self.topLevelChanged.connect(self._on_top_level_changed)
-        self.dockLocationChanged.connect(self._on_dock_location_changed)
-        self.visibilityChanged.connect(self._on_visibility_changed)
+        if self._dockable:
+            self.topLevelChanged.connect(self._on_top_level_changed)
+            self.dockLocationChanged.connect(self._on_dock_location_changed)
+            self.visibilityChanged.connect(self._on_visibility_changed)
 
     def _build_ui(self):
         root = QWidget(self)
         root.setObjectName("forgeAiCompanionRoot")
-        root.setStyleSheet("""
-            QWidget#forgeAiCompanionRoot { background:#f8f4ec; color:#2f2a24; }
-            QPushButton, QToolButton { border:1px solid #d8cdbd; border-radius:8px; padding:5px 8px; background:#fffdf8; }
-            QPushButton:hover, QToolButton:hover { background:#f2e5d2; }
-            QTextBrowser, QTextEdit, QComboBox { background:#fffdf9; border:1px solid #d8cdbd; border-radius:9px; padding:6px; }
-            QLabel#forgeAiStatus { color:#74695d; font-size:11px; }
-        """)
         outer = QVBoxLayout(root)
         outer.setContentsMargins(10, 9, 10, 9)
         outer.setSpacing(7)
 
         header = QHBoxLayout()
-        title = QLabel(f"<b>{t('study_title')}</b><br><span style='color:#74695d;font-size:11px'>{t('study_subtitle')}</span>")
-        header.addWidget(title, 1)
+        title_box = QVBoxLayout()
+        title = QLabel(f"<b>{t('study_title')}</b>")
+        subtitle = QLabel(t("study_subtitle"))
+        subtitle.setProperty("class", "dim")
+        title_box.addWidget(title)
+        title_box.addWidget(subtitle)
+        header.addLayout(title_box, 1)
         self.btn_collapse = QToolButton()
         self.btn_collapse.setText("−")
         self.btn_collapse.setToolTip(t("study_collapse"))
@@ -218,6 +225,7 @@ class AiCompanionDock(QDockWidget):
 
         outer.addWidget(self.body, 1)
         self.setWidget(root)
+        self._theme_cfg = apply_theme(self)
         self._send_shortcut = QShortcut(QKeySequence("Ctrl+Return"), self)
         self._send_shortcut.activated.connect(self.send_message)
         self._send_shortcut_alt = QShortcut(QKeySequence("Ctrl+Enter"), self)
@@ -399,7 +407,8 @@ class AiCompanionDock(QDockWidget):
             self.input.setPlainText(initial_text)
         self.show()
         self.raise_()
-        self._store.update_ui_state(visible=True)
+        if self._dockable:
+            self._store.update_ui_state(visible=True)
 
     def _set_quick_prompt(self, prompt: str):
         self.input.setPlainText(prompt)
@@ -543,19 +552,19 @@ class AiCompanionDock(QDockWidget):
                 artifact = artifacts.get(message.get("artifact_id"))
                 label = artifact_label(artifact) if artifact else t("study_artifact_missing")
                 blocks.append(
-                    "<div style='margin:8px 0;padding:10px;border:1px solid #d8cdbd;border-radius:10px;background:#fff8e8'>"
-                    f"<b>📦 {html.escape(label)}</b><br><span style='color:#74695d'>{html.escape(message['content'])}</span></div>"
+                    "<div style='margin:8px 0;padding:10px;border:1px solid rgba(251,191,36,.55);border-radius:10px;background:rgba(251,191,36,.14)'>"
+                    f"<b>📦 {html.escape(label)}</b><br>{html.escape(message['content'])}</div>"
                 )
                 continue
             learner = message["role"] == "user"
             label = t("study_you") if learner else t("study_ai")
-            color = "#eef4ff" if learner else "#fffdf9"
+            color = "rgba(106,167,255,0.15)" if learner else "rgba(255,255,255,0.08)"
             content = html.escape(message["content"]).replace("\n", "<br>")
             blocks.append(
                 f"<div style='margin:7px 0;padding:9px;border-radius:10px;background:{color};'>"
                 f"<b>{html.escape(label)}</b><br>{content}</div>"
             )
-        self.transcript.setHtml("".join(blocks) or f"<p style='color:#74695d'>{t('study_empty')}</p>")
+        self.transcript.setHtml("".join(blocks) or f"<p>{t('study_empty')}</p>")
         scrollbar = self.transcript.verticalScrollBar()
         scrollbar.setValue(scrollbar.maximum())
         self.cbo_artifact.blockSignals(True)
@@ -587,6 +596,7 @@ class AiCompanionDock(QDockWidget):
         dialog = QDialog(self)
         dialog.setWindowTitle(artifact_label(artifact))
         dialog.resize(760, 560)
+        apply_theme(dialog)
         layout = QVBoxLayout(dialog)
         text = QPlainTextEdit()
         text.setReadOnly(True)
@@ -633,8 +643,15 @@ class AiCompanionDock(QDockWidget):
         self._store.update_ui_state(collapsed=collapsed)
 
     def back_to_review(self):
-        self.hide()
-        self._store.update_ui_state(visible=False)
+        if self._dockable:
+            self.hide()
+            self._store.update_ui_state(visible=False)
+        else:
+            host = self.parentWidget()
+            if isinstance(host, QDialog):
+                host.hide()
+            else:
+                self.hide()
         reviewer = getattr(self._main_window, "reviewer", None)
         web = getattr(reviewer, "web", None)
         if web is not None:
@@ -660,21 +677,21 @@ class AiCompanionDock(QDockWidget):
             self._store.update_ui_state(dock_side=side)
 
     def _on_visibility_changed(self, visible: bool):
-        if not self._restoring:
+        if self._dockable and not self._restoring:
             self._store.update_ui_state(visible=bool(visible))
 
     def moveEvent(self, event):
         super().moveEvent(event)
-        if not self._restoring and self.isFloating():
+        if self._dockable and not self._restoring and self.isFloating():
             self._geometry_timer.start(250)
 
     def resizeEvent(self, event):
         super().resizeEvent(event)
-        if not self._restoring and self.isFloating():
+        if self._dockable and not self._restoring and self.isFloating():
             self._geometry_timer.start(250)
 
     def _persist_floating_geometry(self):
-        if self.isFloating():
+        if self._dockable and self.isFloating():
             self._store.update_ui_state(
                 floating_x=self.x(), floating_y=self.y(),
                 floating_width=self.width(), floating_height=self.height(),
@@ -689,6 +706,49 @@ def get_ai_companion(main_window=None) -> AiCompanionDock:
     return _COMPANION
 
 
+class AiStudySessionDialog(QDialog):
+    """Standalone Factory surface: visually and behaviorally like Settings/History."""
+
+    def __init__(self, parent=None):
+        super().__init__(parent or mw)
+        self.setObjectName("bentoForgeAiStudyDialog")
+        self.setWindowTitle(t("study_title"))
+        self.setMinimumSize(720, 560)
+        self.resize(900, 720)
+        self.setWindowFlags(
+            self.windowFlags()
+            | Qt.WindowType.WindowMinMaxButtonsHint
+            | Qt.WindowType.WindowMaximizeButtonHint
+        )
+        self.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(0, 0, 0, 0)
+        self.companion = AiCompanionDock(mw, dockable=False, parent=self)
+        layout.addWidget(self.companion)
+        apply_theme(self)
+
+    def open_session(self, *, language="", initial_text=""):
+        apply_theme(self)
+        self.companion._theme_cfg = apply_theme(self.companion)
+        self.companion.open_for_context(language=language, initial_text=initial_text)
+        self.show()
+        self.raise_()
+        self.activateWindow()
+
+
+def get_ai_study_dialog(parent=None) -> AiStudySessionDialog:
+    global _STUDY_DIALOG
+    if _STUDY_DIALOG is None:
+        _STUDY_DIALOG = AiStudySessionDialog(parent or mw)
+    return _STUDY_DIALOG
+
+
+def show_ai_study_dialog(*, language="", initial_text="") -> AiStudySessionDialog:
+    dialog = get_ai_study_dialog(mw)
+    dialog.open_session(language=language, initial_text=initial_text)
+    return dialog
+
+
 def show_ai_companion(
     *, snapshot: Optional[dict] = None, language: str = "", initial_text: str = "",
 ) -> AiCompanionDock:
@@ -698,6 +758,9 @@ def show_ai_companion(
 
 
 def toggle_ai_companion():
+    if str(getattr(mw, "state", "")).lower() != "review":
+        show_ai_study_dialog()
+        return
     companion = get_ai_companion(mw)
     if companion.isVisible():
         companion.back_to_review()
@@ -739,7 +802,10 @@ def register_companion_shortcut() -> bool:
         action.triggered.connect(toggle_ai_companion)
         tools.addAction(action)
         _SHORTCUT_ACTION = action
-        if StudySessionStore().get_ui_state().get("visible"):
+        if (
+            str(getattr(mw, "state", "")).lower() == "review"
+            and StudySessionStore().get_ui_state().get("visible")
+        ):
             get_ai_companion(mw).show()
         return not conflict
     except Exception as error:
@@ -751,6 +817,7 @@ def register_companion_shortcut() -> bool:
 
 
 __all__ = [
-    "AiCompanionDock", "get_ai_companion", "register_companion_shortcut",
-    "show_ai_companion", "toggle_ai_companion",
+    "AiCompanionDock", "AiStudySessionDialog", "get_ai_companion",
+    "get_ai_study_dialog", "register_companion_shortcut", "show_ai_companion",
+    "show_ai_study_dialog", "toggle_ai_companion",
 ]

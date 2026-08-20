@@ -205,12 +205,18 @@ def test_companion_source_keeps_reviewer_secondary_and_card_mode_one_shot():
     reviewer = (ROOT / "hooks" / "reviewer.py").read_text(encoding="utf-8")
     factory = (ROOT / "ui" / "factory_dialog.py").read_text(encoding="utf-8")
     assert "class AiCompanionDock(QDockWidget)" in companion
+    assert "class AiStudySessionDialog(QDialog)" in companion
     assert "DockWidgetFloatable" in companion and "DockWidgetClosable" in companion
     assert "self.cbo_mode.setCurrentIndex(0)" in companion
     assert "self._store.get_session(self._pending_session_id)" in companion
     assert "tools.addAction(action)" in companion
     assert "self.hide()" in companion and "web.setFocus()" in companion
     assert "bento_forge_ai:open" in reviewer
+    assert "show_ai_study_dialog" in factory
+    factory_chat = factory.split("def _ai_chat(self):", 1)[1].split("def _ai_chat_legacy", 1)[0]
+    assert "show_ai_study_dialog" in factory_chat
+    assert "show_ai_companion" not in factory_chat
+    assert "#f8f4ec" not in companion and "#fffdf9" not in companion
     assert "def load_card_artifact" in factory
     artifact_loader = factory.split("def load_card_artifact", 1)[1].split("def ", 1)[0]
     assert "artifact_to_factory_payload" in artifact_loader

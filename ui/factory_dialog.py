@@ -3053,13 +3053,13 @@ class AnkiSmartFactory(QDialog):
     #  AI CHAT — Gửi câu hỏi/yêu cầu đến AI (không cần text)
     # ═══════════════════════════════════════════════════════
     def _ai_chat(self):
-        """Open the persistent companion; AI runs only after explicit Send."""
+        """Open standalone Study Sessions; sending happens inside that dialog."""
         user_msg = self.ai_text_input.toPlainText().strip()
         custom_instr = self.ai_instruction.text().strip()
         initial = "\n\n".join(part for part in (custom_instr, user_msg) if part)
-        from ui.ai_companion import show_ai_companion
+        from ui.ai_companion import show_ai_study_dialog
 
-        show_ai_companion(language=self._current_lang, initial_text=initial)
+        show_ai_study_dialog(language=self._current_lang, initial_text=initial)
 
     def _ai_chat_legacy(self):
         """Legacy one-shot dialog retained temporarily for compatibility."""

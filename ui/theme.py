@@ -125,7 +125,7 @@ def _darken(hex_color, factor=0.15):
 
 # ── QSS template (dùng token __XXX__ để tránh xung đột dấu ngoặc CSS) ──
 _QSS_TEMPLATE = """
-QDialog, QMainWindow {
+QDialog, QMainWindow, QDockWidget {
     background: qlineargradient(x1:0, y1:0, x2:1, y2:1,
         stop:0 __BG1__, stop:0.5 __BG2__, stop:1 __BG3__);
 }
@@ -133,6 +133,7 @@ QWidget {
     color: __TEXT__;
     font-size: __FONT__px;
 }
+QWidget#forgeAiCompanionRoot { background: transparent; }
 QLabel { background: transparent; color: __TEXT__; }
 QLabel[class="dim"] { color: __TEXT_DIM__; }
 QToolTip {
@@ -156,7 +157,7 @@ QGroupBox::title {
     background: transparent;
 }
 
-QPushButton {
+QPushButton, QToolButton {
     background: rgba(255,255,255,__GLASS_PLUS__);
     color: __TEXT__;
     border: 1px solid rgba(255,255,255,__BORDER__);
@@ -164,9 +165,9 @@ QPushButton {
     padding: 7px 14px;
     font-weight: 600;
 }
-QPushButton:hover { background: rgba(255,255,255,__GLASS_HOVER__); border-color: rgba(255,255,255,__BORDER_HOVER__); }
-QPushButton:pressed { background: rgba(255,255,255,__GLASS_PRESS__); }
-QPushButton:disabled { color: __TEXT_DIM__; background: rgba(255,255,255,0.03); border-color: rgba(255,255,255,0.05); }
+QPushButton:hover, QToolButton:hover { background: rgba(255,255,255,__GLASS_HOVER__); border-color: rgba(255,255,255,__BORDER_HOVER__); }
+QPushButton:pressed, QToolButton:pressed { background: rgba(255,255,255,__GLASS_PRESS__); }
+QPushButton:disabled, QToolButton:disabled { color: __TEXT_DIM__; background: rgba(255,255,255,0.03); border-color: rgba(255,255,255,0.05); }
 QPushButton:checked {
     background: rgba(255,255,255,0.16);
     border: 1px solid __ACCENT__;
@@ -189,7 +190,7 @@ QPushButton[class="info"]:hover { background: #4aa3df; }
 QPushButton[class="ghost"] { background: transparent; border: 1px solid rgba(255,255,255,__BORDER__); }
 QPushButton[class="ghost"]:hover { background: rgba(255,255,255,__GLASS_HOVER__); }
 
-QLineEdit, QPlainTextEdit, QTextEdit, QListWidget, QSpinBox, QDoubleSpinBox, QComboBox {
+QLineEdit, QPlainTextEdit, QTextEdit, QTextBrowser, QListWidget, QSpinBox, QDoubleSpinBox, QComboBox {
     background: rgba(255,255,255,__GLASS__);
     border: 1px solid rgba(255,255,255,__BORDER__);
     border-radius: 10px;
@@ -198,7 +199,7 @@ QLineEdit, QPlainTextEdit, QTextEdit, QListWidget, QSpinBox, QDoubleSpinBox, QCo
     selection-background-color: __ACCENT__;
     selection-color: #ffffff;
 }
-QLineEdit:focus, QPlainTextEdit:focus, QTextEdit:focus, QListWidget:focus,
+QLineEdit:focus, QPlainTextEdit:focus, QTextEdit:focus, QTextBrowser:focus, QListWidget:focus,
 QSpinBox:focus, QDoubleSpinBox:focus, QComboBox:focus {
     border: 1px solid __ACCENT__;
 }
