@@ -10,6 +10,12 @@ from .batch_dialog import BatchWordListDialog
 from .deck_manager_dialog import DeckManagerDialog
 from .history_dialog import HistoryBrowserDialog
 from .prompt_editor import show_prompt_editor_dialog
+from .ai_station_workspaces import install_ai_workspace_overrides
+
+# V18.2: keep one canonical AI backend while exposing context-specific
+# Reviewer and Forge workspaces. Installation is idempotent and happens once
+# whenever the UI package is initialized.
+install_ai_workspace_overrides()
 
 __all__ = [
     "AiChatDialog",
