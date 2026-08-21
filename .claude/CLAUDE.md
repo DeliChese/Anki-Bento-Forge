@@ -39,7 +39,7 @@ __init__.py (26 dòng)         ← compatibility facade (public re-export)
 ├── Language/    LANG_CONFIG, LANG_GRAMMAR_CONFIG, LANG_SELECTOR_INFO  (japanese, chinese, korean, english)
 ├── mode/        LANG_TEMPLATES, LANG_CSS, LANG_GRAMMAR_*, card_render.py, shared.py (JS)
 ├── audio/       engine.py (router) + tts.py (Edge/gTTS/VoiceVox)
-├── utils/       ai_extractor, ai_prompt_defaults, ai_response_parser, ai_result_cache, import_history, batch_processor, prompt_config, deck_cache, json_parser, logger, i18n, deck_manager
+├── utils/       ai_extractor, ai_workspace, ai_prompt_defaults, ai_response_parser, ai_result_cache, import_history, batch_processor, prompt_config, deck_cache, json_parser, logger, i18n, deck_manager
 ├── workers/     ImportWorker, PreviewThread, AiExtractThread, AiChatThread, DeckScanWorker, BatchProcessThread, DeckOrganizerThread
 ├── ui/          AiChatDialog, ai_settings, ai_preview, batch_dialog, verify_dialog, history_dialog, prompt_editor, theme
 ├── hooks/       reviewer.py (register_hooks) + overview_mode.py (mode selector)
@@ -56,7 +56,7 @@ __init__.py (26 dòng)         ← compatibility facade (public re-export)
 6. **Bare `except:` cấm** — luôn `except Exception:` + log.
 7. **Thread-safe cho mọi state chia sẻ** — dùng `threading.Lock` (xem audio/engine.py làm mẫu).
 8. **Không commit `utils/ai_config.json`** (API key mã hóa) — chỉ commit `.example`.
-9. **Sửa prompt → Bump `_PROMPT_VERSION`** trong `utils/ai_extractor.py:408` để invalidate cache.
+9. **Sửa prompt → Bump `_PROMPT_VERSION`** trong `utils/ai_extractor.py:503` để invalidate cache.
 10. **Thay đổi có thể phát hành phải cập nhật `CHANGELOG.md` trong cùng thay đổi** — ghi vào mục ngày hiện tại trong `[Unreleased]` theo `CHANGELOG_POLICY.md`, kèm snapshot version đầu/cuối ngày; không ghi roadmap hoặc kết quả chưa được kiểm chứng như tính năng đã hoàn tất.
 11. **Sau khi sửa → chạy pytest** (skill 10) trước khi báo xong.
 

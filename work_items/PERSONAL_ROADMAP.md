@@ -5,7 +5,7 @@ Output:
 
 > Status: active
 > Authority: canonical backlog and current product decisions
-> Last verified: 2026-08-20
+> Last verified: 2026-08-21
 > Read when: choosing, scoping or closing work
 
 > **Quyết định sản phẩm:** 2026-08-16 — Bento Forge được duy trì như add-on cá nhân. Không có mục tiêu cạnh tranh thị trường, mở rộng đại trà hay xây cộng đồng.
@@ -20,6 +20,7 @@ Output:
 | P0-02 — smoke profile | ⏳ Chờ chủ dự án | Cần chạy toàn flow trực quan trên profile Anki backup trước merge/release; không chặn việc mở P1-06. |
 | P0-05 — AI Output Reliability | 🟡 Local implementation xanh | Batch/Card Mode vocab+grammar dùng chung parser/schema gate; AI config/history dùng profile path động. Chủ dự án báo card output ổn định; còn smoke restart/profile backup và manual large-batch metrics trước khi publish 18.1. |
 | P1-07 — AI Study Sessions | 🟡 Local implementation xanh | Companion dock/floating, delta-summary marker, token budget, Reviewer context/theme và artifact → Xưởng đã có regression; hai vòng `640 passed`. Còn GUI smoke Anki/profile restart và CI. |
+| V18.2 — Contextual AI Workspaces | 🟡 Local implementation xanh | Reviewer Study Coach và Forge AI Workshop dùng chung backend/session nhưng policy, source/card context và prompt thuộc từng request; isolated suite `731 passed`. Còn GUI smoke Anki/profile restart và CI. |
 | P1-05 — Usage Guide V1 | ✅ Đã kiểm chứng | Benchmark model thật đạt `19/20` (`95%`), `$0.002035`, `1.69 giây/card`; smoke collection thật Anki 26.5 xanh đủ bốn ngôn ngữ. |
 | P1-06 — Confusion Guard | 🟡 Local implementation xanh | Exact curated same-deck pairs + advisory preview đã có positive/negative fixtures bốn ngôn ngữ; còn smoke trên profile backup trước khi đánh dấu verified. |
 | Knowledge beta | 🧊 Dormant | Ẩn UI, không nằm trong release plan. |
@@ -71,6 +72,7 @@ Nếu không thỏa điều kiện nào, ghi vào backlog `Để sau`, không tr
 | P1-05 | **Usage Guide V1 — Nhật/Trung/Hàn/Anh**: sinh có chọn lọc `Usage Pattern`, `Usage Note` và tối đa 1 collocation có nghĩa; pattern/register/cảnh báo dùng sai riêng theo từng ngôn ngữ; hiển thị mặt sau, không tạo thêm card mặc định | P1 — đã kiểm chứng, là quality gate | 🔴 Rất khó | `gpt-5.6-sol` / `high` | 12–20 giờ | Corpus review cho cả 4 ngôn ngữ; pattern/usage đúng ≥90%, không sinh nội dung rỗng hoặc lặp ví dụ; migration field/template idempotent; không giảm benchmark/cost vượt ngưỡng đã chốt |
 | P1-06 | **Confusion Guard — Nhật/Trung/Hàn/Anh**: trước import, dò candidate dễ lẫn trong cùng deck và chỉ cảnh báo/đề xuất phân biệt có evidence; không tự merge hay tạo thẻ phụ | P1 — local code/fixtures xanh, chờ smoke | 🟠 Khó | `gpt-5.6-sol` / `high` | 8–14 giờ | Fixture mỗi ngôn ngữ có positive/negative pairs; không báo trùng sai hàng loạt; preview cho sửa/bỏ; không đổi dữ liệu hoặc lịch SRS cũ |
 | P1-07 | **AI Study Sessions — Dockable Learning Companion**: phiên chat cục bộ, context thẻ hiện tại opt-in, quick prompts và Card Mode one-shot tạo artifact đưa sang Xưởng | P1 — local code xanh, chờ smoke | 🔴 Rất khó | `gpt-5.6-sol` / `high` | 12–20 giờ | Session/context/artifact/reviewer tests + full suite xanh; không auto AI/collection scan/SRS mutation; GUI smoke restart/dock/floating/concurrency trên profile backup |
+| V18.2 | **Contextual AI Workspaces + Station UI**: tách công việc Reviewer/Forge bằng policy và request context tường minh, source handoff riêng, prompt theo workspace và context board/quick actions riêng | P1 — local code xanh, chờ smoke | 🔴 Rất khó | `gpt-5.6-sol` / `high` | 12–20 giờ | Workspace/prompt/cross-surface/artifact/UI regression + full suite xanh; Forge không đọc Reviewer card; artifact → Xưởng zero-AI; không collection scan/SRS mutation; GUI smoke profile backup |
 | P1-04 | Tích hợp AwesomeTTS tùy chọn theo stored-media và batch an toàn, chấp nhận tốc độ chậm để ổn định | P1 — nâng trải nghiệm TTS | 🟠 Khó | Theo lát cắt trong `P1-04_AWESOMETTS_SAFE_BATCH.md` (`terra`/`sol`) | 8–16 giờ | Đạt checklist provider thiếu/có, media local, retry/cancel/resume và smoke trên profile backup |
 | Knowledge beta | Giữ code/schema/model Knowledge riêng tư nhưng tắt UI; không phát hành V18 và không mở feature mới | Đóng băng | — | — | — | Chỉ mở lại khi chủ dự án yêu cầu, rồi khôi phục smoke/CI riêng |
 | P2-01 | Đơn giản hóa/ẩn các flow không dùng để giảm nhiễu UI và chi phí bảo trì | P2 — chỉ khi gây ma sát | 🟡 Trung bình | `gpt-5.6-terra` / `medium` | 1–4 giờ | Flow còn lại không regression; quyết định được ghi vào nhật ký |

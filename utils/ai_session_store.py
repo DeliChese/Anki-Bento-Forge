@@ -415,7 +415,13 @@ class StudySessionStore:
         self.save_session(session)
         return value
 
-    def replace_latest_user_message(self, session_id: str, content: str) -> Optional[dict]:
+    def replace_latest_user_message(
+        self,
+        session_id: str,
+        content: str,
+        *,
+        context_snapshot: Optional[dict] = None,
+    ) -> Optional[dict]:
         session = self.get_session(session_id)
         if session is None:
             return None
@@ -429,6 +435,12 @@ class StudySessionStore:
         session["messages"] = session["messages"][:index + 1]
         session["messages"][index]["content"] = _clean_text(content, 50_000)
         session["messages"][index]["created_at"] = _now()
+        if isinstance(context_snapshot, dict):
+            session["messages"][index]["context_snapshot"] = redact_sensitive(
+                context_snapshot
+            )
+        else:
+            session["messages"][index].pop("context_snapshot", None)
         session["summary"] = ""
         session["summary_through_message_id"] = ""
         return self.save_session(session)

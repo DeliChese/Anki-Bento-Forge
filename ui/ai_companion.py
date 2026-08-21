@@ -25,6 +25,9 @@ from utils.ai_providers import AI_PROVIDERS, detect_provider, get_provider
 from utils.ai_session_store import StudySessionStore
 from utils.ai_usage_history import get_usage_entries, summarize_usage
 from utils.ai_workflow import AiWorkflowCoordinator
+from utils.ai_workspace import (
+    build_workspace_request_context, get_workspace_policy, resolve_workspace,
+)
 from utils.i18n import t
 from utils.logger import get_logger, log_event
 from utils.language_identity import try_normalize_language
@@ -40,23 +43,22 @@ _SHORTCUT_ACTION = None
 _LANGUAGE_LABELS = {
     "japanese": "日本語", "chinese": "中文", "korean": "한국어", "english": "English",
 }
-_QUICK_ACTIONS = (
-    ("study_quick_explain", "study_prompt_explain"),
-    ("study_quick_contrast", "study_prompt_contrast"),
-    ("study_quick_usage", "study_prompt_usage"),
-    ("study_quick_example", "study_prompt_example"),
-    ("study_quick_check", "study_prompt_check"),
-    ("study_quick_hint", "study_prompt_hint"),
-)
-
-
 class AiCompanionDock(QDockWidget):
-    """Reviewer-only dock surface; its data remains session-local and persistent."""
+    """Workspace-parameterized surface over one shared Study Session backend."""
 
-    def __init__(self, main_window, *, dockable=True, parent=None):
-        super().__init__(t("study_title"), parent or main_window)
+    def __init__(self, main_window, *, workspace="reviewer", dockable=True, parent=None):
+        workspace = resolve_workspace(workspace)
+        policy = get_workspace_policy(workspace)
+        if workspace == "forge" and dockable:
+            raise ValueError("Forge workspace is a standalone surface")
+        super().__init__(t(policy.title_key), parent or main_window)
+        self._workspace = workspace
+        self._policy = policy
         self._dockable = bool(dockable)
-        self.setObjectName("bentoForgeAiCompanion")
+        self.setObjectName(
+            "bentoForgeReviewerWorkspace"
+            if self._workspace == "reviewer" else "bentoForgeWorkshopWorkspace"
+        )
         self.setMinimumWidth(340)
         self.resize(440, 720)
         if self._dockable:
@@ -80,6 +82,9 @@ class AiCompanionDock(QDockWidget):
         self._pending_user_message_id = ""
         self._pending_card_mode = None
         self._pending_request_token = ""
+        self._pending_workspace_request = None
+        self._learning_mode = "language"
+        self._lane = "vocab"
         self._editing_latest = False
         self._restoring = True
         self._geometry_timer = QTimer(self)
@@ -104,8 +109,10 @@ class AiCompanionDock(QDockWidget):
 
         header = QHBoxLayout()
         title_box = QVBoxLayout()
-        title = QLabel(f"<b>{t('study_title')}</b>")
-        subtitle = QLabel(t("study_subtitle"))
+        title = QLabel(f"<b>{t(self._policy.title_key)}</b>")
+        title.setObjectName("forgeAiStationTitle")
+        subtitle = QLabel(t(self._policy.subtitle_key))
+        subtitle.setObjectName("forgeAiStationSubtitle")
         subtitle.setProperty("class", "dim")
         title_box.addWidget(title)
         title_box.addWidget(subtitle)
@@ -116,6 +123,16 @@ class AiCompanionDock(QDockWidget):
         self.btn_collapse.clicked.connect(self.toggle_collapsed)
         header.addWidget(self.btn_collapse)
         outer.addLayout(header)
+
+        self.context_board = QLabel()
+        self.context_board.setObjectName("forgeAiContextBoard")
+        self.context_board.setWordWrap(True)
+        outer.addWidget(self.context_board)
+
+        self.route_strip = QLabel(t("study_forge_route_strip"))
+        self.route_strip.setObjectName("forgeAiRouteStrip")
+        self.route_strip.setVisible(self._policy.shows_route_strip)
+        outer.addWidget(self.route_strip)
 
         self.body = QWidget(root)
         body = QVBoxLayout(self.body)
@@ -157,7 +174,21 @@ class AiCompanionDock(QDockWidget):
         provider_row.addWidget(self.btn_settings)
         body.addLayout(provider_row)
 
+        self.source_label = QLabel(t("study_forge_source_label"))
+        self.source_label.setObjectName("forgeAiSourceLabel")
+        self.source_label.setVisible(self._policy.allows_source_context)
+        body.addWidget(self.source_label)
+        self.source_input = QPlainTextEdit()
+        self.source_input.setObjectName("forgeAiSourceInput")
+        self.source_input.setPlaceholderText(t("study_forge_source_placeholder"))
+        self.source_input.setAccessibleName(t("study_forge_source_label"))
+        self.source_input.setMaximumHeight(105)
+        self.source_input.setVisible(self._policy.allows_source_context)
+        self.source_input.textChanged.connect(self._update_context_board)
+        body.addWidget(self.source_input)
+
         self.transcript = QTextBrowser()
+        self.transcript.setObjectName("forgeAiTranscript")
         self.transcript.setOpenExternalLinks(False)
         self.transcript.setOpenLinks(False)
         self.transcript.anchorClicked.connect(self._on_transcript_link)
@@ -165,8 +196,9 @@ class AiCompanionDock(QDockWidget):
         body.addWidget(self.transcript, 1)
 
         quick = QGridLayout()
-        for index, (key, prompt_key) in enumerate(_QUICK_ACTIONS):
+        for index, (key, prompt_key) in enumerate(self._policy.quick_actions):
             button = QPushButton(t(key))
+            button.setProperty("class", "stationAction")
             button.setToolTip(t("study_quick_tip"))
             button.clicked.connect(lambda _checked=False, value=prompt_key: self._set_quick_prompt(t(value)))
             quick.addWidget(button, index // 3, index % 3)
@@ -175,12 +207,23 @@ class AiCompanionDock(QDockWidget):
         context_row = QHBoxLayout()
         self.chk_context = QCheckBox(t("study_use_card_context"))
         self.chk_context.setChecked(False)
+        self.chk_context.setVisible(self._policy.allows_card_context)
+        self.chk_context.toggled.connect(self._update_context_board)
         context_row.addWidget(self.chk_context, 1)
         self.cbo_mode = QComboBox()
         self.cbo_mode.addItem(t("study_mode_chat"), None)
-        self.cbo_mode.addItem(t("study_mode_vocab"), "vocab")
-        self.cbo_mode.addItem(t("study_mode_grammar"), "grammar")
+        vocab_mode_key = (
+            "study_mode_vocab" if self._workspace == "reviewer"
+            else "study_forge_mode_vocab"
+        )
+        grammar_mode_key = (
+            "study_mode_grammar" if self._workspace == "reviewer"
+            else "study_forge_mode_grammar"
+        )
+        self.cbo_mode.addItem(t(vocab_mode_key), "vocab")
+        self.cbo_mode.addItem(t(grammar_mode_key), "grammar")
         self.cbo_mode.setAccessibleName(t("study_card_mode"))
+        self.cbo_mode.currentIndexChanged.connect(self._update_context_board)
         context_row.addWidget(self.cbo_mode)
         body.addLayout(context_row)
 
@@ -198,9 +241,10 @@ class AiCompanionDock(QDockWidget):
         body.addLayout(artifacts)
 
         self.input = QTextEdit()
+        self.input.setObjectName("forgeAiInstructionInput")
         self.input.setAcceptRichText(False)
-        self.input.setPlaceholderText(t("study_input_placeholder"))
-        self.input.setAccessibleName(t("study_input_accessible"))
+        self.input.setPlaceholderText(t(self._policy.input_placeholder_key))
+        self.input.setAccessibleName(t(self._policy.input_accessible_key))
         self.input.setMaximumHeight(115)
         body.addWidget(self.input)
 
@@ -217,6 +261,7 @@ class AiCompanionDock(QDockWidget):
         actions.addWidget(self.btn_stop)
         actions.addStretch()
         self.btn_send = QPushButton(t("study_send"))
+        self.btn_send.setProperty("class", "primary")
         self.btn_send.setDefault(True)
         self.btn_send.clicked.connect(self.send_message)
         actions.addWidget(self.btn_send)
@@ -226,7 +271,8 @@ class AiCompanionDock(QDockWidget):
         self.status = QLabel(t("study_ready"))
         self.status.setObjectName("forgeAiStatus")
         footer.addWidget(self.status, 1)
-        self.btn_back = QPushButton(t("study_back_review"))
+        back_key = "study_back_review" if self._workspace == "reviewer" else "study_close_workspace"
+        self.btn_back = QPushButton(t(back_key))
         self.btn_back.clicked.connect(self.back_to_review)
         footer.addWidget(self.btn_back)
         body.addLayout(footer)
@@ -353,6 +399,7 @@ class AiCompanionDock(QDockWidget):
             return
         self._set_provider_model(session.get("provider"), session.get("model"))
         self._render_session(session)
+        self._update_context_board()
 
     def _set_provider_model(self, provider_id: str, model: str):
         self.cbo_provider.blockSignals(True)
@@ -408,12 +455,34 @@ class AiCompanionDock(QDockWidget):
         })
         return runtime
 
-    def open_for_context(self, snapshot: Optional[dict] = None, *, language: str = "", initial_text: str = ""):
+    def open_for_context(
+        self,
+        snapshot: Optional[dict] = None,
+        *,
+        language: str = "",
+        initial_text: str = "",
+        source_text: str = "",
+        learning_mode: str = "language",
+        lane: str = "vocab",
+    ):
         snapshot_language = try_normalize_language((snapshot or {}).get("language"))
         self._card_context = (
-            dict(snapshot) if isinstance(snapshot, dict) and snapshot_language else None
+            dict(snapshot)
+            if self._workspace == "reviewer"
+            and isinstance(snapshot, dict)
+            and snapshot_language
+            else None
         )
         self.chk_context.setChecked(bool(self._card_context))
+        self._learning_mode = (
+            str(learning_mode or "language").strip().casefold()
+            if self._workspace == "forge" else "language"
+        )
+        self._lane = str(lane or "vocab").strip().casefold()
+        if self._workspace == "forge":
+            self.source_input.setPlainText(source_text or "")
+        else:
+            self.source_input.clear()
         language = self._resolve_language(language or str((snapshot or {}).get("language") or "")) or ""
         current = self._current_session()
         if language and current and current.get("language") != language:
@@ -430,10 +499,64 @@ class AiCompanionDock(QDockWidget):
             self.new_session(language=language, deck=str((snapshot or {}).get("deck") or ""))
         if initial_text:
             self.input.setPlainText(initial_text)
+        elif self._workspace == "forge":
+            self.input.clear()
+        self._update_context_board()
         self.show()
         self.raise_()
         if self._dockable:
             self._store.update_ui_state(visible=True)
+
+    def _update_context_board(self, *_args):
+        session = self._current_session()
+        language = str((session or {}).get("language") or "")
+        language_label = _LANGUAGE_LABELS.get(language, language.title() or "-")
+        if self._workspace == "reviewer":
+            context_enabled = bool(self._card_context) and self.chk_context.isChecked()
+            mode = str((self._card_context or {}).get("study_mode") or "-").upper()
+            side_key = (
+                "study_context_answer_side"
+                if str((self._card_context or {}).get("side") or "question") == "answer"
+                else "study_context_question_side"
+            )
+            card_key = (
+                "study_context_card_attached"
+                if context_enabled else "study_context_card_not_sent"
+            )
+            self.context_board.setText(t(
+                "study_context_reviewer",
+                language=language_label,
+                mode=mode,
+                side=t(side_key),
+                card=t(card_key),
+            ))
+            return
+        lane = "knowledge" if self._learning_mode == "knowledge" else self._lane
+        lane_label = t(f"study_context_lane_{lane}")
+        source = self.source_input.toPlainText().strip()
+        source_state = (
+            t("study_context_source_chars", count=len(source))
+            if source else t("study_context_source_none")
+        )
+        self.context_board.setText(t(
+            "study_context_forge",
+            language=language_label,
+            lane=lane_label,
+            source=source_state,
+            card=t("study_context_no_current_card"),
+        ))
+
+    def refresh_reviewer_context(self, snapshot: Optional[dict]):
+        """Refresh the current card/side without opening or raising the dock."""
+        if self._workspace != "reviewer":
+            return
+        snapshot_language = try_normalize_language((snapshot or {}).get("language"))
+        self._card_context = (
+            dict(snapshot) if isinstance(snapshot, dict) and snapshot_language else None
+        )
+        if not self._card_context:
+            self.chk_context.setChecked(False)
+        self._update_context_board()
 
     def _set_quick_prompt(self, prompt: str):
         self.input.setPlainText(prompt)
@@ -459,20 +582,39 @@ class AiCompanionDock(QDockWidget):
         if session["title"] == t("study_default_title") and not session["messages"]:
             local_title = " ".join(text.replace("\n", " ").split()[:8])[:80]
             self._store.rename_session(session["id"], local_title or t("study_default_title"))
+        request_token = uuid.uuid4().hex
+        request_context = build_workspace_request_context(
+            workspace=self._workspace,
+            language=session["language"],
+            user_instruction=text,
+            request_token=request_token,
+            learning_mode=self._learning_mode,
+            lane=self._lane,
+            source_text=(
+                self.source_input.toPlainText() if self._workspace == "forge" else ""
+            ),
+            card_context=self._card_context,
+            use_card_context=(
+                self._workspace == "reviewer" and self.chk_context.isChecked()
+            ),
+        )
         if self._editing_latest:
-            session = self._store.replace_latest_user_message(session["id"], text)
+            session = self._store.replace_latest_user_message(
+                session["id"], text,
+                context_snapshot=request_context.to_snapshot(),
+            )
             user_message = session["messages"][-1]
             self._editing_latest = False
         else:
             user_message = self._store.add_message(
                 session["id"], role="user", content=text,
-                context_snapshot=self._card_context if self.chk_context.isChecked() else None,
+                context_snapshot=request_context.to_snapshot(),
             )
         self._pending_user_message_id = user_message["id"]
         self._pending_session_id = session["id"]
         self._pending_card_mode = self.cbo_mode.currentData()
-        request_token = uuid.uuid4().hex
         self._pending_request_token = request_token
+        self._pending_workspace_request = request_context
         self.input.clear()
         self._reload_sessions(session["id"])
         self.btn_send.setEnabled(False)
@@ -484,13 +626,15 @@ class AiCompanionDock(QDockWidget):
             message=text,
             lang=session["language"],
             conversation_history=None,
-            anki_context=self._card_context,
+            anki_context=request_context.card_context,
             card_kind=self._pending_card_mode or "vocab",
             card_mode=self._pending_card_mode,
             study_session=self._store.get_session(session["id"]),
-            use_card_context=self.chk_context.isChecked(),
+            use_card_context=request_context.use_card_context,
             session_id=session["id"],
             runtime_config=runtime,
+            workspace=self._workspace,
+            workspace_request=request_context,
             on_progress=lambda message, token=request_token: self._on_progress(message, token),
             on_finished=lambda result, token=request_token: self._on_finished(result, token),
             on_error=lambda error, token=request_token: self._on_error(error, token),
@@ -584,6 +728,7 @@ class AiCompanionDock(QDockWidget):
         self._pending_user_message_id = ""
         self._pending_card_mode = None
         self._pending_request_token = ""
+        self._pending_workspace_request = None
 
     def edit_latest_message(self):
         session = self._current_session()
@@ -640,16 +785,24 @@ class AiCompanionDock(QDockWidget):
                     else:
                         actions += "<br>" + html.escape(t("study_artifact_stale_notice"))
                 blocks.append(
-                    "<div style='margin:8px 0;padding:10px;border:1px solid rgba(251,191,36,.55);border-radius:10px;background:rgba(251,191,36,.14)'>"
+                    "<div style='margin:8px 0;padding:10px;border-left:4px solid #d7a928;border-radius:6px;background:rgba(215,169,40,.12)'>"
                     f"<b>📦 {html.escape(label)}</b><br>{html.escape(message['content'])}{actions}</div>"
                 )
                 continue
             learner = message["role"] == "user"
-            label = t("study_you") if learner else t("study_ai")
-            color = "rgba(106,167,255,0.15)" if learner else "rgba(255,255,255,0.08)"
+            label = (
+                t("study_you") if learner
+                else t(
+                    "study_reviewer_ai"
+                    if self._workspace == "reviewer" else "study_forge_ai"
+                )
+            )
+            color = "rgba(53,111,164,0.16)" if learner else "rgba(255,255,255,0.07)"
+            edge = "#4f8fbd" if learner else "#7f8c8d"
             content = html.escape(message["content"]).replace("\n", "<br>")
             blocks.append(
-                f"<div style='margin:7px 0;padding:9px;border-radius:10px;background:{color};'>"
+                f"<div style='margin:7px 0;padding:9px;border-left:3px solid {edge};"
+                f"border-radius:6px;background:{color};'>"
                 f"<b>{html.escape(label)}</b><br>{content}</div>"
             )
         self.transcript.setHtml("".join(blocks) or f"<p>{t('study_empty')}</p>")
@@ -774,6 +927,9 @@ class AiCompanionDock(QDockWidget):
                 host.hide()
             else:
                 self.hide()
+        if self._workspace == "forge":
+            self._main_window.setFocus()
+            return
         reviewer = getattr(self._main_window, "reviewer", None)
         web = getattr(reviewer, "web", None)
         if web is not None:
@@ -824,19 +980,27 @@ def get_ai_companion(main_window=None) -> AiCompanionDock:
     global _COMPANION
     owner = main_window or mw
     if _COMPANION is None:
-        _COMPANION = AiCompanionDock(owner)
+        _COMPANION = AiCompanionDock(owner, workspace="reviewer")
     return _COMPANION
 
 
+def refresh_ai_companion_context(snapshot: Optional[dict]) -> bool:
+    """Update an existing Reviewer surface without creating or showing it."""
+    if _COMPANION is None:
+        return False
+    _COMPANION.refresh_reviewer_context(snapshot)
+    return True
+
+
 class AiStudySessionDialog(QDialog):
-    """Standalone Factory surface: visually and behaviorally like Settings/History."""
+    """Standalone Forge workshop over the shared Study Session backend."""
 
     def __init__(self, parent=None):
         super().__init__(parent or mw)
         self.setObjectName("bentoForgeAiStudyDialog")
-        self.setWindowTitle(t("study_title"))
-        self.setMinimumSize(720, 560)
-        self.resize(900, 720)
+        self.setWindowTitle(t("study_forge_title"))
+        self.setMinimumSize(760, 600)
+        self.resize(980, 760)
         self.setWindowFlags(
             self.windowFlags()
             | Qt.WindowType.WindowMinMaxButtonsHint
@@ -845,14 +1009,30 @@ class AiStudySessionDialog(QDialog):
         self.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
-        self.companion = AiCompanionDock(mw, dockable=False, parent=self)
+        self.companion = AiCompanionDock(
+            mw, workspace="forge", dockable=False, parent=self,
+        )
         layout.addWidget(self.companion)
         apply_theme(self)
 
-    def open_session(self, *, language="", initial_text=""):
+    def open_session(
+        self,
+        *,
+        language="",
+        initial_text="",
+        source_text="",
+        learning_mode="language",
+        lane="vocab",
+    ):
         apply_theme(self)
         self.companion._theme_cfg = apply_theme(self.companion)
-        self.companion.open_for_context(language=language, initial_text=initial_text)
+        self.companion.open_for_context(
+            language=language,
+            initial_text=initial_text,
+            source_text=source_text,
+            learning_mode=learning_mode,
+            lane=lane,
+        )
         self.show()
         self.raise_()
         self.activateWindow()
@@ -865,9 +1045,17 @@ def get_ai_study_dialog(parent=None) -> AiStudySessionDialog:
     return _STUDY_DIALOG
 
 
-def show_ai_study_dialog(*, language="", initial_text="") -> AiStudySessionDialog:
+def show_ai_study_dialog(
+    *, language="", initial_text="", source_text="", learning_mode="language", lane="vocab",
+) -> AiStudySessionDialog:
     dialog = get_ai_study_dialog(mw)
-    dialog.open_session(language=language, initial_text=initial_text)
+    dialog.open_session(
+        language=language,
+        initial_text=initial_text,
+        source_text=source_text,
+        learning_mode=learning_mode,
+        lane=lane,
+    )
     return dialog
 
 
@@ -940,6 +1128,7 @@ def register_companion_shortcut() -> bool:
 
 __all__ = [
     "AiCompanionDock", "AiStudySessionDialog", "get_ai_companion",
-    "get_ai_study_dialog", "register_companion_shortcut", "show_ai_companion",
+    "get_ai_study_dialog", "refresh_ai_companion_context",
+    "register_companion_shortcut", "show_ai_companion",
     "show_ai_study_dialog", "toggle_ai_companion",
 ]

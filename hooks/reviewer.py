@@ -128,6 +128,16 @@ def get_current_card_snapshot(reviewer, side=None):
         return None
 
 
+def _refresh_companion_context(snapshot):
+    """Refresh an existing dock without making Reviewer hooks depend on its UI."""
+    try:
+        from ui.ai_companion import refresh_ai_companion_context
+
+        refresh_ai_companion_context(snapshot)
+    except Exception as error:
+        logger.debug("AI companion context refresh unavailable: %s", error)
+
+
 def open_companion_from_reviewer(context):
     reviewer = getattr(context, "reviewer", None) or context
     snapshot = get_current_card_snapshot(reviewer)
@@ -152,11 +162,13 @@ def _on_reviewer_question(reviewer):
         card = reviewer.card
         if card is None:
             return
+        snapshot = get_current_card_snapshot(reviewer, side="question")
+        _refresh_companion_context(snapshot)
         q = card.q() or ""
         _inject_ai_action(reviewer)
         # Card combo (1 từ = 1 card, 5 chế độ): đồng bộ mode từ config
         if 'id="combo-mode-bar"' in q and 'data-srs-layout="combo"' in q:
-            mode = get_study_mode(getattr(card, "did", None))
+            mode = str((snapshot or {}).get("study_mode") or "qa")
             js = (
                 f"window._aiFactoryMode='{mode}';"
                 f"window.dispatchEvent(new CustomEvent('ai-factory-mode',{{detail:'{mode}'}}));"
@@ -181,6 +193,7 @@ def _on_reviewer_answer(reviewer):
         reviewer._bento_forge_side = "answer"
         card = reviewer.card
         if card is not None:
+            _refresh_companion_context(get_current_card_snapshot(reviewer, side="answer"))
             note = card.note()
             if note is not None:
                 model = note.model()

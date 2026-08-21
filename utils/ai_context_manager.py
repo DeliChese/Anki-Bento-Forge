@@ -123,8 +123,9 @@ def prepare_study_context(
     max_output_tokens: int = DEFAULT_OUTPUT_RESERVE,
     card_context: Optional[Mapping[str, Any]] = None,
     use_card_context: bool = False,
+    workspace_request=None,
 ) -> PreparedStudyContext:
-    """Build SYSTEM + SUMMARY + CARD + bounded RECENT + CURRENT USER."""
+    """Build SYSTEM + SUMMARY + request-owned context + RECENT + CURRENT USER."""
     context_window = get_model_context_window(model, DEFAULT_CONTEXT_WINDOW)
     hard_cap = min(max(1_000, int(session_max_tokens)), context_window)
     available = max(
@@ -134,12 +135,24 @@ def prepare_study_context(
     system = {"role": "system", "content": str(system_prompt).strip()}
     current = {"role": "user", "content": str(redact_sensitive(current_user_message)).strip()}
     fixed = [system]
-    filtered_card = minimal_card_context(
-        card_context,
-        include_answer=str((card_context or {}).get("side") or "question") == "answer",
-    ) if use_card_context else {}
-    if filtered_card:
-        fixed.append(_context_system_message(filtered_card))
+    workspace_message = None
+    if workspace_request is not None:
+        from .ai_workspace import WorkspaceRequestContext, workspace_context_message
+
+        if not isinstance(workspace_request, WorkspaceRequestContext):
+            raise ValueError("invalid workspace request context")
+        if workspace_request.user_instruction != current["content"]:
+            raise ValueError("workspace request instruction mismatch")
+        workspace_message = workspace_context_message(workspace_request)
+        fixed.append(workspace_message)
+        filtered_card = {}
+    else:
+        filtered_card = minimal_card_context(
+            card_context,
+            include_answer=str((card_context or {}).get("side") or "question") == "answer",
+        ) if use_card_context else {}
+        if filtered_card:
+            fixed.append(_context_system_message(filtered_card))
 
     history = []
     for index, item in enumerate(session.get("messages", [])):
@@ -220,7 +233,9 @@ def prepare_study_context(
     messages = [system]
     if summary_message:
         messages.append(summary_message)
-    if filtered_card:
+    if workspace_message:
+        messages.append(workspace_message)
+    elif filtered_card:
         messages.append(_context_system_message(filtered_card))
     messages.extend(recent)
     messages.append(current)

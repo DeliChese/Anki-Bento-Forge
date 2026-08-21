@@ -19,12 +19,13 @@
 | P0-02 smoke profile | chờ chủ dự án | Chạy checklist trên profile Anki đã backup trước merge/release. |
 | P0-05 AI Output Reliability | local implementation xanh | Chat/Card Mode dùng reliability contract hiện hành; còn smoke restart/profile backup và manual large-batch metrics trước khi publish 18.1. |
 | P1-07 AI Study Sessions | local implementation xanh | Companion/session/context/artifact/Reviewer integration đã có test; hai vòng `631 passed`. Còn GUI smoke Anki trên profile backup và CI trước phát hành. |
+| V18.2 Contextual AI Workspaces | local implementation xanh | Reviewer/Forge có policy, prompt, context board và source/card ownership riêng theo request; isolated suite `731 passed`. Còn GUI smoke hai surface trên profile backup và CI trước merge/release. |
 | P1-05 Usage Guide | đã kiểm chứng | Dùng benchmark/fixture hiện có làm regression gate. |
 | P1-06 Confusion Guard | local implementation xanh | Exact curated same-deck warning đã có fixtures bốn ngôn ngữ; chờ smoke profile backup, vẫn chỉ advisory và không tự sửa note/SRS. |
 
 ## Evidence and boundaries
 
-- Bằng chứng baseline gần nhất: `715 passed` trong isolated suite sau corrective patch retention artifact theo provenance; chi tiết và điều kiện phát hành hiện hành ở [Personal Roadmap](../../work_items/PERSONAL_ROADMAP.md).
+- Bằng chứng baseline gần nhất: `731 passed` trong isolated suite sau V18.2 Contextual AI Workspaces; chi tiết và điều kiện phát hành hiện hành ở [Personal Roadmap](../../work_items/PERSONAL_ROADMAP.md).
 - Bằng chứng P1-05: `19/20` (`95%`), `$0.002035`, `1.69 giây/card`; xem [benchmark](../../benchmarks/usage_guide_review_v1.json).
 - Trước mutation collection, cần backup/undo và smoke liên quan. Con người xác nhận mọi thao tác Anki thật.
 - Không coi số liệu trong tài liệu `historical` là trạng thái hiện tại nếu chúng mâu thuẫn roadmap/evidence mới hơn.

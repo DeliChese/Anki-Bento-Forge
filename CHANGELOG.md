@@ -6,6 +6,13 @@
 
 ### 2026-08-21 — Phiên bản: `18.1.0` → `18.1.0`
 
+#### ✨ Added
+- **V18.2 Contextual AI Workspaces** — Reviewer nay là Study Coach bám thẻ hiện tại với context an toàn theo mặt/chế độ học, còn Bento Forge mở Forge AI Workshop bám source và instruction tách biệt; hai surface dùng chung Study Sessions/backend nhưng provenance workspace, language, source/card context và request token thuộc từng request.
+- **Station UI cho Reviewer/Forge** — hai workspace có header, context board luôn hiển thị đúng AI đang biết gì, quick actions riêng, transcript phân cấp rõ hơn và Forge có route strip `SOURCE → AI → ARTIFACT → XƯỞNG` cùng trạng thái source tường minh, vẫn dùng theme engine/cấu hình hiện hành.
+
+#### 🔧 Changed
+- **Workspace-aware study prompts** — persona chat được sở hữu tường minh theo `reviewer`/`forge`; Card Mode vẫn tái sử dụng Quality V2 schema/validation và artifact → Xưởng vẫn là đường zero-AI không tái sinh snapshot.
+
 #### 🐛 Fixed
 - **Provenance-aware artifact pruning** — bounded Study Session storage ưu tiên xóa message không được tham chiếu, bảo vệ source message của mọi artifact hiện hành/stale và chỉ loại artifact cũ nhất một cách nhất quán khi dung lượng thực sự bắt buộc.
 - **Study Session stale artifact retention** — artifact dùng schema cũ hoặc tương lai không còn biến mất khi reload; session giữ provenance và snapshot ở trạng thái chỉ đọc `stale`, hiển thị cảnh báo không tương thích và vẫn chặn tuyệt đối đường vào Xưởng mà không gọi AI tái tạo.

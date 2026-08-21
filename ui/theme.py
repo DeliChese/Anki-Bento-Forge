@@ -134,6 +134,39 @@ QWidget {
     font-size: __FONT__px;
 }
 QWidget#forgeAiCompanionRoot { background: transparent; }
+QLabel#forgeAiStationTitle {
+    color: __TEXT__;
+    font-size: __FONT_LARGE__px;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+}
+QLabel#forgeAiStationSubtitle { color: __TEXT_DIM__; }
+QLabel#forgeAiContextBoard {
+    background: rgba(20,32,42,0.44);
+    border: 1px solid rgba(255,255,255,__BORDER__);
+    border-left: 4px solid __ACCENT__;
+    border-radius: 6px;
+    padding: 8px 10px;
+    font-weight: 600;
+}
+QLabel#forgeAiRouteStrip {
+    color: __TEXT_DIM__;
+    border-bottom: 1px solid rgba(255,255,255,__BORDER__);
+    padding: 3px 6px 7px 6px;
+    font-size: __FONT_SMALL__px;
+    font-weight: 600;
+    letter-spacing: 0.8px;
+}
+QLabel#forgeAiSourceLabel {
+    color: __TEXT_DIM__;
+    font-size: __FONT_SMALL__px;
+    font-weight: 700;
+    letter-spacing: 0.7px;
+}
+QPlainTextEdit#forgeAiSourceInput, QTextEdit#forgeAiInstructionInput,
+QTextBrowser#forgeAiTranscript {
+    border-radius: 6px;
+}
 QLabel { background: transparent; color: __TEXT__; }
 QLabel[class="dim"] { color: __TEXT_DIM__; }
 QToolTip {
@@ -189,6 +222,12 @@ QPushButton[class="info"] { background: #3498db; color: #ffffff; border: none; }
 QPushButton[class="info"]:hover { background: #4aa3df; }
 QPushButton[class="ghost"] { background: transparent; border: 1px solid rgba(255,255,255,__BORDER__); }
 QPushButton[class="ghost"]:hover { background: rgba(255,255,255,__GLASS_HOVER__); }
+QPushButton[class="stationAction"] {
+    border-radius: 5px;
+    padding: 6px 9px;
+    font-weight: 600;
+}
+QPushButton[class="stationAction"]:hover { border-color: __ACCENT__; }
 
 QLineEdit, QPlainTextEdit, QTextEdit, QTextBrowser, QListWidget, QSpinBox, QDoubleSpinBox, QComboBox {
     background: rgba(255,255,255,__GLASS__);
@@ -286,6 +325,8 @@ def build_stylesheet(cfg=None):
         "__GLASS_PRESS__": f"{min(alpha + 0.02, 0.30):.2f}",
         "__BORDER__": f"{min(alpha + 0.10, 0.32):.2f}",
         "__BORDER_HOVER__": f"{min(alpha + 0.18, 0.45):.2f}",
+        "__FONT_LARGE__": str(min(22, font_size + 3)),
+        "__FONT_SMALL__": str(max(9, font_size - 2)),
         "__FONT__": str(font_size),
         "__RADIUS__": str(radius),
     }

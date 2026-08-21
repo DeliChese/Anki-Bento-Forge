@@ -100,6 +100,8 @@ class AiWorkflowCoordinator:
         use_card_context: bool = False,
         session_id: str = "",
         runtime_config: Optional[dict] = None,
+        workspace: str = "reviewer",
+        workspace_request=None,
     ) -> Optional[Any]:
         """Build, wire, and start a chat worker for the current token."""
         if self.is_cancelled():
@@ -116,6 +118,8 @@ class AiWorkflowCoordinator:
             use_card_context=use_card_context,
             session_id=session_id,
             runtime_config=runtime_config,
+            workspace=workspace,
+            workspace_request=workspace_request,
             cancel_event=self._cancel_event,
         )
         worker.progress.connect(on_progress)

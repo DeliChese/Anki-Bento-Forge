@@ -57,8 +57,8 @@ Test bằng _test_ai_connection (ui/ai_settings.py:204).
 
 ### TC-3: Sửa system prompt AI (vocab/grammar/chat)
 ```
-1. utils/ai_extractor.py: sửa _SYSTEM_PROMPTS[lang] (497) / _GRAMMAR_SYSTEM_PROMPTS[lang] (590)
-2. BUMP _PROMPT_VERSION (371) — quan trọng, invalidate cache
+1. Card quality prompt: sửa owner chuẩn qua `utils/prompt_config.py`; Study Sessions persona: sửa `utils/ai_study_prompts.py` với workspace tường minh
+2. BUMP `_PROMPT_VERSION` (`utils/ai_extractor.py:503`) — quan trọng, invalidate cache
 3. Đảm bảo prompt gọn: output explanation ≤2 câu, ví dụ 5-12 từ
 4. Chạy tests/test_token_optimization.py (kiểm tra độ compact)
 ```

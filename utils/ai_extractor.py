@@ -52,6 +52,7 @@ from .ai_prompt_defaults import KNOWLEDGE_PROMPT_VERSION
 from .ai_usage_history import record_usage as _record_usage
 from .ai_providers import detect_provider
 from .ai_study_prompts import build_study_prompt
+from .ai_workspace import validate_workspace_request
 from .language_identity import normalize_language
 from .user_data import (
     atomic_write_json,
@@ -995,9 +996,9 @@ def _build_anki_context_text(context: dict) -> str:
 # ═══════════════════════════════════════════════════════════
 
 def _get_study_chat_system_prompt(
-    lang: str = "japanese", card_mode: Optional[str] = None,
+    lang: str = "japanese", card_mode: Optional[str] = None, workspace: str = "reviewer",
 ) -> str:
-    return build_study_prompt(lang, card_mode, english_ui=_ui_lang_en())
+    return build_study_prompt(lang, card_mode, english_ui=_ui_lang_en(), workspace=workspace)
 
 
 def _get_chat_system_prompt(
@@ -1020,7 +1021,7 @@ def chat_with_ai(
     study_session: Optional[dict] = None,
     use_card_context: bool = False,
     session_id: str = "",
-    runtime_config: Optional[dict] = None,
+    runtime_config: Optional[dict] = None, workspace: str = "reviewer", workspace_request=None,
 ) -> dict:
     """
     Gửi tin nhắn đến AI và nhận phản hồi. AI có ngữ cảnh Anki.
@@ -1034,6 +1035,7 @@ def chat_with_ai(
     Returns:
         dict với keys: "reply" (text phản hồi), "vocab_json" (nếu AI xuất từ vựng), "error"
     """
+    workspace = validate_workspace_request(workspace, lang, workspace_request)
     if card_kind not in {"vocab", "grammar"}:
         raise ValueError("unsupported chat card kind")
     if card_mode not in {None, "vocab", "grammar"}:
@@ -1050,19 +1052,15 @@ def chat_with_ai(
     context_summary = ""
     context_summary_marker = ""
     context_estimated_tokens = 0
-    context = anki_context if anki_context is not None else {}
+    context = anki_context if anki_context is not None and workspace == "reviewer" else {}
+    use_card_context = bool(use_card_context and workspace == "reviewer")
     # Thu thập ngữ cảnh Anki THÔNG MINH dựa trên yêu cầu.
     # quick=True → BỎ qua truy vấn context Anki (nhanh hơn) — dùng cho sinh câu ngữ pháp.
-    if quick:
-        system_content = _get_study_chat_system_prompt(lang, card_mode)
-        if progress_callback:
-            progress_callback(t("status_calling_model", model=cfg["model"]))
-    else:
-        if progress_callback:
-            progress_callback(t("worker_progress_context"))
-        if progress_callback:
-            progress_callback(t("status_calling_model", model=cfg["model"]))
-        system_content = _get_study_chat_system_prompt(lang, card_mode)
+    if not quick and progress_callback:
+        progress_callback(t("worker_progress_context"))
+    if progress_callback:
+        progress_callback(t("status_calling_model", model=cfg["model"]))
+    system_content = _get_study_chat_system_prompt(lang, card_mode, workspace)
 
     if study_session is not None:
         from .ai_context_manager import prepare_study_context
@@ -1076,6 +1074,7 @@ def chat_with_ai(
             max_output_tokens=cfg.get("max_tokens", 8192),
             card_context=context,
             use_card_context=use_card_context,
+            workspace_request=workspace_request,
         )
         messages = list(prepared.messages)
         context_summary = prepared.summary
