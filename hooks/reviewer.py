@@ -106,6 +106,7 @@ def get_current_card_snapshot(reviewer, side=None):
             "note_type": model_name,
             "side": side or getattr(reviewer, "_bento_forge_side", "question"),
             "card_id": getattr(card, "id", ""),
+            "study_mode": get_study_mode(getattr(card, "did", None)),
         }
         try:
             from aqt import mw
@@ -140,7 +141,7 @@ def open_companion_from_reviewer(context):
 try:
     from hooks.overview_mode import get_study_mode
 except Exception:
-    def get_study_mode():
+    def get_study_mode(_deck_id=None):
         return "qa"
 
 

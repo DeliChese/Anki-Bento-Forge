@@ -14,6 +14,7 @@ from utils.ai_extractor import extract_vocabulary_with_ai, extract_vocabulary_lo
 from utils.knowledge_extractor import extract_knowledge_long_text, extract_knowledge_with_ai
 from utils.knowledge_schema import KnowledgeSchemaError, parse_knowledge_cards
 from utils.import_quality import evaluate_card_candidate
+from utils.ai_output_validation import validate_ai_cards
 from utils.logger import get_logger
 from utils.i18n import t
 
@@ -65,7 +66,10 @@ def show_ai_preview_dialog(parent, vocab_list, lang, ai_text_input, ai_instructi
         "font-weight:bold;border-radius:8px;font-size:13px;"
     )
     btn_accept_all.clicked.connect(lambda: (
-        _finalize_and_close(dlg, table, columns, vocab_list, on_finalize_callback)
+        _finalize_and_close(
+            dlg, table, columns, vocab_list, on_finalize_callback,
+            lang=lang, grammar=grammar,
+        )
     ))
     header.addWidget(btn_accept_all)
     vl.addLayout(header)
@@ -221,7 +225,10 @@ def show_ai_preview_dialog(parent, vocab_list, lang, ai_text_input, ai_instructi
         "font-weight:bold;border-radius:10px;font-size:14px;"
     )
     btn_accept.clicked.connect(lambda: (
-        _finalize_and_close(dlg, table, columns, vocab_list, on_finalize_callback)
+        _finalize_and_close(
+            dlg, table, columns, vocab_list, on_finalize_callback,
+            lang=lang, grammar=grammar,
+        )
     ))
     bottom_bar.addWidget(btn_accept)
 
@@ -556,7 +563,9 @@ def _regenerate_all(table, columns, vocab_list, lang, ai_text_input,
         parent.setEnabled(True)
 
 
-def _finalize_and_close(dlg, table, columns, vocab_list, on_finalize_callback):
+def _finalize_and_close(
+    dlg, table, columns, vocab_list, on_finalize_callback, *, lang, grammar,
+):
     """Lấy dữ liệu cuối cùng từ bảng và gọi callback."""
     learning_mode = "knowledge" if "cloze_text" in columns and "question" in columns else "language"
     final_list = _get_current_vocab_from_table(table, columns, learning_mode=learning_mode)
@@ -567,6 +576,19 @@ def _finalize_and_close(dlg, table, columns, vocab_list, on_finalize_callback):
         except KnowledgeSchemaError as error:
             showInfo(t("knowledge_schema_error", error=error))
             return
+    else:
+        validation = validate_ai_cards(
+            final_list, lang=lang, kind="grammar" if grammar else "vocab",
+            require_example=True,
+        )
+        if validation.invalid or len(validation.valid_cards) != len(final_list):
+            categories = ", ".join(sorted({issue.category for issue in validation.invalid}))
+            showInfo(t(
+                "factory_validation_blocked",
+                count=len(validation.invalid), categories=categories,
+            ))
+            return
+        final_list = [dict(card) for card in validation.valid_cards]
 
     vocab_list.clear()
     vocab_list.extend(final_list)

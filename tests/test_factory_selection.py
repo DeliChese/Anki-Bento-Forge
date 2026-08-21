@@ -527,6 +527,66 @@ class TestBatchVerification:
         f._find_updatable_fields = lambda note, item: []
         return f
 
+    def test_artifact_to_factory_queue_never_regenerates(self, monkeypatch, tmp_path):
+        from utils import ai_extractor, grammar_ai
+        from utils.ai_card_artifacts import create_card_artifact, artifact_to_factory_payload
+        from utils.ai_session_store import StudySessionStore
+
+        calls = []
+        monkeypatch.setattr(
+            grammar_ai, "generate_grammar_examples",
+            lambda *args, **kwargs: calls.append(("grammar", args, kwargs)) or [],
+        )
+        monkeypatch.setattr(
+            ai_extractor, "_http_post_json",
+            lambda *args, **kwargs: calls.append(("network", args, kwargs)) or {},
+        )
+        store = StudySessionStore(str(tmp_path / "sessions.json"))
+        session = store.create_session(language="english")
+        source = store.add_message(session["id"], role="user", content="make a card")
+        card = {
+            "pattern": "used to + V", "meaning": "past habit",
+            "usage": "S + used to + V", "example": "I used to walk to school.",
+            "cefr_level": "B1",
+        }
+        artifact = create_card_artifact(
+            session_id=session["id"], language="english", kind="grammar",
+            cards=[card], source_message_id=source["id"],
+        )
+        stored = store.add_artifact(session["id"], artifact)
+        reloaded = StudySessionStore(str(tmp_path / "sessions.json")).get_artifact(
+            session["id"], stored["artifact_id"],
+        )
+        language, kind, cards = artifact_to_factory_payload(reloaded)
+
+        f = self._factory()
+        f._current_lang = language
+        f._cfg = lambda: {
+            "detect_key": "pattern", "front_field": "Pattern",
+            "level_field": "CEFR Level", "furi_label": "Pronunciation",
+            "json_field_map": {
+                "pattern": "Pattern", "meaning": "Meaning", "usage": "Usage",
+                "example": "Example", "cefr_level": "CEFR Level",
+            },
+        }
+        f._select_mode = lambda grammar: setattr(f, "_is_grammar", grammar)
+        f._schedule_analyze = lambda: f._analyze_content()
+        f.load_card_artifact = addon.AnkiSmartFactory.load_card_artifact.__get__(
+            f, addon.AnkiSmartFactory,
+        )
+        f.load_card_artifact(reloaded)
+        f._verify_batch_impl()
+
+        assert [entry["item"] for entry in f.prepared_data] == [card]
+
+        monkeypatch.setattr(factory_dialog, "askUser", lambda *args, **kwargs: False)
+        f._process_import = addon.AnkiSmartFactory._process_import.__get__(
+            f, addon.AnkiSmartFactory,
+        )
+        f._process_import()
+
+        assert calls == []
+
     def test_rejects_canonical_duplicate_within_the_same_raw_batch(self):
         f = self._factory()
         f.raw_data = [

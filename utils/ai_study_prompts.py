@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import Optional
 
 from .prompt_config import get_json_template, get_system_prompt
+from .language_identity import normalize_language
 
 
 _CHAT = {
@@ -49,12 +50,13 @@ def build_study_prompt(
     english_ui: bool,
 ) -> str:
     """Return compact chat instructions, adding schema only for explicit Card Mode."""
+    lang = normalize_language(lang)
     if card_mode not in {None, "vocab", "grammar"}:
         raise ValueError("unsupported study-session card mode")
     target = {
         "japanese": "Japanese", "chinese": "Chinese",
         "korean": "Korean", "english": "English",
-    }.get(lang, "Japanese")
+    }[lang]
     base = _CHAT[english_ui].format(target=target)
     if card_mode is None:
         return base

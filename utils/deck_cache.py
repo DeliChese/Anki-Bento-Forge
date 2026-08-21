@@ -110,7 +110,13 @@ def make_existing_hash(existing_words: List[str]) -> str:
     """Tạo hash ngắn từ danh sách từ hiện có để dùng làm cache key."""
     if not existing_words:
         return "0"
-    return hashlib.md5(",".join(sorted(existing_words[:5000])).encode("utf-8")).hexdigest()[:16]
+    stable = []
+    for item in existing_words[:5000]:
+        if isinstance(item, dict):
+            stable.append(json.dumps(item, sort_keys=True, ensure_ascii=False))
+        else:
+            stable.append(str(item))
+    return hashlib.md5(",".join(sorted(stable)).encode("utf-8")).hexdigest()[:16]
 
 
 # ═══════════════════════════════════════════════════════════

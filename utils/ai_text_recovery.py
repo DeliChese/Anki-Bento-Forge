@@ -15,6 +15,17 @@ MAX_TEXT_RECOVERY_DEPTH = 2
 MIN_TEXT_RECOVERY_CHARS = 1000
 
 
+class IncompleteExtractionError(RuntimeError):
+    """A bounded recovery ended with source spans that were not extracted."""
+
+    def __init__(self, cards, unresolved_count: int) -> None:
+        self.cards = tuple(dict(card) for card in cards if isinstance(card, Mapping))
+        self.unresolved_count = max(1, int(unresolved_count))
+        super().__init__(
+            f"incomplete_extraction: {self.unresolved_count} unresolved source spans"
+        )
+
+
 def _merge_recovered_cards(left: list, right: list, *, kind: str) -> list:
     """Merge child spans deterministically without collapsing distinct senses."""
     merged = []
@@ -98,5 +109,6 @@ def recover_text_chunk(
 
 
 __all__ = [
-    "MAX_TEXT_RECOVERY_DEPTH", "MIN_TEXT_RECOVERY_CHARS", "recover_text_chunk",
+    "IncompleteExtractionError", "MAX_TEXT_RECOVERY_DEPTH",
+    "MIN_TEXT_RECOVERY_CHARS", "recover_text_chunk",
 ]

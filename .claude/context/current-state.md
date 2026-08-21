@@ -2,7 +2,7 @@
 
 > Status: active  
 > Authority: supporting; roadmap remains the canonical backlog  
-> Last verified: 2026-08-20
+> Last verified: 2026-08-21
 > Read when: every agent session, immediately after `AGENTS.md`
 
 ## Operating contract
@@ -24,7 +24,7 @@
 
 ## Evidence and boundaries
 
-- Bằng chứng baseline gần nhất: `631 passed` trong hai vòng isolated suite; chi tiết và điều kiện hiện hành ở [Personal Roadmap](../../work_items/PERSONAL_ROADMAP.md).
+- Bằng chứng baseline gần nhất: `700 passed` trong hai vòng isolated suite sau hardening V18.1.1; chi tiết và điều kiện phát hành hiện hành ở [Personal Roadmap](../../work_items/PERSONAL_ROADMAP.md).
 - Bằng chứng P1-05: `19/20` (`95%`), `$0.002035`, `1.69 giây/card`; xem [benchmark](../../benchmarks/usage_guide_review_v1.json).
 - Trước mutation collection, cần backup/undo và smoke liên quan. Con người xác nhận mọi thao tác Anki thật.
 - Không coi số liệu trong tài liệu `historical` là trạng thái hiện tại nếu chúng mâu thuẫn roadmap/evidence mới hơn.

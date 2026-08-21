@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import html
 import json
+import uuid
 from typing import Optional
 from urllib.parse import quote, unquote
 
@@ -25,6 +26,7 @@ from utils.ai_usage_history import get_usage_entries, summarize_usage
 from utils.ai_workflow import AiWorkflowCoordinator
 from utils.i18n import t
 from utils.logger import get_logger, log_event
+from utils.language_identity import try_normalize_language
 from ui.theme import apply_theme
 from workers.ai_workers import AiChatThread
 
@@ -76,6 +78,7 @@ class AiCompanionDock(QDockWidget):
         self._pending_session_id = ""
         self._pending_user_message_id = ""
         self._pending_card_mode = None
+        self._pending_request_token = ""
         self._editing_latest = False
         self._restoring = True
         self._geometry_timer = QTimer(self)
@@ -287,7 +290,20 @@ class AiCompanionDock(QDockWidget):
             tooltip(t("study_model_fallback"))
         return provider_id, model
 
-    def new_session(self, *, language: str = "japanese", deck: str = ""):
+    def _resolve_language(self, language: str = "") -> Optional[str]:
+        candidate = language
+        if not candidate:
+            try:
+                candidate = mw.col.conf.get("ai_factory_active_lang")
+            except Exception:
+                candidate = None
+        return try_normalize_language(candidate)
+
+    def new_session(self, *, language: str = "", deck: str = ""):
+        language = self._resolve_language(language)
+        if language is None:
+            self.status.setText(t("study_language_required"))
+            return None
         provider, model = self._default_provider_model()
         title = t("study_default_title")
         session = self._store.create_session(
@@ -391,8 +407,12 @@ class AiCompanionDock(QDockWidget):
         return runtime
 
     def open_for_context(self, snapshot: Optional[dict] = None, *, language: str = "", initial_text: str = ""):
-        self._card_context = dict(snapshot) if isinstance(snapshot, dict) else None
+        snapshot_language = try_normalize_language((snapshot or {}).get("language"))
+        self._card_context = (
+            dict(snapshot) if isinstance(snapshot, dict) and snapshot_language else None
+        )
         self.chk_context.setChecked(bool(self._card_context))
+        language = self._resolve_language(language or str((snapshot or {}).get("language") or "")) or ""
         current = self._current_session()
         if language and current and current.get("language") != language:
             matching = next(
@@ -405,7 +425,7 @@ class AiCompanionDock(QDockWidget):
             else:
                 current = None
         if not current:
-            self.new_session(language=language or "japanese", deck=str((snapshot or {}).get("deck") or ""))
+            self.new_session(language=language, deck=str((snapshot or {}).get("deck") or ""))
         if initial_text:
             self.input.setPlainText(initial_text)
         self.show()
@@ -425,8 +445,11 @@ class AiCompanionDock(QDockWidget):
             return
         session = self._current_session()
         if not session:
-            self.new_session(language=str((self._card_context or {}).get("language") or "japanese"))
+            self.new_session(language=str((self._card_context or {}).get("language") or ""))
             session = self._current_session()
+        if not session:
+            self.status.setText(t("study_language_required"))
+            return
         runtime = self._runtime_config()
         if not runtime.get("api_key") and "localhost" not in runtime.get("api_base", ""):
             showInfo(t("error_api_key_missing"))
@@ -446,6 +469,8 @@ class AiCompanionDock(QDockWidget):
         self._pending_user_message_id = user_message["id"]
         self._pending_session_id = session["id"]
         self._pending_card_mode = self.cbo_mode.currentData()
+        request_token = uuid.uuid4().hex
+        self._pending_request_token = request_token
         self.input.clear()
         self._reload_sessions(session["id"])
         self.btn_send.setEnabled(False)
@@ -464,12 +489,17 @@ class AiCompanionDock(QDockWidget):
             use_card_context=self.chk_context.isChecked(),
             session_id=session["id"],
             runtime_config=runtime,
-            on_progress=self._on_progress,
-            on_finished=self._on_finished,
-            on_error=self._on_error,
+            on_progress=lambda message, token=request_token: self._on_progress(message, token),
+            on_finished=lambda result, token=request_token: self._on_finished(result, token),
+            on_error=lambda error, token=request_token: self._on_error(error, token),
         )
 
-    def _on_progress(self, message: str):
+    def _owns_request(self, token: str) -> bool:
+        return bool(token) and token == self._pending_request_token
+
+    def _on_progress(self, message: str, token: str):
+        if not self._owns_request(token):
+            return
         self.status.setText(message.splitlines()[0][:120])
 
     def _finish_request_ui(self):
@@ -478,28 +508,43 @@ class AiCompanionDock(QDockWidget):
         self.cbo_mode.setCurrentIndex(0)
         self._workflow.clear_chat_worker()
 
-    def _on_finished(self, result: dict):
+    def _on_finished(self, result: dict, token: str):
+        if not self._owns_request(token):
+            return
         session = self._store.get_session(self._pending_session_id)
-        if not session:
+        source_exists = bool(session) and any(
+            item.get("id") == self._pending_user_message_id
+            for item in session.get("messages", [])
+        )
+        if not session or not source_exists:
             self._finish_request_ui()
-            self._clear_pending_request()
+            self._clear_pending_request(token)
             return
         reply = str(result.get("reply") or "").strip()
         if reply:
             self._store.add_message(session["id"], role="assistant", content=reply)
         cards = result.get("card_json")
         if cards and self._pending_card_mode:
-            artifact = create_card_artifact(
-                session_id=session["id"], language=session["language"],
-                kind=self._pending_card_mode, cards=cards,
-                source_message_id=self._pending_user_message_id,
-            )
-            artifact = self._store.add_artifact(session["id"], artifact)
-            self._store.add_message(
-                session["id"], role="assistant",
-                content=t("study_artifact_ready", count=len(cards)),
-                message_type="artifact_reference", artifact_id=artifact["artifact_id"],
-            )
+            try:
+                artifact = create_card_artifact(
+                    session_id=session["id"], language=session["language"],
+                    kind=self._pending_card_mode, cards=cards,
+                    source_message_id=self._pending_user_message_id,
+                )
+                artifact = self._store.add_artifact(session["id"], artifact)
+                self._store.add_message(
+                    session["id"], role="assistant",
+                    content=t("study_artifact_ready", count=len(cards)),
+                    message_type="artifact_reference", artifact_id=artifact["artifact_id"],
+                )
+            except ValueError as error:
+                log_event(
+                    "AI_ARTIFACT_REJECTED", "keep_invalid_cards_out_of_factory",
+                    error=error.__class__.__name__,
+                )
+                self._store.add_message(
+                    session["id"], role="assistant", content=t("study_artifact_rejected"),
+                )
         elif self._pending_card_mode and result.get("card_error"):
             self._store.add_message(
                 session["id"], role="assistant",
@@ -513,28 +558,37 @@ class AiCompanionDock(QDockWidget):
             )
         selected_id = self._active_session_id or session["id"]
         self._finish_request_ui()
-        self._clear_pending_request()
+        self._clear_pending_request(token)
         self._reload_sessions(selected_id)
 
-    def _on_error(self, error: str):
+    def _on_error(self, error: str, token: str):
+        if not self._owns_request(token):
+            return
         self._finish_request_ui()
-        self._clear_pending_request()
+        self._clear_pending_request(token)
         self.status.setText(t("study_error", error=error[:80]))
 
     def stop_request(self):
+        token = self._pending_request_token
         self._workflow.cancel()
         self._finish_request_ui()
-        self._clear_pending_request()
+        self._clear_pending_request(token)
         self.status.setText(t("study_stopped"))
 
-    def _clear_pending_request(self):
+    def _clear_pending_request(self, token: str = ""):
+        if token and token != self._pending_request_token:
+            return
         self._pending_session_id = ""
         self._pending_user_message_id = ""
         self._pending_card_mode = None
+        self._pending_request_token = ""
 
     def edit_latest_message(self):
         session = self._current_session()
         if not session:
+            return
+        if self._pending_request_token and session["id"] == self._pending_session_id:
+            tooltip(t("study_request_edit_blocked"))
             return
         message = next(
             (item for item in reversed(session["messages"]) if item["role"] == "user"), None,
@@ -546,6 +600,12 @@ class AiCompanionDock(QDockWidget):
 
     def delete_latest_message(self):
         session = self._current_session()
+        if (
+            session and self._pending_request_token
+            and session["id"] == self._pending_session_id
+        ):
+            tooltip(t("study_request_edit_blocked"))
+            return
         if session and self._store.delete_latest_user_turn(session["id"]):
             self._editing_latest = False
             self.input.clear()

@@ -93,6 +93,8 @@ from utils.import_operations import apply_import, prepare_audio_tasks
 from utils.import_operations import apply_knowledge_import, rollback_knowledge_import
 from utils.anki_adapter import AnkiCollectionAdapter
 from utils.import_quality import find_near_duplicate, normalize_for_comparison
+from utils.ai_output_validation import validate_ai_cards
+from utils.language_identity import normalize_language
 from utils.import_report import write_import_report
 from utils.model_lifecycle import ensure_model
 from utils.ai_workflow import AiWorkflowCoordinator
@@ -150,7 +152,7 @@ _LANG_LABEL_KEYS = {
 
 
 def _translated_language_label(lang, grammar=False):
-    key = _LANG_LABEL_KEYS.get(lang, "lang_japanese")
+    key = _LANG_LABEL_KEYS[normalize_language(lang)]
     if grammar:
         key += "_grammar"
     return t(key)
@@ -1882,10 +1884,22 @@ class AnkiSmartFactory(QDialog):
         self.preview_list.clear()
         self.prepared_data = []
 
+        validation = validate_ai_cards(
+            self.raw_data,
+            lang=self._current_lang,
+            kind="grammar" if self._is_grammar else "vocab",
+            require_example="example" in (cfg.get("json_field_map") or {}),
+        )
+        self._factory_validation_report = validation
+        validated_items = list(validation.valid_cards)
+
         mid = self._get_model_id()
         target_level = self.cbo_level.currentData() or ""
         target_topic = self.txt_topic.text().strip().lower()
-        cnt = {"dup": 0, "update": 0, "new": 0, "partial": 0, "dup_diff": 0}
+        cnt = {
+            "dup": validation.duplicate_count,
+            "update": 0, "new": 0, "partial": 0, "dup_diff": 0,
+        }
         front_field = cfg["front_field"]
         level_field = cfg["level_field"]
         jfm = cfg["json_field_map"]
@@ -1954,9 +1968,7 @@ class AnkiSmartFactory(QDialog):
                 "existing_nid": None,
             }
 
-        for item in self.raw_data:
-            if not isinstance(item, dict):
-                continue
+        for item in validated_items:
 
             front = get_front(item)
             level = get_level(item)
@@ -2060,8 +2072,7 @@ class AnkiSmartFactory(QDialog):
             self._add_to_queue(item, action, target_nid, updatable, cnt, conflict_info)
 
         self.btn_diff_meaning.setEnabled(cnt["dup_diff"] > 0)
-        self.lbl_ready.setText(
-            t(
+        summary_text = t(
                 "verify_summary",
                 new=cnt["new"],
                 update=cnt["update"],
@@ -2069,7 +2080,13 @@ class AnkiSmartFactory(QDialog):
                 different=cnt["dup_diff"],
                 duplicate=cnt["dup"],
             )
-        )
+        if validation.invalid:
+            categories = ", ".join(sorted({issue.category for issue in validation.invalid}))
+            summary_text += "\n" + t(
+                "factory_validation_blocked",
+                count=len(validation.invalid), categories=categories,
+            )
+        self.lbl_ready.setText(summary_text)
         # Dựng lại danh sách thẻ chờ xuất xưởng (có tìm kiếm + lọc + checkbox)
         self._rebuild_preview()
 
@@ -2087,15 +2104,6 @@ class AnkiSmartFactory(QDialog):
     def _add_to_queue(self, item, action, nid, updatable, cnt, conflict_info=None):
         """Thêm thẻ vào hàng chờ xuất xưởng (prepared_data).
         Danh sách hiển thị được dựng lại ở cuối _verify_batch_impl qua _rebuild_preview()."""
-        # 📘 Ngữ pháp: nếu thẻ đang dùng ví dụ cứng/mặc định (chưa có example),
-        #   sinh câu ví dụ bằng AI để thay thế tạm thời khi đúc thẻ (yêu cầu #3c).
-        try:
-            if getattr(self, '_is_grammar', False) and isinstance(item, dict) \
-               and not (item.get("example") or item.get("example_2")):
-                from utils.grammar_ai import ensure_grammar_examples
-                ensure_grammar_examples(item, self._current_lang)
-        except Exception:
-            pass
         self.prepared_data.append({
             "item": item, "action": action,
             "nid": nid, "update_fields": updatable,
@@ -2379,6 +2387,23 @@ class AnkiSmartFactory(QDialog):
         if not batch:
             tooltip(t("import_no_selection"))
             return
+
+        if getattr(self, "_learning_mode", "language") == "language":
+            final_validation = validate_ai_cards(
+                [entry.get("item") for entry in batch],
+                lang=self._current_lang,
+                kind="grammar" if self._is_grammar else "vocab",
+                require_example="example" in (self._cfg().get("json_field_map") or {}),
+            )
+            if final_validation.invalid or len(final_validation.valid_cards) != len(batch):
+                categories = ", ".join(sorted({
+                    issue.category for issue in final_validation.invalid
+                }))
+                showInfo(t(
+                    "factory_validation_blocked",
+                    count=len(final_validation.invalid), categories=categories,
+                ))
+                return
 
         summary = summarize_import_batch(batch)
         if not askUser(t("confirm_import_preview", **summary), parent=self):

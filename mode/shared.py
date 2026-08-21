@@ -440,7 +440,7 @@ _GRAMMAR_AI_JS = r"""
     if(!box) return;
     var pattern = box.getAttribute('data-pattern') || '';
     var meaning = box.getAttribute('data-meaning') || '';
-    var lang = box.getAttribute('data-lang') || 'japanese';
+    var lang = box.getAttribute('data-lang') || '';
     var st = document.getElementById('ga-status');
     var se = document.getElementById('ga-sentence');
     var inp = document.getElementById('ga-input');

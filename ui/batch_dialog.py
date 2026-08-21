@@ -14,6 +14,7 @@ from utils.batch_processor import create_decks_from_organization
 from utils.anki_ops import run_collection
 from utils.ai_extractor import is_openrouter
 from utils.i18n import t
+from utils.language_identity import normalize_language
 
 
 class BatchWordListDialog(QDialog):
@@ -59,7 +60,7 @@ class BatchWordListDialog(QDialog):
             "chinese": t("lang_chinese"),
             "korean": t("lang_korean"),
             "english": t("lang_english"),
-        }.get(self.lang, t("lang_japanese"))
+        }[normalize_language(self.lang)]
         item_label = t("item_label_grammar") if self.grammar else t("item_label_vocab")
         header_key = "batch_header_grammar" if self.grammar else "batch_header_vocab"
         header.addWidget(QLabel(

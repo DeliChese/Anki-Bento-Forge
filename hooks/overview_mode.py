@@ -152,7 +152,8 @@ def _handle_grammar_sentence(message, context):
         data = _json.loads(raw or "{}")
         pattern = str(data.get("pattern") or "")
         meaning = str(data.get("meaning") or "")
-        lang = str(data.get("lang") or "japanese")
+        from utils.language_identity import normalize_language
+        lang = normalize_language(data.get("lang"))
         from utils.grammar_ai import generate_grammar_sentence
         result = generate_grammar_sentence(pattern, meaning, lang)
         js = (

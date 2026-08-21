@@ -2329,6 +2329,18 @@ _TRANSLATIONS = {
         "vi": "✨ {new} mới   🔄 {update} cập nhật   ⚠️ {partial} trùng mờ   🔍 {different} nghĩa khác   ❌ {duplicate} bỏ qua",
         "en": "✨ {new} new   🔄 {update} updates   ⚠️ {partial} possible duplicates   🔍 {different} different meanings   ❌ {duplicate} skipped",
     },
+    "factory_validation_blocked": {
+        "vi": "â›” ÄÃ£ cháº·n {count} má»¥c lá»—i xÃ¡c Ä‘á»‹nh: {categories}.",
+        "en": "â›” Blocked {count} deterministic validation failures: {categories}.",
+    },
+    "study_request_edit_blocked": {
+        "vi": "YÃªu cáº§u nÃ y Ä‘ang xá»­ lÃ½; hÃ£y dá»«ng yÃªu cáº§u trÆ°á»›c khi sá»­a hoáº·c xÃ³a.",
+        "en": "This request is in progress; stop it before editing or deleting its source turn.",
+    },
+    "study_language_required": {
+        "vi": "KhÃ´ng thá»ƒ báº¯t Ä‘áº§u: cháº¿ Ä‘á»™ ngÃ´n ngá»¯ Ä‘ang thiáº¿u hoáº·c khÃ´ng há»— trá»£.",
+        "en": "Cannot start: the language mode is missing or unsupported.",
+    },
     "cancel_order_empty": {
         "vi": "ℹ️ Xưởng trống — không có thẻ để hủy.",
         "en": "ℹ️ The factory is empty — there are no cards to discard.",

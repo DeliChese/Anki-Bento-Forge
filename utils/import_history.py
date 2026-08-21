@@ -559,12 +559,13 @@ def _build_single_lang_summary(history: dict, lang: str) -> str:
     """Xây dựng text tóm tắt cho MỘT ngôn ngữ"""
     parts = []
 
+    from .language_identity import normalize_language
     language_key = {
         "japanese": "history_ai_lang_japanese",
         "chinese": "history_ai_lang_chinese",
         "korean": "history_ai_lang_korean",
         "english": "history_ai_lang_english",
-    }.get(lang, "history_ai_lang_japanese")
+    }[normalize_language(lang)]
     parts.append(t(language_key))
 
     summary = history.get("summary", {}).get(lang, {})

@@ -14,7 +14,10 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 def _english_card(front="opportunity"):
-    return {"front": front, "meaning": "cơ hội", "cefr_level": "B1"}
+    return {
+        "front": front, "meaning": "opportunity", "cefr_level": "B1",
+        "example": f"This is an example with {front}.",
+    }
 
 
 def _long_messages(count=24, *, start=0, prefix="message", width=240, id_prefix="msg"):

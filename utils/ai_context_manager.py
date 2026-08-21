@@ -65,8 +65,8 @@ def minimal_card_context(snapshot: Optional[Mapping[str, Any]], *, include_answe
     """Whitelist current-card data; never attach review history or another deck."""
     if not isinstance(snapshot, Mapping):
         return {}
-    metadata_keys = {"language", "deck", "note_type", "side", "card_id"}
-    question_keys = {
+    metadata_keys = {"language", "deck", "note_type", "side", "card_id", "study_mode"}
+    target_keys = {
         "front", "simplified", "traditional", "pattern", "furigana", "pinyin",
         "romanization", "question", "concept", "usage_pattern", "collocation",
     }
@@ -75,7 +75,25 @@ def minimal_card_context(snapshot: Optional[Mapping[str, Any]], *, include_answe
         "example_vn", "example2", "example2_vn", "example3", "example3_vn",
         "example4", "example4_vn",
     }
-    allowed = metadata_keys | question_keys | (answer_keys if include_answer else set())
+    if include_answer:
+        allowed = metadata_keys | target_keys | answer_keys
+    else:
+        # Legacy external snapshots predate study_mode and are forward cards.
+        # Reviewer-owned snapshots always provide the explicit current mode.
+        mode = str(snapshot.get("study_mode") or "qa").strip().casefold()
+        mode_keys = {
+            "qa": target_keys,
+            "vn": {"meaning"},
+            "wb": {"meaning"},
+            "pron": {
+                "front", "simplified", "traditional", "pattern", "meaning",
+                "question", "concept",
+            },
+            "lg": {"meaning", "furigana", "pinyin", "romanization"},
+        }
+        # A missing/unknown mode owns no card-content fields. This is safer
+        # than pretending every question is the forward qa direction.
+        allowed = metadata_keys | mode_keys.get(mode, set())
     result = {}
     for key, value in snapshot.items():
         normalized = str(key).strip().lower().replace(" ", "_")

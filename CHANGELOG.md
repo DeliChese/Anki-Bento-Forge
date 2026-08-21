@@ -1,6 +1,6 @@
 # 📋 CHANGELOG
 
-## [Unreleased] — cập nhật đến 2026-08-20
+## [Unreleased] — cập nhật đến 2026-08-21
 
 > Các thay đổi đã merge sau 17.1.0, được tổng hợp và cập nhật đến ngày 20/08/2026. Chỉ chuyển mục này thành bản phát hành khi `manifest.json`, bằng chứng CI và smoke Anki đã sẵn sàng.
 
@@ -50,6 +50,10 @@
 - Chuẩn hóa compatibility theo `manifest.json`, diagnostic event code và logging theo Anki profile.
 
 ### 🐛 Fixed
+- **V18.1.1 AI Language Card hardening** — chuẩn hóa ownership ngôn ngữ Nhật/Trung/Hàn/Anh và alias tại một boundary fail-closed; validator chặn schema/kind/level/placeholder/ví dụ thiếu và các mâu thuẫn script có độ chắc chắn cao trước preview, artifact, Xưởng và import.
+- **Artifact/Factory determinism** — artifact dùng schema snapshot hiện hành, kiểm tra source message và không còn chạy semantic repair; Xưởng không tự gọi AI để sinh ví dụ hoặc mutate card giữa artifact và import, đồng thời kiểm định lại ngay trước import.
+- **AI extraction/Reviewer/request ownership** — long-text còn span chưa phục hồi nay phát lỗi incomplete thay vì báo thành công; dedupe giữ cùng mặt chữ khác nghĩa để review; context Reviewer theo `qa/vn/wb/pron/lg` không lộ đáp án ẩn; callback Study Session dùng request token bất biến nên stale result không thể gắn sang turn/session mới.
+- **Prompt and grammar JSON boundaries** — custom card template phải giữ minimum vocab/grammar contract nhưng vẫn cho field mở rộng; grammar practice chỉ nhận đúng một JSON payload hoàn chỉnh, không regex chọn tùy ý từ prose hoặc nhiều payload.
 - **AI Study Sessions final polish** — rolling summary dùng marker message bền vững để chỉ compact phần delta chưa từng tóm tắt, giữ recent turns raw và migrate session cũ không marker an toàn; nút Ask AI trong Reviewer dùng màu neutral/translucent thích nghi light/dark thay cho palette sáng cố định. Artifact bubble nay gọi trực tiếp cùng owner Review/Đưa vào Xưởng theo `artifact_id`, không sao chép state hoặc gọi AI lần hai.
 - English AI output chứa `hsk_level`, response sai vocab/grammar mode, prose-only, wrapper không whitelist hoặc JSON chỉ hoàn thành một phần không còn silently lọt vào Xưởng; truncated tail không được tự đóng ngoặc hay bịa field.
 - Knowledge đổi hành động AI thành `GỬI & TẠO THẺ`, làm rõ ô `Yêu cầu thêm` và giữ nó trên pipeline tạo thẻ/schema Knowledge thay vì AI Chat của Language.

@@ -45,12 +45,14 @@ from .ai_reliability import (
     extract_optional_card_payload as _extract_optional_card_payload,
     validated_cards_from_result as _validated_cards_from_result,
 )
-from .ai_text_recovery import recover_text_chunk as _recover_text_chunk
+from .ai_text_recovery import IncompleteExtractionError, recover_text_chunk as _recover_text_chunk
+from .ai_reliability import is_exact_existing_card
 from .ai_output_validation import cache_payload_is_compatible
 from .ai_prompt_defaults import KNOWLEDGE_PROMPT_VERSION
 from .ai_usage_history import record_usage as _record_usage
 from .ai_providers import detect_provider
 from .ai_study_prompts import build_study_prompt
+from .language_identity import normalize_language
 from .user_data import (
     atomic_write_json,
     get_user_data_path,
@@ -662,7 +664,8 @@ def _format_existing_context(existing: List[str], text: str, label: str = "TỪ"
     overlap = []
     seen = set()
     for w in existing:
-        w = (w or "").strip()
+        raw = (w.get("front") or w.get("simplified") or w.get("pattern")) if isinstance(w, dict) else w
+        w = str(raw or "").strip()
         if not w:
             continue
         key = w.lower()
@@ -833,11 +836,10 @@ def extract_vocabulary_with_ai(
 
     # Lọc bỏ từ trùng với existing_words (safety net)
     if existing_words:
-        existing_set = set(w.lower().strip() for w in existing_words)
         original_count = len(vocab_list)
         vocab_list = [
             v for v in vocab_list
-            if (v.get("front") or v.get("simplified") or "").lower().strip() not in existing_set
+            if not is_exact_existing_card(v, existing_words, kind="vocab")
         ]
         if len(vocab_list) < original_count and progress_callback:
             progress_callback(t("status_filtered_vocab", count=original_count - len(vocab_list)))
@@ -949,7 +951,7 @@ def query_anki_context(user_message: str, lang: str = "japanese", collection=Non
 
 def _build_anki_context_text(context: dict) -> str:
     """Xây dựng text mô tả ngữ cảnh Anki để gửi cho AI, kèm lịch sử import"""
-    parts = [t("ai_context_language", language=context.get("language", "japanese"))]
+    language = normalize_language(context.get("language")); parts = [t("ai_context_language", language=language)]
     
     decks = context.get("decks", [])
     if decks:
@@ -977,7 +979,7 @@ def _build_anki_context_text(context: dict) -> str:
 
     # Thêm lịch sử import (chỉ lấy summary, không chi tiết từng từ để tiết kiệm token)
     try:
-        lang = context.get('language', 'japanese')
+        lang = language
         history_text = get_history_summary_text(lang=lang, max_words_for_ai=30)
         if history_text:
             parts.append(f"\n{'═' * 40}")
@@ -1229,7 +1231,7 @@ def extract_vocabulary_long_text(
 
     all_vocab = []
     seen = set()
-    existing_set = set(w.lower().strip() for w in (existing_words or []))
+    unresolved_total = 0
     # Từ đã trích ở đoạn trước → bổ sung vào danh sách "đã có" cho đoạn sau
     # (giúp AI không trích trùng qua biên giới đoạn → chất lượng + tiết kiệm output)
     prior_fronts = []
@@ -1269,13 +1271,14 @@ def extract_vocabulary_long_text(
                 _call_vocab, chunk, progress_callback=progress_callback,
                 should_abort=should_abort, kind="vocab",
             )
+            unresolved_total += unresolved_spans
             for item in vocab_chunk:
                 if not isinstance(item, dict):
                     continue
                 front = (item.get("front") or item.get("simplified") or "").strip().lower()
                 meaning = (item.get("meaning") or "").strip().lower()
                 key = f"{front}|{meaning}"
-                if front and key not in seen and front not in existing_set:
+                if front and key not in seen and not is_exact_existing_card(item, existing_words or [], kind="vocab"):
                     seen.add(key)
                     all_vocab.append(item)
                     prior_fronts.append(front)
@@ -1288,6 +1291,8 @@ def extract_vocabulary_long_text(
             if len(prior_fronts) > 400:
                 prior_fronts = prior_fronts[-400:]
         except Exception as e:
+            if should_abort and should_abort(): raise
+            unresolved_total += 1
             if progress_callback:
                 progress_callback(t("status_chunk_error", current=idx + 1, error=e))
 
@@ -1300,6 +1305,7 @@ def extract_vocabulary_long_text(
         else:
             progress_callback(summary)
 
+    if unresolved_total: raise IncompleteExtractionError(all_vocab, unresolved_total)
     return all_vocab
 
 
@@ -1445,11 +1451,10 @@ def extract_grammar_with_ai(
 
     # Lọc bỏ pattern trùng với existing_patterns (safety net)
     if existing_patterns:
-        existing_set = set(p.lower().strip() for p in existing_patterns)
         original_count = len(grammar_list)
         grammar_list = [
             g for g in grammar_list
-            if (g.get("pattern") or "").strip().lower() not in existing_set
+            if not is_exact_existing_card(g, existing_patterns, kind="grammar")
         ]
         if len(grammar_list) < original_count and progress_callback:
             progress_callback(t("status_filtered_grammar", count=original_count - len(grammar_list)))
@@ -1489,7 +1494,7 @@ def extract_grammar_long_text(
 
     all_grammar = []
     seen = set()
-    existing_set = set(p.lower().strip() for p in (existing_patterns or []))
+    unresolved_total = 0
     # Dedup theo (pattern|meaning) → cho phép cùng pattern, khác nghĩa = thẻ riêng
 
     agg = {
@@ -1524,13 +1529,14 @@ def extract_grammar_long_text(
                 _call_grammar, chunk, progress_callback=progress_callback,
                 should_abort=should_abort, kind="grammar",
             )
+            unresolved_total += unresolved_spans
             for item in grammar_chunk:
                 if not isinstance(item, dict):
                     continue
                 pat = (item.get("pattern") or "").strip().lower()
                 mean = (item.get("meaning") or "").strip().lower()
                 key = f"{pat}|{mean}"
-                if pat and key not in seen and pat not in existing_set:
+                if pat and key not in seen and not is_exact_existing_card(item, existing_patterns or [], kind="grammar"):
                     seen.add(key)
                     all_grammar.append(item)
             if unresolved_spans and progress_callback:
@@ -1539,6 +1545,8 @@ def extract_grammar_long_text(
                     valid=len(all_grammar), unresolved=unresolved_spans,
                 ))
         except Exception as e:
+            if should_abort and should_abort(): raise
+            unresolved_total += 1
             if progress_callback:
                 progress_callback(t("status_chunk_error", current=idx + 1, error=e))
 
@@ -1551,6 +1559,7 @@ def extract_grammar_long_text(
         else:
             progress_callback(summary)
 
+    if unresolved_total: raise IncompleteExtractionError(all_grammar, unresolved_total)
     return all_grammar
 
 

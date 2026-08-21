@@ -17,9 +17,9 @@
 """
 
 import json
-import re
 
 from utils.logger import get_logger
+from utils.language_identity import normalize_language
 
 logger = get_logger()
 
@@ -33,31 +33,37 @@ _LANG_EN = {
 
 
 def _lang_en(lang: str) -> str:
-    return _LANG_EN.get(lang, "Japanese")
+    return _LANG_EN[normalize_language(lang)]
 
 
-def _parse_grammar_json(reply: str) -> dict:
-    """Parse JSON lỏng lẻo từ AI (chịu ```json```, khoảng trắng thừa, text xung quanh)."""
-    if not reply:
-        return {"sentence": "", "translation": "", "error": "AI trả về rỗng."}
-    text = reply.strip()
-    # Bóc khối ```json ... ``` nếu có
+def _single_json_payload(reply: str):
+    """Decode exactly one complete payload, optionally in one JSON fence."""
+    text = str(reply or "").strip()
     if text.startswith("```"):
-        text = text.strip("`").strip()
-        if text.lower().startswith("json"):
-            text = text[4:].strip()
+        lines = text.splitlines()
+        if (
+            len(lines) < 3 or lines[-1].strip() != "```"
+            or lines[0].strip().casefold() not in {"```", "```json"}
+        ):
+            raise ValueError("malformed_json")
+        text = "\n".join(lines[1:-1]).strip()
+    decoder = json.JSONDecoder()
     try:
-        data = json.loads(text)
-    except Exception:
-        m = re.search(r"\{.*\}", text, re.S)
-        if not m:
-            return {"sentence": "", "translation": "", "error": "AI không trả đúng JSON."}
-        try:
-            data = json.loads(m.group(0))
-        except Exception:
-            return {"sentence": "", "translation": "", "error": "AI không trả đúng JSON."}
+        value, end = decoder.raw_decode(text)
+    except (TypeError, json.JSONDecodeError) as error:
+        raise ValueError("malformed_json") from error
+    if text[end:].strip():
+        raise ValueError("ambiguous_json_payloads")
+    return value
+
+
+def _parse_grammar_json_strict(reply: str) -> dict:
+    try:
+        data = _single_json_payload(reply)
+    except ValueError as error:
+        return {"sentence": "", "translation": "", "error": str(error)}
     if not isinstance(data, dict):
-        return {"sentence": "", "translation": "", "error": "AI không trả đúng JSON."}
+        return {"sentence": "", "translation": "", "error": "invalid_json_schema"}
     return {
         "sentence": str(data.get("sentence") or "").strip(),
         "translation": str(data.get("translation") or "").strip(),
@@ -65,13 +71,19 @@ def _parse_grammar_json(reply: str) -> dict:
     }
 
 
-def generate_grammar_sentence(pattern: str, meaning: str, lang: str = "japanese") -> dict:
+def _parse_grammar_json(reply: str) -> dict:
+    """Compatibility alias for the strict single-payload parser."""
+    return _parse_grammar_json_strict(reply)
+
+
+def generate_grammar_sentence(pattern: str, meaning: str, lang: str) -> dict:
     """
     Gọi AI sinh 1 câu ví dụ áp dụng cấu trúc ngữ pháp + bản dịch tiếng Việt.
 
     Returns:
         {"sentence": str, "translation": str, "error": None|str}
     """
+    lang = normalize_language(lang)
     target = _lang_en(lang)
     prompt = (
         f'Cấu trúc ngữ pháp tiếng {target}: "{pattern}" (nghĩa: {meaning}).\n'
@@ -84,13 +96,13 @@ def generate_grammar_sentence(pattern: str, meaning: str, lang: str = "japanese"
         res = chat_with_ai(prompt, lang=lang, quick=True)
         if res.get("error"):
             return {"sentence": "", "translation": "", "error": res["error"]}
-        return _parse_grammar_json(res.get("reply") or "")
+        return _parse_grammar_json_strict(res.get("reply") or "")
     except Exception as e:  # noqa: BLE001
         logger.warning("grammar_ai: lỗi sinh câu: %s", e)
         return {"sentence": "", "translation": "", "error": str(e)}
 
 
-def generate_grammar_examples(pattern: str, meaning: str, lang: str = "japanese",
+def generate_grammar_examples(pattern: str, meaning: str, lang: str,
                               count: int = 2) -> list:
     """
     Sinh `count` câu ví dụ AI cho cấu trúc ngữ pháp (để điền Example/Example2 khi đúc thẻ).
@@ -98,6 +110,7 @@ def generate_grammar_examples(pattern: str, meaning: str, lang: str = "japanese"
     Returns:
         list[dict] mỗi phần tử {"sentence", "translation"} (rỗng nếu lỗi).
     """
+    lang = normalize_language(lang)
     target = _lang_en(lang)
     prompt = (
         f'Cấu trúc ngữ pháp tiếng {target}: "{pattern}" (nghĩa: {meaning}).\n'
@@ -110,35 +123,28 @@ def generate_grammar_examples(pattern: str, meaning: str, lang: str = "japanese"
         res = chat_with_ai(prompt, lang=lang, quick=True)
         if res.get("error"):
             return []
-        reply = (res.get("reply") or "").strip()
-        if reply.startswith("```"):
-            reply = reply.strip("`").strip()
-            if reply.lower().startswith("json"):
-                reply = reply[4:].strip()
-        try:
-            data = json.loads(reply)
-        except Exception:
-            m = re.search(r"\[.*\]", reply, re.S)
-            data = json.loads(m.group(0)) if m else []
-        if not isinstance(data, list):
+        strict_data = _single_json_payload(res.get("reply") or "")
+        if not isinstance(strict_data, list):
             return []
-        out = []
-        for it in data:
-            if isinstance(it, dict) and it.get("sentence"):
-                out.append({
-                    "sentence": str(it["sentence"]).strip(),
-                    "translation": str(it.get("translation") or "").strip(),
-                })
-        return out
+        return [
+            {
+                "sentence": str(item.get("sentence") or "").strip(),
+                "translation": str(item.get("translation") or "").strip(),
+            }
+            for item in strict_data
+            if isinstance(item, dict) and str(item.get("sentence") or "").strip()
+        ]
     except Exception as e:  # noqa: BLE001
         logger.warning("grammar_ai: lỗi sinh ví dụ: %s", e)
         return []
 
 
-def ensure_grammar_examples(item: dict, lang: str = "japanese") -> bool:
+def ensure_grammar_examples(item: dict, lang: str) -> bool:
     """
-    Điền ví dụ AI cho 1 thẻ ngữ pháp NẾU chưa có — thay thế ví dụ cứng/mặc định
-    bằng câu do AI sinh khi tiến hành đúc thẻ bằng Bento Forge.
+    Explicit regeneration helper for callers outside Factory verify/import.
+
+    This compatibility utility is intentionally not called by artifact,
+    Factory validation, enqueue, or import preparation.
 
     Keys JSON khớp với json_field_map ngữ pháp:
         example → Example, example_vn → Example in Vietnamese,

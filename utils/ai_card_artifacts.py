@@ -7,8 +7,7 @@ from datetime import datetime, timezone
 from typing import Any, Sequence
 
 from .ai_output_validation import AI_OUTPUT_SCHEMA_VERSION, validate_ai_cards
-from .ai_output_repairs import repair_vocabulary_cards
-from .usage_guide import normalize_language_cards
+from .language_identity import normalize_language
 
 
 def create_card_artifact(
@@ -20,7 +19,13 @@ def create_card_artifact(
     source_message_id: str,
 ) -> dict:
     """Validate once more before making an immutable-on-disk card snapshot."""
-    report = validate_ai_cards(list(cards), lang=language, kind=kind)
+    language = normalize_language(language)
+    source_message_id = str(source_message_id or "").strip()
+    if not str(session_id or "").strip() or not source_message_id:
+        raise ValueError("artifact provenance is incomplete")
+    report = validate_ai_cards(
+        list(cards), lang=language, kind=kind, require_example=True,
+    )
     if (
         not report.valid_cards
         or report.invalid
@@ -28,11 +33,14 @@ def create_card_artifact(
         or len(report.valid_cards) != len(cards)
     ):
         raise ValueError("card payload is not a complete validated artifact")
-    normalized = list(report.valid_cards)
-    normalized = (
-        repair_vocabulary_cards(normalized, language)
-        if kind == "vocab" else normalize_language_cards(normalized)
+    normalized = [dict(card) for card in report.valid_cards]
+    # An artifact is a snapshot. No semantic repair or caller-specific
+    # normalization is allowed after this validation boundary.
+    revalidated = validate_ai_cards(
+        normalized, lang=language, kind=kind, require_example=True,
     )
+    if revalidated.invalid or len(revalidated.valid_cards) != len(normalized):
+        raise ValueError("card payload changed across artifact validation")
     return {
         "artifact_id": f"artifact_{uuid.uuid4().hex}",
         "session_id": str(session_id),
@@ -41,7 +49,7 @@ def create_card_artifact(
         "kind": kind,
         "schema_version": AI_OUTPUT_SCHEMA_VERSION,
         "cards": [dict(card) for card in normalized],
-        "source_message_id": str(source_message_id),
+        "source_message_id": source_message_id,
     }
 
 
@@ -50,13 +58,18 @@ def artifact_to_factory_payload(artifact: dict) -> tuple[str, str, list[dict]]:
     if not isinstance(artifact, dict):
         raise ValueError("invalid card artifact")
     schema = int(artifact.get("schema_version") or 0)
-    if schema > AI_OUTPUT_SCHEMA_VERSION or schema < 1:
+    if schema != AI_OUTPUT_SCHEMA_VERSION:
         raise ValueError("unsupported card artifact schema")
-    language = str(artifact.get("language") or "")
+    language = normalize_language(artifact.get("language"))
     kind = str(artifact.get("kind") or "")
     cards = artifact.get("cards")
-    report = validate_ai_cards(cards or [], lang=language, kind=kind)
-    if not cards or report.invalid or len(report.valid_cards) != len(cards):
+    report = validate_ai_cards(
+        cards or [], lang=language, kind=kind, require_example=True,
+    )
+    if (
+        not cards or report.invalid or report.duplicate_count
+        or len(report.valid_cards) != len(cards)
+    ):
         raise ValueError("card artifact is no longer compatible")
     return language, kind, [dict(card) for card in report.valid_cards]
 

@@ -172,7 +172,7 @@ class TestOverrideLifecycle:
         assert "Bạn là chuyên gia tiếng Nhật" in sp
 
     def test_grammar_override(self, clean_config):
-        custom_tpl = '{"pattern":"P","meaning":"M"}'
+        custom_tpl = '{"pattern":"P","meaning":"M","usage":"U"}'
         pc.save_config({
             "grammar": {"chinese": {"json_template": custom_tpl}},
         })

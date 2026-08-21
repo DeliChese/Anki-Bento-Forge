@@ -38,13 +38,14 @@ from .ai_response_guard import adapt_chat_completion_response, enable_deepseek_j
 from .ai_reliability import (
     AiCardResponse,
     AiOutputFailure,
+    existing_entry_identity,
+    is_exact_existing_card,
     reconcile_expected_candidates,
 )
 from .ai_output_validation import (
     AI_OUTPUT_SCHEMA_VERSION,
     cache_payload_is_compatible,
 )
-from .ai_output_repairs import repair_vocabulary_cards
 from .usage_guide import normalize_language_cards
 from .ai_result_cache import DEFAULT_PROMPT_VERSION
 from .ai_http_client import (
@@ -54,6 +55,7 @@ from .ai_http_client import (
 from .prompt_config import (
     get_system_prompt, get_json_template, get_signature,
 )
+from .language_identity import normalize_language
 
 logger = get_logger()
 
@@ -365,12 +367,19 @@ không bịa dữ kiện còn thiếu.
         overlap = []
         seen = set()
         for w in existing_words:
-            key = (w or "").strip().lower()
+            identity, _meaning = existing_entry_identity(
+                w, "grammar" if grammar else "vocab",
+            )
+            raw = (
+                (w.get("pattern") or w.get("front") or w.get("simplified") or "")
+                if isinstance(w, dict) else str(w or "")
+            )
+            key = identity
             if not key or key in seen:
                 continue
             seen.add(key)
-            if key in batch_fronts:
-                overlap.append(w.strip())
+            if any(existing_entry_identity(front, "vocab")[0] == key for front in batch_fronts):
+                overlap.append(str(raw).strip())
         if overlap:
             if len(overlap) > _cap:
                 shown = overlap[:_cap]
@@ -486,17 +495,11 @@ def _call_ai_for_batch_response(
         )
     except AiOutputFailure as exc:
         cards = list(exc.cards)
-        cards = (
-            normalize_language_cards(cards)
-            if grammar else repair_vocabulary_cards(cards, lang)
-        )
+        cards = normalize_language_cards(cards)
         raise AiOutputFailure(exc.category, cards=cards, message=str(exc)) from exc
 
     cards = list(response.cards)
-    cards = (
-        normalize_language_cards(cards)
-        if grammar else repair_vocabulary_cards(cards, lang)
-    )
+    cards = normalize_language_cards(cards)
     response = replace(response, cards=tuple(cards))
     
     if progress_callback and response.comment:
@@ -736,6 +739,7 @@ def process_large_word_list(
     Returns:
         List[dict] từ vựng đã được AI làm giàu (đầy đủ trường)
     """
+    lang = normalize_language(lang)
     label = t("batch_item_pattern") if grammar else t("batch_item_word")
     short_label = t("batch_item_pattern_short") if grammar else t("batch_item_word_short")
     
@@ -752,9 +756,15 @@ def process_large_word_list(
     
     # ── Step 2: Lọc đã có ─────────────────────────────
     if existing_words:
-        existing_set = set(w.lower().strip() for w in existing_words)
         original_count = len(words)
-        words = [w for w in words if w["front"].lower().strip() not in existing_set]
+        words = [
+            word for word in words
+            if not is_exact_existing_card(
+                {"pattern" if grammar else "front": word["front"], "meaning": word.get("meaning")},
+                existing_words,
+                kind="grammar" if grammar else "vocab",
+            )
+        ]
         filtered_count = original_count - len(words)
         if progress_callback and filtered_count > 0:
             progress_callback(t("batch_status_filtered", count=filtered_count, label=label))
@@ -785,7 +795,6 @@ def process_large_word_list(
     existing_hash = _make_existing_hash(existing_words or [])
     all_vocab = []
     seen_cards = set()
-    existing_set = set(w.lower().strip() for w in (existing_words or []))
     total_batches = len(batches)
     total_errors = 0
     requested_count = len(words)
@@ -848,7 +857,12 @@ def process_large_word_list(
                     else (item.get("front") or item.get("simplified") or "")
                 ).strip().lower()
                 card_key = (front, (item.get("meaning") or "").strip().lower())
-                if front and card_key not in seen_cards and front not in existing_set:
+                if (
+                    front and card_key not in seen_cards
+                    and not is_exact_existing_card(
+                        item, existing_words or [], kind="grammar" if grammar else "vocab",
+                    )
+                ):
                     seen_cards.add(card_key)
                     all_vocab.append(item)
                     new_count += 1
@@ -888,7 +902,12 @@ def process_large_word_list(
                         else (item.get("front") or item.get("simplified") or "")
                     ).strip().lower()
                     card_key = (front, (item.get("meaning") or "").strip().lower())
-                    if front and card_key not in seen_cards and front not in existing_set:
+                    if (
+                        front and card_key not in seen_cards
+                        and not is_exact_existing_card(
+                            item, existing_words or [], kind="grammar" if grammar else "vocab",
+                        )
+                    ):
                         seen_cards.add(card_key)
                         all_vocab.append(item)
                         new_count += 1
@@ -1218,7 +1237,7 @@ def _fallback_deck_organization(vocab_list: List[dict], lang: str) -> dict:
         "chinese": "organizer_lang_chinese",
         "korean": "organizer_lang_korean",
         "english": "organizer_lang_english",
-    }.get(lang, "organizer_lang_japanese"))
+    }[normalize_language(lang)])
     
     if by_topic:
         sub_decks = []

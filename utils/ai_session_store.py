@@ -16,6 +16,8 @@ from datetime import datetime, timezone
 from typing import Any, Optional
 
 from .logger import get_logger, redact_sensitive
+from .language_identity import CANONICAL_LANGUAGES, normalize_language, try_normalize_language
+from .ai_output_validation import AI_OUTPUT_SCHEMA_VERSION, validate_ai_cards
 from .user_data import atomic_write_json, get_user_data_path, read_json
 
 
@@ -24,7 +26,7 @@ logger = get_logger()
 SESSION_SCHEMA_VERSION = 2
 MESSAGE_TYPES = frozenset({"user", "assistant", "system_internal", "artifact_reference"})
 MESSAGE_ROLES = frozenset({"user", "assistant", "system"})
-SUPPORTED_LANGUAGES = frozenset({"japanese", "chinese", "korean", "english"})
+SUPPORTED_LANGUAGES = CANONICAL_LANGUAGES
 DEFAULT_MAX_SESSIONS = 100
 DEFAULT_MAX_MESSAGES = 500
 DEFAULT_MAX_ARTIFACTS = 100
@@ -84,16 +86,26 @@ def _artifact(value: Any) -> Optional[dict]:
     if not isinstance(value, dict) or not isinstance(value.get("cards"), list):
         return None
     kind = str(value.get("kind") or "").strip().lower()
-    language = str(value.get("language") or "").strip().lower()
-    if kind not in {"vocab", "grammar"} or language not in SUPPORTED_LANGUAGES:
+    language = try_normalize_language(value.get("language"))
+    if kind not in {"vocab", "grammar"} or language is None:
         return None
     cards = [redact_sensitive(dict(card)) for card in value["cards"] if isinstance(card, dict)]
     if not cards:
         return None
     try:
-        schema_version = max(1, int(value.get("schema_version") or 1))
+        schema_version = int(value.get("schema_version") or 0)
     except (TypeError, ValueError):
-        schema_version = 1
+        return None
+    if schema_version != AI_OUTPUT_SCHEMA_VERSION:
+        return None
+    try:
+        report = validate_ai_cards(
+            cards, lang=language, kind=kind, require_example=True,
+        )
+    except ValueError:
+        return None
+    if report.invalid or report.duplicate_count or len(report.valid_cards) != len(cards):
+        return None
     return {
         "artifact_id": _clean_text(value.get("artifact_id"), 100) or _identifier("artifact"),
         "session_id": _clean_text(value.get("session_id"), 100),
@@ -101,7 +113,7 @@ def _artifact(value: Any) -> Optional[dict]:
         "language": language,
         "kind": kind,
         "schema_version": schema_version,
-        "cards": cards,
+        "cards": [dict(card) for card in report.valid_cards],
         "source_message_id": _clean_text(value.get("source_message_id"), 100),
     }
 
@@ -109,12 +121,16 @@ def _artifact(value: Any) -> Optional[dict]:
 def _session(value: Any, *, max_messages: int, max_artifacts: int) -> Optional[dict]:
     if not isinstance(value, dict):
         return None
-    language = str(value.get("language") or "japanese").strip().lower()
-    if language not in SUPPORTED_LANGUAGES:
-        language = "japanese"
+    language = try_normalize_language(value.get("language"))
+    if language is None:
+        return None
     session_id = _clean_text(value.get("id"), 100) or _identifier("session")
     messages = [item for item in (_message(item) for item in value.get("messages", [])) if item]
-    artifacts = [item for item in (_artifact(item) for item in value.get("artifacts", [])) if item]
+    message_ids = {item["id"] for item in messages}
+    artifacts = [
+        item for item in (_artifact(item) for item in value.get("artifacts", []))
+        if item and item.get("source_message_id") in message_ids
+    ]
     for artifact in artifacts:
         artifact["session_id"] = session_id
     deck_context = value.get("optional_deck_context")
@@ -220,7 +236,7 @@ class StudySessionStore:
     def create_session(
         self,
         *,
-        language: str = "japanese",
+        language: str,
         title: str = "",
         provider: str = "",
         model: str = "",
@@ -229,6 +245,7 @@ class StudySessionStore:
         with self._lock:
             document = self._load()
             now = _now()
+            language = normalize_language(language)
             session = _session({
                 "id": _identifier("session"),
                 "title": title or "Study Session",
@@ -388,6 +405,11 @@ class StudySessionStore:
         clean = _artifact(dict(artifact, session_id=session_id))
         if clean is None:
             raise ValueError("invalid card artifact")
+        source_message_id = clean.get("source_message_id")
+        if not source_message_id or not any(
+            item.get("id") == source_message_id for item in session["messages"]
+        ):
+            raise ValueError("card artifact source message does not exist")
         session["artifacts"].append(clean)
         self.save_session(session)
         return clean

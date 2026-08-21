@@ -10,7 +10,6 @@ from typing import Any, Mapping, Sequence
 from .ai_response_guard import AdaptedAiResponse
 from .ai_response_parser import AiResponseParseError, parse_ai_payload
 from .ai_output_validation import CardValidationIssue, validate_ai_cards
-from .ai_output_repairs import repair_vocabulary_cards
 from .i18n import t
 from .logger import get_logger
 from .usage_guide import normalize_language_cards
@@ -31,6 +30,32 @@ def card_identity(card: Mapping[str, Any], kind: str) -> str:
         if identity:
             return identity
     return ""
+
+
+def existing_entry_identity(entry: Any, kind: str) -> tuple[str, str]:
+    """Return canonical (surface, sense); legacy strings have no owned sense."""
+    if isinstance(entry, Mapping):
+        return card_identity(entry, kind), canonical_identity(entry.get("meaning"))
+    return canonical_identity(entry), ""
+
+
+def is_exact_existing_card(
+    card: Mapping[str, Any], existing: Sequence[Any], *, kind: str,
+) -> bool:
+    """Only discard the same surface+sense, never a distinct sense."""
+    identity = card_identity(card, kind)
+    meaning = canonical_identity(card.get("meaning"))
+    for entry in existing:
+        old_identity, old_meaning = existing_entry_identity(entry, kind)
+        if old_identity != identity:
+            continue
+        if old_meaning:
+            return old_meaning == meaning
+        # A legacy surface-only entry proves duplication only when the new
+        # candidate also lacks a sense. Otherwise it must reach review.
+        if not meaning:
+            return True
+    return False
 
 
 @dataclass(frozen=True)
@@ -176,10 +201,7 @@ def extract_optional_card_payload(
         )
 
     cards = list(result.cards)
-    cards = (
-        repair_vocabulary_cards(cards, lang)
-        if kind == "vocab" else normalize_language_cards(cards)
-    )
+    cards = normalize_language_cards(cards)
     logger.info(
         "AI chat card payload validated provider=%s model=%s lang=%s kind=%s raw=%d valid=%d duplicates=%d recovery=%s",
         response.provider, response.model, lang, kind, result.raw_count,
@@ -206,10 +228,7 @@ def validated_cards_from_result(
         response = process_ai_card_response(adapted, lang=lang, kind=kind)
     except AiOutputFailure as exc:
         valid = list(exc.cards)
-        valid = (
-            repair_vocabulary_cards(valid, lang)
-            if kind == "vocab" else normalize_language_cards(valid)
-        )
+        valid = normalize_language_cards(valid)
         logger.warning(
             "AI output rejected category=%s provider=%s model=%s lang=%s kind=%s valid_prefix=%d",
             exc.category, adapted.provider, adapted.model, lang, kind, len(valid),
@@ -217,10 +236,7 @@ def validated_cards_from_result(
         raise AiOutputFailure(exc.category, cards=valid, message=str(exc)) from exc
 
     cards = list(response.cards)
-    cards = (
-        repair_vocabulary_cards(cards, lang)
-        if kind == "vocab" else normalize_language_cards(cards)
-    )
+    cards = normalize_language_cards(cards)
     logger.info(
         "AI output provider=%s model=%s lang=%s kind=%s raw=%d valid=%d invalid=%d duplicates=%d recovery=%s",
         response.provider, response.model, lang, kind, response.raw_count,
@@ -301,7 +317,8 @@ def reconcile_expected_candidates(
 
 __all__ = [
     "AiCardResponse", "AiOutputFailure", "CompletenessReport", "OptionalCardPayload",
-    "canonical_identity", "card_identity", "process_ai_card_response",
+    "canonical_identity", "card_identity", "existing_entry_identity",
+    "is_exact_existing_card", "process_ai_card_response",
     "extract_optional_card_payload", "reconcile_expected_candidates",
     "validated_cards_from_result",
 ]

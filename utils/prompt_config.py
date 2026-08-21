@@ -27,6 +27,7 @@ import threading
 from .logger import get_logger
 from . import ai_prompt_defaults as defaults
 from .user_data import atomic_write_json, get_user_data_path, migrate_legacy_json, read_json
+from .language_identity import normalize_language
 
 logger = get_logger()
 
@@ -101,26 +102,28 @@ def _ui_is_english() -> bool:
 
 
 def _default_json_template(lang: str, kind: str) -> str:
+    lang = normalize_language(lang)
+    if kind not in KINDS:
+        raise ValueError("unsupported card kind")
     en = _ui_is_english()
     if kind == "grammar":
         table = defaults._GRAMMAR_JSON_TEMPLATES_EN if en else defaults._GRAMMAR_JSON_TEMPLATES
-        fallback = defaults._JAPANESE_GRAMMAR_JSON_TEMPLATE_EN if en else defaults._JAPANESE_GRAMMAR_JSON_TEMPLATE
-        return table.get(lang, fallback)
+        return table[lang]
     table = defaults._JSON_TEMPLATES_EN if en else defaults._JSON_TEMPLATES
-    fallback = defaults._JAPANESE_JSON_TEMPLATE_EN if en else defaults._JAPANESE_JSON_TEMPLATE
-    return table.get(lang, fallback)
+    return table[lang]
 
 
 def _default_system_prompt(lang: str, kind: str) -> str:
     """System prompt mặc định (đã interpolate mẫu)."""
+    lang = normalize_language(lang)
+    if kind not in KINDS:
+        raise ValueError("unsupported card kind")
     en = _ui_is_english()
     if kind == "grammar":
         table = defaults._GRAMMAR_SYSTEM_PROMPTS_EN if en else defaults._GRAMMAR_SYSTEM_PROMPTS
-        fallback = defaults._GRAMMAR_SYSTEM_PROMPTS_EN["japanese"] if en else defaults._GRAMMAR_SYSTEM_PROMPTS["japanese"]
-        return table.get(lang, fallback)
+        return table[lang]
     table = defaults._SYSTEM_PROMPTS_EN if en else defaults._SYSTEM_PROMPTS
-    fallback = defaults._JAPANESE_SYSTEM_PROMPT_EN if en else defaults._JAPANESE_SYSTEM_PROMPT
-    return table.get(lang, fallback)
+    return table[lang]
 
 
 def _default_system_prompt_raw(lang: str, kind: str) -> str:
@@ -138,7 +141,7 @@ def _default_system_prompt_raw(lang: str, kind: str) -> str:
 #  VALIDATION
 # ═══════════════════════════════════════════════════════════
 
-def validate_json_template(template: str):
+def validate_json_template(template: str, lang: str | None = None, kind: str | None = None):
     """Kiểm tra json_template có parse được JSON object không.
 
     Returns:
@@ -156,6 +159,31 @@ def validate_json_template(template: str):
     if not isinstance(data, dict):
         return False, t("prompt_validation_not_object"), []
     fields = [str(k) for k in data.keys()]
+    if lang is not None or kind is not None:
+        try:
+            canonical_lang = normalize_language(lang)
+        except ValueError as error:
+            return False, str(error), fields
+        if kind not in KINDS:
+            return False, "unsupported card kind", fields
+        keys = {str(key).strip().casefold() for key in data}
+        identity_keys = {"pattern"} if kind == "grammar" else {"front", "simplified"}
+        if not keys.intersection(identity_keys) or "meaning" not in keys:
+            return False, "template_missing_core_card_fields", fields
+        if kind == "grammar" and not keys.intersection({"usage", "explanation"}):
+            return False, "template_missing_grammar_function", fields
+        expected_level = {
+            "japanese": {"jlptlevel"},
+            "chinese": {"hsk_level", "hsklevel"},
+            "korean": {"topik_level", "topiklevel"},
+            "english": {"cefr_level", "cefrlevel"},
+        }[canonical_lang]
+        all_levels = set().union(
+            {"jlptlevel"}, {"hsk_level", "hsklevel"},
+            {"topik_level", "topiklevel"}, {"cefr_level", "cefrlevel"},
+        )
+        if keys.intersection(all_levels - expected_level):
+            return False, "template_language_level_mismatch", fields
     return True, None, fields
 
 
@@ -227,7 +255,17 @@ def get_effective_config() -> dict:
             # Template hiệu lực
             tpl_ov = ov.get("json_template")
             if tpl_ov and isinstance(tpl_ov, str) and tpl_ov.strip():
-                tpl = tpl_ov
+                ok, error, _fields = validate_json_template(
+                    tpl_ov, lang=lang, kind=kind,
+                )
+                if ok:
+                    tpl = tpl_ov
+                else:
+                    logger.warning(
+                        "prompt_config: rejected incompatible template lang=%s kind=%s error=%s",
+                        lang, kind, error,
+                    )
+                    tpl = d_tpl
             else:
                 tpl = d_tpl
             # System prompt RAW hiệu lực (chứa placeholder)
@@ -262,8 +300,9 @@ def get_effective_config() -> dict:
 
 def get_json_template(lang: str, kind: str = "vocab") -> str:
     """Template JSON hiệu lực cho (lang, kind)."""
-    if lang not in LANGS or kind not in KINDS:
-        return _default_json_template(lang, kind)
+    lang = normalize_language(lang)
+    if kind not in KINDS:
+        raise ValueError("unsupported card kind")
     return get_effective_config()[kind][lang]["json_template"]
 
 
@@ -274,8 +313,9 @@ def get_knowledge_json_template() -> str:
 
 def get_system_prompt(lang: str, kind: str = "vocab") -> str:
     """System prompt hiệu lực (đã interpolate template) cho (lang, kind)."""
-    if lang not in LANGS or kind not in KINDS:
-        return _default_system_prompt(lang, kind)
+    lang = normalize_language(lang)
+    if kind not in KINDS:
+        raise ValueError("unsupported card kind")
     return get_effective_config()[kind][lang]["system_prompt"]
 
 
@@ -327,6 +367,9 @@ def save_config(entries: dict, field_map: dict = None, card_show: dict = None) -
             entry = {}
             tpl = (e.get("json_template") or "").strip()
             if tpl:
+                ok, error, _fields = validate_json_template(tpl, lang=lang, kind=kind)
+                if not ok:
+                    raise ValueError(error or "invalid card template")
                 entry["json_template"] = tpl
             sp = (e.get("system_prompt") or "").strip()
             if sp:
