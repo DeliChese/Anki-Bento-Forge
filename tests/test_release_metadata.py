@@ -68,6 +68,30 @@ def test_current_version_is_not_recorded_as_released_without_ci_and_smoke():
     assert f"## [V{version}]" not in changelog
 
 
+def test_unreleased_changelog_uses_dated_version_snapshots():
+    """Keep unreleased work attributable to the day and manifest version it used."""
+    changelog = (ROOT / "CHANGELOG.md").read_text(encoding="utf-8")
+    unreleased = changelog.split("## [V", maxsplit=1)[0]
+
+    assert "cập nhật đến" not in unreleased.lower()
+    assert re.search(
+        r"^### \d{4}-\d{2}-\d{2} — Phiên bản: `\d+\.\d+\.\d+` → `\d+\.\d+\.\d+`$",
+        unreleased,
+        re.MULTILINE,
+    )
+    expected_backfill = {
+        "2026-08-15": ("17.1.0", "17.2.0"),
+        "2026-08-16": ("17.2.0", "17.2.0"),
+        "2026-08-20": ("17.2.0", "18.1.0"),
+        "2026-08-21": ("18.1.0", "18.1.0"),
+    }
+    for day, (opening_version, closing_version) in expected_backfill.items():
+        assert (
+            f"### {day} — Phiên bản: `{opening_version}` → `{closing_version}`"
+            in unreleased
+        )
+
+
 def test_ci_uses_the_same_two_round_isolated_harness():
     harness = (ROOT / "scripts" / "test_isolated.ps1").read_text(encoding="utf-8")
     workflow = (ROOT / ".github" / "workflows" / "ci.yml").read_text(encoding="utf-8")

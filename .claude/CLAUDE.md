@@ -57,7 +57,7 @@ __init__.py (26 dòng)         ← compatibility facade (public re-export)
 7. **Thread-safe cho mọi state chia sẻ** — dùng `threading.Lock` (xem audio/engine.py làm mẫu).
 8. **Không commit `utils/ai_config.json`** (API key mã hóa) — chỉ commit `.example`.
 9. **Sửa prompt → Bump `_PROMPT_VERSION`** trong `utils/ai_extractor.py:408` để invalidate cache.
-10. **Thay đổi có thể phát hành phải cập nhật `CHANGELOG.md` trong cùng thay đổi** — ghi vào `[Unreleased]` theo `CHANGELOG_POLICY.md`; không ghi roadmap hoặc kết quả chưa được kiểm chứng như tính năng đã hoàn tất.
+10. **Thay đổi có thể phát hành phải cập nhật `CHANGELOG.md` trong cùng thay đổi** — ghi vào mục ngày hiện tại trong `[Unreleased]` theo `CHANGELOG_POLICY.md`, kèm snapshot version đầu/cuối ngày; không ghi roadmap hoặc kết quả chưa được kiểm chứng như tính năng đã hoàn tất.
 11. **Sau khi sửa → chạy pytest** (skill 10) trước khi báo xong.
 
 ## 🏷️ NGÔN NGỮ & THUẬT NGỮ

@@ -95,8 +95,8 @@ Batch cache: utils/batch_processor.py CACHE_TTL (43)
 
 > Quy tắc đầy đủ: [`.claude/CHANGELOG_POLICY.md`](../../CHANGELOG_POLICY.md). Áp dụng **trong cùng thay đổi**, không đợi đến lúc đóng gói release.
 
-1. Khi một thay đổi ảnh hưởng hành vi người dùng, dữ liệu/migration, bảo mật, tương thích, vận hành phát hành hoặc test regression, thêm một bullet ngắn, đúng bằng chứng vào `## [Unreleased]` của `CHANGELOG.md`.
-2. Dùng đúng nhóm `✨ Added`, `🔧 Changed`, `🐛 Fixed`; không đưa roadmap, ý tưởng, hoặc thay đổi chỉ dự kiến vào changelog.
+1. Khi một thay đổi ảnh hưởng hành vi người dùng, dữ liệu/migration, bảo mật, tương thích, vận hành phát hành hoặc test regression, thêm một bullet ngắn, đúng bằng chứng vào mục ngày hiện tại của `## [Unreleased]` trong `CHANGELOG.md`: `### YYYY-MM-DD — Phiên bản: <đầu ngày> → <cuối ngày>`. Tạo mục mới khi sang ngày mới; không dùng “cập nhật đến/tới ngày”.
+2. Lấy version đầu/cuối ngày từ `manifest.json` của commit đầu/cuối ngày trong Git; ghi cùng version khi không có bump. Đây là snapshot lịch sử, không phải release. Dùng đúng nhóm `#### ✨ Added`, `#### 🔧 Changed`, `#### 🐛 Fixed`; không đưa roadmap, ý tưởng, hoặc thay đổi chỉ dự kiến vào changelog.
 3. Giữ thay đổi ở `[Unreleased]` khi chưa có release được xác minh. Chỉ khi release được phép: chuyển mục sang `## [V<manifest.version>] — YYYY-MM-DD`, rồi mới bump/đóng gói theo checklist.
 4. Backfill changelog phải đối chiếu `git log`, `git show`, test và tài liệu evidence; ưu tiên mô tả tác động thực tế, không sao chép nguyên văn commit message.
 5. Trước khi bàn giao, xem `git diff -- CHANGELOG.md` và chạy `python -m pytest tests/test_release_metadata.py -q` cùng test phù hợp cho code đã sửa.

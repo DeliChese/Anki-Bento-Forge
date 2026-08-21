@@ -12,7 +12,9 @@ from utils.ai_card_artifacts import (
 )
 from utils.ai_context_manager import compact_session_summary, prepare_study_context
 from utils.ai_output_validation import AI_OUTPUT_SCHEMA_VERSION
-from utils.ai_session_store import SESSION_SCHEMA_VERSION, StudySessionStore
+from utils.ai_session_store import (
+    SESSION_SCHEMA_VERSION, StudySessionStore, _serialized_size,
+)
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -39,6 +41,31 @@ def _seed_persisted_artifact(path):
         message_type="artifact_reference", artifact_id=stored["artifact_id"],
     )
     return store, session, stored
+
+
+def _retention_document(path, *, artifact_count=1, stale=False, source_size=20):
+    store = StudySessionStore(str(path))
+    session = store.create_session(language="english", title="Retention")
+    source = store.add_message(
+        session["id"], role="user", content="source:" + "s" * source_size,
+    )
+    artifacts = []
+    for index in range(artifact_count):
+        artifact = create_card_artifact(
+            session_id=session["id"], language="english", kind="vocab",
+            cards=[_english_card(f"sense-{index}")], source_message_id=source["id"],
+        )
+        artifacts.append(store.add_artifact(session["id"], artifact))
+    session = store.get_session(session["id"])
+    if stale:
+        for artifact in session["artifacts"]:
+            artifact["schema_version"] -= 1
+            artifact["compatibility"] = ARTIFACT_COMPATIBILITY_STALE
+    return {
+        "schema_version": SESSION_SCHEMA_VERSION,
+        "sessions": [session],
+        "ui_state": {},
+    }, session["id"], source["id"], artifacts
 
 
 def _long_messages(count=24, *, start=0, prefix="message", width=240, id_prefix="msg"):
@@ -145,6 +172,146 @@ def test_store_enforces_total_byte_retention(tmp_path):
     assert path.stat().st_size <= 4_096
     assert restored["messages"][-1]["content"].startswith("11:")
     assert len(restored["messages"]) < 12
+
+
+@pytest.mark.parametrize("stale", [False, True])
+def test_bounded_retention_prunes_unreferenced_messages_before_artifact_sources(
+    tmp_path, stale,
+):
+    path = tmp_path / "bounded.json"
+    document, session_id, source_id, artifacts = _retention_document(
+        tmp_path / "seed.json", artifact_count=2, stale=stale,
+    )
+    session = document["sessions"][0]
+    session["messages"].extend({
+        "id": f"unreferenced-{index}", "role": "assistant", "type": "assistant",
+        "content": f"discard-{index}:" + "x" * 1_800,
+        "created_at": f"2026-08-21T00:00:0{index}+00:00",
+    } for index in range(4))
+    store = StudySessionStore(str(path), max_bytes=4_096, max_messages=50)
+
+    store._save(document)
+    restored = store.get_session(session_id)
+
+    assert path.stat().st_size <= 4_096
+    assert {item["artifact_id"] for item in restored["artifacts"]} == {
+        item["artifact_id"] for item in artifacts
+    }
+    assert all(
+        item["compatibility"] == (
+            ARTIFACT_COMPATIBILITY_STALE if stale else ARTIFACT_COMPATIBILITY_CURRENT
+        )
+        for item in restored["artifacts"]
+    )
+    assert source_id in {item["id"] for item in restored["messages"]}
+    assert restored["artifacts"][0]["source_message_id"] == source_id
+    assert store.list_sessions()[0]["artifact_count"] == 2
+    assert store.list_sessions()[0]["message_count"] == len(restored["messages"])
+
+
+def test_shared_source_stays_until_last_artifact_is_deterministically_pruned(tmp_path):
+    path = tmp_path / "shared-source.json"
+    document, session_id, source_id, artifacts = _retention_document(
+        tmp_path / "seed.json", artifact_count=2,
+    )
+    for artifact in document["sessions"][0]["artifacts"]:
+        artifact["cards"][0]["usage_note"] = "x" * 3_000
+    after_oldest_artifact = json.loads(json.dumps(document))
+    after_oldest_artifact["sessions"][0]["artifacts"].pop(0)
+    max_bytes = max(4_096, _serialized_size(after_oldest_artifact))
+    store = StudySessionStore(str(path), max_bytes=max_bytes, max_messages=50)
+
+    store._save(document)
+    restored = store.get_session(session_id)
+
+    assert [item["artifact_id"] for item in restored["artifacts"]] == [
+        artifacts[1]["artifact_id"],
+    ]
+    assert source_id in {item["id"] for item in restored["messages"]}
+    assert restored["artifacts"][0]["source_message_id"] == source_id
+
+    stable_document = store._load()
+    before = json.loads(json.dumps(stable_document))
+    store._save(stable_document)
+    assert store._load() == before
+
+
+def test_forced_artifact_removal_releases_source_without_orphan_or_size_overflow(tmp_path):
+    path = tmp_path / "forced.json"
+    document, session_id, _, artifacts = _retention_document(
+        tmp_path / "seed.json", source_size=7_000,
+    )
+    store = StudySessionStore(str(path), max_bytes=4_096, max_messages=50)
+
+    store._save(document)
+    restored = store.get_session(session_id)
+
+    assert path.stat().st_size <= 4_096
+    assert restored["artifacts"] == []
+    assert restored["messages"] == []
+    assert store.get_artifact(session_id, artifacts[0]["artifact_id"]) is None
+    assert store.list_sessions()[0]["artifact_count"] == 0
+    assert store.list_sessions()[0]["message_count"] == 0
+
+
+def test_message_count_retention_also_protects_artifact_source(tmp_path):
+    path = tmp_path / "message-count.json"
+    document, session_id, source_id, artifacts = _retention_document(tmp_path / "seed.json")
+    session = document["sessions"][0]
+    session["messages"].extend({
+        "id": f"recent-{index}", "role": "assistant", "type": "assistant",
+        "content": f"recent {index}", "created_at": "2026-08-21T00:00:00+00:00",
+    } for index in range(15))
+    store = StudySessionStore(str(path), max_messages=10)
+
+    store.save_session(session)
+    restored = store.get_session(session_id)
+
+    assert len(restored["messages"]) == 10
+    assert source_id in {item["id"] for item in restored["messages"]}
+    assert [item["artifact_id"] for item in restored["artifacts"]] == [
+        artifacts[0]["artifact_id"],
+    ]
+
+
+def test_corrupt_persisted_provenance_remains_rejected(tmp_path):
+    path = tmp_path / "corrupt-provenance.json"
+    document, session_id, source_id, _ = _retention_document(tmp_path / "seed.json")
+    session = document["sessions"][0]
+    session["messages"] = [
+        item for item in session["messages"] if item["id"] != source_id
+    ]
+    StudySessionStore(str(path))._save(document)
+
+    assert StudySessionStore(str(path)).get_session(session_id)["artifacts"] == []
+
+
+def test_retention_and_reload_never_call_ai_or_network(monkeypatch, tmp_path):
+    from utils import ai_extractor, grammar_ai
+
+    calls = []
+    monkeypatch.setattr(
+        ai_extractor, "_http_post_json",
+        lambda *args, **kwargs: calls.append(("network", args, kwargs)),
+    )
+    monkeypatch.setattr(
+        grammar_ai, "generate_grammar_examples",
+        lambda *args, **kwargs: calls.append(("grammar", args, kwargs)),
+    )
+    path = tmp_path / "no-ai.json"
+    document, session_id, source_id, _ = _retention_document(tmp_path / "seed.json")
+    document["sessions"][0]["messages"].append({
+        "id": "discard", "role": "assistant", "type": "assistant",
+        "content": "x" * 6_000, "created_at": "2026-08-21T00:00:00+00:00",
+    })
+    store = StudySessionStore(str(path), max_bytes=4_096, max_messages=50)
+
+    store._save(document)
+    restored = store.get_session(session_id)
+
+    assert source_id in {item["id"] for item in restored["messages"]}
+    assert restored["artifacts"]
+    assert calls == []
 
 
 def test_latest_message_edit_discards_later_assistant_without_branching(tmp_path):

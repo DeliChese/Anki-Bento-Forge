@@ -59,6 +59,88 @@ def _serialized_size(value: Any) -> int:
     return len(payload.encode("utf-8"))
 
 
+def _referenced_source_ids(artifacts: list[dict]) -> set[str]:
+    return {
+        str(artifact.get("source_message_id") or "")
+        for artifact in artifacts
+        if artifact.get("source_message_id")
+    }
+
+
+def _pop_oldest_unreferenced_message(session: dict) -> bool:
+    messages = session.get("messages") or []
+    referenced = _referenced_source_ids(session.get("artifacts") or [])
+    for index, message in enumerate(messages):
+        if str(message.get("id") or "") not in referenced:
+            messages.pop(index)
+            return True
+    return False
+
+
+def _pop_oldest_artifact(session: dict) -> bool:
+    artifacts = session.get("artifacts") or []
+    if not artifacts:
+        return False
+    artifacts.pop(0)
+    return True
+
+
+def _prune_document_to_size(document: dict, max_bytes: int) -> None:
+    """Prune deterministically without orphaning retained artifact provenance."""
+    while _serialized_size(document) > max_bytes:
+        message_pruned = False
+        for session in document["sessions"]:
+            if _pop_oldest_unreferenced_message(session):
+                message_pruned = True
+                break
+        if message_pruned:
+            continue
+
+        artifact_pruned = False
+        for session in document["sessions"]:
+            if _pop_oldest_artifact(session):
+                artifact_pruned = True
+                break
+        if artifact_pruned:
+            continue
+
+        if len(document["sessions"]) > 1:
+            document["sessions"].pop(0)
+            continue
+        raise ValueError("study session store exceeds its bounded size")
+
+
+def _bounded_session_items(
+    messages: list[dict], artifacts: list[dict], *, max_messages: int, max_artifacts: int,
+) -> tuple[list[dict], list[dict]]:
+    """Apply count limits while protecting sources of every retained artifact."""
+    retained_artifacts = list(artifacts[-max_artifacts:])
+    while retained_artifacts:
+        referenced = _referenced_source_ids(retained_artifacts)
+        protected_count = sum(
+            1 for message in messages if message.get("id") in referenced
+        )
+        if protected_count <= max_messages:
+            break
+        retained_artifacts.pop(0)
+
+    referenced = _referenced_source_ids(retained_artifacts)
+    protected = {
+        index for index, message in enumerate(messages)
+        if message.get("id") in referenced
+    }
+    remaining = max(0, max_messages - len(protected))
+    kept = set(protected)
+    for index in range(len(messages) - 1, -1, -1):
+        if index in protected:
+            continue
+        if remaining <= 0:
+            break
+        kept.add(index)
+        remaining -= 1
+    return [message for index, message in enumerate(messages) if index in kept], retained_artifacts
+
+
 def _message(value: Any) -> Optional[dict]:
     if not isinstance(value, dict):
         return None
@@ -147,6 +229,9 @@ def _session(value: Any, *, max_messages: int, max_artifacts: int) -> Optional[d
     ]
     for artifact in artifacts:
         artifact["session_id"] = session_id
+    messages, artifacts = _bounded_session_items(
+        messages, artifacts, max_messages=max_messages, max_artifacts=max_artifacts,
+    )
     deck_context = value.get("optional_deck_context")
     if not isinstance(deck_context, dict):
         deck_context = None
@@ -159,12 +244,12 @@ def _session(value: Any, *, max_messages: int, max_artifacts: int) -> Optional[d
         "updated_at": _clean_text(value.get("updated_at"), 64) or _now(),
         "provider": _clean_text(value.get("provider"), 100),
         "model": _clean_text(value.get("model"), 200),
-        "messages": messages[-max_messages:],
+        "messages": messages,
         "summary": summary,
         "summary_through_message_id": _clean_text(
             value.get("summary_through_message_id"), 100,
         ),
-        "artifacts": artifacts[-max_artifacts:],
+        "artifacts": artifacts,
         "optional_deck_context": redact_sensitive(deck_context) if deck_context else None,
     }
 
@@ -215,22 +300,7 @@ class StudySessionStore:
     def _save(self, document: dict) -> None:
         document["schema_version"] = SESSION_SCHEMA_VERSION
         document["sessions"] = document.get("sessions", [])[-self.max_sessions:]
-        while _serialized_size(document) > self.max_bytes:
-            pruned = False
-            for session in document["sessions"]:
-                if session.get("messages"):
-                    session["messages"].pop(0)
-                    pruned = True
-                    break
-                if session.get("artifacts"):
-                    session["artifacts"].pop(0)
-                    pruned = True
-                    break
-            if not pruned and len(document["sessions"]) > 1:
-                document["sessions"].pop(0)
-                pruned = True
-            if not pruned:
-                raise ValueError("study session store exceeds its bounded size")
+        _prune_document_to_size(document, self.max_bytes)
         atomic_write_json(self._path(), document)
 
     def list_sessions(self) -> list[dict]:

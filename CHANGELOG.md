@@ -1,10 +1,22 @@
 # 📋 CHANGELOG
 
-## [Unreleased] — cập nhật đến 2026-08-21
+## [Unreleased]
 
-> Các thay đổi đã merge sau 17.1.0, được tổng hợp và cập nhật đến ngày 20/08/2026. Chỉ chuyển mục này thành bản phát hành khi `manifest.json`, bằng chứng CI và smoke Anki đã sẵn sàng.
+> Mỗi ngày có thay đổi có một mục riêng. `Phiên bản` là snapshot `manifest.json` ở đầu và cuối ngày theo lịch sử Git, không phải xác nhận phát hành. Chỉ chuyển các mục phù hợp thành bản phát hành khi có bằng chứng CI và smoke Anki.
 
-### ✨ Added
+### 2026-08-21 — Phiên bản: `18.1.0` → `18.1.0`
+
+#### 🐛 Fixed
+- **Provenance-aware artifact pruning** — bounded Study Session storage ưu tiên xóa message không được tham chiếu, bảo vệ source message của mọi artifact hiện hành/stale và chỉ loại artifact cũ nhất một cách nhất quán khi dung lượng thực sự bắt buộc.
+- **Study Session stale artifact retention** — artifact dùng schema cũ hoặc tương lai không còn biến mất khi reload; session giữ provenance và snapshot ở trạng thái chỉ đọc `stale`, hiển thị cảnh báo không tương thích và vẫn chặn tuyệt đối đường vào Xưởng mà không gọi AI tái tạo.
+- **V18.1.1 AI Language Card hardening** — chuẩn hóa ownership ngôn ngữ Nhật/Trung/Hàn/Anh và alias tại một boundary fail-closed; validator chặn schema/kind/level/placeholder/ví dụ thiếu và các mâu thuẫn script có độ chắc chắn cao trước preview, artifact, Xưởng và import.
+- **Artifact/Factory determinism** — artifact dùng schema snapshot hiện hành, kiểm tra source message và không còn chạy semantic repair; Xưởng không tự gọi AI để sinh ví dụ hoặc mutate card giữa artifact và import, đồng thời kiểm định lại ngay trước import.
+- **AI extraction/Reviewer/request ownership** — long-text còn span chưa phục hồi nay phát lỗi incomplete thay vì báo thành công; dedupe giữ cùng mặt chữ khác nghĩa để review; context Reviewer theo `qa/vn/wb/pron/lg` không lộ đáp án ẩn; callback Study Session dùng request token bất biến nên stale result không thể gắn sang turn/session mới.
+- **Prompt and grammar JSON boundaries** — custom card template phải giữ minimum vocab/grammar contract nhưng vẫn cho field mở rộng; grammar practice chỉ nhận đúng một JSON payload hoàn chỉnh, không regex chọn tùy ý từ prose hoặc nhiều payload.
+
+### 2026-08-20 — Phiên bản: `17.2.0` → `18.1.0`
+
+#### ✨ Added
 - **AI Study Sessions / Dockable Learning Companion** — companion dùng chung cho Reviewer và Xưởng, hỗ trợ dock trái/phải, floating, collapse/hide, khôi phục UI state, nhiều phiên cục bộ, rename/delete session và phím tắt `Ctrl+Shift+A` có kiểm tra xung đột.
 - **Reviewer-aware context** — nút Ask AI không gây rối, snapshot tối thiểu của đúng thẻ hiện tại, quick prompts, tùy chọn bỏ context thẻ và hành động quay lại Reviewer; không tự gọi AI, không quét collection và không sửa SRS.
 - **Explicit Card Mode artifacts** — Vocab/Grammar Card Mode là hành động one-shot tường minh, tái dùng reliability pipeline hiện có rồi lưu artifact có schema snapshot để xem lại hoặc gửi sang Xưởng không cần gọi AI lần nữa.
@@ -18,6 +30,46 @@
 - Mã beta Knowledge được giữ riêng với Language (model Basic Q&A/Cloze, Explanation, Source và Tags) để có thể khôi phục khi cần; beta không hiện trên UI và không thuộc phạm vi phát hành hiện tại.
 - Quality baselines: fixed 20-item English, Japanese, Chinese, and Korean corpora with reviewed run reports. Candidate cards now surface missing English IPA/CJK pronunciation, and Korean headword romanization with a hyphen, before import.
 - Tiếng Anh trở thành ngôn ngữ đích thứ tư: có Note Type từ vựng/ngữ pháp, CEFR A1–C2, IPA, 5 chế độ học, prompt VI/EN, AI preview/chat, lịch sử, Edge TTS giọng UK/US và regression test riêng.
+#### 🔧 Changed
+- **Study Sessions surfaces/theme** — Factory giờ mở AI Study Sessions trong dialog độc lập như Settings/Lịch sử; chỉ Reviewer mới dùng dock panel. Companion dùng palette glassmorphism hiện hành thay cho màu sáng hard-code, giữ độ tương phản nhất quán giữa Glass Dark, Glass Light và Midnight.
+- **Version metadata / Note Types** — nâng release candidate cục bộ lên `18.1.0`; note type hiện hành dùng hậu tố `V18.1` và vẫn nhận diện/migrate các model `V17.0`.
+- **Chat prompt separation** — hội thoại thường dùng compact study-chat prompt, không còn chèn schema card; chỉ Card Mode mới nạp Quality V2 prompt/schema và validation/repair/retry pipeline.
+- Quality V2 batch policy dùng giới hạn bảo thủ 8–12 card/request tùy language/mode và output budget thay cho mặc định 80; cache AI/batch tăng schema boundary để không hồi sinh partial hoặc wrong-language payload.
+- Prompt cache mặc định và batch-cache boundary được tăng/ghép prompt signature để kết quả trước Quality V2 hoặc override cũ không bị tái sử dụng; migration Example3/4 chỉ thêm field còn thiếu và chạy lặp an toàn.
+#### 🐛 Fixed
+- **AI Study Sessions final polish** — rolling summary dùng marker message bền vững để chỉ compact phần delta chưa từng tóm tắt, giữ recent turns raw và migrate session cũ không marker an toàn; nút Ask AI trong Reviewer dùng màu neutral/translucent thích nghi light/dark thay cho palette sáng cố định. Artifact bubble nay gọi trực tiếp cùng owner Review/Đưa vào Xưởng theo `artifact_id`, không sao chép state hoặc gọi AI lần hai.
+- English AI output chứa `hsk_level`, response sai vocab/grammar mode, prose-only, wrapper không whitelist hoặc JSON chỉ hoàn thành một phần không còn silently lọt vào Xưởng; truncated tail không được tự đóng ngoặc hay bịa field.
+
+### 2026-08-16 — Phiên bản: `17.2.0` → `17.2.0`
+
+#### ✨ Added
+- Usage Guide V1 cho vocab Nhật/Trung/Hàn/Anh: ba field tùy chọn `Usage Pattern`, `Usage Note`, `Collocation` (tối đa một cụm có nghĩa) hiển thị riêng ở mặt sau và tự ẩn khi trống. Output AI được chuẩn hóa để bỏ placeholder, nội dung lặp, collocation thiếu nghĩa và ví dụ thứ hai trùng; migration chỉ thêm field/template còn thiếu, không tạo card hay lịch SRS mới.
+- Usage Guide quality gate đạt `19/20` (`95%`) trên benchmark model thật bốn ngôn ngữ với chi phí final `$0.002035` và `1.69 giây/card`; smoke runtime Anki 26.5 xác nhận migration/import/update/undo/rollback và render mặt sau trên collection tạm.
+- Mã beta Knowledge được giữ riêng với Language (model Basic Q&A/Cloze, Explanation, Source và Tags) để có thể khôi phục khi cần; beta không hiện trên UI và không thuộc phạm vi phát hành hiện tại.
+- Quality baselines: fixed 20-item English, Japanese, Chinese, and Korean corpora with reviewed run reports. Candidate cards now surface missing English IPA/CJK pronunciation, and Korean headword romanization with a hyphen, before import.
+- Tiếng Anh trở thành ngôn ngữ đích thứ tư: có Note Type từ vựng/ngữ pháp, CEFR A1–C2, IPA, 5 chế độ học, prompt VI/EN, AI preview/chat, lịch sử, Edge TTS giọng UK/US và regression test riêng.
+
+#### 🔧 Changed
+- Knowledge beta được giữ trong mã nguồn nhưng tắt trên giao diện; profile/deck đã từng chọn Knowledge tự quay về Language mà không ghi đè preference hoặc draft beta. Manifest và tài liệu hiện chỉ công bố workflow ngoại ngữ, không bump `18.0.0`.
+- Mở compatibility manifest từ Anki 2.1.50 đến 26.5, bổ sung metadata cài `.ankiaddon` chuẩn (`package`/point version), và dùng `Collection.update_note()` để add/update/rollback nằm trong undo-aware operation trên Anki hiện tại; vẫn giữ fallback cho runtime legacy.
+- Knowledge dùng prompt/parser/cache version riêng, schema JSON nghiêm ngặt và history namespace riêng. Source thiếu được giữ rỗng thay vì tự suy đoán; các control Language/TTS không xuất hiện trong Knowledge.
+- English vocabulary extraction now keeps a supplied source meaning consistent across the card, both examples, and both translations; the cache prompt version was advanced so stale results are not reused.
+- Built-in CJK prompts now require contextual meanings, faithful example translations, and language-specific pronunciation/form accuracy. A narrowly scoped Japanese repair corrects the proven `質問を聞きました`/“ask” contradiction without changing legitimate “hear a question” output.
+- Prompt tiếng Anh ưu tiên đúng nghĩa ngữ cảnh, lemma/IPA/CEFR, collocation/register và ví dụ tự nhiên ngắn; prompt batch/chat bỏ phần hướng dẫn lặp để tăng chất lượng với ít input token hơn. Prompt mặc định/cache được nâng version để không dùng lại kết quả cũ.
+- DeepSeek V4 card generation now explicitly defaults to non-thinking mode, selected by the Japanese 3×20 benchmark: the same 100% quality score as Flash thinking and Pro non-thinking at materially lower measured cost and latency.
+
+#### 🐛 Fixed
+- Knowledge đổi hành động AI thành `GỬI & TẠO THẺ`, làm rõ ô `Yêu cầu thêm` và giữ nó trên pipeline tạo thẻ/schema Knowledge thay vì AI Chat của Language.
+- Knowledge không còn hiển thị hoặc gọi gián tiếp công cụ `Batch Từ Vựng`; nhiều Knowledge card tiếp tục đi qua AI extract/schema riêng có chunking thay vì workflow Vocabulary/Grammar của Language.
+- Import Knowledge chỉ quét duplicate theo Question/Concept đã chuẩn hóa trong đúng Knowledge model + deck; cancel giữa batch tự phục hồi phần đã ghi và Undo batch gần nhất xóa note mới đồng thời khôi phục note đã update mà không chạm note Language.
+- Opening Bento Forge no longer performs a TTL-triggered collection scan on the UI thread. The one-time history bootstrap is serialized through Anki `QueryOp`, reports progress, can be cancelled without saving partial results, and subsequent imports keep history current incrementally.
+- Release artifacts now include the required `workers/` package and exclude `__pycache__`, `.pyc`, and `.pyo` bytecode files.
+- Prompt Editor trong Cài đặt AI nay nạp sẵn cả tab Từ vựng lẫn Ngữ pháp và lưu nội dung theo ngôn ngữ vừa rời khỏi, tránh tab prompt rỗng hoặc ghi nhầm dữ liệu khi đổi ngôn ngữ.
+- Compile gate now covers every tracked Python file, including `scripts/`; invalid markers that prevented `scripts/fetch_ankiforge_info.py` from compiling were removed.
+
+### 2026-08-15 — Phiên bản: `17.1.0` → `17.2.0`
+
+#### ✨ Added
 - V17.2: Nhấp vào thanh chi phí AI ở góc dưới trái để xem lịch sử từng request theo model, thời điểm, thời lượng, loại công việc, input/output token và chi phí. Có lọc theo model/công việc/ngày hoặc khoảng ngày, sắp xếp chi phí và input/output cao–thấp, tổng cho tập dữ liệu đang lọc, cùng thao tác xóa lịch sử. Lịch sử chỉ giữ metadata usage (tối đa 2.000 lượt) trong Anki profile; không giữ prompt, phản hồi, API key hay URL API.
 - B6: Thẻ từ vựng mặc định có field `Usage Note` hiển thị ở mặt sau khi có nội dung; prompt chỉ yêu cầu ghi chú collocation/register ngắn khi thực sự giúp phân biệt cách dùng. Field `Usage` của thẻ ngữ pháp cũng nhận thêm ghi chú này khi cần, không thêm schema/output field mới.
 - Bộ benchmark AI có phiên bản hóa cho cùng một danh sách 20 từ tiếng Nhật: runner tự gọi nhiều model/chế độ thinking qua provider đã cấu hình, lưu card/run JSON và bảng so sánh coverage, cấu trúc có thể đưa vào Xưởng, cảnh báo xác định được, token/chi phí/thời gian mỗi thẻ cùng rubric review ngữ nghĩa. Báo cáo local không chứa API key hoặc dữ liệu benchmark riêng.
@@ -30,40 +82,14 @@
 - Tách template thẻ và prompt mặc định theo từng ngôn ngữ Nhật/Trung/Hàn, có regression test để bảo toàn nội dung và registry hiện có.
 - Thêm `DEBUGGING.md`, `COMPATIBILITY.md`, `RELEASE_CHECKLIST.md`, artifact build có SHA-256/SBOM, cùng harness kiểm thử cô lập hai vòng dùng chung với CI.
 
-### 🔧 Changed
-- **Study Sessions surfaces/theme** — Factory giờ mở AI Study Sessions trong dialog độc lập như Settings/Lịch sử; chỉ Reviewer mới dùng dock panel. Companion dùng palette glassmorphism hiện hành thay cho màu sáng hard-code, giữ độ tương phản nhất quán giữa Glass Dark, Glass Light và Midnight.
-- **Version metadata / Note Types** — nâng release candidate cục bộ lên `18.1.0`; note type hiện hành dùng hậu tố `V18.1` và vẫn nhận diện/migrate các model `V17.0`.
-- **Chat prompt separation** — hội thoại thường dùng compact study-chat prompt, không còn chèn schema card; chỉ Card Mode mới nạp Quality V2 prompt/schema và validation/repair/retry pipeline.
-- Quality V2 batch policy dùng giới hạn bảo thủ 8–12 card/request tùy language/mode và output budget thay cho mặc định 80; cache AI/batch tăng schema boundary để không hồi sinh partial hoặc wrong-language payload.
-- Prompt cache mặc định và batch-cache boundary được tăng/ghép prompt signature để kết quả trước Quality V2 hoặc override cũ không bị tái sử dụng; migration Example3/4 chỉ thêm field còn thiếu và chạy lặp an toàn.
-- Knowledge beta được giữ trong mã nguồn nhưng tắt trên giao diện; profile/deck đã từng chọn Knowledge tự quay về Language mà không ghi đè preference hoặc draft beta. Manifest và tài liệu hiện chỉ công bố workflow ngoại ngữ, không bump `18.0.0`.
-- Mở compatibility manifest từ Anki 2.1.50 đến 26.5, bổ sung metadata cài `.ankiaddon` chuẩn (`package`/point version), và dùng `Collection.update_note()` để add/update/rollback nằm trong undo-aware operation trên Anki hiện tại; vẫn giữ fallback cho runtime legacy.
-- Knowledge dùng prompt/parser/cache version riêng, schema JSON nghiêm ngặt và history namespace riêng. Source thiếu được giữ rỗng thay vì tự suy đoán; các control Language/TTS không xuất hiện trong Knowledge.
-- English vocabulary extraction now keeps a supplied source meaning consistent across the card, both examples, and both translations; the cache prompt version was advanced so stale results are not reused.
-- Built-in CJK prompts now require contextual meanings, faithful example translations, and language-specific pronunciation/form accuracy. A narrowly scoped Japanese repair corrects the proven `質問を聞きました`/“ask” contradiction without changing legitimate “hear a question” output.
-- Prompt tiếng Anh ưu tiên đúng nghĩa ngữ cảnh, lemma/IPA/CEFR, collocation/register và ví dụ tự nhiên ngắn; prompt batch/chat bỏ phần hướng dẫn lặp để tăng chất lượng với ít input token hơn. Prompt mặc định/cache được nâng version để không dùng lại kết quả cũ.
-- DeepSeek V4 card generation now explicitly defaults to non-thinking mode, selected by the Japanese 3×20 benchmark: the same 100% quality score as Flash thinking and Pro non-thinking at materially lower measured cost and latency.
+#### 🔧 Changed
 - V17.2: Cập nhật preset model AI theo catalog hiện hành: DeepSeek V4 Flash/Pro, OpenAI GPT-5.6 (Sol/Terra/Luna), Gemini 3.6/3.5/3.1 và 2.5, Claude 5/Haiku 4.5; OpenRouter có alias `~openai/gpt-latest`; Ollama/LM Studio thêm Qwen 3.5 và Gemma 4. Các model cũ phổ biến vẫn còn để không làm hỏng cấu hình đã lưu.
 - `AnkiSmartFactory` và wiring Qt/Anki chuyển sang `ui/factory_dialog.py`; package root chỉ còn compatibility facade.
 - Thao tác Collection, import, model lifecycle và kiểm định thẻ được cô lập rõ hơn; phát hiện near-duplicate nhưng không tự merge, báo cáo import không chứa nội dung thẻ hoặc lỗi chi tiết.
 - Bỏ tự động cài `python-docx`/`openpyxl`; dependency thiếu được báo bằng thông điệp VI/EN và hướng dẫn cài thủ công.
 - Chuẩn hóa compatibility theo `manifest.json`, diagnostic event code và logging theo Anki profile.
 
-### 🐛 Fixed
-- **Study Session stale artifact retention** — artifact dùng schema cũ hoặc tương lai không còn biến mất khi reload; session giữ provenance và snapshot ở trạng thái chỉ đọc `stale`, hiển thị cảnh báo không tương thích và vẫn chặn tuyệt đối đường vào Xưởng mà không gọi AI tái tạo.
-- **V18.1.1 AI Language Card hardening** — chuẩn hóa ownership ngôn ngữ Nhật/Trung/Hàn/Anh và alias tại một boundary fail-closed; validator chặn schema/kind/level/placeholder/ví dụ thiếu và các mâu thuẫn script có độ chắc chắn cao trước preview, artifact, Xưởng và import.
-- **Artifact/Factory determinism** — artifact dùng schema snapshot hiện hành, kiểm tra source message và không còn chạy semantic repair; Xưởng không tự gọi AI để sinh ví dụ hoặc mutate card giữa artifact và import, đồng thời kiểm định lại ngay trước import.
-- **AI extraction/Reviewer/request ownership** — long-text còn span chưa phục hồi nay phát lỗi incomplete thay vì báo thành công; dedupe giữ cùng mặt chữ khác nghĩa để review; context Reviewer theo `qa/vn/wb/pron/lg` không lộ đáp án ẩn; callback Study Session dùng request token bất biến nên stale result không thể gắn sang turn/session mới.
-- **Prompt and grammar JSON boundaries** — custom card template phải giữ minimum vocab/grammar contract nhưng vẫn cho field mở rộng; grammar practice chỉ nhận đúng một JSON payload hoàn chỉnh, không regex chọn tùy ý từ prose hoặc nhiều payload.
-- **AI Study Sessions final polish** — rolling summary dùng marker message bền vững để chỉ compact phần delta chưa từng tóm tắt, giữ recent turns raw và migrate session cũ không marker an toàn; nút Ask AI trong Reviewer dùng màu neutral/translucent thích nghi light/dark thay cho palette sáng cố định. Artifact bubble nay gọi trực tiếp cùng owner Review/Đưa vào Xưởng theo `artifact_id`, không sao chép state hoặc gọi AI lần hai.
-- English AI output chứa `hsk_level`, response sai vocab/grammar mode, prose-only, wrapper không whitelist hoặc JSON chỉ hoàn thành một phần không còn silently lọt vào Xưởng; truncated tail không được tự đóng ngoặc hay bịa field.
-- Knowledge đổi hành động AI thành `GỬI & TẠO THẺ`, làm rõ ô `Yêu cầu thêm` và giữ nó trên pipeline tạo thẻ/schema Knowledge thay vì AI Chat của Language.
-- Knowledge không còn hiển thị hoặc gọi gián tiếp công cụ `Batch Từ Vựng`; nhiều Knowledge card tiếp tục đi qua AI extract/schema riêng có chunking thay vì workflow Vocabulary/Grammar của Language.
-- Import Knowledge chỉ quét duplicate theo Question/Concept đã chuẩn hóa trong đúng Knowledge model + deck; cancel giữa batch tự phục hồi phần đã ghi và Undo batch gần nhất xóa note mới đồng thời khôi phục note đã update mà không chạm note Language.
-- Opening Bento Forge no longer performs a TTL-triggered collection scan on the UI thread. The one-time history bootstrap is serialized through Anki `QueryOp`, reports progress, can be cancelled without saving partial results, and subsequent imports keep history current incrementally.
-- Release artifacts now include the required `workers/` package and exclude `__pycache__`, `.pyc`, and `.pyo` bytecode files.
-- Prompt Editor trong Cài đặt AI nay nạp sẵn cả tab Từ vựng lẫn Ngữ pháp và lưu nội dung theo ngôn ngữ vừa rời khỏi, tránh tab prompt rỗng hoặc ghi nhầm dữ liệu khi đổi ngôn ngữ.
-- Compile gate now covers every tracked Python file, including `scripts/`; invalid markers that prevented `scripts/fetch_ankiforge_info.py` from compiling were removed.
+#### 🐛 Fixed
 - V17.2: API key nay được cô lập theo từng AI provider (và từng endpoint Custom). Chuyển provider trong Cài đặt AI sẽ nạp key đã lưu của provider đó, không còn dùng hoặc ghi đè key của provider trước.
 - **Kiểm định lô hàng chống lách theo mode/lô AI:** Chuẩn hóa Unicode, khoảng trắng và dấu câu trước khi đối chiếu; lập chỉ mục cả các mục đã được chấp nhận trong lô hiện tại để chặn mục lặp xuất hiện sau đó. So khớp cùng nghĩa không còn phụ thuộc vào việc chọn cấp độ. Cùng mặt chữ/pattern nhưng khác nghĩa, kể cả Grammar mode, luôn phải được người dùng phê duyệt rõ ràng trước khi thêm.
 - Phản hồi từ DeepSeek reasoning model nay lấy đúng final content khi `content` rỗng, đồng thời bật JSON mode cho API gốc để giảm lỗi parse JSON.
