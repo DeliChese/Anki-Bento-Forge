@@ -10,6 +10,25 @@ from .ai_output_validation import AI_OUTPUT_SCHEMA_VERSION, validate_ai_cards
 from .language_identity import normalize_language
 
 
+ARTIFACT_COMPATIBILITY_CURRENT = "current"
+ARTIFACT_COMPATIBILITY_STALE = "stale"
+
+
+def artifact_is_compatible(artifact: Any) -> bool:
+    """Return whether an artifact may enter the current Factory contract."""
+    if not isinstance(artifact, dict):
+        return False
+    try:
+        schema = int(artifact.get("schema_version") or 0)
+    except (TypeError, ValueError):
+        return False
+    compatibility = str(artifact.get("compatibility") or "").strip().lower()
+    return (
+        schema == AI_OUTPUT_SCHEMA_VERSION
+        and compatibility in {"", ARTIFACT_COMPATIBILITY_CURRENT}
+    )
+
+
 def create_card_artifact(
     *,
     session_id: str,
@@ -48,6 +67,7 @@ def create_card_artifact(
         "language": language,
         "kind": kind,
         "schema_version": AI_OUTPUT_SCHEMA_VERSION,
+        "compatibility": ARTIFACT_COMPATIBILITY_CURRENT,
         "cards": [dict(card) for card in normalized],
         "source_message_id": source_message_id,
     }
@@ -57,8 +77,7 @@ def artifact_to_factory_payload(artifact: dict) -> tuple[str, str, list[dict]]:
     """Return a snapshot for Xưởng without network access or regeneration."""
     if not isinstance(artifact, dict):
         raise ValueError("invalid card artifact")
-    schema = int(artifact.get("schema_version") or 0)
-    if schema != AI_OUTPUT_SCHEMA_VERSION:
+    if not artifact_is_compatible(artifact):
         raise ValueError("unsupported card artifact schema")
     language = normalize_language(artifact.get("language"))
     kind = str(artifact.get("kind") or "")
@@ -80,4 +99,8 @@ def artifact_label(artifact: dict) -> str:
     return f"{language} {kind} · {len(artifact.get('cards') or [])}"
 
 
-__all__ = ["artifact_label", "artifact_to_factory_payload", "create_card_artifact"]
+__all__ = [
+    "ARTIFACT_COMPATIBILITY_CURRENT", "ARTIFACT_COMPATIBILITY_STALE",
+    "artifact_is_compatible", "artifact_label", "artifact_to_factory_payload",
+    "create_card_artifact",
+]

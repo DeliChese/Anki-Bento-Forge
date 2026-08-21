@@ -50,6 +50,7 @@
 - Chuẩn hóa compatibility theo `manifest.json`, diagnostic event code và logging theo Anki profile.
 
 ### 🐛 Fixed
+- **Study Session stale artifact retention** — artifact dùng schema cũ hoặc tương lai không còn biến mất khi reload; session giữ provenance và snapshot ở trạng thái chỉ đọc `stale`, hiển thị cảnh báo không tương thích và vẫn chặn tuyệt đối đường vào Xưởng mà không gọi AI tái tạo.
 - **V18.1.1 AI Language Card hardening** — chuẩn hóa ownership ngôn ngữ Nhật/Trung/Hàn/Anh và alias tại một boundary fail-closed; validator chặn schema/kind/level/placeholder/ví dụ thiếu và các mâu thuẫn script có độ chắc chắn cao trước preview, artifact, Xưởng và import.
 - **Artifact/Factory determinism** — artifact dùng schema snapshot hiện hành, kiểm tra source message và không còn chạy semantic repair; Xưởng không tự gọi AI để sinh ví dụ hoặc mutate card giữa artifact và import, đồng thời kiểm định lại ngay trước import.
 - **AI extraction/Reviewer/request ownership** — long-text còn span chưa phục hồi nay phát lỗi incomplete thay vì báo thành công; dedupe giữ cùng mặt chữ khác nghĩa để review; context Reviewer theo `qa/vn/wb/pron/lg` không lộ đáp án ẩn; callback Study Session dùng request token bất biến nên stale result không thể gắn sang turn/session mới.

@@ -5,8 +5,13 @@ from pathlib import Path
 
 import pytest
 
-from utils.ai_card_artifacts import create_card_artifact, artifact_to_factory_payload
+from utils.ai_card_artifacts import (
+    ARTIFACT_COMPATIBILITY_CURRENT, ARTIFACT_COMPATIBILITY_STALE,
+    artifact_is_compatible, artifact_label, artifact_to_factory_payload,
+    create_card_artifact,
+)
 from utils.ai_context_manager import compact_session_summary, prepare_study_context
+from utils.ai_output_validation import AI_OUTPUT_SCHEMA_VERSION
 from utils.ai_session_store import SESSION_SCHEMA_VERSION, StudySessionStore
 
 
@@ -18,6 +23,22 @@ def _english_card(front="opportunity"):
         "front": front, "meaning": "opportunity", "cefr_level": "B1",
         "example": f"This is an example with {front}.",
     }
+
+
+def _seed_persisted_artifact(path):
+    store = StudySessionStore(str(path))
+    session = store.create_session(language="english", title="Artifact history")
+    source = store.add_message(session["id"], role="user", content="Create this card")
+    artifact = create_card_artifact(
+        session_id=session["id"], language="english", kind="vocab",
+        cards=[_english_card()], source_message_id=source["id"],
+    )
+    stored = store.add_artifact(session["id"], artifact)
+    store.add_message(
+        session["id"], role="assistant", content="Artifact ready",
+        message_type="artifact_reference", artifact_id=stored["artifact_id"],
+    )
+    return store, session, stored
 
 
 def _long_messages(count=24, *, start=0, prefix="message", width=240, id_prefix="msg"):
@@ -346,6 +367,122 @@ def test_artifact_round_trip_never_calls_ai_and_rejects_bad_payload():
             session_id="session-a", language="english", kind="vocab",
             cards=[{"front": "broken"}], source_message_id="msg-a",
         )
+
+
+def test_current_artifact_survives_store_reload_unchanged_and_remains_usable(tmp_path):
+    path = tmp_path / "sessions.json"
+    _, session, stored = _seed_persisted_artifact(path)
+
+    restored = StudySessionStore(str(path)).get_artifact(
+        session["id"], stored["artifact_id"],
+    )
+
+    assert restored == stored
+    assert restored["compatibility"] == ARTIFACT_COMPATIBILITY_CURRENT
+    assert artifact_is_compatible(restored)
+    assert artifact_to_factory_payload(restored) == (
+        "english", "vocab", [_english_card()],
+    )
+
+
+@pytest.mark.parametrize(
+    "schema_version",
+    [AI_OUTPUT_SCHEMA_VERSION - 1, AI_OUTPUT_SCHEMA_VERSION + 1],
+)
+def test_unsupported_artifact_survives_reload_and_save_as_read_only_stale(
+    tmp_path, schema_version,
+):
+    path = tmp_path / "sessions.json"
+    _, session, stored = _seed_persisted_artifact(path)
+    document = json.loads(path.read_text(encoding="utf-8"))
+    persisted = document["sessions"][0]["artifacts"][0]
+    persisted["schema_version"] = schema_version
+    persisted.pop("compatibility", None)
+    original_cards = persisted["cards"]
+    path.write_text(json.dumps(document, ensure_ascii=False), encoding="utf-8")
+
+    restarted = StudySessionStore(str(path))
+    restored_session = restarted.get_session(session["id"])
+    restored = restarted.get_artifact(session["id"], stored["artifact_id"])
+
+    assert restored_session["artifacts"] == [restored]
+    assert restarted.list_sessions()[0]["artifact_count"] == 1
+    assert restored["artifact_id"] == stored["artifact_id"]
+    assert restored["session_id"] == session["id"]
+    assert restored["source_message_id"] == stored["source_message_id"]
+    assert restored["created_at"] == stored["created_at"]
+    assert restored["language"] == "english"
+    assert restored["kind"] == "vocab"
+    assert restored["schema_version"] == schema_version
+    assert restored["cards"] == original_cards
+    assert restored["compatibility"] == ARTIFACT_COMPATIBILITY_STALE
+    assert not artifact_is_compatible(restored)
+    with pytest.raises(ValueError, match="unsupported"):
+        artifact_to_factory_payload(restored)
+
+    restarted.save_session(restored_session)
+    round_tripped = StudySessionStore(str(path)).get_artifact(
+        session["id"], stored["artifact_id"],
+    )
+    assert round_tripped == restored
+
+
+@pytest.mark.parametrize(
+    ("field", "bad_value"),
+    [("cards", "not-a-list"), ("schema_version", "not-an-integer")],
+)
+def test_structurally_corrupt_persisted_artifact_is_still_rejected(
+    tmp_path, field, bad_value,
+):
+    path = tmp_path / "sessions.json"
+    _, session, _ = _seed_persisted_artifact(path)
+    document = json.loads(path.read_text(encoding="utf-8"))
+    document["sessions"][0]["artifacts"][0][field] = bad_value
+    path.write_text(json.dumps(document, ensure_ascii=False), encoding="utf-8")
+
+    restored = StudySessionStore(str(path)).get_session(session["id"])
+
+    assert restored["artifacts"] == []
+
+
+def test_loading_and_reviewing_stale_snapshot_never_calls_ai_or_network(
+    monkeypatch, tmp_path,
+):
+    from utils import ai_extractor, grammar_ai
+
+    calls = []
+    monkeypatch.setattr(
+        ai_extractor, "_http_post_json",
+        lambda *args, **kwargs: calls.append(("network", args, kwargs)),
+    )
+    monkeypatch.setattr(
+        grammar_ai, "generate_grammar_examples",
+        lambda *args, **kwargs: calls.append(("grammar", args, kwargs)),
+    )
+    path = tmp_path / "sessions.json"
+    _, session, stored = _seed_persisted_artifact(path)
+    document = json.loads(path.read_text(encoding="utf-8"))
+    document["sessions"][0]["artifacts"][0]["schema_version"] -= 1
+    path.write_text(json.dumps(document, ensure_ascii=False), encoding="utf-8")
+
+    stale = StudySessionStore(str(path)).get_artifact(session["id"], stored["artifact_id"])
+    review_snapshot = json.dumps(stale["cards"], ensure_ascii=False, indent=2)
+
+    assert artifact_label(stale) == "English Vocabulary · 1"
+    assert "opportunity" in review_snapshot
+    with pytest.raises(ValueError, match="unsupported"):
+        artifact_to_factory_payload(stale)
+    assert calls == []
+
+
+def test_companion_surfaces_stale_artifact_and_disables_forge_action():
+    companion = (ROOT / "ui" / "ai_companion.py").read_text(encoding="utf-8")
+
+    assert 'for artifact in reversed(session["artifacts"])' in companion
+    assert 't("study_artifact_stale_label", label=label)' in companion
+    assert 'self.btn_forge.setEnabled(compatible)' in companion
+    assert 'QLabel(t("study_artifact_stale_review"))' in companion
+    assert 'showInfo(t("study_artifact_stale_open_error"))' in companion
 
 
 def test_ui_state_persists_dock_geometry_and_last_session(tmp_path):

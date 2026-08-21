@@ -587,6 +587,41 @@ class TestBatchVerification:
 
         assert calls == []
 
+    def test_stale_artifact_cannot_load_into_factory_or_call_ai(self, monkeypatch):
+        from utils import ai_extractor, grammar_ai
+        from utils.ai_card_artifacts import create_card_artifact
+
+        calls = []
+        monkeypatch.setattr(
+            ai_extractor, "_http_post_json",
+            lambda *args, **kwargs: calls.append(("network", args, kwargs)),
+        )
+        monkeypatch.setattr(
+            grammar_ai, "generate_grammar_examples",
+            lambda *args, **kwargs: calls.append(("grammar", args, kwargs)),
+        )
+        stale = create_card_artifact(
+            session_id="session-a", language="english", kind="grammar",
+            cards=[{
+                "pattern": "used to + V", "meaning": "past habit",
+                "usage": "S + used to + V", "example": "I used to walk to school.",
+                "cefr_level": "B1",
+            }],
+            source_message_id="msg-a",
+        )
+        stale["schema_version"] -= 1
+        stale["compatibility"] = "stale"
+        f = self._factory()
+        f.load_card_artifact = addon.AnkiSmartFactory.load_card_artifact.__get__(
+            f, addon.AnkiSmartFactory,
+        )
+
+        with pytest.raises(ValueError, match="unsupported"):
+            f.load_card_artifact(stale)
+
+        assert f.json_input.toPlainText() == ""
+        assert calls == []
+
     def test_rejects_canonical_duplicate_within_the_same_raw_batch(self):
         f = self._factory()
         f.raw_data = [

@@ -17,7 +17,8 @@ from aqt.qt import (
 from aqt.utils import showInfo, tooltip
 
 from utils.ai_card_artifacts import (
-    artifact_label, artifact_to_factory_payload, create_card_artifact,
+    artifact_is_compatible, artifact_label, artifact_to_factory_payload,
+    create_card_artifact,
 )
 from utils.ai_extractor import get_api_config, get_api_key_for_provider
 from utils.ai_providers import AI_PROVIDERS, detect_provider, get_provider
@@ -186,6 +187,7 @@ class AiCompanionDock(QDockWidget):
         artifacts = QHBoxLayout()
         self.cbo_artifact = QComboBox()
         self.cbo_artifact.setAccessibleName(t("study_artifacts"))
+        self.cbo_artifact.currentIndexChanged.connect(self._on_artifact_selected)
         artifacts.addWidget(self.cbo_artifact, 1)
         self.btn_review_artifact = QPushButton(t("study_review_artifact"))
         self.btn_review_artifact.clicked.connect(self.review_artifact)
@@ -621,13 +623,22 @@ class AiCompanionDock(QDockWidget):
                 artifact_id = quote(str(message.get("artifact_id") or ""), safe="")
                 actions = ""
                 if artifact:
+                    compatible = artifact_is_compatible(artifact)
+                    if not compatible:
+                        label = t("study_artifact_stale_label", label=label)
                     actions = (
                         "<br>"
                         f"<a style='color:inherit;font-weight:600' href='forge-artifact://review/{artifact_id}'>"
-                        f"{html.escape(t('study_review_artifact'))}</a> &nbsp;·&nbsp; "
-                        f"<a style='color:inherit;font-weight:600' href='forge-artifact://open/{artifact_id}'>"
-                        f"{html.escape(t('study_open_forge'))}</a>"
+                        f"{html.escape(t('study_review_artifact'))}</a>"
                     )
+                    if compatible:
+                        actions += (
+                            " &nbsp;·&nbsp; "
+                            f"<a style='color:inherit;font-weight:600' href='forge-artifact://open/{artifact_id}'>"
+                            f"{html.escape(t('study_open_forge'))}</a>"
+                        )
+                    else:
+                        actions += "<br>" + html.escape(t("study_artifact_stale_notice"))
                 blocks.append(
                     "<div style='margin:8px 0;padding:10px;border:1px solid rgba(251,191,36,.55);border-radius:10px;background:rgba(251,191,36,.14)'>"
                     f"<b>📦 {html.escape(label)}</b><br>{html.escape(message['content'])}{actions}</div>"
@@ -647,11 +658,12 @@ class AiCompanionDock(QDockWidget):
         self.cbo_artifact.blockSignals(True)
         self.cbo_artifact.clear()
         for artifact in reversed(session["artifacts"]):
-            self.cbo_artifact.addItem(artifact_label(artifact), artifact["artifact_id"])
+            label = artifact_label(artifact)
+            if not artifact_is_compatible(artifact):
+                label = t("study_artifact_stale_label", label=label)
+            self.cbo_artifact.addItem(label, artifact["artifact_id"])
         self.cbo_artifact.blockSignals(False)
-        enabled = self.cbo_artifact.count() > 0
-        self.btn_review_artifact.setEnabled(enabled)
-        self.btn_forge.setEnabled(enabled)
+        self._on_artifact_selected()
         self.status.setText(self._usage_text(session["id"]))
 
     def _usage_text(self, session_id: str) -> str:
@@ -665,6 +677,17 @@ class AiCompanionDock(QDockWidget):
         session = self._current_session()
         artifact_id = str(self.cbo_artifact.currentData() or "")
         return self._store.get_artifact(session["id"], artifact_id) if session and artifact_id else None
+
+    def _on_artifact_selected(self, _index=-1):
+        artifact = self._selected_artifact()
+        available = artifact is not None
+        compatible = available and artifact_is_compatible(artifact)
+        self.btn_review_artifact.setEnabled(available)
+        self.btn_forge.setEnabled(compatible)
+        notice = "" if compatible or not available else t("study_artifact_stale_notice")
+        self.cbo_artifact.setToolTip(notice)
+        self.btn_review_artifact.setToolTip(notice)
+        self.btn_forge.setToolTip(notice)
 
     def _on_transcript_link(self, url):
         """Route internal artifact links through the existing artifact owner."""
@@ -690,6 +713,10 @@ class AiCompanionDock(QDockWidget):
         dialog.resize(760, 560)
         apply_theme(dialog)
         layout = QVBoxLayout(dialog)
+        if not artifact_is_compatible(artifact):
+            notice = QLabel(t("study_artifact_stale_review"))
+            notice.setWordWrap(True)
+            layout.addWidget(notice)
         text = QPlainTextEdit()
         text.setReadOnly(True)
         text.setPlainText(json.dumps(artifact["cards"], ensure_ascii=False, indent=2))
@@ -702,6 +729,9 @@ class AiCompanionDock(QDockWidget):
     def open_artifact_in_forge(self):
         artifact = self._selected_artifact()
         if not artifact:
+            return
+        if not artifact_is_compatible(artifact):
+            showInfo(t("study_artifact_stale_open_error"))
             return
         try:
             artifact_to_factory_payload(artifact)

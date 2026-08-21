@@ -18,6 +18,9 @@ from typing import Any, Optional
 from .logger import get_logger, redact_sensitive
 from .language_identity import CANONICAL_LANGUAGES, normalize_language, try_normalize_language
 from .ai_output_validation import AI_OUTPUT_SCHEMA_VERSION, validate_ai_cards
+from .ai_card_artifacts import (
+    ARTIFACT_COMPATIBILITY_CURRENT, ARTIFACT_COMPATIBILITY_STALE,
+)
 from .user_data import atomic_write_json, get_user_data_path, read_json
 
 
@@ -85,18 +88,28 @@ def _message(value: Any) -> Optional[dict]:
 def _artifact(value: Any) -> Optional[dict]:
     if not isinstance(value, dict) or not isinstance(value.get("cards"), list):
         return None
-    kind = str(value.get("kind") or "").strip().lower()
-    language = try_normalize_language(value.get("language"))
-    if kind not in {"vocab", "grammar"} or language is None:
-        return None
-    cards = [redact_sensitive(dict(card)) for card in value["cards"] if isinstance(card, dict)]
-    if not cards:
-        return None
     try:
         schema_version = int(value.get("schema_version") or 0)
     except (TypeError, ValueError):
         return None
+    kind = str(value.get("kind") or "").strip().lower()
+    language = try_normalize_language(value.get("language"))
     if schema_version != AI_OUTPUT_SCHEMA_VERSION:
+        return {
+            "artifact_id": _clean_text(value.get("artifact_id"), 100) or _identifier("artifact"),
+            "session_id": _clean_text(value.get("session_id"), 100),
+            "created_at": _clean_text(value.get("created_at"), 64) or _now(),
+            "language": language or "",
+            "kind": kind if kind in {"vocab", "grammar"} else "",
+            "schema_version": schema_version,
+            "compatibility": ARTIFACT_COMPATIBILITY_STALE,
+            "cards": redact_sensitive(value["cards"]),
+            "source_message_id": _clean_text(value.get("source_message_id"), 100),
+        }
+    if kind not in {"vocab", "grammar"} or language is None:
+        return None
+    cards = [redact_sensitive(dict(card)) for card in value["cards"] if isinstance(card, dict)]
+    if not cards:
         return None
     try:
         report = validate_ai_cards(
@@ -113,6 +126,7 @@ def _artifact(value: Any) -> Optional[dict]:
         "language": language,
         "kind": kind,
         "schema_version": schema_version,
+        "compatibility": ARTIFACT_COMPATIBILITY_CURRENT,
         "cards": [dict(card) for card in report.valid_cards],
         "source_message_id": _clean_text(value.get("source_message_id"), 100),
     }
