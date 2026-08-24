@@ -245,6 +245,149 @@ def test_same_session_switches_workspaces_without_request_context_bleed(tmp_path
     assert "no current-card context was attached" in last_text
 
 
+def test_mixed_session_history_and_summaries_are_workspace_scoped(tmp_path):
+    store = StudySessionStore(str(tmp_path / "sessions.json"))
+    session = store.create_session(language="english")
+    reviewer = _request(
+        "reviewer", "reviewer-history", user_instruction="Reviewer history marker",
+        card_context=_snapshot("qa"), use_card_context=True,
+    )
+    forge = _request(
+        "forge", "forge-history", user_instruction="Forge history marker",
+        source_text="Forge source marker", lane="vocab",
+    )
+    reviewer_message = store.add_message(
+        session["id"], role="user", content=reviewer.user_instruction,
+        context_snapshot=reviewer.to_snapshot(),
+    )
+    store.add_message(
+        session["id"], role="assistant", content="Reviewer inferred reply marker",
+    )
+    store.add_message(
+        session["id"], role="system", content="Reviewer checkpoint marker",
+        message_type="system_internal", context_snapshot={"workspace": "reviewer"},
+    )
+    forge_message = store.add_message(
+        session["id"], role="user", content=forge.user_instruction,
+        context_snapshot=forge.to_snapshot(),
+    )
+    store.add_message(
+        session["id"], role="assistant", content="Forge inferred reply marker",
+    )
+    store.add_message(
+        session["id"], role="assistant", content="Malformed owner marker",
+        context_snapshot={"workspace": "unknown"},
+    )
+    store.add_message(session["id"], role="user", content="Unowned legacy marker")
+    store.add_message(session["id"], role="assistant", content="Unowned legacy reply")
+    store.update_summary(
+        session["id"], "Legacy global summary must not leak", reviewer_message["id"],
+    )
+    store.update_summary(
+        session["id"], "Reviewer summary marker", reviewer_message["id"],
+        workspace="reviewer",
+    )
+    store.update_summary(
+        session["id"], "Forge summary marker", forge_message["id"],
+        workspace="forge",
+    )
+
+    restored = StudySessionStore(str(tmp_path / "sessions.json")).get_session(session["id"])
+    reviewer_current = _request(
+        "reviewer", "reviewer-current", user_instruction="Reviewer current",
+        card_context=_snapshot("qa"), use_card_context=False,
+    )
+    forge_current = _request(
+        "forge", "forge-current", user_instruction="Forge current",
+        source_text="Current Forge source", lane="vocab",
+    )
+    reviewer_prepared = prepare_study_context(
+        restored, current_user_message=reviewer_current.user_instruction,
+        system_prompt="Reviewer", model="unknown", session_max_tokens=4_000,
+        workspace_request=reviewer_current,
+    )
+    forge_prepared = prepare_study_context(
+        restored, current_user_message=forge_current.user_instruction,
+        system_prompt="Forge", model="unknown", session_max_tokens=4_000,
+        workspace_request=forge_current,
+    )
+    reviewer_text = "\n".join(item["content"] for item in reviewer_prepared.messages)
+    forge_text = "\n".join(item["content"] for item in forge_prepared.messages)
+
+    assert "Reviewer summary marker" in reviewer_text
+    assert "Reviewer inferred reply marker" in reviewer_text
+    assert "Reviewer checkpoint marker" not in reviewer_text
+    assert "Forge history marker" not in reviewer_text
+    assert "Forge summary marker" not in reviewer_text
+    assert "Unowned legacy marker" not in reviewer_text
+    assert "Malformed owner marker" not in reviewer_text
+    assert "Legacy global summary must not leak" not in reviewer_text
+    assert "Forge summary marker" in forge_text
+    assert "Forge inferred reply marker" in forge_text
+    assert "Reviewer history marker" not in forge_text
+    assert "Reviewer summary marker" not in forge_text
+    assert "Unowned legacy marker" not in forge_text
+    assert "Malformed owner marker" not in forge_text
+    assert restored["workspace_summaries"]["reviewer"]["summary"] == "Reviewer summary marker"
+    assert restored["workspace_summaries"]["forge"]["summary"] == "Forge summary marker"
+
+
+@pytest.mark.parametrize("mutation", ["replace", "delete_message", "delete_turn"])
+def test_transcript_mutations_invalidate_global_and_workspace_summaries(tmp_path, mutation):
+    store = StudySessionStore(str(tmp_path / f"{mutation}.json"))
+    session = store.create_session(language="english")
+    first = store.add_message(
+        session["id"], role="user", content="first",
+        context_snapshot={"workspace": "reviewer"},
+    )
+    store.add_message(
+        session["id"], role="assistant", content="reply",
+        context_snapshot={"workspace": "reviewer"},
+    )
+    store.update_summary(session["id"], "global", first["id"])
+    store.update_summary(
+        session["id"], "reviewer", first["id"], workspace="reviewer",
+    )
+    store.update_summary(
+        session["id"], "forge", first["id"], workspace="forge",
+    )
+
+    if mutation == "replace":
+        restored = store.replace_latest_user_message(session["id"], "edited")
+    elif mutation == "delete_message":
+        assert store.delete_message(session["id"], first["id"])
+        restored = store.get_session(session["id"])
+    else:
+        assert store.delete_latest_user_turn(session["id"])
+        restored = store.get_session(session["id"])
+
+    assert restored["summary"] == ""
+    assert restored["summary_through_message_id"] == ""
+    assert all(
+        slot == {"summary": "", "summary_through_message_id": ""}
+        for slot in restored["workspace_summaries"].values()
+    )
+
+
+def test_latest_turn_mutation_refuses_the_other_workspace(tmp_path):
+    store = StudySessionStore(str(tmp_path / "sessions.json"))
+    session = store.create_session(language="english")
+    store.add_message(
+        session["id"], role="user", content="Forge owns this turn",
+        context_snapshot={"workspace": "forge"},
+    )
+    before = store.get_session(session["id"])
+
+    assert store.replace_latest_user_message(
+        session["id"], "Reviewer edit", workspace="reviewer",
+        context_snapshot={"workspace": "reviewer"},
+    ) is None
+    assert store.delete_latest_user_turn(
+        session["id"], workspace="reviewer",
+    ) is False
+    assert store.get_session(session["id"])["messages"] == before["messages"]
+
+
 def test_request_provenance_is_optional_and_v1811_sessions_still_reload(tmp_path):
     path = tmp_path / "sessions.json"
     store = StudySessionStore(str(path))
@@ -263,6 +406,31 @@ def test_request_provenance_is_optional_and_v1811_sessions_still_reload(tmp_path
     assert snapshot["workspace"] == "forge"
     assert snapshot["source_text"] == "Persisted source"
     assert "context_snapshot" not in restored["messages"][1]
+
+
+def test_schema_v2_session_migrates_with_empty_workspace_memory(tmp_path):
+    path = tmp_path / "sessions.json"
+    path.write_text(json.dumps({
+        "schema_version": 2,
+        "sessions": [{
+            "id": "v2-session", "title": "V2", "language": "english",
+            "messages": [{"role": "user", "type": "user", "content": "legacy"}],
+            "summary": "Owner unknown", "summary_through_message_id": "legacy-id",
+            "artifacts": [],
+        }],
+        "ui_state": {},
+    }), encoding="utf-8")
+
+    store = StudySessionStore(str(path))
+    restored = store.get_session("v2-session")
+
+    assert restored["summary"] == "Owner unknown"
+    assert restored["workspace_summaries"] == {
+        "reviewer": {"summary": "", "summary_through_message_id": ""},
+        "forge": {"summary": "", "summary_through_message_id": ""},
+    }
+    store.rename_session("v2-session", "Migrated")
+    assert json.loads(path.read_text(encoding="utf-8"))["schema_version"] == 3
 
 
 def test_station_ui_has_explicit_surface_ownership_and_bilingual_labels():
@@ -286,6 +454,10 @@ def test_station_ui_has_explicit_surface_ownership_and_bilingual_labels():
     assert "build_selected_candidate_instruction" in companion
     assert "study_candidates_source_changed" in companion
     assert "_prepared_candidate_source_digest" in companion
+    assert "def _response_context_snapshot" in companion
+    assert "context_snapshot=response_snapshot" in companion
+    assert "workspace=self._workspace" in companion
+    assert "study_latest_turn_other_workspace" in companion
     assert "existing_entries=list(existing_entries or ())" in factory
     assert "get_existing_vocab_from_deck" in factory[factory.index("def _ai_chat(self):"):factory.index("def _ai_chat_legacy(self):")]
     assert "query_anki_context" not in factory[factory.index("def _ai_chat(self):"):factory.index("def _ai_chat_legacy(self):")]

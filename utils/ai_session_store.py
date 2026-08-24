@@ -26,9 +26,10 @@ from .user_data import atomic_write_json, get_user_data_path, read_json
 
 logger = get_logger()
 
-SESSION_SCHEMA_VERSION = 2
+SESSION_SCHEMA_VERSION = 3
 MESSAGE_TYPES = frozenset({"user", "assistant", "system_internal", "artifact_reference"})
 MESSAGE_ROLES = frozenset({"user", "assistant", "system"})
+WORKSPACE_MEMORY_KEYS = ("reviewer", "forge")
 SUPPORTED_LANGUAGES = CANONICAL_LANGUAGES
 DEFAULT_MAX_SESSIONS = 100
 DEFAULT_MAX_MESSAGES = 500
@@ -167,6 +168,38 @@ def _message(value: Any) -> Optional[dict]:
     return result
 
 
+def _workspace_summaries(value: Any) -> dict:
+    raw = value if isinstance(value, dict) else {}
+    result = {}
+    for workspace in WORKSPACE_MEMORY_KEYS:
+        slot = raw.get(workspace)
+        if not isinstance(slot, dict):
+            slot = {}
+        summary = _clean_text(slot.get("summary"), 8_000)
+        result[workspace] = {
+            "summary": summary,
+            "summary_through_message_id": (
+                _clean_text(slot.get("summary_through_message_id"), 100)
+                if summary else ""
+            ),
+        }
+    return result
+
+
+def _clear_summaries(session: dict) -> None:
+    session["summary"] = ""
+    session["summary_through_message_id"] = ""
+    session["workspace_summaries"] = _workspace_summaries({})
+
+
+def _message_workspace(message: dict) -> str:
+    snapshot = message.get("context_snapshot")
+    if not isinstance(snapshot, dict):
+        return ""
+    workspace = str(snapshot.get("workspace") or "").strip().casefold()
+    return workspace if workspace in WORKSPACE_MEMORY_KEYS else ""
+
+
 def _artifact(value: Any) -> Optional[dict]:
     if not isinstance(value, dict) or not isinstance(value.get("cards"), list):
         return None
@@ -248,6 +281,9 @@ def _session(value: Any, *, max_messages: int, max_artifacts: int) -> Optional[d
         "summary": summary,
         "summary_through_message_id": _clean_text(
             value.get("summary_through_message_id"), 100,
+        ),
+        "workspace_summaries": _workspace_summaries(
+            value.get("workspace_summaries")
         ),
         "artifacts": artifacts,
         "optional_deck_context": redact_sensitive(deck_context) if deck_context else None,
@@ -341,6 +377,7 @@ class StudySessionStore:
                 "messages": [],
                 "summary": "",
                 "summary_through_message_id": "",
+                "workspace_summaries": {},
                 "artifacts": [],
                 "optional_deck_context": optional_deck_context,
             }, max_messages=self.max_messages, max_artifacts=self.max_artifacts)
@@ -421,6 +458,7 @@ class StudySessionStore:
         content: str,
         *,
         context_snapshot: Optional[dict] = None,
+        workspace: Optional[str] = None,
     ) -> Optional[dict]:
         session = self.get_session(session_id)
         if session is None:
@@ -432,6 +470,12 @@ class StudySessionStore:
         )
         if index is None:
             return None
+        if workspace is not None:
+            workspace = str(workspace).strip().casefold()
+            if workspace not in WORKSPACE_MEMORY_KEYS:
+                raise ValueError("unsupported AI workspace message mutation")
+            if _message_workspace(session["messages"][index]) != workspace:
+                return None
         session["messages"] = session["messages"][:index + 1]
         session["messages"][index]["content"] = _clean_text(content, 50_000)
         session["messages"][index]["created_at"] = _now()
@@ -441,8 +485,7 @@ class StudySessionStore:
             )
         else:
             session["messages"][index].pop("context_snapshot", None)
-        session["summary"] = ""
-        session["summary_through_message_id"] = ""
+        _clear_summaries(session)
         return self.save_session(session)
 
     def delete_message(self, session_id: str, message_id: str) -> bool:
@@ -453,12 +496,13 @@ class StudySessionStore:
         if len(messages) == len(session["messages"]):
             return False
         session["messages"] = messages
-        session["summary"] = ""
-        session["summary_through_message_id"] = ""
+        _clear_summaries(session)
         self.save_session(session)
         return True
 
-    def delete_latest_user_turn(self, session_id: str) -> bool:
+    def delete_latest_user_turn(
+        self, session_id: str, *, workspace: Optional[str] = None,
+    ) -> bool:
         """Delete the latest learner message and every response derived from it."""
         session = self.get_session(session_id)
         if session is None:
@@ -470,9 +514,14 @@ class StudySessionStore:
         )
         if index is None:
             return False
+        if workspace is not None:
+            workspace = str(workspace).strip().casefold()
+            if workspace not in WORKSPACE_MEMORY_KEYS:
+                raise ValueError("unsupported AI workspace message mutation")
+            if _message_workspace(session["messages"][index]) != workspace:
+                return False
         session["messages"] = session["messages"][:index]
-        session["summary"] = ""
-        session["summary_through_message_id"] = ""
+        _clear_summaries(session)
         self.save_session(session)
         return True
 
@@ -481,15 +530,29 @@ class StudySessionStore:
         session_id: str,
         summary: str,
         summary_through_message_id: Optional[str] = None,
+        *,
+        workspace: Optional[str] = None,
     ) -> Optional[dict]:
         session = self.get_session(session_id)
         if session is None:
             return None
-        session["summary"] = _clean_text(summary, 8_000)
+        clean_summary = _clean_text(summary, 8_000)
+        clean_marker = (
+            _clean_text(summary_through_message_id, 100)
+            if summary_through_message_id is not None and clean_summary else ""
+        )
+        if workspace is not None:
+            workspace = str(workspace).strip().casefold()
+            if workspace not in WORKSPACE_MEMORY_KEYS:
+                raise ValueError("unsupported AI workspace summary")
+            session["workspace_summaries"][workspace] = {
+                "summary": clean_summary,
+                "summary_through_message_id": clean_marker,
+            }
+            return self.save_session(session)
+        session["summary"] = clean_summary
         if summary_through_message_id is not None:
-            session["summary_through_message_id"] = _clean_text(
-                summary_through_message_id, 100,
-            )
+            session["summary_through_message_id"] = clean_marker
         if not session["summary"]:
             session["summary_through_message_id"] = ""
         return self.save_session(session)
@@ -540,5 +603,6 @@ class StudySessionStore:
 
 __all__ = [
     "SESSION_SCHEMA_VERSION", "StudySessionStore", "MESSAGE_TYPES",
+    "WORKSPACE_MEMORY_KEYS",
     "SUPPORTED_LANGUAGES",
 ]

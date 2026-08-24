@@ -9,10 +9,16 @@
 #### ✨ Added
 - **Forge Source Candidate Manifest** — thêm bước `SOURCE → CANDIDATE → ARTIFACT`: AI chỉ trả manifest vocab/grammar có `surface` và `source_excerpt` kiểm chứng được trong source; output malformed, prose hoặc cắt cụt bị từ chối, candidate trùng nội bộ bị loại trước khi hiển thị.
 - **Candidate review có chủ quyền người dùng** — Forge cho chọn/bỏ từng candidate rồi mới soạn sẵn request Card Mode chỉ chứa các mục đã chọn; không tự gọi AI lần hai, không tự tạo artifact và không tự import. Bề mặt đã có trong deck hiện tại chỉ được gắn cảnh báo vì có thể khác nghĩa.
+- **Reviewer Learning Checkpoint** — Study Coach có hai điểm kết thúc tường minh theo đúng `card_id + study_mode`: `Đã rõ · tiếp tục ôn` lưu checkpoint cục bộ rồi trả focus về Reviewer, còn `Cần luyện thêm` chỉ soạn sẵn micro-quiz để người dùng chủ động gửi.
 
 #### 🔧 Changed
 - **Reviewer/Forge role split** — Study Coach trong Reviewer nay chỉ phục vụ giải thích, gợi nhớ và kiểm tra mức hiểu trên thẻ hiện tại; Card Mode, artifact controls và artifact transcript chỉ thuộc Forge AI Workshop.
 - **Fail-closed card ownership** — workspace policy và AI boundary từ chối mọi `card_mode` của Reviewer kể cả khi caller bỏ qua UI; Forge vẫn dùng Quality V2 và artifact → Xưởng zero-AI như cũ.
+- **Checkpoint không can thiệp học lịch** — learning checkpoint dùng message `system_internal`, không đi vào prompt AI/rolling summary, không gọi model tự động và không sửa note, rating, ease, due hay SRS của Anki.
+- **Workspace-scoped session memory** — Reviewer và Forge vẫn dùng chung transcript cục bộ để theo dõi, nhưng model history và rolling summary nay được tách theo workspace; assistant reply/candidate/artifact mới đều lưu provenance owner và transcript hiển thị đúng nhãn AI đã tạo message.
+
+#### 🐛 Fixed
+- **Cross-workspace memory bleed** — request Reviewer không còn nhận lịch sử/summary Forge và ngược lại. Phiên schema cũ vẫn reload, nhưng turn/summary không xác định owner bị loại khỏi request scoped; assistant legacy chỉ được kế thừa owner từ user turn có provenance ngay trước đó.
 
 ### 2026-08-21 — Phiên bản: `18.1.0` → `18.1.0`
 

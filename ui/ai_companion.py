@@ -22,6 +22,9 @@ from utils.ai_card_artifacts import (
     artifact_is_compatible, artifact_label, artifact_to_factory_payload,
     create_card_artifact,
 )
+from utils.ai_coaching_loop import (
+    build_reviewer_checkpoint, latest_reviewer_checkpoint,
+)
 from utils.ai_extractor import get_api_config, get_api_key_for_provider
 from utils.ai_providers import AI_PROVIDERS, detect_provider, get_provider
 from utils.ai_source_candidates import (
@@ -211,6 +214,31 @@ class AiCompanionDock(QDockWidget):
             button.clicked.connect(lambda _checked=False, value=prompt_key: self._set_quick_prompt(t(value)))
             quick.addWidget(button, index // 3, index % 3)
         body.addLayout(quick)
+
+        coach = QVBoxLayout()
+        self.coach_state = QLabel(t("study_coach_loop_idle"))
+        self.coach_state.setObjectName("forgeAiCoachState")
+        self.coach_state.setWordWrap(True)
+        coach.addWidget(self.coach_state)
+        coach_actions = QHBoxLayout()
+        self.btn_needs_practice = QPushButton(t("study_coach_needs_practice"))
+        self.btn_needs_practice.setProperty("class", "stationAction")
+        self.btn_needs_practice.clicked.connect(
+            lambda: self.mark_coaching_outcome("needs_practice")
+        )
+        coach_actions.addWidget(self.btn_needs_practice)
+        self.btn_understood = QPushButton(t("study_coach_understood"))
+        self.btn_understood.setProperty("class", "primary")
+        self.btn_understood.clicked.connect(
+            lambda: self.mark_coaching_outcome("understood")
+        )
+        coach_actions.addWidget(self.btn_understood)
+        for widget in (
+            self.coach_state, self.btn_needs_practice, self.btn_understood,
+        ):
+            widget.setVisible(self._workspace == "reviewer")
+        coach.addLayout(coach_actions)
+        body.addLayout(coach)
 
         context_row = QHBoxLayout()
         self.chk_context = QCheckBox(t("study_use_card_context"))
@@ -523,6 +551,13 @@ class AiCompanionDock(QDockWidget):
         language_label = _LANGUAGE_LABELS.get(language, language.title() or "-")
         if self._workspace == "reviewer":
             context_enabled = bool(self._card_context) and self.chk_context.isChecked()
+            checkpoint = latest_reviewer_checkpoint(
+                (session or {}).get("messages", []), self._card_context,
+            )
+            outcome = str((checkpoint or {}).get("outcome") or "idle")
+            self.coach_state.setText(t(f"study_coach_loop_{outcome}"))
+            for button in (self.btn_needs_practice, self.btn_understood):
+                button.setEnabled(bool(self._card_context))
             mode = str((self._card_context or {}).get("study_mode") or "-").upper()
             side_key = (
                 "study_context_answer_side"
@@ -571,6 +606,36 @@ class AiCompanionDock(QDockWidget):
     def _set_quick_prompt(self, prompt: str):
         self.input.setPlainText(prompt)
         self.input.setFocus()
+
+    def mark_coaching_outcome(self, outcome: str):
+        """Persist a local Reviewer checkpoint without calling AI or touching SRS."""
+        if self._workspace != "reviewer":
+            return
+        if self._workflow.chat_worker is not None:
+            tooltip(t("study_coach_request_active"))
+            return
+        session = self._current_session()
+        try:
+            checkpoint = build_reviewer_checkpoint(self._card_context, outcome)
+        except ValueError:
+            tooltip(t("study_coach_context_required"))
+            return
+        if not session:
+            self.status.setText(t("study_language_required"))
+            return
+        normalized = checkpoint["outcome"]
+        self._store.add_message(
+            session["id"], role="system",
+            content=t(f"study_coach_checkpoint_{normalized}"),
+            message_type="system_internal", context_snapshot=checkpoint,
+        )
+        self._reload_sessions(session["id"])
+        if normalized == "needs_practice":
+            self._set_quick_prompt(t("study_prompt_check"))
+            self.status.setText(t("study_coach_practice_prepared"))
+            return
+        tooltip(t("study_coach_returning"))
+        self.back_to_review()
 
     def send_message(self):
         if self._workflow.chat_worker is not None:
@@ -633,7 +698,13 @@ class AiCompanionDock(QDockWidget):
             session = self._store.replace_latest_user_message(
                 session["id"], text,
                 context_snapshot=request_context.to_snapshot(),
+                workspace=self._workspace,
             )
+            if session is None:
+                self._editing_latest = False
+                tooltip(t("study_latest_turn_other_workspace"))
+                self._reload_sessions(self._active_session_id)
+                return
             user_message = session["messages"][-1]
             self._editing_latest = False
         else:
@@ -679,6 +750,10 @@ class AiCompanionDock(QDockWidget):
     def _owns_request(self, token: str) -> bool:
         return bool(token) and token == self._pending_request_token
 
+    def _response_context_snapshot(self, token: str) -> dict:
+        """Persist response ownership without duplicating request source/card data."""
+        return {"workspace": self._workspace, "request_token": token}
+
     def _on_progress(self, message: str, token: str):
         if not self._owns_request(token):
             return
@@ -702,9 +777,13 @@ class AiCompanionDock(QDockWidget):
             self._finish_request_ui()
             self._clear_pending_request(token)
             return
+        response_snapshot = self._response_context_snapshot(token)
         reply = str(result.get("reply") or "").strip()
         if reply:
-            self._store.add_message(session["id"], role="assistant", content=reply)
+            self._store.add_message(
+                session["id"], role="assistant", content=reply,
+                context_snapshot=response_snapshot,
+            )
         candidate_manifest = None
         if self._pending_candidate_mode and result.get("candidate_manifest"):
             candidate_manifest = mark_existing_candidate_surfaces(
@@ -721,6 +800,7 @@ class AiCompanionDock(QDockWidget):
                     rejected=rejected,
                     existing=candidate_manifest.get("existing_surface_count", 0),
                 ),
+                context_snapshot=response_snapshot,
             )
         cards = result.get("card_json")
         if cards and self._policy.allows_card_mode and self._pending_card_mode:
@@ -735,6 +815,7 @@ class AiCompanionDock(QDockWidget):
                     session["id"], role="assistant",
                     content=t("study_artifact_ready", count=len(cards)),
                     message_type="artifact_reference", artifact_id=artifact["artifact_id"],
+                    context_snapshot=response_snapshot,
                 )
             except ValueError as error:
                 log_event(
@@ -743,6 +824,7 @@ class AiCompanionDock(QDockWidget):
                 )
                 self._store.add_message(
                     session["id"], role="assistant", content=t("study_artifact_rejected"),
+                    context_snapshot=response_snapshot,
                 )
         elif (
             self._policy.allows_card_mode
@@ -752,12 +834,14 @@ class AiCompanionDock(QDockWidget):
             self._store.add_message(
                 session["id"], role="assistant",
                 content=result.get("card_warning") or t("study_artifact_rejected"),
+                context_snapshot=response_snapshot,
             )
         if result.get("session_summary"):
             self._store.update_summary(
                 session["id"],
                 result["session_summary"],
                 result.get("session_summary_through_message_id"),
+                workspace=self._workspace,
             )
         selected_id = self._active_session_id or session["id"]
         self._finish_request_ui()
@@ -897,10 +981,17 @@ class AiCompanionDock(QDockWidget):
         message = next(
             (item for item in reversed(session["messages"]) if item["role"] == "user"), None,
         )
-        if message:
+        snapshot = message.get("context_snapshot") if message else None
+        message_workspace = (
+            str(snapshot.get("workspace") or "").strip().casefold()
+            if isinstance(snapshot, dict) else ""
+        )
+        if message and message_workspace == self._workspace:
             self.input.setPlainText(message["content"])
             self._editing_latest = True
             self.input.setFocus()
+        elif message:
+            tooltip(t("study_latest_turn_other_workspace"))
 
     def delete_latest_message(self):
         session = self._current_session()
@@ -910,15 +1001,33 @@ class AiCompanionDock(QDockWidget):
         ):
             tooltip(t("study_request_edit_blocked"))
             return
-        if session and self._store.delete_latest_user_turn(session["id"]):
+        if session and self._store.delete_latest_user_turn(
+            session["id"], workspace=self._workspace,
+        ):
             self._editing_latest = False
             self.input.clear()
             self._reload_sessions(session["id"])
+        elif session:
+            tooltip(t("study_latest_turn_other_workspace"))
 
     def _render_session(self, session: dict):
         blocks = []
         artifacts = {item["artifact_id"]: item for item in session["artifacts"]}
         for message in session["messages"]:
+            if message["type"] == "system_internal":
+                snapshot = message.get("context_snapshot") or {}
+                outcome = str(snapshot.get("outcome") or "")
+                if (
+                    self._workspace == "reviewer"
+                    and snapshot.get("workspace") == "reviewer"
+                    and outcome in {"understood", "needs_practice"}
+                ):
+                    blocks.append(
+                        "<div style='margin:6px 0;padding:7px;border-radius:6px;"
+                        "background:rgba(127,127,127,.12);font-size:12px'>"
+                        f"{html.escape(t(f'study_coach_checkpoint_{outcome}'))}</div>"
+                    )
+                continue
             if message["type"] == "artifact_reference":
                 if not self._policy.allows_card_mode:
                     continue
@@ -949,11 +1058,13 @@ class AiCompanionDock(QDockWidget):
                 )
                 continue
             learner = message["role"] == "user"
+            snapshot = message.get("context_snapshot") or {}
+            message_workspace = str(snapshot.get("workspace") or self._workspace)
             label = (
                 t("study_you") if learner
                 else t(
                     "study_reviewer_ai"
-                    if self._workspace == "reviewer" else "study_forge_ai"
+                    if message_workspace == "reviewer" else "study_forge_ai"
                 )
             )
             color = "rgba(53,111,164,0.16)" if learner else "rgba(255,255,255,0.07)"

@@ -136,6 +136,7 @@ def prepare_study_context(
     current = {"role": "user", "content": str(redact_sensitive(current_user_message)).strip()}
     fixed = [system]
     workspace_message = None
+    workspace_name = None
     if workspace_request is not None:
         from .ai_workspace import WorkspaceRequestContext, workspace_context_message
 
@@ -143,6 +144,7 @@ def prepare_study_context(
             raise ValueError("invalid workspace request context")
         if workspace_request.user_instruction != current["content"]:
             raise ValueError("workspace request instruction mismatch")
+        workspace_name = workspace_request.workspace
         workspace_message = workspace_context_message(workspace_request)
         fixed.append(workspace_message)
         filtered_card = {}
@@ -155,12 +157,41 @@ def prepare_study_context(
             fixed.append(_context_system_message(filtered_card))
 
     history = []
+    active_turn_workspace = None
     for index, item in enumerate(session.get("messages", [])):
-        if item.get("role") not in {"user", "assistant"} or not item.get("content"):
+        snapshot = item.get("context_snapshot")
+        workspace_declared = isinstance(snapshot, Mapping) and "workspace" in snapshot
+        explicit_workspace = (
+            str(snapshot.get("workspace") or "").strip().casefold()
+            if isinstance(snapshot, Mapping) else ""
+        )
+        if explicit_workspace not in {"reviewer", "forge"}:
+            explicit_workspace = ""
+        role = item.get("role")
+        if role == "user":
+            active_turn_workspace = explicit_workspace or None
+            message_workspace = active_turn_workspace
+        elif role == "assistant":
+            if explicit_workspace:
+                active_turn_workspace = explicit_workspace
+                message_workspace = explicit_workspace
+            elif workspace_declared:
+                active_turn_workspace = None
+                message_workspace = None
+            else:
+                message_workspace = active_turn_workspace
+        else:
+            message_workspace = explicit_workspace or active_turn_workspace
+        if (
+            item.get("type") == "system_internal"
+            or role not in {"user", "assistant"}
+            or not item.get("content")
+            or (workspace_name is not None and message_workspace != workspace_name)
+        ):
             continue
         history.append({
             "id": str(item.get("id") or f"legacy-message-{index}"),
-            "role": item.get("role"),
+            "role": role,
             "content": str(redact_sensitive(item.get("content") or "")),
             "type": str(item.get("type") or item.get("role") or ""),
         })
@@ -175,8 +206,21 @@ def prepare_study_context(
 
     fixed_tokens = sum(estimate_tokens(item["content"]) + 8 for item in fixed + [current])
     remaining = max(0, available - fixed_tokens)
-    existing_summary = str(session.get("summary") or "").strip()
-    persisted_marker = str(session.get("summary_through_message_id") or "").strip()
+    if workspace_name is not None:
+        workspace_summaries = session.get("workspace_summaries")
+        workspace_memory = (
+            workspace_summaries.get(workspace_name, {})
+            if isinstance(workspace_summaries, Mapping) else {}
+        )
+        if not isinstance(workspace_memory, Mapping):
+            workspace_memory = {}
+        existing_summary = str(workspace_memory.get("summary") or "").strip()
+        persisted_marker = str(
+            workspace_memory.get("summary_through_message_id") or ""
+        ).strip()
+    else:
+        existing_summary = str(session.get("summary") or "").strip()
+        persisted_marker = str(session.get("summary_through_message_id") or "").strip()
     marker_index = next(
         (index for index, item in enumerate(history) if item["id"] == persisted_marker),
         None,
