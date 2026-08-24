@@ -64,10 +64,7 @@ def _factory_state_store():
 from Language import LANG_CONFIG, LANG_GRAMMAR_CONFIG, LANG_SELECTOR_INFO
 from mode import LANG_TEMPLATES, LANG_CSS, LANG_GRAMMAR_TEMPLATES, LANG_GRAMMAR_CSS
 from mode.card_render import build_qfmt as _build_qfmt, build_afmt as _build_afmt
-from audio.engine import (
-    VOICE_SAMPLE, get_selected_provider, get_selected_voice,
-    get_voice_options, set_selected_provider, set_selected_voice,
-)
+from audio.engine import get_voice_options, get_selected_voice, set_selected_voice, VOICE_SAMPLE
 from audio.engine import get_default_speed, set_default_speed
 from utils import safe_parse_json
 from utils.logger import get_logger
@@ -782,14 +779,6 @@ class AnkiSmartFactory(QDialog):
         self.voice_grp = QGroupBox(t("voice_group_title"))
         vgl = QVBoxLayout()
         voice_row = QHBoxLayout()
-        self.lbl_tts_provider = QLabel(t("tts_provider_label"))
-        voice_row.addWidget(self.lbl_tts_provider, 0)
-        self.cbo_tts_provider = QComboBox()
-        self.cbo_tts_provider.addItem(t("tts_provider_edge"), "edge")
-        self.cbo_tts_provider.addItem(t("tts_provider_melo"), "melo")
-        self.cbo_tts_provider.currentIndexChanged.connect(self._on_tts_provider_changed)
-        voice_row.addWidget(self.cbo_tts_provider, 0)
-        voice_row.addSpacing(8)
         self.lbl_voice = QLabel(t("voice_label"))
         voice_row.addWidget(self.lbl_voice, 0)
         self.cbo_voice = QComboBox()
@@ -1192,12 +1181,6 @@ class AnkiSmartFactory(QDialog):
 
             # Voice
             self.voice_grp.setTitle(t("voice_group_title"))
-            self.lbl_tts_provider.setText(t("tts_provider_label"))
-            for index in range(self.cbo_tts_provider.count()):
-                provider = self.cbo_tts_provider.itemData(index)
-                self.cbo_tts_provider.setItemText(
-                    index, t("tts_provider_melo" if provider == "melo" else "tts_provider_edge")
-                )
             self.lbl_voice.setText(t("voice_label"))
             self.lbl_speed.setText(t("voice_speed_label"))
             self.lbl_study_mode.setText(t("study_mode_label"))
@@ -1454,6 +1437,7 @@ class AnkiSmartFactory(QDialog):
             return
         self._apply_learning_mode_ui()
         cfg = self._cfg()
+        lang = cfg["lang_code"]
         for k, btn in self.btn_lang.items():
             btn.setChecked(k == self._current_lang)
 
@@ -1488,11 +1472,16 @@ class AnkiSmartFactory(QDialog):
         # Cập nhật placeholder theo chế độ
         self.ai_text_input.setPlaceholderText(t(self._ai_input_placeholder_key()))
 
-        self.cbo_tts_provider.blockSignals(True)
-        provider_index = self.cbo_tts_provider.findData(get_selected_provider())
-        self.cbo_tts_provider.setCurrentIndex(provider_index if provider_index >= 0 else 0)
-        self.cbo_tts_provider.blockSignals(False)
-        self._sync_voice_options()
+        voices = get_voice_options(lang)
+        self.cbo_voice.blockSignals(True)
+        self.cbo_voice.clear()
+        sel_id = get_selected_voice(lang)
+        for i, v in enumerate(voices):
+            icon = "👩" if v["gender"] == "female" else "👨"
+            self.cbo_voice.addItem(f"{icon} {v['name']}")
+            if v["id"] == sel_id:
+                self.cbo_voice.setCurrentIndex(i)
+        self.cbo_voice.blockSignals(False)
 
         # Sync speed spinner với ngôn ngữ hiện tại
         self.spin_speed.blockSignals(True)
@@ -1522,25 +1511,6 @@ class AnkiSmartFactory(QDialog):
         voices = get_voice_options(lang)
         if 0 <= index < len(voices):
             set_selected_voice(lang, voices[index]["id"])
-
-    def _sync_voice_options(self):
-        """Refresh provider-specific voices without changing the selected language."""
-        lang = self._cfg()["lang_code"]
-        voices = get_voice_options(lang)
-        self.cbo_voice.blockSignals(True)
-        self.cbo_voice.clear()
-        selected_voice = get_selected_voice(lang)
-        for index, voice in enumerate(voices):
-            icon = "👩" if voice["gender"] == "female" else "👨"
-            self.cbo_voice.addItem(f"{icon} {voice['name']}")
-            if voice["id"] == selected_voice:
-                self.cbo_voice.setCurrentIndex(index)
-        self.cbo_voice.blockSignals(False)
-
-    def _on_tts_provider_changed(self, index):
-        provider = self.cbo_tts_provider.itemData(index)
-        set_selected_provider(provider)
-        self._sync_voice_options()
 
     def _on_speed_changed(self, value):
         lang = self._cfg()["lang_code"]

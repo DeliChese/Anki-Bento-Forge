@@ -97,11 +97,6 @@ audio_tts_mock.get_audio_gtts = lambda *a, **k: ""
 sys.modules["audio.tts"] = audio_tts_mock
 audio_mock.tts = audio_tts_mock
 
-audio_melo_mock = types.ModuleType("audio.melo")
-audio_melo_mock.get_audio_melo_tts = lambda *a, **k: ""
-sys.modules["audio.melo"] = audio_melo_mock
-audio_mock.melo = audio_melo_mock
-
 audio_engine_mock = types.ModuleType("audio.engine")
 _engine_path = os.path.join(_addon_root, "audio", "engine.py")
 with open(_engine_path, "r", encoding="utf-8") as _f:
@@ -434,6 +429,45 @@ def _sample_cards():
         {"item": {"front": "走る", "meaning": "chạy", "level": "N4"}, "action": "dup_diff",
          "nid": None, "update_fields": [], "conflict_info": {"existing_meaning": "trốn"}},
     ]
+
+
+def test_on_lang_changed_syncs_speed_with_current_language(monkeypatch):
+    """Factory startup must define the TTS language before reading its speed."""
+    f = _make_factory()
+    f._learning_mode = "language"
+    f._cfg = lambda: {"lang_code": "ja", "level_label": "JLPT"}
+    f._apply_learning_mode_ui = lambda: None
+    f.btn_lang = {}
+    f._apply_lang_button_styles = lambda: None
+    f.lang_grp = MagicMock()
+    f._update_window_title = lambda: None
+    f.lbl_level = MagicMock()
+    f._sync_level_combo = lambda: None
+    f.chk_audio_vocab = MagicMock()
+    f.chk_audio_ex1 = MagicMock()
+    f.chk_audio_ex2 = MagicMock()
+    f.preview_list = MagicMock()
+    f.btn_import = MagicMock()
+    f.json_input = MagicMock()
+    f.btn_diff_meaning = MagicMock()
+    f.ai_text_input = MagicMock()
+    f.cbo_voice = MagicMock()
+    f.spin_speed = MagicMock()
+    f.lbl_study_mode = MagicMock()
+    f.cbo_study_mode = MagicMock()
+    f.lbl_srs_layout = MagicMock()
+    f.cbo_srs_layout = MagicMock()
+    f.btn_migrate_srs = MagicMock()
+    f._sync_srs_layout_combo = lambda: None
+    f.get_or_create_model = lambda: None
+    f._sync_study_mode_combo = lambda: None
+    f._restore_current_flow = lambda: None
+    f._retranslate_ui = lambda: None
+
+    monkeypatch.setattr(factory_dialog, "get_default_speed", lambda lang: 0.85 if lang == "ja" else 1.0)
+    addon.AnkiSmartFactory._on_lang_changed(f)
+
+    f.spin_speed.setValue.assert_called_once_with(0.85)
 
 
 class TestRebuildPreview:

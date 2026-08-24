@@ -7,7 +7,6 @@
 ### 2026-08-24 — Phiên bản: `18.1.0` → `18.1.0`
 
 #### ✨ Added
-- **MeloTTS cục bộ** — thay provider cloud cũ bằng engine neural miễn phí MIT cho Nhật–Trung–Hàn–Anh. MeloTTS chạy trong Python 3.11 tách khỏi Anki, giao tiếp qua loopback có token theo phiên, cache model trong RAM và publish WAV vào media theo cơ chế atomic; không cần tài khoản hoặc API key.
 - **Forge Source Candidate Manifest** — thêm bước `SOURCE → CANDIDATE → ARTIFACT`: AI chỉ trả manifest vocab/grammar có `surface` và `source_excerpt` kiểm chứng được trong source; output malformed, prose hoặc cắt cụt bị từ chối, candidate trùng nội bộ bị loại trước khi hiển thị.
 - **Candidate review có chủ quyền người dùng** — Forge cho chọn/bỏ từng candidate rồi mới soạn sẵn request Card Mode chỉ chứa các mục đã chọn; không tự gọi AI lần hai, không tự tạo artifact và không tự import. Bề mặt đã có trong deck hiện tại chỉ được gắn cảnh báo vì có thể khác nghĩa.
 - **Reviewer Learning Checkpoint** — Study Coach có hai điểm kết thúc tường minh theo đúng `card_id + study_mode`: `Đã rõ · tiếp tục ôn` lưu checkpoint cục bộ rồi trả focus về Reviewer, còn `Cần luyện thêm` chỉ soạn sẵn micro-quiz để người dùng chủ động gửi.
@@ -19,6 +18,8 @@
 - **Workspace-scoped session memory** — Reviewer và Forge vẫn dùng chung transcript cục bộ để theo dõi, nhưng model history và rolling summary nay được tách theo workspace; assistant reply/candidate/artifact mới đều lưu provenance owner và transcript hiển thị đúng nhãn AI đã tạo message.
 
 #### 🐛 Fixed
+- **TTS local gây tăng RAM** — gỡ MeloTTS sidecar và lựa chọn provider cục bộ; Bento Forge quay lại Edge TTS với gTTS fallback, nên không còn khởi chạy tiến trình model neural riêng.
+- **Factory startup** — `_on_lang_changed()` nay lấy `lang_code` từ cấu hình hiện tại trước khi đồng bộ tốc độ, loại bỏ `NameError: lang is not defined` làm Bento Forge không mở được trên Anki 25.09.4.
 - **Cross-workspace memory bleed** — request Reviewer không còn nhận lịch sử/summary Forge và ngược lại. Phiên schema cũ vẫn reload, nhưng turn/summary không xác định owner bị loại khỏi request scoped; assistant legacy chỉ được kế thừa owner từ user turn có provenance ngay trước đó.
 
 ### 2026-08-21 — Phiên bản: `18.1.0` → `18.1.0`

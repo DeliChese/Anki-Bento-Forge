@@ -6,7 +6,6 @@ Thread-safe voice selection and speed settings.
 import threading
 from typing import Optional
 
-from .melo import get_audio_melo_tts
 from .tts import _install_edge_tts, _install_gtts, get_audio_edge_tts, get_audio_gtts
 
 
@@ -52,64 +51,33 @@ VOICE_SAMPLE = {
     "en": "Hello! Let's make today a good learning day.",
 }
 
-MELO_VOICE_OPTIONS = {
-    "ja": [{"id": "JP", "name": "Japanese (MeloTTS)", "gender": "female"}],
-    "zh": [{"id": "ZH", "name": "Chinese (MeloTTS)", "gender": "female"}],
-    "ko": [{"id": "KR", "name": "Korean (MeloTTS)", "gender": "female"}],
-    "en": [
-        {"id": "EN-US", "name": "English US (MeloTTS)", "gender": "female"},
-        {"id": "EN-BR", "name": "English British (MeloTTS)", "gender": "female"},
-        {"id": "EN-AU", "name": "English Australian (MeloTTS)", "gender": "female"},
-    ],
-}
-TTS_PROVIDERS = ("edge", "melo")
-
 # Voice đang được chọn cho mỗi ngôn ngữ (thread-safe)
 _selected_voice: dict = {}
 _selected_voice_lock = threading.Lock()
-
-_selected_provider = "edge"
-_selected_provider_lock = threading.Lock()
 
 # Tốc độ phát mặc định cho mỗi ngôn ngữ (thread-safe)
 _default_speed: dict = {}
 _default_speed_lock = threading.Lock()
 
 
-def get_selected_provider() -> str:
-    with _selected_provider_lock:
-        return _selected_provider
-
-
-def set_selected_provider(provider: str) -> None:
-    """Select a known provider; invalid values fall back to Edge."""
-    global _selected_provider
-    with _selected_provider_lock:
-        _selected_provider = provider if provider in TTS_PROVIDERS else "edge"
-
-
-def get_voice_options(lang: str, provider: str = None) -> list:
+def get_voice_options(lang: str) -> list:
     """Trả về danh sách giọng có sẵn cho ngôn ngữ"""
-    selected = provider or get_selected_provider()
-    return list(MELO_VOICE_OPTIONS.get(lang, [])) if selected == "melo" else list(VOICE_OPTIONS.get(lang, []))
+    return VOICE_OPTIONS.get(lang, [])
 
 
-def get_selected_voice(lang: str, provider: str = None) -> str:
+def get_selected_voice(lang: str) -> str:
     """Trả về voice ID đang được chọn (mặc định = giọng đầu tiên)"""
-    selected = provider or get_selected_provider()
-    key = (selected, lang)
     with _selected_voice_lock:
-        if key not in _selected_voice:
-            opts = get_voice_options(lang, selected)
+        if lang not in _selected_voice:
+            opts = VOICE_OPTIONS.get(lang, [])
             return opts[0]["id"] if opts else ""
-        return _selected_voice[key]
+        return _selected_voice[lang]
 
 
-def set_selected_voice(lang: str, voice_id: str, provider: str = None):
+def set_selected_voice(lang: str, voice_id: str):
     """Lưu voice được chọn cho ngôn ngữ"""
-    selected = provider or get_selected_provider()
     with _selected_voice_lock:
-        _selected_voice[(selected, lang)] = voice_id
+        _selected_voice[lang] = voice_id
 
 
 def get_default_speed(lang: str) -> float:
@@ -168,13 +136,9 @@ def get_audio_multilang(
     if not text or not text.strip():
         return ""
 
-    provider = get_selected_provider()
-    chosen_voice = voice or get_selected_voice(lang, provider)
+    chosen_voice = voice or get_selected_voice(lang)
     if not chosen_voice:
         return ""
-
-    if provider == "melo":
-        return get_audio_melo_tts(text, chosen_voice, lang, rate=rate, cancel_event=cancel_event)
 
     if _install_edge_tts():
         result = get_audio_edge_tts(text, chosen_voice, lang, rate=rate, cancel_event=cancel_event)

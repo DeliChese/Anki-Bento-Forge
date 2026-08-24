@@ -29,7 +29,7 @@ venv/
 env/
 .env
 
-# === Local neural TTS runtime (installed per machine; never ship model weights) ===
+# Keep any previously installed local TTS runtime out of source control.
 runtime/
 
 # === IDE ===

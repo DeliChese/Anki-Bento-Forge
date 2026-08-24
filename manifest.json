@@ -22,7 +22,7 @@
     "learning_modes": ["language"],
     "ai_providers": ["openai", "deepseek", "ollama", "lmstudio", "openrouter"],
     "languages": ["japanese", "chinese", "korean", "english"],
-    "tts_engines": ["edge-tts", "melo-tts-local", "gtts", "voicevox"],
+    "tts_engines": ["edge-tts", "gtts", "voicevox"],
     "template_count": 5,
     "default_cards_per_note": 1,
     "srs_layouts": ["combo", "independent"],

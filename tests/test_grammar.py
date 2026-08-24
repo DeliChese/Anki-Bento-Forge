@@ -323,11 +323,6 @@ sys.modules.setdefault("audio", types.ModuleType("audio"))
 sys.modules["audio"].tts = _tts_mock
 sys.modules["audio.tts"] = _tts_mock
 
-_melo_mock = types.ModuleType("audio.melo")
-_melo_mock.get_audio_melo_tts = lambda *a, **kw: ""
-sys.modules["audio"].melo = _melo_mock
-sys.modules["audio.melo"] = _melo_mock
-
 _engine_mock = types.ModuleType("audio.engine")
 _engine_path = os.path.join(_addon_root, "audio", "engine.py")
 with open(_engine_path, "r", encoding="utf-8") as _f:
