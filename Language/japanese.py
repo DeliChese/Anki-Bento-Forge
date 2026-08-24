@@ -3,8 +3,9 @@
 LANG_CONFIG = {
     "label": "🇯🇵 Tiếng Nhật",
     "lang_code": "ja",
-    "model_name": "AnkiTool Japanese V18.1 (Add-on)",
+    "model_name": "AnkiTool Japanese V18.3 (Add-on)",
     "old_model_names": [
+        "AnkiTool Japanese V18.1 (Add-on)",
         "AnkiTool Japanese V17.0 (Add-on)",
         "AnkiTool Japanese V16.0 (Add-on)",
         "AnkiTool Japanese V15.0 (Add-on)",
@@ -67,8 +68,9 @@ LANG_CONFIG = {
 GRAMMAR_CONFIG = {
     "label": "🇯🇵 Ngữ pháp Tiếng Nhật",
     "lang_code": "ja",
-    "model_name": "AnkiTool Japanese Grammar V18.1 (Add-on)",
+    "model_name": "AnkiTool Japanese Grammar V18.3 (Add-on)",
     "old_model_names": [
+        "AnkiTool Japanese Grammar V18.1 (Add-on)",
         "AnkiTool Japanese Grammar V17.0 (Add-on)",
         "AnkiTool Japanese Grammar V16.0 (Add-on)",
     ],

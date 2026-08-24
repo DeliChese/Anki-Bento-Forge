@@ -4,7 +4,7 @@
 
 > Mỗi ngày có thay đổi có một mục riêng. `Phiên bản` là snapshot `manifest.json` ở đầu và cuối ngày theo lịch sử Git, không phải xác nhận phát hành. Chỉ chuyển các mục phù hợp thành bản phát hành khi có bằng chứng CI và smoke Anki.
 
-### 2026-08-24 — Phiên bản: `18.1.0` → `18.1.0`
+### 2026-08-24 — Phiên bản: `18.1.0` → `18.3.0`
 
 #### ✨ Added
 - **Forge Source Candidate Manifest** — thêm bước `SOURCE → CANDIDATE → ARTIFACT`: AI chỉ trả manifest vocab/grammar có `surface` và `source_excerpt` kiểm chứng được trong source; output malformed, prose hoặc cắt cụt bị từ chối, candidate trùng nội bộ bị loại trước khi hiển thị.
@@ -12,6 +12,7 @@
 - **Reviewer Learning Checkpoint** — Study Coach có hai điểm kết thúc tường minh theo đúng `card_id + study_mode`: `Đã rõ · tiếp tục ôn` lưu checkpoint cục bộ rồi trả focus về Reviewer, còn `Cần luyện thêm` chỉ soạn sẵn micro-quiz để người dùng chủ động gửi.
 
 #### 🔧 Changed
+- **Version metadata / Note Types** — nâng release candidate cục bộ lên `18.3.0`; Note Type mới dùng hậu tố `V18.3`, còn các model `V18.1` và cũ hơn vẫn được nhận diện để migrate an toàn.
 - **Blueprint AI composer** — ô yêu cầu, checkbox `Tạo thẻ · Từ vựng/Ngữ pháp` và nút **Gửi** nay nằm trong cùng một composer; loại artifact bám trực tiếp chế độ đã chọn phía trên. Factory ẩn router/bước xử lý và các nút AI trùng, nhưng giữ nguyên session, worker, schema, import và undo.
 - **Blueprint responsive polish** — ngôn ngữ dùng dropdown đúng bản thiết kế; bỏ nút API trùng trên toolbar; tách trạng thái file/AI khỏi hàng hành động, ưu tiên composer trước transcript/artifact rỗng và tự xếp trạm Kiểm định xuống dưới khi cửa sổ hẹp để không còn cắt chữ hoặc đẩy mất cột.
 - **Blueprint production workbench** — sắp xếp lại Factory theo ba vùng co giãn `Nguồn học liệu | AI/Candidate/Artifact + JSON | Kiểm định/Import`, đưa ngôn ngữ và loại thẻ lên khu chọn chung, bỏ banner quy trình đánh số cùng các tiêu đề trùng, giữ nguyên theme/màu cũ và toàn bộ worker/import/undo hiện hành.

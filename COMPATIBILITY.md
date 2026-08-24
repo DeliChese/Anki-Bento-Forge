@@ -1,11 +1,11 @@
 # Compatibility Matrix
 
 `manifest.json` is the authoritative source for the Bento Forge version and
-Anki compatibility metadata. For 18.1.0 it declares Anki 2.1.50 through 26.5.
+Anki compatibility metadata. For 18.3.0 it declares Anki 2.1.50 through 26.5.
 The installable manifest also maps those endpoints to Anki point versions `50`
 and `260500`.
 
-Publication status is separate from compatibility scope. The 18.1.0 release
+Publication status is separate from compatibility scope. The 18.3.0 release
 record remains pending until CI and the manual GUI smoke checklist are recorded
 in `RELEASE_CHECKLIST.md`.
 

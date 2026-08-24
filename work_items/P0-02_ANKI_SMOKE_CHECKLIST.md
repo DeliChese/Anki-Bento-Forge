@@ -4,7 +4,7 @@
 
 ## Phạm vi và an toàn dữ liệu
 
-- Add-on: Bento Forge `18.1.0` (theo `manifest.json`).
+- Add-on: Bento Forge `18.3.0` (theo `manifest.json`).
 - Phiên bản Anki mục tiêu hiện tại: `2.1.50` (xem `manifest.json` và `COMPATIBILITY.md`). Nếu Anki thực tế khác, ghi rõ phiên bản và dừng để triage trước khi tiếp tục.
 - Dùng một profile bản sao hoặc profile đã backup đầy đủ (`collection.anki2`, thư mục `collection.media`, cấu hình profile). Ghi đường dẫn hoặc vị trí backup, không ghi dữ liệu nhạy cảm.
 - Chỉ dùng 1–2 mục thử nghiệm có thể nhận diện được (ví dụ tag `bento-smoke-YYYYMMDD`); không chạy batch trên collection chính.
@@ -19,7 +19,7 @@
 | Hệ điều hành | Chưa ghi |
 | Profile / vị trí backup | Chưa ghi |
 | Deck và tag thử nghiệm | Chưa ghi |
-| Version add-on | 18.1.0 |
+| Version add-on | 18.3.0 |
 | Kết quả tổng | Chưa chạy |
 
 ## Trước khi chạy

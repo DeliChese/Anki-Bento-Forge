@@ -29,7 +29,7 @@ class TestGrammarConfigs:
     def test_japanese_grammar_config_fields(self):
         from Language import LANG_GRAMMAR_CONFIG
         cfg = LANG_GRAMMAR_CONFIG["japanese"]
-        assert cfg["model_name"] == "AnkiTool Japanese Grammar V18.1 (Add-on)"
+        assert cfg["model_name"] == "AnkiTool Japanese Grammar V18.3 (Add-on)"
         assert cfg["front_field"] == "Pattern"
         assert cfg["detect_key"] == "pattern"
         assert cfg["lang_code"] == "ja"
@@ -47,7 +47,7 @@ class TestGrammarConfigs:
     def test_chinese_grammar_config_fields(self):
         from Language import LANG_GRAMMAR_CONFIG
         cfg = LANG_GRAMMAR_CONFIG["chinese"]
-        assert cfg["model_name"] == "AnkiTool Chinese Grammar V18.1 (Add-on)"
+        assert cfg["model_name"] == "AnkiTool Chinese Grammar V18.3 (Add-on)"
         assert cfg["front_field"] == "Pattern"
         assert cfg["detect_key"] == "pattern"
         assert cfg["lang_code"] == "zh"
@@ -59,7 +59,7 @@ class TestGrammarConfigs:
     def test_korean_grammar_config_fields(self):
         from Language import LANG_GRAMMAR_CONFIG
         cfg = LANG_GRAMMAR_CONFIG["korean"]
-        assert cfg["model_name"] == "AnkiTool Korean Grammar V18.1 (Add-on)"
+        assert cfg["model_name"] == "AnkiTool Korean Grammar V18.3 (Add-on)"
         assert cfg["front_field"] == "Pattern"
         assert cfg["detect_key"] == "pattern"
         assert cfg["lang_code"] == "ko"
@@ -72,7 +72,7 @@ class TestGrammarConfigs:
     def test_english_grammar_config_fields(self):
         from Language import LANG_GRAMMAR_CONFIG
         cfg = LANG_GRAMMAR_CONFIG["english"]
-        assert cfg["model_name"] == "AnkiTool English Grammar V18.1 (Add-on)"
+        assert cfg["model_name"] == "AnkiTool English Grammar V18.3 (Add-on)"
         assert cfg["lang_code"] == "en"
         assert cfg["json_field_map"]["pronunciation"] == "Pronunciation"
         assert cfg["level_json_key"] == "cefr_level"

@@ -32,7 +32,7 @@ Mỗi phiên làm việc có động đến chất lượng, dữ liệu, worker
 
 ## Baseline đã biết
 
-- `manifest.json` là nguồn sự thật: candidate hiện là v18.1.0, khai báo Anki 2.1.50 đến 26.5; tài liệu chỉ diễn giải phạm vi này.
+- `manifest.json` là nguồn sự thật: candidate hiện là v18.3.0, khai báo Anki 2.1.50 đến 26.5; tài liệu chỉ diễn giải phạm vi này.
 - Lần đánh giá 2026-08-13 phát hiện test không cô lập hoàn toàn cấu hình i18n: `set_language()` ghi trực tiếp vào `utils/i18n_config.json`.
 - Lần chạy `python -m pytest -q` trong sandbox: 271 pass, 20 fail, 57 error. Nhiều error liên quan quyền thư mục tạm; một số test i18n/template/prompt đang kỳ vọng nội dung cũ. Kết quả này là baseline cần tái hiện trong môi trường phát triển bình thường, không phải tiêu chí pass/fail cuối cùng.
 

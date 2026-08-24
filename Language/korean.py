@@ -3,8 +3,11 @@
 LANG_CONFIG = {
     "label": "🇰🇷 Tiếng Hàn",
     "lang_code": "ko",
-    "model_name": "AnkiTool Korean V18.1 (Add-on)",
-    "old_model_names": ["AnkiTool Korean V17.0 (Add-on)"],
+    "model_name": "AnkiTool Korean V18.3 (Add-on)",
+    "old_model_names": [
+        "AnkiTool Korean V18.1 (Add-on)",
+        "AnkiTool Korean V17.0 (Add-on)",
+    ],
     "all_fields": [
         "Front", "Romanization", "Meaning", "Usage Pattern", "Usage Note", "Collocation", "Sino-Vietnamese",
         "TOPIK Level", "Topic",
@@ -70,8 +73,11 @@ LANG_CONFIG = {
 GRAMMAR_CONFIG = {
     "label": "🇰🇷 Ngữ pháp Tiếng Hàn",
     "lang_code": "ko",
-    "model_name": "AnkiTool Korean Grammar V18.1 (Add-on)",
-    "old_model_names": ["AnkiTool Korean Grammar V17.0 (Add-on)"],
+    "model_name": "AnkiTool Korean Grammar V18.3 (Add-on)",
+    "old_model_names": [
+        "AnkiTool Korean Grammar V18.1 (Add-on)",
+        "AnkiTool Korean Grammar V17.0 (Add-on)",
+    ],
     "all_fields": [
         "Pattern", "Romanization", "Meaning", "TOPIK Level", "Topic",
         "Usage", "Explanation",

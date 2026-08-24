@@ -1,8 +1,8 @@
 {
   "name": "Bento Forge",
   "package": "bento_forge",
-  "version": "18.1.0",
-  "human_version": "18.1.0",
+  "version": "18.3.0",
+  "human_version": "18.3.0",
   "min_point_version": 50,
   "max_point_version": 260500,
   "description": "Bento Forge — Language card factory and dockable AI Study Sessions companion for Anki, with safe preview/import, optional TTS, and interactive learning templates.",
