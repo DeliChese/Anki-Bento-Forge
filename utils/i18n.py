@@ -88,8 +88,8 @@ _TRANSLATIONS = {
 
     # ── AI Section ──────────────────────────────────────
     "ai_group_title": {
-        "vi": "⚙️ Lò Đúc Tự Động (AI) — OpenAI / DeepSeek / Ollama",
-        "en": "⚙️ Auto Forge (AI) — OpenAI / DeepSeek / Ollama",
+        "vi": "🏭 Lò đúc AI — Dây chuyền học liệu",
+        "en": "🏭 AI Forge — Learning-material production line",
     },
     "ai_group_title_knowledge": {
         "vi": "⚙️ Lò Đúc Kiến Thức (AI)",
@@ -100,12 +100,12 @@ _TRANSLATIONS = {
         "en": "⚙️ API Settings",
     },
     "ai_clear_text_btn": {
-        "vi": "🗑 Xóa Text",
-        "en": "🗑 Clear Text",
+        "vi": "🗑 Xóa",
+        "en": "🗑 Clear",
     },
     "ai_extract_btn": {
-        "vi": "🔥 Khai Thác Nguyên Liệu",
-        "en": "🔥 Extract Raw Material",
+        "vi": "🔥 Đúc nguyên liệu",
+        "en": "🔥 Forge material",
     },
     "knowledge_generate_btn": {
         "vi": "✨ GỬI & TẠO THẺ",
@@ -116,12 +116,12 @@ _TRANSLATIONS = {
         "en": "Send the source and extra request to generate strict Knowledge Basic/Cloze cards.",
     },
     "ai_batch_btn": {
-        "vi": "📋 Batch Từ Vựng",
-        "en": "📋 Batch Vocabulary",
+        "vi": "📋 Batch từ",
+        "en": "📋 Batch vocab",
     },
     "ai_chat_btn": {
-        "vi": "🥟 AI Study Sessions",
-        "en": "🥟 AI Study Sessions",
+        "vi": "🧭 Nạp vào AI",
+        "en": "🧭 Load to AI",
     },
     "ai_stop_btn": {
         "vi": "⏹ Dừng",
@@ -136,16 +136,16 @@ _TRANSLATIONS = {
         "en": "Stop the initial history scan; partial results will not be saved.",
     },
     "ai_input_placeholder": {
-        "vi": "📥 Nạp Quặng/Nguyên Liệu Thô/ Văn Bản Thô (300-800 ký tự tối ưu, ~50-100 từ). Hỗ trợ Nhật & Trung.",
-        "en": "📥 Load Ore/Raw Material/Raw Text (300-800 chars optimal, ~50-100 words). Supports Japanese & Chinese.",
+        "vi": "📥 Dán nguồn học liệu cần phân tích.",
+        "en": "📥 Paste learning material to analyze.",
     },
     "ai_instruction_placeholder": {
         "vi": "VD: Chỉ lấy từ HSK3+, chủ đề ẩm thực, ưu tiên từ khó...",
         "en": "e.g.: Only HSK3+ words, food topic, prioritize difficult words...",
     },
     "ai_instruction_label": {
-        "vi": "💬 Lời nhắn:",
-        "en": "💬 Instruction:",
+        "vi": "🎯 Yêu cầu đúc nhanh:",
+        "en": "🎯 Quick-forge brief:",
     },
     "knowledge_instruction_label": {
         "vi": "🎯 Yêu cầu thêm:",
@@ -562,8 +562,12 @@ _TRANSLATIONS = {
         "en": "🌐 Language",
     },
     "mode_grp_title": {
-        "vi": "📚 Loại Thẻ",
-        "en": "📚 Card Type",
+        "vi": "🧭 Router mặc định / Nhập thủ công",
+        "en": "🧭 Router fallback / Manual import",
+    },
+    "factory_card_type_tip": {
+        "vi": "Làm fallback khi Router không đủ tín hiệu và chọn Note Type cho JSON nhập thủ công. Dây chuyền AI vẫn có Router Tự động/override riêng.",
+        "en": "Used as the router fallback and the note type for manual JSON imports. The AI production line still has its own Auto/manual router.",
     },
     "learning_mode_grp_title": {
         "vi": "🧭 Chế độ học",
@@ -606,24 +610,24 @@ _TRANSLATIONS = {
         "en": "📚 AI History",
     },
     "btn_history_tip": {
-        "vi": "Xem lại lịch sử từ vựng đã lưu (AI trích xuất / import) — xem được ngay cả sau khi đóng Factory.\nTích chọn các từ cần và bấm 'Đưa Vào Xưởng' để Kiểm Định & xuất xưởng lại.",
-        "en": "Review saved vocabulary history (AI extract / import) — viewable even after closing the Factory.\nCheck the words you need and click 'Pull Into Factory' to Verify & export again.",
+        "vi": "Xem lại lịch sử từ vựng đã lưu (AI trích xuất / import) — xem được ngay cả sau khi đóng Factory.\nTích chọn các từ cần và đưa sang trạm Kiểm định & Import.",
+        "en": "Review saved vocabulary history (AI extract / import) — viewable even after closing the Factory.\nSelect the required words and send them to Review & Import.",
     },
     "btn_ai_batch_tip": {
         "vi": "Xử lý danh sách từ vựng LỚN (hàng trăm/hàng nghìn từ).\nAI sẽ làm giàu từng từ + tự động tổ chức Parent/Sub Deck theo chủ đề.",
         "en": "Process LARGE vocabulary lists (hundreds/thousands of words).\nAI enriches each word + auto-organizes Parent/Sub Decks by topic.",
     },
     "btn_ai_chat_tip": {
-        "vi": "Mở cửa sổ AI Study Sessions riêng. Câu hỏi hiện tại được chuyển sang đó,\nvà AI chỉ chạy khi bạn bấm Gửi trong session.",
-        "en": "Open the separate AI Study Sessions window. The current question is copied there,\nand AI runs only when you press Send inside the session.",
+        "vi": "Đồng bộ nguồn, yêu cầu, router và cảnh báo trùng của deck vào trạm AI. AI chỉ chạy khi bạn bấm Gửi.",
+        "en": "Sync the source, brief, router, and deck duplicate advisories into the AI station. AI runs only when you press Send.",
     },
     "btn_ai_stop_tip": {
         "vi": "Dừng yêu cầu AI đang chạy",
         "en": "Stop the running AI request",
     },
     "btn_ai_attach": {
-        "vi": "📎 Kẹp File",
-        "en": "📎 Attach File",
+        "vi": "📎 Nạp file vào nguồn",
+        "en": "📎 Load file into source",
     },
     "btn_ai_attach_tip": {
         "vi": "Đính kèm file tài liệu tham khảo (TXT/MD/DOCX/PDF/XLSX/CSV).\nAI sẽ đọc nội dung file để trích xuất từ vựng / ngữ pháp.\nLưu ý: DeepSeek chỉ nhận TEXT → add-on tự trích text từ file tại máy.",
@@ -782,12 +786,12 @@ _TRANSLATIONS = {
         "en": "🎤 Uses Edge TTS Online (needs internet, falls back to gTTS)",
     },
     "ai_input_placeholder_vocab": {
-        "vi": "📥 Nạp Quặng/Nguyên Liệu Thô/ Văn Bản Thô (300-800 ký tự tối ưu, ~50-100 từ). Hỗ trợ Nhật, Trung, Hàn & Anh.",
-        "en": "📥 Load Ore/Raw Material/Raw Text (300-800 chars optimal, ~50-100 words). Supports Japanese, Chinese, Korean & English.",
+        "vi": "📥 Dán nguồn học liệu cần phân tích (Nhật, Trung, Hàn hoặc Anh). Dây chuyền AI dùng trực tiếp nội dung này.",
+        "en": "📥 Paste learning material to analyze (Japanese, Chinese, Korean, or English). The AI production line uses this source directly.",
     },
     "ai_input_placeholder_grammar": {
-        "vi": "📥 Nạp Quặng/Nguyên Liệu Thô (NGỮ PHÁP) — cấu trúc, cách dùng, công thức, ví dụ...",
-        "en": "📥 Load Ore/Raw Material (GRAMMAR) — patterns, usage, formulas, examples...",
+        "vi": "📥 Dán nguồn học liệu cần phân tích. Router của dây chuyền có thể chọn Ngữ pháp tự động hoặc bạn khóa thủ công.",
+        "en": "📥 Paste learning material to analyze. The production-line router can select Grammar automatically or you can lock it manually.",
     },
     "ai_input_placeholder_knowledge": {
         "vi": "📥 Dán ghi chú hoặc tài liệu để tạo thẻ Kiến thức Q&A/Cloze. Nguồn chỉ được giữ khi có trong nội dung.",
@@ -2259,6 +2263,10 @@ _TRANSLATIONS = {
         "vi": "한국어",
         "en": "Korean",
     },
+    "lang_src_en": {
+        "vi": "Anh",
+        "en": "English",
+    },
     "lang_tgt": {
         "vi": "Việt",
         "en": "English",
@@ -2282,6 +2290,10 @@ _TRANSLATIONS = {
     "mode_label_pron_ko": {
         "vi": "Romanization",
         "en": "Romanization",
+    },
+    "mode_label_pron_en": {
+        "vi": "IPA",
+        "en": "IPA",
     },
     "overview_mode_label": {
         "vi": "🎯 Chế độ học:",
@@ -2454,8 +2466,8 @@ _TRANSLATIONS = {
         "en": "🧹 Removed all attached files.",
     },
     "status_attached_files": {
-        "vi": "📎 {count} file ({chars:,} ký tự): {names}",
-        "en": "📎 {count} files ({chars:,} characters): {names}",
+        "vi": "📎 {count} file · {chars:,} ký tự",
+        "en": "📎 {count} files · {chars:,} characters",
     },
 
     # ── Prompt Editor ────────────────────────────────────
@@ -3035,10 +3047,22 @@ _TRANSLATIONS = {
         "vi": "Học từ thẻ hiện tại · không tạo thẻ mới.",
         "en": "Learn from the current card · no card creation.",
     },
-    "study_forge_title": {"vi": "Xưởng AI Forge", "en": "Forge AI Workshop"},
+    "factory_source_panel_title": {
+        "vi": "Nguồn học liệu",
+        "en": "Learning source",
+    },
+    "factory_ai_panel_title": {
+        "vi": "AI · Soạn yêu cầu",
+        "en": "AI · Composer",
+    },
+    "factory_artifact_panel_title": {
+        "vi": "JSON · Artifact đầu ra",
+        "en": "JSON · Output artifact",
+    },
+    "study_forge_title": {"vi": "Trạm AI · Candidate & Artifact", "en": "AI Station · Candidates & Artifacts"},
     "study_forge_subtitle": {
-        "vi": "Nạp source · tạo artifact · đưa sang Xưởng.",
-        "en": "Attach source · build artifacts · send to Factory.",
+        "vi": "Source dùng chung với Lò đúc · không có cửa sổ Xưởng riêng.",
+        "en": "Uses the Forge source directly · no separate Workshop window.",
     },
     "study_sessions": {"vi": "Study Sessions", "en": "Study Sessions"},
     "study_new": {"vi": "Session mới", "en": "New session"},
@@ -3083,27 +3107,45 @@ _TRANSLATIONS = {
     "study_forge_prompt_grammar": {"vi": "Tìm các pattern ngữ pháp hữu ích trong source, nêu constraint và ví dụ phù hợp. Chưa tạo JSON nếu Card Mode chưa bật.", "en": "Find useful grammar patterns in the source, including constraints and suitable examples. Do not create JSON unless Card Mode is enabled."},
     "study_forge_prompt_contrast": {"vi": "Phân biệt các ứng viên dễ nhầm trong source bằng constraint ngắn gọn và có căn cứ.", "en": "Contrast confusing candidates from the source using concise, evidence-based constraints."},
     "study_forge_prompt_examples": {"vi": "Cải thiện ví dụ nhưng giữ nguyên target identity, nghĩa ngữ cảnh và ngôn ngữ đích.", "en": "Improve the examples while preserving target identity, contextual sense, and target language."},
-    "study_forge_prompt_quality": {"vi": "Kiểm tra material: nghĩa mơ hồ, ví dụ yếu, ứng viên lệch mục tiêu, thiếu constraint hoặc không đáng đưa vào Xưởng.", "en": "Quality-check the material for ambiguous senses, weak examples, off-target candidates, missing constraints, or items not worth sending to Factory."},
+    "study_forge_prompt_quality": {"vi": "Kiểm tra material: nghĩa mơ hồ, ví dụ yếu, ứng viên lệch mục tiêu, thiếu constraint hoặc không đáng tạo artifact.", "en": "Quality-check the material for ambiguous senses, weak examples, off-target candidates, missing constraints, or items not worth turning into artifacts."},
     "study_use_card_context": {"vi": "Dùng thẻ hiện tại làm ngữ cảnh", "en": "Use current card as context"},
-    "study_card_mode": {"vi": "Đầu ra của Forge", "en": "Forge output mode"},
+    "study_card_mode": {"vi": "Bước xử lý", "en": "Production step"},
+    "study_create_card_vocab": {
+        "vi": "Tạo thẻ · Từ vựng",
+        "en": "Create card · Vocabulary",
+    },
+    "study_create_card_grammar": {
+        "vi": "Tạo thẻ · Ngữ pháp",
+        "en": "Create card · Grammar",
+    },
+    "study_create_card_tip": {
+        "vi": "Bật để lần Gửi kế tiếp tạo artifact theo loại thẻ đã chọn phía trên. Tắt để trò chuyện bình thường.",
+        "en": "Enable to create an artifact using the card type selected above on the next Send. Disable for normal chat.",
+    },
     "study_mode_chat": {"vi": "Chat", "en": "Chat"},
     "study_mode_vocab": {"vi": "Card Mode · Từ vựng", "en": "Card Mode · Vocabulary"},
     "study_mode_grammar": {"vi": "Card Mode · Ngữ pháp", "en": "Card Mode · Grammar"},
     "study_forge_mode_candidates": {"vi": "1 · Tuyển candidate từ source", "en": "1 · Mine Source Candidates"},
     "study_forge_mode_vocab": {"vi": "2 · Tạo artifact từ vựng", "en": "2 · Build Vocab Artifact"},
     "study_forge_mode_grammar": {"vi": "2 · Tạo artifact ngữ pháp", "en": "2 · Build Grammar Artifact"},
+    "study_forge_mode_artifact": {"vi": "2 · Tạo artifact theo router", "en": "2 · Build Routed Artifact"},
+    "study_forge_router_label": {"vi": "Router loại thẻ", "en": "Card-type router"},
+    "study_forge_router_auto": {"vi": "Router · Tự động", "en": "Router · Auto"},
+    "study_forge_router_vocab": {"vi": "Router · Từ vựng", "en": "Router · Vocabulary"},
+    "study_forge_router_grammar": {"vi": "Router · Ngữ pháp", "en": "Router · Grammar"},
+    "study_forge_router_result": {"vi": "Tự động → {lane}", "en": "Auto → {lane}"},
     "study_artifacts": {"vi": "Mẻ thẻ của Forge", "en": "Forge card artifacts"},
     "study_review_artifact": {"vi": "Mở", "en": "Review"},
-    "study_open_forge": {"vi": "Đưa vào Xưởng", "en": "Open in Forge"},
+    "study_open_forge": {"vi": "Đưa sang kiểm định", "en": "Send to review"},
     "study_input_placeholder": {"vi": "Hỏi về thẻ, cách dùng, hoặc bật Tạo thẻ cho request kế tiếp…", "en": "Ask about the card or usage, or enable Card Mode for the next request…"},
     "study_input_accessible": {"vi": "Câu hỏi cho Forge AI", "en": "Question for Forge AI"},
     "study_reviewer_input_placeholder": {"vi": "Hỏi về thẻ hiện tại, xin gợi ý hoặc kiểm tra mức hiểu…", "en": "Ask about the current card, request a hint, or test your understanding…"},
     "study_reviewer_input_accessible": {"vi": "Câu hỏi cho Study Coach", "en": "Question for Study Coach"},
     "study_forge_input_placeholder": {"vi": "Nhập yêu cầu sản xuất; trạng thái source được hiển thị riêng ở trên…", "en": "Give a production instruction; source attachment is shown separately above…"},
-    "study_forge_input_accessible": {"vi": "Yêu cầu sản xuất cho Xưởng AI Forge", "en": "Production instruction for Forge AI Workshop"},
-    "study_forge_source_label": {"vi": "SOURCE ĐÍNH KÈM", "en": "ATTACHED SOURCE"},
-    "study_forge_source_placeholder": {"vi": "Chưa có source. Dán nội dung cần phân tích tại đây…", "en": "No source attached. Paste material to analyze here…"},
-    "study_forge_route_strip": {"vi": "SOURCE  →  CANDIDATE  →  ARTIFACT  →  XƯỞNG", "en": "SOURCE  →  CANDIDATE  →  ARTIFACT  →  FACTORY"},
+    "study_forge_input_accessible": {"vi": "Yêu cầu sản xuất cho trạm AI", "en": "Production instruction for the AI station"},
+    "study_forge_source_label": {"vi": "NGUỒN HỌC LIỆU", "en": "LEARNING SOURCE"},
+    "study_forge_source_placeholder": {"vi": "Chưa có nguồn học liệu. Dán nội dung cần phân tích tại đây…", "en": "No learning source yet. Paste material to analyze here…"},
+    "study_forge_route_strip": {"vi": "SOURCE  →  ROUTER  →  CANDIDATE  →  ARTIFACT  →  IMPORT", "en": "SOURCE  →  ROUTER  →  CANDIDATE  →  ARTIFACT  →  IMPORT"},
     "study_candidates_default_instruction": {"vi": "Tuyển các candidate đáng học, bám chính xác source và đúng lane hiện tại.", "en": "Select high-value candidates grounded exactly in the source and current lane."},
     "study_candidates_source_required": {"vi": "Cần gắn source trước khi tuyển candidate.", "en": "Attach a source before mining candidates."},
     "study_candidates_source_changed": {"vi": "Source đã đổi sau khi tuyển candidate. Hãy tuyển lại để giữ provenance trước khi tạo artifact.", "en": "The source changed after candidate selection. Mine candidates again to preserve provenance before building an artifact."},
@@ -3135,13 +3177,13 @@ _TRANSLATIONS = {
     "study_stopped": {"vi": "Đã dừng; session vẫn dùng được.", "en": "Stopped; the session remains usable."},
     "study_error": {"vi": "Lỗi: {error}", "en": "Error: {error}"},
     "study_back_review": {"vi": "← Tiếp tục học", "en": "← Back to review"},
-    "study_close_workspace": {"vi": "Đóng Xưởng AI", "en": "Close Workshop"},
+    "study_close_workspace": {"vi": "Thu gọn trạm AI", "en": "Collapse AI station"},
     "study_collapse": {"vi": "Thu gọn/mở rộng AI", "en": "Collapse/expand AI"},
     "study_empty": {"vi": "Bắt đầu một câu hỏi ngắn. Memory chỉ thuộc session này.", "en": "Start with a short question. Memory stays in this session only."},
     "study_you": {"vi": "Bạn", "en": "You"},
     "study_ai": {"vi": "Forge AI", "en": "Forge AI"},
     "study_reviewer_ai": {"vi": "Study Coach", "en": "Study Coach"},
-    "study_forge_ai": {"vi": "Xưởng AI Forge", "en": "Forge AI Workshop"},
+    "study_forge_ai": {"vi": "Trạm AI", "en": "AI Station"},
     "study_context_reviewer": {"vi": "REVIEWER · {language} · {mode} · {side} · {card}", "en": "REVIEWER · {language} · {mode} · {side} · {card}"},
     "study_context_forge": {"vi": "FORGE · {language} · {lane} · {source} · {card}", "en": "FORGE · {language} · {lane} · {source} · {card}"},
     "study_context_question_side": {"vi": "Mặt câu hỏi", "en": "Question side"},
@@ -3159,13 +3201,17 @@ _TRANSLATIONS = {
     "study_artifact_missing": {"vi": "Artifact không còn khả dụng", "en": "Artifact unavailable"},
     "study_artifact_stale_label": {"vi": "{label} · Không tương thích", "en": "{label} · Incompatible"},
     "study_artifact_stale_notice": {"vi": "Artifact này dùng schema cũ hoặc mới hơn bản hiện tại và chỉ có thể xem.", "en": "This artifact uses an older or newer schema and is read-only."},
-    "study_artifact_stale_review": {"vi": "Snapshot gốc được giữ lại để tham khảo. Không thể đưa artifact này vào Xưởng.", "en": "The original snapshot is preserved for reference and cannot be sent to Forge."},
-    "study_artifact_stale_open_error": {"vi": "Artifact không tương thích với schema hiện tại nên không thể đưa vào Xưởng. Snapshot vẫn được giữ trong session.", "en": "This artifact is incompatible with the current schema and cannot be sent to Forge. Its snapshot remains in the session."},
-    "study_sent_forge": {"vi": "Đã đưa snapshot vào Xưởng — không gọi AI lại.", "en": "Snapshot opened in Forge — no AI call was made."},
-    "study_artifact_open_error": {"vi": "Không thể mở artifact trong Xưởng. Snapshot vẫn được giữ trong session.", "en": "Could not open the artifact in Forge. Its snapshot remains in the session."},
+    "study_artifact_stale_review": {"vi": "Snapshot gốc được giữ lại để tham khảo. Không thể đưa artifact này sang trạm kiểm định.", "en": "The original snapshot is preserved for reference and cannot be sent to the review station."},
+    "study_artifact_stale_open_error": {"vi": "Artifact không tương thích với schema hiện tại nên không thể đưa sang trạm kiểm định. Snapshot vẫn được giữ trong session.", "en": "This artifact is incompatible with the current schema and cannot be sent to the review station. Its snapshot remains in the session."},
+    "study_sent_forge": {"vi": "Đã đưa snapshot sang trạm kiểm định — không gọi AI lại.", "en": "Snapshot sent to the review station — no AI call was made."},
+    "study_artifact_open_error": {"vi": "Không thể đưa artifact sang trạm kiểm định. Snapshot vẫn được giữ trong session.", "en": "Could not send the artifact to the review station. Its snapshot remains in the session."},
     "study_usage": {"vi": "{tokens} tokens · ${cost:.6f}", "en": "{tokens} tokens · ${cost:.6f}"},
     "study_model_fallback": {"vi": "Model đã lưu không còn trong provider; đã dùng fallback an toàn.", "en": "The saved model is no longer available; a safe fallback was selected."},
     "study_menu_action": {"vi": "🥟 AI Study Sessions", "en": "🥟 AI Study Sessions"},
+    "study_reviewer_only": {
+        "vi": "AI Study Sessions chỉ hoạt động trong Reviewer. Để sản xuất thẻ, mở Bento Forge và dùng dây chuyền Lò đúc AI.",
+        "en": "AI Study Sessions is available only in Reviewer. To produce cards, open Bento Forge and use the AI Forge production line.",
+    },
     "study_reviewer_action": {"vi": "Hỏi AI", "en": "Ask AI"},
 }
 
@@ -3236,12 +3282,14 @@ def study_mode_labels(lang: str) -> dict:
         "japanese": t("lang_src_ja"),
         "chinese": t("lang_src_zh"),
         "korean": t("lang_src_ko"),
+        "english": t("lang_src_en"),
     }.get(lang, t("lang_src_ja"))
     tgt = t("lang_tgt")
     pron = {
         "japanese": t("mode_label_pron_ja"),
         "chinese": t("mode_label_pron_zh"),
         "korean": t("mode_label_pron_ko"),
+        "english": t("mode_label_pron_en"),
     }.get(lang, t("mode_label_pron_ja"))
     return {
         "qa": f"1. {src}→{tgt}",

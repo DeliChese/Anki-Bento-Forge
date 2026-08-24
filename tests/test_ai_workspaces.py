@@ -11,6 +11,7 @@ from utils.ai_study_prompts import build_study_prompt
 from utils import ai_extractor
 from utils.ai_workspace import (
     build_workspace_request_context, get_workspace_policy, resolve_workspace,
+    route_forge_lane,
 )
 from utils.i18n import t
 
@@ -53,6 +54,22 @@ def test_workspace_policy_is_explicit_and_actions_are_distinct():
     assert not set(reviewer.quick_actions).intersection(forge.quick_actions)
     with pytest.raises(ValueError, match="workspace"):
         resolve_workspace("auto")
+
+
+@pytest.mark.parametrize(
+    ("source", "instruction", "fallback", "expected"),
+    [
+        ("A short article", "Tìm từ vựng đáng học", "grammar", "vocab"),
+        ("日本語の文法 ～ながら", "", "vocab", "grammar"),
+        ("N + that-clause", "", "vocab", "grammar"),
+        ("neutral source", "", "grammar", "grammar"),
+        ("neutral source", "", "unknown", "vocab"),
+    ],
+)
+def test_forge_router_prefers_explicit_intent_then_preserves_fallback(
+    source, instruction, fallback, expected,
+):
+    assert route_forge_lane(source, instruction, fallback) == expected
 
 
 @pytest.mark.parametrize(
@@ -437,20 +454,27 @@ def test_station_ui_has_explicit_surface_ownership_and_bilingual_labels():
     root = Path(__file__).resolve().parents[1]
     companion = (root / "ui" / "ai_companion.py").read_text(encoding="utf-8")
     factory = (root / "ui" / "factory_dialog.py").read_text(encoding="utf-8")
+    theme = (root / "ui" / "theme.py").read_text(encoding="utf-8")
 
     assert 'workspace="reviewer"' in companion
-    assert 'workspace="forge"' in companion
+    assert 'workspace="forge"' in factory
     assert "self.context_board" in companion
     assert "self.source_input" in companion
     assert "self.source_input.textChanged.connect(self._update_context_board)" in companion
     assert "self.cbo_mode.currentIndexChanged.connect(self._update_context_board)" in companion
-    assert "self.cbo_mode.setVisible(self._policy.allows_card_mode)" in companion
+    assert "self.cbo_mode.setVisible(self._policy.allows_card_mode and not self._integrated)" in companion
+    assert "self.cbo_lane.currentIndexChanged.connect(self._update_context_board)" in companion
+    assert "self.cbo_lane.setVisible(self._policy.allows_card_mode and not self._integrated)" in companion
+    assert 'self.cbo_lane.addItem(t("study_forge_router_auto"), "auto")' in companion
     assert "if not self._policy.allows_card_mode:" in companion
     assert "refresh_ai_companion_context" in companion
-    assert "self.setMinimumWidth(340)" in companion
-    assert "self.setMinimumSize(760, 600)" in companion
+    assert "340 if not self._integrated else 0" in companion
+    assert "class AiStudySessionDialog" not in companion
     assert "source_text=source_text" in factory
     assert 'self.cbo_mode.addItem(t("study_forge_mode_candidates"), "candidates")' in companion
+    assert 'self.cbo_mode.addItem(t("study_forge_mode_artifact"), "artifact")' in companion
+    assert 'self.cbo_mode.addItem(t("study_forge_mode_vocab"), "vocab")' not in companion
+    assert 'self.cbo_mode.addItem(t("study_forge_mode_grammar"), "grammar")' not in companion
     assert "build_selected_candidate_instruction" in companion
     assert "study_candidates_source_changed" in companion
     assert "_prepared_candidate_source_digest" in companion
@@ -459,11 +483,45 @@ def test_station_ui_has_explicit_surface_ownership_and_bilingual_labels():
     assert "workspace=self._workspace" in companion
     assert "study_latest_turn_other_workspace" in companion
     assert "existing_entries=list(existing_entries or ())" in factory
+    assert "integrated=True" in factory
+    assert "source_input=self.ai_text_input" in factory
+    assert "bentoForgeIntegratedProductionLine" in factory
+    assert "forgeFactoryPipelineStrip" not in factory
+    assert "forgeFactoryPipelineStrip" not in theme
+    assert "forgeProductionWorkbench" in factory
+    assert "forgeProcessingStack" in factory
+    assert "forgeSourcePanel" in factory
+    assert "forgeAiPanel" in factory
+    assert "forgeArtifactPanel" in factory
+    assert "self.forge_panel.body.setVisible(True)" in factory
+    assert "btn_top_ai_settings" not in factory
+    assert "self.cbo_language = QComboBox()" in factory
+    assert "def _apply_responsive_factory_layout" in factory
+    assert "Qt.Orientation.Vertical if compact" in factory
+    assert "forgeSourceProductionScroll" in factory
+    assert "forgeReviewImportScroll" in factory
+    assert "self.lbl_ai_files.setWordWrap(False)" in factory
+    assert "self.title_label.setVisible(not self._integrated)" in companion
+    assert "self.context_board.setVisible(not self._integrated)" in companion
+    assert "self.transcript.setVisible(bool(blocks))" in companion
+    assert 'self.composer.setObjectName("forgeAiComposer")' in companion
+    assert "self.chk_create_card = QCheckBox()" in companion
+    assert "def _on_create_card_toggled" in companion
+    assert 'return self._lane if self._lane in {"vocab", "grammar"} else "vocab"' in companion
+    assert "self.btn_ai_settings.setVisible(False)" in factory
+    assert "ai_bar.insertWidget(0, self.btn_ai_chat)" in factory
+    assert "self.btn_ai_chat.setVisible(False)" in factory
+    assert "ai_main.addLayout(instr_bar)" not in factory
     assert "get_existing_vocab_from_deck" in factory[factory.index("def _ai_chat(self):"):factory.index("def _ai_chat_legacy(self):")]
     assert "query_anki_context" not in factory[factory.index("def _ai_chat(self):"):factory.index("def _ai_chat_legacy(self):")]
+    factory_extract = factory[factory.index("def _ai_extract(self):"):factory.index("def _on_deck_scan_finished", factory.index("def _ai_extract(self):"))]
+    assert "route_forge_lane" in factory_extract
     assert t("study_reviewer_title", lang="vi")
     assert t("study_reviewer_title", lang="en")
     assert t("study_forge_title", lang="vi")
     assert t("study_forge_title", lang="en")
+    assert t("study_forge_source_label", lang="vi") == "NGUỒN HỌC LIỆU"
+    assert "Nạp Quặng" not in t("ai_input_placeholder_vocab", lang="vi")
     assert "không tạo thẻ mới" in t("study_reviewer_subtitle", lang="vi")
     assert "no card creation" in t("study_reviewer_subtitle", lang="en")
+    assert "AI Study Sessions" in t("study_menu_action", lang="vi")

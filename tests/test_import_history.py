@@ -2,7 +2,6 @@
 
 import ast
 import time
-from pathlib import Path
 
 import pytest
 
@@ -190,7 +189,15 @@ def test_history_query_search_summary_and_clear():
     assert "食べる = ăn [N5]" in history.get_history_summary_text("japanese")
 
     assert history.clear_import_history() is True
-    assert not Path(history._HISTORY_PATH).exists()
+    cleared = history.load_import_history()
+    assert cleared["entries"] == {}
+    assert cleared["import_sessions"] == []
+    assert not history.needs_import_history_scan(cleared)
+
+    def unexpected_scan():
+        raise AssertionError("a user-cleared history must not be repopulated")
+
+    assert history.init_import_history(scan_context_factory=unexpected_scan)["entries"] == {}
 
 
 def test_knowledge_history_is_namespaced_and_old_language_entries_still_load():

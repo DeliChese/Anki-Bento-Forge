@@ -98,6 +98,7 @@ from utils.language_identity import normalize_language
 from utils.import_report import write_import_report
 from utils.model_lifecycle import ensure_model
 from utils.ai_workflow import AiWorkflowCoordinator
+from utils.ai_workspace import route_forge_lane
 from utils.srs_policy import (
     apply_srs_layout_to_config,
     migrate_deck_to_independent,
@@ -343,6 +344,7 @@ class AnkiSmartFactory(QDialog):
         # Lưu trạng thái luồng hiện tại TRƯỚC khi đổi mode
         self._save_current_flow()
         self._is_grammar = is_grammar
+        self._collapse_integrated_forge()
         self._on_lang_changed()
         tooltip(t("tooltip_switched_grammar") if is_grammar else t("tooltip_switched_vocab"))
 
@@ -392,6 +394,30 @@ class AnkiSmartFactory(QDialog):
         except Exception as e:
             logger.warning("Lỗi lưu flow state: %s", e)
 
+    def _collapse_integrated_forge(self):
+        """Close stale production controls when Factory routing context changes."""
+        panel = getattr(self, "forge_panel", None)
+        if panel is None:
+            return
+        panel.body.setVisible(False)
+        panel.btn_collapse.setText("+")
+
+    def _sync_integrated_forge(self):
+        """Keep the always-visible Blueprint station on the current Factory lane."""
+        panel = getattr(self, "forge_panel", None)
+        if panel is None or getattr(self, "_learning_mode", "language") != "language":
+            return
+        current_instruction = panel.input.toPlainText()
+        panel.open_for_context(
+            language=self._current_lang,
+            initial_text=current_instruction,
+            source_text=self.ai_text_input.toPlainText(),
+            learning_mode="language",
+            lane="grammar" if self._is_grammar else "vocab",
+            existing_entries=[],
+        )
+        panel.body.setVisible(True)
+
     def _restore_current_flow(self):
         """Khôi phục text + file kẹp + thẻ trong xưởng cho luồng đang hiển thị (gọi SAU khi setup UI)."""
         try:
@@ -436,6 +462,9 @@ class AnkiSmartFactory(QDialog):
     def closeEvent(self, event):
         """Lưu trạng thái ô AI khi đóng Factory."""
         self._cancel_history_scan()
+        forge_panel = getattr(self, "forge_panel", None)
+        if forge_panel is not None and forge_panel._workflow.chat_worker is not None:
+            forge_panel.stop_request()
         try:
             self._save_current_flow()
         except Exception:
@@ -444,6 +473,42 @@ class AnkiSmartFactory(QDialog):
             super().closeEvent(event)
         except Exception:
             event.accept()
+
+    def resizeEvent(self, event):
+        """Keep all Blueprint stations reachable instead of clipping narrow windows."""
+        super().resizeEvent(event)
+        self._apply_responsive_factory_layout()
+
+    def _apply_responsive_factory_layout(self):
+        splitter = getattr(self, "main_splitter", None)
+        if splitter is None or getattr(self, "_responsive_layout_busy", False):
+            return
+        compact = self.width() < 1260
+        if compact == getattr(self, "_main_layout_compact", None):
+            return
+        self._responsive_layout_busy = True
+        try:
+            self._main_layout_compact = compact
+            orientation = (
+                Qt.Orientation.Vertical if compact else Qt.Orientation.Horizontal
+            )
+            splitter.setOrientation(orientation)
+            available = splitter.height() if compact else splitter.width()
+            if compact:
+                splitter.setSizes([
+                    max(420, int(available * 0.62)),
+                    max(300, int(available * 0.38)),
+                ])
+            else:
+                splitter.setSizes([
+                    max(620, int(available * 0.55)),
+                    max(480, int(available * 0.45)),
+                ])
+            tip = getattr(self, "lbl_tip", None)
+            if tip is not None:
+                tip.setVisible(not compact)
+        finally:
+            self._responsive_layout_busy = False
 
     def _setup_ui(self):
         root = QVBoxLayout(self)
@@ -508,17 +573,15 @@ class AnkiSmartFactory(QDialog):
         # Language selector
         self.lang_grp = QGroupBox(t("lang_grp_title"))
         lang_layout = QHBoxLayout()
-
+        self.cbo_language = QComboBox()
+        self.cbo_language.setMinimumWidth(180)
         self.btn_lang = {}
         for key, _label, code in LANG_SELECTOR_INFO:
-            btn = QPushButton(t(_LANG_LABEL_KEYS[key]))
-            btn.setCheckable(True)
-            btn.clicked.connect(lambda checked, k=key: self._select_lang(k))
-            self.btn_lang[key] = btn
-            lang_layout.addWidget(btn)
+            self.cbo_language.addItem(t(_LANG_LABEL_KEYS[key]), key)
+        self.cbo_language.currentIndexChanged.connect(self._on_language_combo_changed)
+        lang_layout.addWidget(self.cbo_language, 1)
 
         self.lang_grp.setLayout(lang_layout)
-        left.addWidget(self.lang_grp)
 
         # Mode selector: Từ vựng / Ngữ pháp
         self.mode_grp = QGroupBox(t("mode_grp_title"))
@@ -532,6 +595,7 @@ class AnkiSmartFactory(QDialog):
             "QPushButton:!checked{background:rgba(255,255,255,0.08);color:#eaf0f6;border:1px solid rgba(255,255,255,0.18);}"
         )
         self.btn_mode_vocab.clicked.connect(lambda checked: self._select_mode(False))
+        self.btn_mode_vocab.setToolTip(t("factory_card_type_tip"))
         mode_layout.addWidget(self.btn_mode_vocab)
         self.btn_mode_grammar = QPushButton(t("btn_mode_grammar"))
         self.btn_mode_grammar.setCheckable(True)
@@ -541,9 +605,16 @@ class AnkiSmartFactory(QDialog):
             "QPushButton:!checked{background:rgba(255,255,255,0.08);color:#eaf0f6;border:1px solid rgba(255,255,255,0.18);}"
         )
         self.btn_mode_grammar.clicked.connect(lambda checked: self._select_mode(True))
+        self.btn_mode_grammar.setToolTip(t("factory_card_type_tip"))
         mode_layout.addWidget(self.btn_mode_grammar)
         self.mode_grp.setLayout(mode_layout)
-        left.addWidget(self.mode_grp)
+
+        # Blueprint: keep language and the AI router on one compact control row.
+        selector_row = QHBoxLayout()
+        selector_row.setSpacing(8)
+        selector_row.addWidget(self.lang_grp, 2)
+        selector_row.addWidget(self.mode_grp, 3)
+        left.addLayout(selector_row)
 
         # Deck + file
         bar = QHBoxLayout()
@@ -566,25 +637,30 @@ class AnkiSmartFactory(QDialog):
         self.btn_load = QPushButton(t("open_file_btn"))
         self.btn_load.setProperty("class", "info")
         self.btn_load.clicked.connect(self._load_from_file)
-        bar.addWidget(self.btn_load, 0)
-        left.addLayout(bar)
-
-        # Sample buttons
-        bar2 = QHBoxLayout()
         self.btn_sample = QPushButton(t("sample_json_btn"))
         self.btn_sample.setProperty("class", "ghost")
         self.btn_sample.clicked.connect(self._show_sample_json)
-        bar2.addWidget(self.btn_sample)
         self.btn_history = QPushButton(t("btn_history"))
         self.btn_history.setProperty("class", "ghost")
         self.btn_history.setToolTip(t("btn_history_tip"))
         self.btn_history.clicked.connect(self._open_history_browser)
-        bar2.addWidget(self.btn_history)
-        bar2.addStretch()
-        left.addLayout(bar2)
+        left.addLayout(bar)
 
         # ── AI Trích Xuất Từ Vựng ──────────────────────────
-        self.ai_grp = QGroupBox(t("ai_group_title"))
+        self.production_splitter = RatioSplitter()
+        self.production_splitter.setObjectName("forgeProductionWorkbench")
+        self.production_splitter.setHandleWidth(8)
+        self.production_splitter.MIN_RATIO = 0.38
+        self.production_splitter.MAX_RATIO = 0.62
+
+        self.source_grp = QGroupBox(t("factory_source_panel_title"))
+        self.source_grp.setObjectName("forgeSourcePanel")
+        self.source_grp.setMinimumWidth(260)
+        source_layout = QVBoxLayout(self.source_grp)
+        source_layout.setSpacing(6)
+
+        self.ai_grp = QGroupBox(t("factory_ai_panel_title"))
+        self.ai_grp.setObjectName("forgeAiPanel")
         ai_main = QVBoxLayout()
 
         # Row 1: Buttons
@@ -597,6 +673,10 @@ class AnkiSmartFactory(QDialog):
         )
         self.btn_ai_settings.clicked.connect(self._show_ai_settings)
         ai_bar.addWidget(self.btn_ai_settings)
+        # Provider/model settings live in the unified Workshop header.  Keep
+        # the object for compatibility with running workflows, but remove the
+        # duplicate visible entry from the compact Factory gateway.
+        self.btn_ai_settings.setVisible(False)
 
         self.btn_ai_clear_text = QPushButton(t("ai_clear_text_btn"))
         self.btn_ai_clear_text.setStyleSheet(
@@ -633,7 +713,17 @@ class AnkiSmartFactory(QDialog):
         self.btn_ai_chat.setToolTip(t("btn_ai_chat_tip"))
         self.btn_ai_chat.clicked.connect(self._ai_chat)
         self.btn_ai_chat.setEnabled(True)
-        ai_bar.addWidget(self.btn_ai_chat)
+        self.btn_ai_chat.setVisible(False)
+        ai_bar.insertWidget(0, self.btn_ai_chat)
+        # Clear belongs after the production actions, not before the primary
+        # Workshop entry.
+        ai_bar.removeWidget(self.btn_ai_clear_text)
+        ai_bar.addWidget(self.btn_ai_clear_text)
+        self.btn_ai_clear_text.setVisible(False)
+        ai_bar.setStretchFactor(self.btn_ai_chat, 3)
+        ai_bar.setStretchFactor(self.btn_ai_extract, 2)
+        ai_bar.setStretchFactor(self.btn_ai_batch, 2)
+        ai_bar.setStretchFactor(self.btn_ai_clear_text, 1)
 
         self.btn_ai_stop = QPushButton(t("ai_stop_btn"))
         self.btn_ai_stop.setStyleSheet(
@@ -657,13 +747,13 @@ class AnkiSmartFactory(QDialog):
 
         self.lbl_history_status = QLabel("")
         self.lbl_history_status.setProperty("class", "dim")
-        ai_bar.addWidget(self.lbl_history_status)
 
         self.lbl_ai_status = QLabel("")
         self.lbl_ai_status.setProperty("class", "dim")
-        ai_bar.addWidget(self.lbl_ai_status, 1)
-
-        ai_main.addLayout(ai_bar)
+        self.lbl_ai_status.setWordWrap(True)
+        status_bar = QHBoxLayout()
+        status_bar.addWidget(self.lbl_history_status, 0)
+        status_bar.addWidget(self.lbl_ai_status, 1)
 
         # Row 1b: Đính kèm file tài liệu tham khảo cho AI
         file_bar = QHBoxLayout()
@@ -684,19 +774,23 @@ class AnkiSmartFactory(QDialog):
         self.btn_ai_attach_clear.setToolTip(t("btn_ai_attach_clear_tip"))
         self.btn_ai_attach_clear.clicked.connect(self._clear_ai_files)
         file_bar.addWidget(self.btn_ai_attach_clear)
+        file_bar.addStretch(1)
+        source_layout.addLayout(file_bar)
 
         self.lbl_ai_files = QLabel("")
         self.lbl_ai_files.setStyleSheet("color:#27ae60;font-size:11px;")
-        self.lbl_ai_files.setWordWrap(True)
-        file_bar.addWidget(self.lbl_ai_files, 1)
-        ai_main.addLayout(file_bar)
+        self.lbl_ai_files.setWordWrap(False)
+        self.lbl_ai_files.setMinimumHeight(18)
+        source_layout.addWidget(self.lbl_ai_files)
 
         # Row 2: Text input area for AI
         self.ai_text_input = QPlainTextEdit()
+        self.ai_text_input.setObjectName("forgeFactorySourceInput")
         self.ai_text_input.setPlaceholderText(t("ai_input_placeholder_vocab"))
-        self.ai_text_input.setMaximumHeight(80)
+        self.ai_text_input.setMinimumHeight(160)
         self.ai_text_input.setStyleSheet("font-size:12px;")
-        ai_main.addWidget(self.ai_text_input)
+        source_layout.addWidget(self.ai_text_input, 1)
+        self.production_splitter.addWidget(self.source_grp)
 
         # Row 3: Custom instruction
         instr_bar = QHBoxLayout()
@@ -706,16 +800,63 @@ class AnkiSmartFactory(QDialog):
         self.ai_instruction.setPlaceholderText(t("ai_instruction_placeholder"))
         self.ai_instruction.setStyleSheet("font-size:12px;padding:4px;")
         instr_bar.addWidget(self.ai_instruction, 1)
-        ai_main.addLayout(instr_bar)
+        self.lbl_instruction.setVisible(False)
+        self.ai_instruction.setVisible(False)
+        ai_main.addLayout(ai_bar)
+        ai_main.addLayout(status_bar)
+
+        # Factory is the sole owner of Forge production.  The embedded panel
+        # reuses this source editor, so there is no second "attached source".
+        from ui.ai_companion import AiCompanionDock
+        self.forge_panel = AiCompanionDock(
+            mw,
+            workspace="forge",
+            dockable=False,
+            parent=self.ai_grp,
+            integrated=True,
+            source_input=self.ai_text_input,
+        )
+        self.forge_panel.setObjectName("bentoForgeIntegratedProductionLine")
+        self.forge_panel.setMinimumHeight(220)
+        self.forge_panel.body.setVisible(True)
+        ai_main.addWidget(self.forge_panel, 1)
 
         self.ai_grp.setLayout(ai_main)
-        left.addWidget(self.ai_grp)
+        self.processing_splitter = QSplitter(Qt.Orientation.Vertical)
+        self.processing_splitter.setObjectName("forgeProcessingStack")
+        self.processing_splitter.setChildrenCollapsible(False)
+        self.processing_splitter.setHandleWidth(8)
+        self.processing_splitter.addWidget(self.ai_grp)
 
+        self.json_grp = QGroupBox(t("factory_artifact_panel_title"))
+        self.json_grp.setObjectName("forgeArtifactPanel")
+        json_layout = QVBoxLayout(self.json_grp)
+        json_layout.setSpacing(5)
+        json_tools = QHBoxLayout()
+        json_tools.addWidget(self.btn_load)
+        json_tools.addWidget(self.btn_sample)
+        json_tools.addWidget(self.btn_history)
+        json_tools.addStretch(1)
+        json_layout.addLayout(json_tools)
         self.lbl_json_label = QLabel(t("json_input_label"))
-        left.addWidget(self.lbl_json_label)
+        self.lbl_json_label.setProperty("class", "dim")
+        self.lbl_json_label.setWordWrap(True)
+        json_layout.addWidget(self.lbl_json_label)
         self.json_input = QPlainTextEdit()
+        self.json_input.setObjectName("forgeArtifactJsonInput")
+        self.json_input.setMinimumHeight(120)
         self.json_input.textChanged.connect(self._schedule_analyze)
-        left.addWidget(self.json_input)
+        json_layout.addWidget(self.json_input, 1)
+        self.processing_splitter.addWidget(self.json_grp)
+        self.processing_splitter.setStretchFactor(0, 3)
+        self.processing_splitter.setStretchFactor(1, 2)
+        self.processing_splitter.setSizes([300, 180])
+
+        self.production_splitter.addWidget(self.processing_splitter)
+        self.production_splitter.setStretchFactor(0, 1)
+        self.production_splitter.setStretchFactor(1, 1)
+        self.production_splitter.setSizes([360, 540])
+        left.addWidget(self.production_splitter, 1)
 
         # Filters
         self.filter_grp = QGroupBox(t("filter_group_title"))
@@ -826,7 +967,12 @@ class AnkiSmartFactory(QDialog):
         self.voice_grp.setLayout(vgl)
         left.addWidget(self.voice_grp)
 
-        self.main_splitter.addWidget(left_panel)
+        self.left_scroll = QScrollArea()
+        self.left_scroll.setObjectName("forgeSourceProductionScroll")
+        self.left_scroll.setWidgetResizable(True)
+        self.left_scroll.setFrameShape(QFrame.Shape.NoFrame)
+        self.left_scroll.setWidget(left_panel)
+        self.main_splitter.addWidget(self.left_scroll)
 
         # ── RIGHT ────────────────────────────────────────
         right_panel = QWidget()
@@ -857,7 +1003,7 @@ class AnkiSmartFactory(QDialog):
         self.preview_list = QListWidget()
         self.preview_list.setMinimumHeight(120)  # thích ứng theo kích thước kéo thả
         self.preview_list.itemChanged.connect(self._update_selection_label)
-        right.addWidget(self.preview_list)
+        right.addWidget(self.preview_list, 1)
 
         # ── Nút chọn nhanh + số thẻ đã chọn ──
         sel = QHBoxLayout()
@@ -912,14 +1058,12 @@ class AnkiSmartFactory(QDialog):
         self.btn_import.setMinimumHeight(52)
         self.btn_import.setEnabled(False)
         self.btn_import.clicked.connect(self._process_import)
-        right.addWidget(self.btn_import)
 
         self.btn_rollback_import = QPushButton(t("btn_rollback_import"))
         self.btn_rollback_import.setProperty("class", "warning")
-        self.btn_rollback_import.setMinimumHeight(40)
+        self.btn_rollback_import.setMinimumHeight(52)
         self.btn_rollback_import.setEnabled(False)
         self.btn_rollback_import.clicked.connect(self._rollback_last_import)
-        right.addWidget(self.btn_rollback_import)
 
         op_row = QHBoxLayout()
         self.btn_cancel = QPushButton(t("btn_cancel"))
@@ -929,20 +1073,28 @@ class AnkiSmartFactory(QDialog):
         op_row.addWidget(self.btn_cancel)
         self.btn_cancel_order = QPushButton(t("btn_cancel_order"))
         self.btn_cancel_order.setProperty("class", "danger")
-        self.btn_cancel_order.setMinimumHeight(40)
+        self.btn_cancel_order.setMinimumHeight(52)
         self.btn_cancel_order.setEnabled(False)
         self.btn_cancel_order.setToolTip(t("btn_cancel_order_tip"))
         self.btn_cancel_order.clicked.connect(self._cancel_order)
-        op_row.addWidget(self.btn_cancel_order)
+        op_row.addWidget(self.btn_import, 3)
+        op_row.addWidget(self.btn_rollback_import, 2)
+        op_row.addWidget(self.btn_cancel_order, 2)
         right.addLayout(op_row)
 
-        self.main_splitter.addWidget(right_panel)
-        self.main_splitter.setStretchFactor(0, 5)
-        self.main_splitter.setStretchFactor(1, 5)
-        self.main_splitter.setSizes([660, 640])
+        self.right_scroll = QScrollArea()
+        self.right_scroll.setObjectName("forgeReviewImportScroll")
+        self.right_scroll.setWidgetResizable(True)
+        self.right_scroll.setFrameShape(QFrame.Shape.NoFrame)
+        self.right_scroll.setWidget(right_panel)
+        self.main_splitter.addWidget(self.right_scroll)
+        self.main_splitter.setStretchFactor(0, 11)
+        self.main_splitter.setStretchFactor(1, 9)
+        self.main_splitter.setSizes([720, 580])
         # Thanh phân cách kéo mượt, mỗi cột giới hạn 30%–70% (3:7)
         self.main_splitter.setHandleWidth(8)
         root.addWidget(self.main_splitter, 1)
+        QTimer.singleShot(0, self._apply_responsive_factory_layout)
 
         # ── 💰 Thanh chi phí AI (góc dưới) — theo dõi ngân sách ──
         cost_bar = QHBoxLayout()
@@ -987,13 +1139,14 @@ class AnkiSmartFactory(QDialog):
         controls = [
             (self.btn_theme, t("btn_theme")),
             (self.btn_lang_toggle, t("btn_lang_toggle")),
+            (self.cbo_language, t("lang_grp_title")),
             (self.deck_chooser, t("deck_label")),
             (self.cbo_study_mode, t("study_mode_label")),
             (self.cbo_srs_layout, t("srs_layout_label")),
             (self.btn_migrate_srs, t("srs_migrate_btn")),
             (self.btn_load, t("open_file_btn")),
             (self.ai_text_input, t("ai_input_accessible_name")),
-            (self.ai_instruction, t("ai_instruction_label")),
+            (self.forge_panel.input, t("study_forge_input_accessible")),
             (self.btn_ai_extract, t("ai_extract_btn")),
             (self.btn_ai_chat, t("ai_chat_btn")),
             (self.json_input, t("json_input_label")),
@@ -1107,15 +1260,16 @@ class AnkiSmartFactory(QDialog):
             self.learning_mode_grp.setTitle(t("learning_mode_grp_title"))
             self.btn_learning_language.setText(t("btn_learning_language"))
             self.btn_learning_knowledge.setText(t("btn_learning_knowledge"))
-            if self._learning_mode == "language":
-                self.lang_grp.setTitle(_translated_language_label(
-                    self._current_lang, grammar=self._is_grammar
-                ))
-            for lang, button in self.btn_lang.items():
-                button.setText(t(_LANG_LABEL_KEYS[lang]))
+            self.lang_grp.setTitle(t("lang_grp_title"))
+            for index in range(self.cbo_language.count()):
+                lang = str(self.cbo_language.itemData(index) or "")
+                if lang in _LANG_LABEL_KEYS:
+                    self.cbo_language.setItemText(index, t(_LANG_LABEL_KEYS[lang]))
             self.mode_grp.setTitle(t("mode_grp_title"))
             self.btn_mode_vocab.setText(t("btn_mode_vocab"))
             self.btn_mode_grammar.setText(t("btn_mode_grammar"))
+            self.btn_mode_vocab.setToolTip(t("factory_card_type_tip"))
+            self.btn_mode_grammar.setToolTip(t("factory_card_type_tip"))
             self.lbl_deck.setText(t("deck_label"))
             self.btn_refresh_deck.setToolTip(t("btn_refresh_deck_tip"))
             self.btn_manage_deck.setText(t("deck_manage_btn"))
@@ -1126,9 +1280,9 @@ class AnkiSmartFactory(QDialog):
             self.btn_history.setToolTip(t("btn_history_tip"))
 
             # AI group
-            self.ai_grp.setTitle(t(
-                "ai_group_title_knowledge" if self._learning_mode == "knowledge" else "ai_group_title"
-            ))
+            self.source_grp.setTitle(t("factory_source_panel_title"))
+            self.ai_grp.setTitle(t("factory_ai_panel_title"))
+            self.json_grp.setTitle(t("factory_artifact_panel_title"))
             self.btn_ai_settings.setText(t("ai_settings_btn"))
             self.btn_ai_clear_text.setText(t("ai_clear_text_btn"))
             if self._learning_mode == "knowledge":
@@ -1341,6 +1495,14 @@ class AnkiSmartFactory(QDialog):
             return "ai_input_placeholder_knowledge"
         return "ai_input_placeholder_grammar" if self._is_grammar else "ai_input_placeholder_vocab"
 
+    def _current_ai_instruction(self):
+        """Use the Blueprint composer as the single visible AI instruction source."""
+        panel = getattr(self, "forge_panel", None)
+        if panel is not None:
+            return panel.input.toPlainText().strip()
+        instruction = getattr(self, "ai_instruction", None)
+        return instruction.text().strip() if instruction is not None else ""
+
     def _apply_learning_mode_ui(self):
         """Show only controls that apply to the selected product-level mode."""
         if not hasattr(self, "btn_learning_language"):
@@ -1365,7 +1527,9 @@ class AnkiSmartFactory(QDialog):
         # This opens the Language-only vocabulary/grammar batch dialog.
         # Knowledge already accepts multiple strict cards through AI extract.
         self.btn_ai_batch.setVisible(is_language)
-        self.btn_ai_chat.setVisible(is_language)
+        self.btn_ai_chat.setVisible(False)
+        if hasattr(self, "forge_panel"):
+            self.forge_panel.setVisible(is_language)
         self.filter_grp.setVisible(True)
         for widget in (
             self.lbl_level, self.cbo_level, self.lbl_topic, self.txt_topic,
@@ -1404,6 +1568,7 @@ class AnkiSmartFactory(QDialog):
             self._apply_learning_mode_ui()
             return
         self._save_current_flow()
+        self._collapse_integrated_forge()
         self._learning_mode = mode
         if persist:
             self._persist_learning_mode(mode)
@@ -1418,12 +1583,21 @@ class AnkiSmartFactory(QDialog):
         if announce:
             tooltip(t("tooltip_switched_learning_knowledge" if mode == "knowledge" else "tooltip_switched_learning_language"))
 
+    def _on_language_combo_changed(self, index):
+        """Route the compact Blueprint language dropdown through the legacy flow."""
+        if not getattr(self, "_ui_ready", False):
+            return
+        lang_key = self.cbo_language.itemData(index)
+        if lang_key:
+            self._select_lang(str(lang_key))
+
     def _select_lang(self, lang_key):
         if self._learning_mode != "language":
             return
         if lang_key != self._current_lang:
             # Lưu trạng thái luồng hiện tại trước khi chuyển ngôn ngữ
             self._save_current_flow()
+            self._collapse_integrated_forge()
         self._current_lang = lang_key
         # Lưu ngôn ngữ đang chọn để selector Overview hiển thị đúng label mode
         try:
@@ -1438,15 +1612,20 @@ class AnkiSmartFactory(QDialog):
         self._apply_learning_mode_ui()
         cfg = self._cfg()
         lang = cfg["lang_code"]
-        for k, btn in self.btn_lang.items():
-            btn.setChecked(k == self._current_lang)
+        language_combo = getattr(self, "cbo_language", None)
+        if language_combo is not None:
+            language_index = language_combo.findData(self._current_lang)
+            language_combo.blockSignals(True)
+            language_combo.setCurrentIndex(language_index if language_index >= 0 else 0)
+            language_combo.blockSignals(False)
+        else:
+            for key, button in self.btn_lang.items():
+                button.setChecked(key == self._current_lang)
 
         self._apply_lang_button_styles()
 
         # Cập nhật tiêu đề group box ngôn ngữ + tiêu đề cửa sổ
-        self.lang_grp.setTitle(_translated_language_label(
-            self._current_lang, grammar=self._is_grammar
-        ))
+        self.lang_grp.setTitle(t("lang_grp_title"))
         self._update_window_title()
 
         self.lbl_level.setText(cfg["level_label"])
@@ -1505,6 +1684,7 @@ class AnkiSmartFactory(QDialog):
 
         # Đồng bộ toàn bộ chuỗi hiển thị theo ngôn ngữ UI hiện tại
         self._retranslate_ui()
+        self._sync_integrated_forge()
 
     def _on_voice_changed(self, index):
         lang = self._cfg()["lang_code"]
@@ -2820,6 +3000,7 @@ class AnkiSmartFactory(QDialog):
             chars=total_chars,
             names=names,
         ))
+        self.lbl_ai_files.setToolTip(names)
 
     def _get_existing_words_for_ai(self):
         """Lấy danh sách từ hiện có trong deck (có cache 30 phút)"""
@@ -2877,7 +3058,15 @@ class AnkiSmartFactory(QDialog):
         # Cảnh báo nếu dùng model reasoning (chậm)
         self._warn_reasoner_model()
 
-        custom_instr = self.ai_instruction.text().strip()
+        custom_instr = self._current_ai_instruction()
+        if getattr(self, "_learning_mode", "language") == "language":
+            routed_lane = route_forge_lane(
+                text,
+                custom_instr,
+                fallback="grammar" if self._is_grammar else "vocab",
+            )
+            if (routed_lane == "grammar") != bool(self._is_grammar):
+                self._select_mode(routed_lane == "grammar")
 
         # Disable UI
         self.btn_ai_extract.setEnabled(False)
@@ -3076,16 +3265,38 @@ class AnkiSmartFactory(QDialog):
     # ═══════════════════════════════════════════════════════
     #  AI CHAT — Gửi câu hỏi/yêu cầu đến AI (không cần text)
     # ═══════════════════════════════════════════════════════
+    def open_integrated_forge(
+        self, *, language="", initial_text="", source_text="",
+        learning_mode="language", lane="vocab", existing_entries=None,
+    ):
+        """Activate the Factory-owned production line without another window."""
+        if source_text and source_text != self.ai_text_input.toPlainText():
+            self.ai_text_input.setPlainText(source_text)
+        self.forge_panel.open_for_context(
+            language=language or self._current_lang,
+            initial_text=initial_text,
+            source_text=self.ai_text_input.toPlainText(),
+            learning_mode=learning_mode,
+            lane=lane,
+            existing_entries=list(existing_entries or ()),
+        )
+        self.forge_panel.body.setVisible(True)
+        self.forge_panel.btn_collapse.setText("−")
+        self.forge_panel.input.setFocus()
+        self.show()
+        self.raise_()
+        self.activateWindow()
+        return self.forge_panel
+
     def _ai_chat(self):
-        """Open Forge Workspace with source and production instruction separated."""
+        """Activate the integrated Forge production line in this Factory."""
         source_text = self.ai_text_input.toPlainText().strip()
-        custom_instr = self.ai_instruction.text().strip()
+        custom_instr = self._current_ai_instruction()
         learning_mode = getattr(self, "_learning_mode", "language")
         lane = "grammar" if self._is_grammar else "vocab"
 
         def open_workspace(existing_entries=None):
-            from ui.ai_companion import show_ai_study_dialog
-            show_ai_study_dialog(
+            self.open_integrated_forge(
                 language=self._current_lang,
                 initial_text=custom_instr,
                 source_text=source_text,
@@ -3115,7 +3326,7 @@ class AnkiSmartFactory(QDialog):
     def _ai_chat_legacy(self):
         """Legacy one-shot dialog retained temporarily for compatibility."""
         user_msg = self.ai_text_input.toPlainText().strip()
-        custom_instr = self.ai_instruction.text().strip()
+        custom_instr = self._current_ai_instruction()
 
         # Kết hợp message
         full_message = ""
@@ -3481,8 +3692,14 @@ register_overview_hooks()
 #  ENTRY POINT
 # ═══════════════════════════════════════════════════════════
 def start_smart_factory():
-    mw.factory_dialog = AnkiSmartFactory(mw)
-    mw.factory_dialog.show()
+    factory = getattr(mw, "factory_dialog", None)
+    if factory is None:
+        factory = AnkiSmartFactory(mw)
+        mw.factory_dialog = factory
+    factory.show()
+    factory.raise_()
+    factory.activateWindow()
+    return factory
 
 
 # Đăng ký action trên menu Tools. Khi add-on này là ADD-ON ĐỘC LẬP (nằm thẳng

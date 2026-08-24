@@ -15,7 +15,7 @@ if _addon_root not in sys.path:
 
 from utils.i18n import (
     t, set_language, get_language, toggle_language, SUPPORTED_LANGUAGES,
-    add_language_listener, remove_language_listener,
+    add_language_listener, remove_language_listener, study_mode_labels,
 )
 
 
@@ -130,6 +130,15 @@ class TestI18nLiveSwitch:
         set_language("vi")
         toggle_language()  # → en
         assert get_language() == "en"
+
+    def test_english_study_modes_do_not_fall_back_to_japanese(self):
+        set_language("vi")
+        labels = study_mode_labels("english")
+        assert labels["qa"] == "1. Anh→Việt"
+        assert labels["pron"] == "4. IPA"
+
+        set_language("en")
+        assert study_mode_labels("english")["qa"] == "1. English→English"
 
 
 class TestI18nAllKeys:

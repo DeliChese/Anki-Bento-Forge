@@ -134,6 +134,15 @@ QWidget {
     font-size: __FONT__px;
 }
 QWidget#forgeAiCompanionRoot { background: transparent; }
+QScrollArea#forgeSourceProductionScroll,
+QScrollArea#forgeReviewImportScroll {
+    background: transparent;
+    border: none;
+}
+QScrollArea#forgeSourceProductionScroll > QWidget > QWidget,
+QScrollArea#forgeReviewImportScroll > QWidget > QWidget {
+    background: transparent;
+}
 QLabel#forgeAiStationTitle {
     color: __TEXT__;
     font-size: __FONT_LARGE__px;
@@ -162,6 +171,16 @@ QLabel#forgeAiSourceLabel {
     font-size: __FONT_SMALL__px;
     font-weight: 700;
     letter-spacing: 0.7px;
+}
+QFrame#forgeAiComposer {
+    background: rgba(255,255,255,__GLASS__);
+    border: 1px solid rgba(255,255,255,__BORDER__);
+    border-radius: 10px;
+}
+QFrame#forgeAiComposer QTextEdit#forgeAiInstructionInput {
+    background: transparent;
+    border: none;
+    padding: 2px;
 }
 QPlainTextEdit#forgeAiSourceInput, QTextEdit#forgeAiInstructionInput,
 QTextBrowser#forgeAiTranscript {

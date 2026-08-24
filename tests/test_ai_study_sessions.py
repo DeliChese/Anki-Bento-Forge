@@ -673,10 +673,11 @@ def test_companion_keeps_reviewer_coaching_only_and_forge_card_mode_one_shot():
     reviewer = (ROOT / "hooks" / "reviewer.py").read_text(encoding="utf-8")
     factory = (ROOT / "ui" / "factory_dialog.py").read_text(encoding="utf-8")
     assert "class AiCompanionDock(QDockWidget)" in companion
-    assert "class AiStudySessionDialog(QDialog)" in companion
+    assert "class AiStudySessionDialog(QDialog)" not in companion
     assert "DockWidgetFloatable" in companion and "DockWidgetClosable" in companion
     assert "self.cbo_mode.setCurrentIndex(0)" in companion
-    assert "self.cbo_mode.setVisible(self._policy.allows_card_mode)" in companion
+    assert "self.cbo_mode.setVisible(self._policy.allows_card_mode and not self._integrated)" in companion
+    assert 'selected_mode = "artifact" if self.chk_create_card.isChecked() else None' in companion
     assert "self.cbo_mode.currentData() if self._policy.allows_card_mode else None" in companion
     assert "self._store.get_session(self._pending_session_id)" in companion
     assert "tools.addAction(action)" in companion
@@ -686,9 +687,10 @@ def test_companion_keeps_reviewer_coaching_only_and_forge_card_mode_one_shot():
     assert "getElementById('bento-forge-ai-action')" in reviewer
     assert "#fffaf0" not in reviewer and "#4d4338" not in reviewer and "#c9bca8" not in reviewer
     assert "color: inherit" in reviewer and "prefers-color-scheme: dark" in reviewer
-    assert "show_ai_study_dialog" in factory
+    assert "def open_integrated_forge" in factory
     factory_chat = factory.split("def _ai_chat(self):", 1)[1].split("def _ai_chat_legacy", 1)[0]
-    assert "show_ai_study_dialog" in factory_chat
+    assert "self.open_integrated_forge" in factory_chat
+    assert "show_ai_study_dialog" not in factory_chat
     assert "show_ai_companion" not in factory_chat
     assert "#f8f4ec" not in companion and "#fffdf9" not in companion
     assert "def load_card_artifact" in factory

@@ -7,13 +7,13 @@ Version trong `manifest.json` có thể là release candidate cục bộ; không
 - [x] Chạy `scripts/test_isolated.ps1` hai lần và ghi số test của cả hai lượt.
 - [ ] Xác nhận CI xanh trên matrix Python đã công bố.
 - [ ] Chạy smoke thủ công trong Anki 26.5 trên profile mới/đã sao lưu: import/add/update + undo, combo reviewer, TTS cancel/offline và config migration; smoke endpoint 2.1.50 vẫn cần trước khi phát hành với legacy target.
-- [ ] Smoke AI Study Sessions: dock trái/phải, floating/minimize/maximize, hide/reopen, restart restore, session CRUD và shortcut conflict.
+- [ ] Smoke AI Study Sessions trong Reviewer: dock trái/phải, floating/minimize/maximize, hide/reopen, restart restore, session CRUD và shortcut conflict; ngoài Reviewer phải không mở Forge surface riêng.
   - [ ] Chat đủ dài để context compact, tiếp tục hỏi cùng topic và xác nhận AI không lặp fact bất thường.
   - [ ] Restart Anki, mở lại đúng session và xác nhận mạch học cùng rolling summary vẫn tiếp tục.
 - [ ] Smoke Reviewer: Ask AI, quick prompts, current-card context on/off, đổi thẻ khi AI đang chạy, Back to Review và xác nhận SRS không đổi.
   - [ ] Kiểm tra nút Ask AI trên light/dark: đọc rõ, không che card, click mới mở companion; Esc/Back to Review trả focus.
-- [ ] Smoke Card Mode: Vocab/Grammar artifact, reopen artifact và gửi sang Xưởng không phát sinh AI call thứ hai.
-  - [ ] Từ artifact bubble trong transcript, chạy Review và Đưa vào Xưởng; restart/reopen artifact và xác nhận không gọi AI lại.
+- [ ] Smoke dây chuyền Lò đúc AI tích hợp: chỉ có một Nguồn học liệu; không lộ router/bước xử lý; composer chứa ô nhập + checkbox Tạo thẻ + nút Gửi; đổi Vocab/Grammar phía trên làm checkbox và artifact bám đúng loại.
+  - [ ] Từ artifact bubble trong transcript, chạy Review và Đưa sang kiểm định; restart/reopen artifact và xác nhận không gọi AI lại hoặc mở cửa sổ Xưởng riêng.
 - [x] Rà `git diff` và credential scan: không có API key, raw response, user data hay log profile trong thay đổi V18.
 - [ ] Đối chiếu `CHANGELOG.md` với `git log` kể từ bản phát hành gần nhất: mọi thay đổi có thể phát hành đều ở `[Unreleased]`, chỉ mô tả việc đã hoàn tất và có bằng chứng; xem `.claude/CHANGELOG_POLICY.md`.
 - [ ] Khi phát hành, chuyển `[Unreleased]` thành `V<manifest.version>` với ngày phát hành; không tạo section version khi CI/smoke Anki còn thiếu.

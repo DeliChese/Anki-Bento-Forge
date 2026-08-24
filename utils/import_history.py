@@ -84,15 +84,24 @@ def _scan_cancelled(cancel_event) -> bool:
 
 
 def clear_import_history():
-    """Xóa toàn bộ lịch sử import từ vựng"""
-    if os.path.exists(_HISTORY_PATH):
-        try:
-            os.remove(_HISTORY_PATH)
-            return True
-        except Exception as e:
-            logger.warning("Lỗi xóa import_history: %s", e)
-            return False
-    return True
+    """Clear cached import history without requesting another bootstrap scan.
+
+    Deleting the file made the next Factory start treat the cache as uninitialized
+    and repopulate the UI from the collection.  A deliberate clear must remain
+    empty until a future import adds entries incrementally.
+    """
+    data = {
+        "version": _HISTORY_VERSION,
+        "last_full_scan": time.time(),
+        "entries": {},
+        "import_sessions": [],
+    }
+    try:
+        atomic_write_json(_HISTORY_PATH, data)
+        return True
+    except Exception as e:
+        logger.warning("Lỗi xóa import_history: %s", e)
+        return False
 
 
 def init_import_history(force_rescan: bool = False, scan_context_factory=None,

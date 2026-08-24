@@ -12,12 +12,17 @@
 - **Reviewer Learning Checkpoint** — Study Coach có hai điểm kết thúc tường minh theo đúng `card_id + study_mode`: `Đã rõ · tiếp tục ôn` lưu checkpoint cục bộ rồi trả focus về Reviewer, còn `Cần luyện thêm` chỉ soạn sẵn micro-quiz để người dùng chủ động gửi.
 
 #### 🔧 Changed
+- **Blueprint AI composer** — ô yêu cầu, checkbox `Tạo thẻ · Từ vựng/Ngữ pháp` và nút **Gửi** nay nằm trong cùng một composer; loại artifact bám trực tiếp chế độ đã chọn phía trên. Factory ẩn router/bước xử lý và các nút AI trùng, nhưng giữ nguyên session, worker, schema, import và undo.
+- **Blueprint responsive polish** — ngôn ngữ dùng dropdown đúng bản thiết kế; bỏ nút API trùng trên toolbar; tách trạng thái file/AI khỏi hàng hành động, ưu tiên composer trước transcript/artifact rỗng và tự xếp trạm Kiểm định xuống dưới khi cửa sổ hẹp để không còn cắt chữ hoặc đẩy mất cột.
+- **Blueprint production workbench** — sắp xếp lại Factory theo ba vùng co giãn `Nguồn học liệu | AI/Candidate/Artifact + JSON | Kiểm định/Import`, đưa ngôn ngữ và loại thẻ lên khu chọn chung, bỏ banner quy trình đánh số cùng các tiêu đề trùng, giữ nguyên theme/màu cũ và toàn bộ worker/import/undo hiện hành.
+- **Dây chuyền Lò đúc AI tích hợp** — bỏ standalone Forge dialog và gắn Candidate/Artifact trực tiếp vào Factory theo tuyến `NGUỒN HỌC LIỆU → CANDIDATE → ARTIFACT → KIỂM ĐỊNH/IMPORT`; “Nạp quặng”/“Source đính kèm” trở thành một source editor duy nhất. Loại thẻ bám Vocab/Grammar đã chọn phía trên; hai quick action vốn chỉ chép prompt mẫu đã được bỏ. AI Study Sessions giữ nguyên tên và chỉ thuộc Reviewer/Study Coach.
 - **Reviewer/Forge role split** — Study Coach trong Reviewer nay chỉ phục vụ giải thích, gợi nhớ và kiểm tra mức hiểu trên thẻ hiện tại; Card Mode, artifact controls và artifact transcript chỉ thuộc Forge AI Workshop.
 - **Fail-closed card ownership** — workspace policy và AI boundary từ chối mọi `card_mode` của Reviewer kể cả khi caller bỏ qua UI; Forge vẫn dùng Quality V2 và artifact → Xưởng zero-AI như cũ.
 - **Checkpoint không can thiệp học lịch** — learning checkpoint dùng message `system_internal`, không đi vào prompt AI/rolling summary, không gọi model tự động và không sửa note, rating, ease, due hay SRS của Anki.
 - **Workspace-scoped session memory** — Reviewer và Forge vẫn dùng chung transcript cục bộ để theo dõi, nhưng model history và rolling summary nay được tách theo workspace; assistant reply/candidate/artifact mới đều lưu provenance owner và transcript hiển thị đúng nhãn AI đã tạo message.
 
 #### 🐛 Fixed
+- **English study-mode labels and card-history clear** — English no longer falls back to Japanese labels in the study-mode selector; clearing card history now persists an explicitly empty initialized cache, so a later Factory launch cannot repopulate the UI from the collection.
 - **TTS local gây tăng RAM** — gỡ MeloTTS sidecar và lựa chọn provider cục bộ; Bento Forge quay lại Edge TTS với gTTS fallback, nên không còn khởi chạy tiến trình model neural riêng.
 - **Factory startup** — `_on_lang_changed()` nay lấy `lang_code` từ cấu hình hiện tại trước khi đồng bộ tốc độ, loại bỏ `NameError: lang is not defined` làm Bento Forge không mở được trên Anki 25.09.4.
 - **Cross-workspace memory bleed** — request Reviewer không còn nhận lịch sử/summary Forge và ngược lại. Phiên schema cũ vẫn reload, nhưng turn/summary không xác định owner bị loại khỏi request scoped; assistant legacy chỉ được kế thừa owner từ user turn có provenance ngay trước đó.
