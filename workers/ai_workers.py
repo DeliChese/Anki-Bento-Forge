@@ -14,6 +14,7 @@ from utils.ai_extractor import (
     extract_grammar_long_text,
     chat_with_ai,
 )
+from utils.ai_candidate_extractor import extract_source_candidates_with_ai
 from utils.knowledge_extractor import extract_knowledge_long_text
 
 logger = get_logger()
@@ -143,7 +144,7 @@ class AiChatThread(QThread):
 
     def __init__(
         self, message, lang, conversation_history=None, anki_context=None,
-        card_kind="vocab", card_mode=None, study_session=None,
+        card_kind="vocab", card_mode=None, candidate_mode=False, study_session=None,
         use_card_context=False, session_id="", runtime_config=None, cancel_event=None,
         workspace="reviewer", workspace_request=None,
     ):
@@ -154,6 +155,7 @@ class AiChatThread(QThread):
         self.anki_context = anki_context
         self.card_kind = card_kind
         self.card_mode = card_mode
+        self.candidate_mode = bool(candidate_mode)
         self.study_session = study_session
         self.use_card_context = bool(use_card_context)
         self.session_id = session_id
@@ -165,22 +167,33 @@ class AiChatThread(QThread):
     def run(self):
         try:
             self.progress.emit(t("worker_progress_context"))
-            result = chat_with_ai(
-                user_message=self.message,
-                lang=self.lang,
-                conversation_history=self.conversation_history,
-                progress_callback=lambda msg: self.progress.emit(msg),
-                should_abort=self.cancel_event.is_set,
-                anki_context=self.anki_context,
-                card_kind=self.card_kind,
-                card_mode=self.card_mode,
-                study_session=self.study_session,
-                use_card_context=self.use_card_context,
-                session_id=self.session_id,
-                runtime_config=self.runtime_config,
-                workspace=self.workspace,
-                workspace_request=self.workspace_request,
-            )
+            if self.candidate_mode:
+                result = extract_source_candidates_with_ai(
+                    self.message,
+                    lang=self.lang,
+                    workspace_request=self.workspace_request,
+                    progress_callback=lambda msg: self.progress.emit(msg),
+                    should_abort=self.cancel_event.is_set,
+                    session_id=self.session_id,
+                    runtime_config=self.runtime_config,
+                )
+            else:
+                result = chat_with_ai(
+                    user_message=self.message,
+                    lang=self.lang,
+                    conversation_history=self.conversation_history,
+                    progress_callback=lambda msg: self.progress.emit(msg),
+                    should_abort=self.cancel_event.is_set,
+                    anki_context=self.anki_context,
+                    card_kind=self.card_kind,
+                    card_mode=self.card_mode,
+                    study_session=self.study_session,
+                    use_card_context=self.use_card_context,
+                    session_id=self.session_id,
+                    runtime_config=self.runtime_config,
+                    workspace=self.workspace,
+                    workspace_request=self.workspace_request,
+                )
 
             if self.cancel_event.is_set():
                 return

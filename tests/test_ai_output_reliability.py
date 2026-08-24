@@ -60,6 +60,7 @@ def _chat_result(
     return ai_extractor.chat_with_ai(
         "test request", lang=lang, quick=True, card_kind=card_kind,
         card_mode=selected_mode,
+        workspace="forge" if selected_mode is not None else "reviewer",
     )
 
 
@@ -234,10 +235,11 @@ def test_chat_prompt_requests_only_the_selected_grammar_schema(monkeypatch):
 
 def test_study_chat_prompt_never_loads_a_card_schema(monkeypatch):
     requested = []
+    monkeypatch.setattr(ai_extractor, "_ui_lang_en", lambda: True)
     monkeypatch.setattr(ai_study_prompts, "get_json_template", lambda *args: requested.append(args))
     prompt = ai_extractor._get_study_chat_system_prompt("english", None)
     assert requested == []
-    assert "Card Mode" in prompt
+    assert "learning-material production belongs to Forge AI Workshop" in prompt
 
 
 def test_study_chat_treats_unsolicited_json_as_prose(monkeypatch):

@@ -25,6 +25,7 @@ class WorkspacePolicy:
     quick_actions: tuple[tuple[str, str], ...]
     allows_card_context: bool
     allows_source_context: bool
+    allows_card_mode: bool
     shows_route_strip: bool
 
 
@@ -97,6 +98,7 @@ _POLICIES = {
         quick_actions=_REVIEWER_ACTIONS,
         allows_card_context=True,
         allows_source_context=False,
+        allows_card_mode=False,
         shows_route_strip=False,
     ),
     "forge": WorkspacePolicy(
@@ -108,6 +110,7 @@ _POLICIES = {
         quick_actions=_FORGE_ACTIONS,
         allows_card_context=False,
         allows_source_context=True,
+        allows_card_mode=True,
         shows_route_strip=True,
     ),
 }
@@ -122,6 +125,17 @@ def resolve_workspace(value: str) -> str:
 
 def get_workspace_policy(workspace: str) -> WorkspacePolicy:
     return _POLICIES[resolve_workspace(workspace)]
+
+
+def validate_workspace_card_mode(workspace: str, card_mode: Optional[str]) -> Optional[str]:
+    """Allow importable card output only on the Forge production surface."""
+    workspace = resolve_workspace(workspace)
+    mode = None if card_mode is None else str(card_mode).strip().casefold()
+    if mode not in {None, "vocab", "grammar"}:
+        raise ValueError("unsupported study-session card mode")
+    if mode is not None and not get_workspace_policy(workspace).allows_card_mode:
+        raise ValueError("Reviewer workspace does not allow Card Mode")
+    return mode
 
 
 def validate_workspace_request(
@@ -239,5 +253,6 @@ def workspace_context_message(context: WorkspaceRequestContext) -> dict:
 __all__ = [
     "WORKSPACES", "WorkspacePolicy", "WorkspaceRequestContext",
     "build_workspace_request_context", "get_workspace_policy", "resolve_workspace",
-    "validate_workspace_request", "workspace_context_message",
+    "validate_workspace_card_mode", "validate_workspace_request",
+    "workspace_context_message",
 ]

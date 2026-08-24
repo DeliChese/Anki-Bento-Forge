@@ -6,7 +6,7 @@ from typing import Optional
 
 from .prompt_config import get_json_template, get_system_prompt
 from .language_identity import normalize_language
-from .ai_workspace import resolve_workspace
+from .ai_workspace import resolve_workspace, validate_workspace_card_mode
 
 
 _REVIEWER_CHAT = {
@@ -16,7 +16,7 @@ _REVIEWER_CHAT = {
 - Khi sửa lỗi: nói rõ phần đúng, lỗi, lý do và một bản sửa tự nhiên.
 - Chỉ dùng ngữ cảnh thẻ được cung cấp khi liên quan; không suy đoán dữ liệu deck khác.
 - Ở mặt câu hỏi, tuân thủ tuyệt đối trường an toàn đã được lọc; gợi ý gián tiếp và không làm lộ đáp án ẩn.
-- Không tạo JSON/thẻ có thể nhập trừ khi UI đã bật Card Mode rõ ràng.
+- Không tạo JSON, candidate hay thẻ có thể nhập; việc sản xuất học liệu thuộc Forge AI Workshop.
 - Ưu tiên câu trả lời đọc nhanh để người học quay lại Reviewer; chỉ mở rộng khi được yêu cầu.
 Trả lời bằng tiếng Việt.""",
     True: """You are a warm, precise, concise {target} Study Coach focused on retrieval for the current card.
@@ -25,7 +25,7 @@ Trả lời bằng tiếng Việt.""",
 - For corrections, identify what works, the error, why, and one natural revision.
 - Use supplied card context only when relevant and never infer another deck's data.
 - On the question side, obey the filtered safe fields exactly; give indirect hints without leaking hidden answers.
-- Never generate importable card JSON unless the UI explicitly enabled Card Mode.
+- Never generate importable card JSON or candidates; learning-material production belongs to Forge AI Workshop.
 - Prefer an answer the learner can read quickly and then return to Reviewer; expand only on request.
 Reply in English.""",
 }
@@ -75,8 +75,7 @@ def build_study_prompt(
     """Return compact chat instructions, adding schema only for explicit Card Mode."""
     lang = normalize_language(lang)
     workspace = resolve_workspace(workspace)
-    if card_mode not in {None, "vocab", "grammar"}:
-        raise ValueError("unsupported study-session card mode")
+    card_mode = validate_workspace_card_mode(workspace, card_mode)
     target = {
         "japanese": "Japanese", "chinese": "Chinese",
         "korean": "Korean", "english": "English",

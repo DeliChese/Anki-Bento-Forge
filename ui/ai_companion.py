@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import html
 import json
 import uuid
@@ -12,7 +13,8 @@ from aqt import mw
 from aqt.qt import (
     QAction, QCheckBox, QComboBox, QDialog, QDockWidget, QHBoxLayout, QInputDialog,
     QKeySequence, QLabel, QMessageBox, QPlainTextEdit, QPushButton, QShortcut, QTimer,
-    QGridLayout, QTextBrowser, QTextEdit, QToolButton, QVBoxLayout, QWidget, Qt,
+    QGridLayout, QTableWidget, QTableWidgetItem, QTextBrowser, QTextEdit, QToolButton,
+    QVBoxLayout, QWidget, Qt,
 )
 from aqt.utils import showInfo, tooltip
 
@@ -22,13 +24,16 @@ from utils.ai_card_artifacts import (
 )
 from utils.ai_extractor import get_api_config, get_api_key_for_provider
 from utils.ai_providers import AI_PROVIDERS, detect_provider, get_provider
+from utils.ai_source_candidates import (
+    build_selected_candidate_instruction, mark_existing_candidate_surfaces,
+)
 from utils.ai_session_store import StudySessionStore
 from utils.ai_usage_history import get_usage_entries, summarize_usage
 from utils.ai_workflow import AiWorkflowCoordinator
 from utils.ai_workspace import (
     build_workspace_request_context, get_workspace_policy, resolve_workspace,
 )
-from utils.i18n import t
+from utils.i18n import get_language, t
 from utils.logger import get_logger, log_event
 from utils.language_identity import try_normalize_language
 from ui.theme import apply_theme
@@ -81,8 +86,11 @@ class AiCompanionDock(QDockWidget):
         self._pending_session_id = ""
         self._pending_user_message_id = ""
         self._pending_card_mode = None
+        self._pending_candidate_mode = False
         self._pending_request_token = ""
         self._pending_workspace_request = None
+        self._existing_entries = []
+        self._prepared_candidate_source_digest = ""
         self._learning_mode = "language"
         self._lane = "vocab"
         self._editing_latest = False
@@ -212,17 +220,12 @@ class AiCompanionDock(QDockWidget):
         context_row.addWidget(self.chk_context, 1)
         self.cbo_mode = QComboBox()
         self.cbo_mode.addItem(t("study_mode_chat"), None)
-        vocab_mode_key = (
-            "study_mode_vocab" if self._workspace == "reviewer"
-            else "study_forge_mode_vocab"
-        )
-        grammar_mode_key = (
-            "study_mode_grammar" if self._workspace == "reviewer"
-            else "study_forge_mode_grammar"
-        )
-        self.cbo_mode.addItem(t(vocab_mode_key), "vocab")
-        self.cbo_mode.addItem(t(grammar_mode_key), "grammar")
+        if self._policy.allows_card_mode:
+            self.cbo_mode.addItem(t("study_forge_mode_candidates"), "candidates")
+            self.cbo_mode.addItem(t("study_forge_mode_vocab"), "vocab")
+            self.cbo_mode.addItem(t("study_forge_mode_grammar"), "grammar")
         self.cbo_mode.setAccessibleName(t("study_card_mode"))
+        self.cbo_mode.setVisible(self._policy.allows_card_mode)
         self.cbo_mode.currentIndexChanged.connect(self._update_context_board)
         context_row.addWidget(self.cbo_mode)
         body.addLayout(context_row)
@@ -238,6 +241,8 @@ class AiCompanionDock(QDockWidget):
         self.btn_forge = QPushButton(t("study_open_forge"))
         self.btn_forge.clicked.connect(self.open_artifact_in_forge)
         artifacts.addWidget(self.btn_forge)
+        for widget in (self.cbo_artifact, self.btn_review_artifact, self.btn_forge):
+            widget.setVisible(self._policy.allows_card_mode)
         body.addLayout(artifacts)
 
         self.input = QTextEdit()
@@ -464,6 +469,7 @@ class AiCompanionDock(QDockWidget):
         source_text: str = "",
         learning_mode: str = "language",
         lane: str = "vocab",
+        existing_entries: Optional[list] = None,
     ):
         snapshot_language = try_normalize_language((snapshot or {}).get("language"))
         self._card_context = (
@@ -479,6 +485,10 @@ class AiCompanionDock(QDockWidget):
             if self._workspace == "forge" else "language"
         )
         self._lane = str(lane or "vocab").strip().casefold()
+        self._existing_entries = (
+            list(existing_entries or ()) if self._workspace == "forge" else []
+        )
+        self._prepared_candidate_source_digest = ""
         if self._workspace == "forge":
             self.source_input.setPlainText(source_text or "")
         else:
@@ -565,7 +575,12 @@ class AiCompanionDock(QDockWidget):
     def send_message(self):
         if self._workflow.chat_worker is not None:
             return
+        selected_mode = (
+            self.cbo_mode.currentData() if self._policy.allows_card_mode else None
+        )
         text = self.input.toPlainText().strip()
+        if selected_mode == "candidates" and not text:
+            text = t("study_candidates_default_instruction")
         if not text:
             return
         session = self._current_session()
@@ -575,13 +590,17 @@ class AiCompanionDock(QDockWidget):
         if not session:
             self.status.setText(t("study_language_required"))
             return
+        if selected_mode == "candidates":
+            if self._learning_mode != "language":
+                showInfo(t("study_candidates_language_only"))
+                return
+            if not self.source_input.toPlainText().strip():
+                showInfo(t("study_candidates_source_required"))
+                return
         runtime = self._runtime_config()
         if not runtime.get("api_key") and "localhost" not in runtime.get("api_base", ""):
             showInfo(t("error_api_key_missing"))
             return
-        if session["title"] == t("study_default_title") and not session["messages"]:
-            local_title = " ".join(text.replace("\n", " ").split()[:8])[:80]
-            self._store.rename_session(session["id"], local_title or t("study_default_title"))
         request_token = uuid.uuid4().hex
         request_context = build_workspace_request_context(
             workspace=self._workspace,
@@ -598,6 +617,18 @@ class AiCompanionDock(QDockWidget):
                 self._workspace == "reviewer" and self.chk_context.isChecked()
             ),
         )
+        if (
+            selected_mode in {"vocab", "grammar"}
+            and self._prepared_candidate_source_digest
+            and "SELECTED_SOURCE_CANDIDATES=" in text
+            and hashlib.sha256(request_context.source_text.encode("utf-8")).hexdigest()
+            != self._prepared_candidate_source_digest
+        ):
+            showInfo(t("study_candidates_source_changed"))
+            return
+        if session["title"] == t("study_default_title") and not session["messages"]:
+            local_title = " ".join(text.replace("\n", " ").split()[:8])[:80]
+            self._store.rename_session(session["id"], local_title or t("study_default_title"))
         if self._editing_latest:
             session = self._store.replace_latest_user_message(
                 session["id"], text,
@@ -612,9 +643,13 @@ class AiCompanionDock(QDockWidget):
             )
         self._pending_user_message_id = user_message["id"]
         self._pending_session_id = session["id"]
-        self._pending_card_mode = self.cbo_mode.currentData()
+        self._pending_candidate_mode = selected_mode == "candidates"
+        self._pending_card_mode = (
+            selected_mode if selected_mode in {"vocab", "grammar"} else None
+        )
         self._pending_request_token = request_token
         self._pending_workspace_request = request_context
+        self._prepared_candidate_source_digest = ""
         self.input.clear()
         self._reload_sessions(session["id"])
         self.btn_send.setEnabled(False)
@@ -629,6 +664,7 @@ class AiCompanionDock(QDockWidget):
             anki_context=request_context.card_context,
             card_kind=self._pending_card_mode or "vocab",
             card_mode=self._pending_card_mode,
+            candidate_mode=self._pending_candidate_mode,
             study_session=self._store.get_session(session["id"]),
             use_card_context=request_context.use_card_context,
             session_id=session["id"],
@@ -669,8 +705,25 @@ class AiCompanionDock(QDockWidget):
         reply = str(result.get("reply") or "").strip()
         if reply:
             self._store.add_message(session["id"], role="assistant", content=reply)
+        candidate_manifest = None
+        if self._pending_candidate_mode and result.get("candidate_manifest"):
+            candidate_manifest = mark_existing_candidate_surfaces(
+                result["candidate_manifest"], self._existing_entries,
+            )
+            rejected = int(candidate_manifest.get("invalid_count", 0)) + int(
+                candidate_manifest.get("duplicate_count", 0)
+            )
+            self._store.add_message(
+                session["id"], role="assistant",
+                content=t(
+                    "study_candidates_ready",
+                    count=len(candidate_manifest.get("candidates", [])),
+                    rejected=rejected,
+                    existing=candidate_manifest.get("existing_surface_count", 0),
+                ),
+            )
         cards = result.get("card_json")
-        if cards and self._pending_card_mode:
+        if cards and self._policy.allows_card_mode and self._pending_card_mode:
             try:
                 artifact = create_card_artifact(
                     session_id=session["id"], language=session["language"],
@@ -691,7 +744,11 @@ class AiCompanionDock(QDockWidget):
                 self._store.add_message(
                     session["id"], role="assistant", content=t("study_artifact_rejected"),
                 )
-        elif self._pending_card_mode and result.get("card_error"):
+        elif (
+            self._policy.allows_card_mode
+            and self._pending_card_mode
+            and result.get("card_error")
+        ):
             self._store.add_message(
                 session["id"], role="assistant",
                 content=result.get("card_warning") or t("study_artifact_rejected"),
@@ -706,6 +763,105 @@ class AiCompanionDock(QDockWidget):
         self._finish_request_ui()
         self._clear_pending_request(token)
         self._reload_sessions(selected_id)
+        if candidate_manifest:
+            selected_ids = self._review_candidate_manifest(candidate_manifest)
+            if selected_ids:
+                instruction = build_selected_candidate_instruction(
+                    candidate_manifest, selected_ids,
+                    english_ui=get_language() == "en",
+                )
+                self.input.setPlainText(instruction)
+                self._prepared_candidate_source_digest = str(
+                    candidate_manifest.get("source_digest") or ""
+                )
+                mode_index = self.cbo_mode.findData(candidate_manifest.get("lane"))
+                if mode_index >= 0:
+                    self.cbo_mode.setCurrentIndex(mode_index)
+                self.status.setText(t("study_candidates_selected", count=len(selected_ids)))
+                self.input.setFocus()
+
+    def _review_candidate_manifest(self, manifest: dict) -> list[str]:
+        """Let the user explicitly choose source candidates for the next request."""
+        candidates = list(manifest.get("candidates", []))
+        dialog = QDialog(self)
+        dialog.setWindowTitle(t("study_candidates_dialog_title"))
+        dialog.resize(980, 560)
+        layout = QVBoxLayout(dialog)
+        summary = QLabel(t(
+            "study_candidates_dialog_summary",
+            count=len(candidates),
+            existing=manifest.get("existing_surface_count", 0),
+        ))
+        summary.setWordWrap(True)
+        layout.addWidget(summary)
+        table = QTableWidget(len(candidates), 7, dialog)
+        table.setHorizontalHeaderLabels([
+            t("study_candidates_header_select"),
+            t("study_candidates_header_target"),
+            t("study_candidates_header_meaning"),
+            t("study_candidates_header_priority"),
+            t("study_candidates_header_source"),
+            t("study_candidates_header_reason"),
+            t("study_candidates_header_status"),
+        ])
+        table.verticalHeader().setVisible(False)
+        table.horizontalHeader().setStretchLastSection(True)
+        table.setAlternatingRowColors(True)
+        for row, candidate in enumerate(candidates):
+            select_item = QTableWidgetItem("")
+            select_item.setFlags(
+                select_item.flags() | Qt.ItemFlag.ItemIsUserCheckable
+            )
+            select_item.setCheckState(Qt.CheckState.Checked)
+            select_item.setData(Qt.ItemDataRole.UserRole, candidate.get("candidate_id"))
+            table.setItem(row, 0, select_item)
+            values = (
+                candidate.get("target", ""), candidate.get("meaning_hint", ""),
+                candidate.get("priority", ""), candidate.get("source_excerpt", ""),
+                candidate.get("reason", ""),
+                t(
+                    "study_candidates_status_existing"
+                    if candidate.get("existing_surface")
+                    else "study_candidates_status_new"
+                ),
+            )
+            for column, value in enumerate(values, start=1):
+                table.setItem(row, column, QTableWidgetItem(str(value)))
+        table.resizeColumnsToContents()
+        layout.addWidget(table, 1)
+        actions = QHBoxLayout()
+        btn_all = QPushButton(t("study_candidates_select_all"))
+        btn_none = QPushButton(t("study_candidates_select_none"))
+        btn_cancel = QPushButton(t("study_candidates_cancel"))
+        btn_use = QPushButton(t("study_candidates_use_selected"))
+        btn_use.setProperty("class", "primary")
+        actions.addWidget(btn_all)
+        actions.addWidget(btn_none)
+        actions.addStretch()
+        actions.addWidget(btn_cancel)
+        actions.addWidget(btn_use)
+        layout.addLayout(actions)
+
+        def set_checked(state):
+            for row in range(table.rowCount()):
+                table.item(row, 0).setCheckState(state)
+
+        btn_all.clicked.connect(lambda: set_checked(Qt.CheckState.Checked))
+        btn_none.clicked.connect(lambda: set_checked(Qt.CheckState.Unchecked))
+        btn_cancel.clicked.connect(dialog.reject)
+        btn_use.clicked.connect(dialog.accept)
+        apply_theme(dialog)
+        if not dialog.exec():
+            return []
+        selected = [
+            str(table.item(row, 0).data(Qt.ItemDataRole.UserRole) or "")
+            for row in range(table.rowCount())
+            if table.item(row, 0).checkState() == Qt.CheckState.Checked
+        ]
+        selected = [candidate_id for candidate_id in selected if candidate_id]
+        if not selected:
+            tooltip(t("study_candidates_none_selected"))
+        return selected
 
     def _on_error(self, error: str, token: str):
         if not self._owns_request(token):
@@ -727,6 +883,7 @@ class AiCompanionDock(QDockWidget):
         self._pending_session_id = ""
         self._pending_user_message_id = ""
         self._pending_card_mode = None
+        self._pending_candidate_mode = False
         self._pending_request_token = ""
         self._pending_workspace_request = None
 
@@ -763,6 +920,8 @@ class AiCompanionDock(QDockWidget):
         artifacts = {item["artifact_id"]: item for item in session["artifacts"]}
         for message in session["messages"]:
             if message["type"] == "artifact_reference":
+                if not self._policy.allows_card_mode:
+                    continue
                 artifact = artifacts.get(message.get("artifact_id"))
                 label = artifact_label(artifact) if artifact else t("study_artifact_missing")
                 artifact_id = quote(str(message.get("artifact_id") or ""), safe="")
@@ -810,11 +969,12 @@ class AiCompanionDock(QDockWidget):
         scrollbar.setValue(scrollbar.maximum())
         self.cbo_artifact.blockSignals(True)
         self.cbo_artifact.clear()
-        for artifact in reversed(session["artifacts"]):
-            label = artifact_label(artifact)
-            if not artifact_is_compatible(artifact):
-                label = t("study_artifact_stale_label", label=label)
-            self.cbo_artifact.addItem(label, artifact["artifact_id"])
+        if self._policy.allows_card_mode:
+            for artifact in reversed(session["artifacts"]):
+                label = artifact_label(artifact)
+                if not artifact_is_compatible(artifact):
+                    label = t("study_artifact_stale_label", label=label)
+                self.cbo_artifact.addItem(label, artifact["artifact_id"])
         self.cbo_artifact.blockSignals(False)
         self._on_artifact_selected()
         self.status.setText(self._usage_text(session["id"]))
@@ -827,6 +987,8 @@ class AiCompanionDock(QDockWidget):
         return t("study_usage", tokens=totals["total_tokens"], cost=totals["total_cost"])
 
     def _selected_artifact(self) -> Optional[dict]:
+        if not self._policy.allows_card_mode:
+            return None
         session = self._current_session()
         artifact_id = str(self.cbo_artifact.currentData() or "")
         return self._store.get_artifact(session["id"], artifact_id) if session and artifact_id else None
@@ -844,7 +1006,7 @@ class AiCompanionDock(QDockWidget):
 
     def _on_transcript_link(self, url):
         """Route internal artifact links through the existing artifact owner."""
-        if str(url.scheme()) != "forge-artifact":
+        if not self._policy.allows_card_mode or str(url.scheme()) != "forge-artifact":
             return
         action = str(url.host())
         artifact_id = unquote(str(url.path()).lstrip("/"))
@@ -858,6 +1020,8 @@ class AiCompanionDock(QDockWidget):
             self.open_artifact_in_forge()
 
     def review_artifact(self):
+        if not self._policy.allows_card_mode:
+            return
         artifact = self._selected_artifact()
         if not artifact:
             return
@@ -880,6 +1044,8 @@ class AiCompanionDock(QDockWidget):
         dialog.exec()
 
     def open_artifact_in_forge(self):
+        if not self._policy.allows_card_mode:
+            return
         artifact = self._selected_artifact()
         if not artifact:
             return
@@ -1023,6 +1189,7 @@ class AiStudySessionDialog(QDialog):
         source_text="",
         learning_mode="language",
         lane="vocab",
+        existing_entries=None,
     ):
         apply_theme(self)
         self.companion._theme_cfg = apply_theme(self.companion)
@@ -1032,6 +1199,7 @@ class AiStudySessionDialog(QDialog):
             source_text=source_text,
             learning_mode=learning_mode,
             lane=lane,
+            existing_entries=existing_entries,
         )
         self.show()
         self.raise_()
@@ -1047,6 +1215,7 @@ def get_ai_study_dialog(parent=None) -> AiStudySessionDialog:
 
 def show_ai_study_dialog(
     *, language="", initial_text="", source_text="", learning_mode="language", lane="vocab",
+    existing_entries=None,
 ) -> AiStudySessionDialog:
     dialog = get_ai_study_dialog(mw)
     dialog.open_session(
@@ -1055,6 +1224,7 @@ def show_ai_study_dialog(
         source_text=source_text,
         learning_mode=learning_mode,
         lane=lane,
+        existing_entries=existing_entries,
     )
     return dialog
 

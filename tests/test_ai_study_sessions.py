@@ -668,7 +668,7 @@ def test_ui_state_persists_dock_geometry_and_last_session(tmp_path):
     }
 
 
-def test_companion_source_keeps_reviewer_secondary_and_card_mode_one_shot():
+def test_companion_keeps_reviewer_coaching_only_and_forge_card_mode_one_shot():
     companion = (ROOT / "ui" / "ai_companion.py").read_text(encoding="utf-8")
     reviewer = (ROOT / "hooks" / "reviewer.py").read_text(encoding="utf-8")
     factory = (ROOT / "ui" / "factory_dialog.py").read_text(encoding="utf-8")
@@ -676,6 +676,8 @@ def test_companion_source_keeps_reviewer_secondary_and_card_mode_one_shot():
     assert "class AiStudySessionDialog(QDialog)" in companion
     assert "DockWidgetFloatable" in companion and "DockWidgetClosable" in companion
     assert "self.cbo_mode.setCurrentIndex(0)" in companion
+    assert "self.cbo_mode.setVisible(self._policy.allows_card_mode)" in companion
+    assert "self.cbo_mode.currentData() if self._policy.allows_card_mode else None" in companion
     assert "self._store.get_session(self._pending_session_id)" in companion
     assert "tools.addAction(action)" in companion
     assert "self.hide()" in companion and "web.setFocus()" in companion

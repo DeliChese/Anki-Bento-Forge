@@ -45,7 +45,8 @@ Knowledge Basic/Cloze được giữ trong mã nguồn như beta riêng tư đ�
 | 📎 **Kẹp File Tham Khảo** | Đính kèm TXT/MD/CSV/PDF/DOCX/XLSX làm tài liệu → AI đọc nội dung để trích xuất từ vựng/ngữ pháp. |
 | 📘 **Ngữ pháp** | Note Type ngữ pháp riêng cho cả 4 ngôn ngữ: thẻ 2 chiều "Cấu trúc→Nghĩa" & "Nghĩa→Cấu trúc", AI trích xuất pattern + công thức + cách dùng + ví dụ (có đánh dấu `<b>…</b>` trong ví dụ). |
 | 🤖 **AI Trích Xuất** | Dùng OpenAI/DeepSeek/Ollama để trích xuất từ vựng từ văn bản. Tự động tránh từ đã có trong deck. |
-| 🥟 **AI Study Sessions** | Trợ lý dock/floating có phiên, context thẻ hiện tại và Card Mode tường minh. |
+| 🥟 **AI Study Coach** | Trợ lý dock/floating trong Reviewer, bám thẻ hiện tại để giải thích, gợi ý và kiểm tra mức hiểu; không tạo thẻ. |
+| ⚒️ **Forge AI Workshop** | Workspace sản xuất theo luồng `SOURCE → CANDIDATE → ARTIFACT`: tuyển/chọn học liệu bám nguồn, tạo artifact Vocab/Grammar rồi đưa sang Xưởng. |
 | ⚡ **Tối ưu Token** | Chỉ gửi từ vựng/ngữ pháp trùng với nội dung vào prompt (thay vì toàn bộ deck → giảm mạnh input); tổng hợp token/chi phí theo toàn bộ chunk. |
 | 💾 **Lưu trạng thái 2 luồng** | Text + file kẹp của Từ vựng và Ngữ pháp (mỗi ngôn ngữ) được lưu riêng, khôi phục khi mở lại Factory — không lẫn nhau, đỡ gọi lại AI. |
 
@@ -124,15 +125,16 @@ git clone https://github.com/DeliChese/Anki-Bento-Forge.git
 4. Xem trước, chỉnh sửa, xóa nếu cần
 5. Bấm **✅ CHẤP NHẬN & ĐỔ VÀO XƯỞNG**
 
-### Cách 3: AI Study Sessions
+### Cách 3: AI Study Coach và Forge AI Workshop
 
-1. Mở **Tools > AI Study Sessions** hoặc nhấn `Ctrl+Shift+A` (nếu phím tắt chưa bị add-on khác chiếm).
-2. Giữ companion ở bên phải, kéo sang trái, thả nổi, thu gọn hoặc ẩn; trạng thái được khôi phục ở lần mở sau.
-3. Trong Reviewer, bấm **Ask AI** để dùng snapshot tối thiểu của đúng thẻ hiện tại. Các nút hỏi nhanh vẫn nằm trong cùng phiên.
-4. Bật **Card Mode** chỉ khi muốn tạo một card Từ vựng/Ngữ pháp. Kết quả được lưu thành artifact để xem lại, mở lại hoặc gửi sang Xưởng mà không gọi AI lần nữa.
-5. Bấm **Quay lại Review** để trở về thẻ đang học.
+1. Trong Reviewer, bấm **Ask AI** hoặc nhấn `Ctrl+Shift+A` để mở **Study Coach** với snapshot tối thiểu của đúng thẻ hiện tại.
+2. Dùng Study Coach để xin gợi ý, giải thích cách dùng hoặc kiểm tra mức hiểu. Reviewer không có Card Mode và không tạo artifact.
+3. Mở **Tools > AI Study Sessions** từ Bento Forge để vào **Forge AI Workshop**, dán source và chọn **1 · Tuyển candidate từ source**. Forge chỉ nhận candidate có bề mặt/trích đoạn kiểm chứng được trong source.
+4. Duyệt danh sách, bỏ các mục không cần hoặc có cảnh báo đã xuất hiện trong deck, rồi bấm **Dùng mục đã chọn**. Cảnh báo deck chỉ để tham khảo vì cùng bề mặt có thể khác nghĩa.
+5. Forge soạn sẵn request **2 · Tạo artifact** chỉ cho các candidate đã chọn nhưng chưa gọi AI; kiểm tra rồi chủ động bấm **Gửi** để tạo artifact Vocab/Grammar.
+6. Artifact được lưu trong session để xem lại hoặc đưa sang Xưởng mà không gọi AI lần nữa. Trong Reviewer, bấm **Quay lại Review** để trở về thẻ đang học.
 
-Phiên hội thoại được lưu cục bộ theo profile với ghi file nguyên tử và retention giới hạn. Companion không tự gọi AI khi chuyển thẻ, không quét toàn bộ collection và không sửa lịch SRS.
+Phiên hội thoại được lưu cục bộ theo profile với ghi file nguyên tử và retention giới hạn. Companion không tự gọi AI khi chuyển thẻ và không sửa lịch SRS. Study Coach không quét collection; Forge chỉ đọc bề mặt trong deck hiện tại bằng Anki QueryOp để gắn cảnh báo advisory khi mở từ Xưởng.
 
 ---
 

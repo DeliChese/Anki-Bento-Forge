@@ -52,7 +52,9 @@ from .ai_prompt_defaults import KNOWLEDGE_PROMPT_VERSION
 from .ai_usage_history import record_usage as _record_usage
 from .ai_providers import detect_provider
 from .ai_study_prompts import build_study_prompt
-from .ai_workspace import validate_workspace_request
+from .ai_workspace import (
+    validate_workspace_card_mode, validate_workspace_request,
+)
 from .language_identity import normalize_language
 from .user_data import (
     atomic_write_json,
@@ -1004,8 +1006,8 @@ def _get_study_chat_system_prompt(
 def _get_chat_system_prompt(
     lang: str = "japanese", card_kind: str = "vocab",
 ) -> str:
-    """Compatibility helper representing an explicitly selected Card Mode."""
-    return _get_study_chat_system_prompt(lang, card_kind)
+    """Compatibility helper representing Forge's explicitly selected Card Mode."""
+    return _get_study_chat_system_prompt(lang, card_kind, workspace="forge")
 
 
 def chat_with_ai(
@@ -1038,8 +1040,7 @@ def chat_with_ai(
     workspace = validate_workspace_request(workspace, lang, workspace_request)
     if card_kind not in {"vocab", "grammar"}:
         raise ValueError("unsupported chat card kind")
-    if card_mode not in {None, "vocab", "grammar"}:
-        raise ValueError("unsupported study-session card mode")
+    card_mode = validate_workspace_card_mode(workspace, card_mode)
     cfg = dict(runtime_config) if isinstance(runtime_config, dict) else get_api_config()
     if not cfg.get("api_key") and "localhost" not in cfg.get("api_base", ""):
         return {"reply": "", "vocab_json": None, "error": t("error_api_key_missing")}

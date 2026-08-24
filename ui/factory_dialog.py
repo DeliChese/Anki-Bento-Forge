@@ -3081,14 +3081,36 @@ class AnkiSmartFactory(QDialog):
         """Open Forge Workspace with source and production instruction separated."""
         source_text = self.ai_text_input.toPlainText().strip()
         custom_instr = self.ai_instruction.text().strip()
-        from ui.ai_companion import show_ai_study_dialog
+        learning_mode = getattr(self, "_learning_mode", "language")
+        lane = "grammar" if self._is_grammar else "vocab"
 
-        show_ai_study_dialog(
-            language=self._current_lang,
-            initial_text=custom_instr,
-            source_text=source_text,
-            learning_mode=getattr(self, "_learning_mode", "language"),
-            lane="grammar" if self._is_grammar else "vocab",
+        def open_workspace(existing_entries=None):
+            from ui.ai_companion import show_ai_study_dialog
+            show_ai_study_dialog(
+                language=self._current_lang,
+                initial_text=custom_instr,
+                source_text=source_text,
+                learning_mode=learning_mode,
+                lane=lane,
+                existing_entries=list(existing_entries or ()),
+            )
+
+        if learning_mode != "language":
+            open_workspace()
+            return
+        cfg = self._cfg()
+        deck_id = self._current_deck_id()
+        if deck_id is None:
+            open_workspace()
+            return
+        run_query(
+            self,
+            lambda col: get_existing_vocab_from_deck(
+                cfg.get("model_name", ""), deck_id,
+                cfg.get("front_field", "Front"), collection=col,
+            ),
+            open_workspace,
+            lambda _error: open_workspace(),
         )
 
     def _ai_chat_legacy(self):

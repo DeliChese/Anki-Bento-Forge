@@ -48,6 +48,7 @@ def test_workspace_policy_is_explicit_and_actions_are_distinct():
     assert forge.workspace == "forge"
     assert reviewer.allows_card_context and not reviewer.allows_source_context
     assert forge.allows_source_context and not forge.allows_card_context
+    assert not reviewer.allows_card_mode and forge.allows_card_mode
     assert reviewer.quick_actions != forge.quick_actions
     assert not set(reviewer.quick_actions).intersection(forge.quick_actions)
     with pytest.raises(ValueError, match="workspace"):
@@ -141,6 +142,11 @@ def test_workspace_prompt_owner_is_explicit_and_card_contract_stays_canonical():
     assert "ONLY SCHEMA:" in forge_card
     assert "complete Quality V2 contract" in forge_card
     assert "ONLY SCHEMA:" not in forge
+    assert "learning-material production belongs to Forge AI Workshop" in reviewer
+    with pytest.raises(ValueError, match="Reviewer workspace"):
+        build_study_prompt(
+            "english", "vocab", english_ui=True, workspace="reviewer",
+        )
 
 
 def test_chat_boundary_rejects_workspace_or_language_provenance_mismatch():
@@ -154,6 +160,11 @@ def test_chat_boundary_rejects_workspace_or_language_provenance_mismatch():
         ai_extractor.chat_with_ai(
             "Help with this request", lang="japanese", workspace="reviewer",
             workspace_request=reviewer,
+        )
+    with pytest.raises(ValueError, match="Reviewer workspace"):
+        ai_extractor.chat_with_ai(
+            "Create a card", lang="english", card_mode="vocab",
+            workspace="reviewer", workspace_request=reviewer,
         )
 
 
@@ -265,12 +276,22 @@ def test_station_ui_has_explicit_surface_ownership_and_bilingual_labels():
     assert "self.source_input" in companion
     assert "self.source_input.textChanged.connect(self._update_context_board)" in companion
     assert "self.cbo_mode.currentIndexChanged.connect(self._update_context_board)" in companion
+    assert "self.cbo_mode.setVisible(self._policy.allows_card_mode)" in companion
+    assert "if not self._policy.allows_card_mode:" in companion
     assert "refresh_ai_companion_context" in companion
     assert "self.setMinimumWidth(340)" in companion
     assert "self.setMinimumSize(760, 600)" in companion
     assert "source_text=source_text" in factory
+    assert 'self.cbo_mode.addItem(t("study_forge_mode_candidates"), "candidates")' in companion
+    assert "build_selected_candidate_instruction" in companion
+    assert "study_candidates_source_changed" in companion
+    assert "_prepared_candidate_source_digest" in companion
+    assert "existing_entries=list(existing_entries or ())" in factory
+    assert "get_existing_vocab_from_deck" in factory[factory.index("def _ai_chat(self):"):factory.index("def _ai_chat_legacy(self):")]
     assert "query_anki_context" not in factory[factory.index("def _ai_chat(self):"):factory.index("def _ai_chat_legacy(self):")]
     assert t("study_reviewer_title", lang="vi")
     assert t("study_reviewer_title", lang="en")
     assert t("study_forge_title", lang="vi")
     assert t("study_forge_title", lang="en")
+    assert "không tạo thẻ mới" in t("study_reviewer_subtitle", lang="vi")
+    assert "no card creation" in t("study_reviewer_subtitle", lang="en")

@@ -4,6 +4,16 @@
 
 > Mỗi ngày có thay đổi có một mục riêng. `Phiên bản` là snapshot `manifest.json` ở đầu và cuối ngày theo lịch sử Git, không phải xác nhận phát hành. Chỉ chuyển các mục phù hợp thành bản phát hành khi có bằng chứng CI và smoke Anki.
 
+### 2026-08-24 — Phiên bản: `18.1.0` → `18.1.0`
+
+#### ✨ Added
+- **Forge Source Candidate Manifest** — thêm bước `SOURCE → CANDIDATE → ARTIFACT`: AI chỉ trả manifest vocab/grammar có `surface` và `source_excerpt` kiểm chứng được trong source; output malformed, prose hoặc cắt cụt bị từ chối, candidate trùng nội bộ bị loại trước khi hiển thị.
+- **Candidate review có chủ quyền người dùng** — Forge cho chọn/bỏ từng candidate rồi mới soạn sẵn request Card Mode chỉ chứa các mục đã chọn; không tự gọi AI lần hai, không tự tạo artifact và không tự import. Bề mặt đã có trong deck hiện tại chỉ được gắn cảnh báo vì có thể khác nghĩa.
+
+#### 🔧 Changed
+- **Reviewer/Forge role split** — Study Coach trong Reviewer nay chỉ phục vụ giải thích, gợi nhớ và kiểm tra mức hiểu trên thẻ hiện tại; Card Mode, artifact controls và artifact transcript chỉ thuộc Forge AI Workshop.
+- **Fail-closed card ownership** — workspace policy và AI boundary từ chối mọi `card_mode` của Reviewer kể cả khi caller bỏ qua UI; Forge vẫn dùng Quality V2 và artifact → Xưởng zero-AI như cũ.
+
 ### 2026-08-21 — Phiên bản: `18.1.0` → `18.1.0`
 
 #### ✨ Added
