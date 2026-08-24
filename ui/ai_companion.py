@@ -6,12 +6,13 @@ import hashlib
 import html
 import json
 import uuid
+from pathlib import Path
 from typing import Optional
 from urllib.parse import quote, unquote
 
 from aqt import mw
 from aqt.qt import (
-    QAction, QCheckBox, QComboBox, QDialog, QDockWidget, QFrame, QHBoxLayout, QInputDialog,
+    QAction, QCheckBox, QComboBox, QDialog, QDockWidget, QFileDialog, QFrame, QHBoxLayout, QInputDialog,
     QKeySequence, QLabel, QMessageBox, QPlainTextEdit, QPushButton, QShortcut, QTimer,
     QGridLayout, QTableWidget, QTableWidgetItem, QTextBrowser, QTextEdit, QToolButton,
     QVBoxLayout, QWidget, Qt,
@@ -40,6 +41,7 @@ from utils.ai_workspace import (
 from utils.i18n import get_language, t
 from utils.logger import get_logger, log_event
 from utils.language_identity import try_normalize_language
+from utils.study_library import StudyLibraryStore, manifest_snapshot
 from ui.theme import apply_theme
 from workers.ai_workers import AiChatThread
 
@@ -88,6 +90,7 @@ class AiCompanionDock(QDockWidget):
             self.setTitleBarWidget(QWidget(self))
         self._main_window = main_window
         self._store = StudySessionStore()
+        self._library = StudyLibraryStore()
         self._workflow = AiWorkflowCoordinator()
         self._card_context = None
         self._active_session_id = ""
@@ -97,6 +100,7 @@ class AiCompanionDock(QDockWidget):
         self._pending_candidate_mode = False
         self._pending_request_token = ""
         self._pending_workspace_request = None
+        self._scope_manifest = None
         self._existing_entries = []
         self._prepared_candidate_source_digest = ""
         self._learning_mode = "language"
@@ -238,6 +242,10 @@ class AiCompanionDock(QDockWidget):
         self.coach_state.setWordWrap(True)
         coach.addWidget(self.coach_state)
         coach_actions = QHBoxLayout()
+        self.btn_card_drill = QPushButton(t("study_library_card_drill"))
+        self.btn_card_drill.setProperty("class", "stationAction")
+        self.btn_card_drill.clicked.connect(self.draft_card_drill)
+        coach_actions.addWidget(self.btn_card_drill)
         self.btn_needs_practice = QPushButton(t("study_coach_needs_practice"))
         self.btn_needs_practice.setProperty("class", "stationAction")
         self.btn_needs_practice.clicked.connect(
@@ -251,7 +259,7 @@ class AiCompanionDock(QDockWidget):
         )
         coach_actions.addWidget(self.btn_understood)
         for widget in (
-            self.coach_state, self.btn_needs_practice, self.btn_understood,
+            self.coach_state, self.btn_card_drill, self.btn_needs_practice, self.btn_understood,
         ):
             widget.setVisible(self._workspace == "reviewer")
         coach.addLayout(coach_actions)
@@ -281,6 +289,30 @@ class AiCompanionDock(QDockWidget):
         self.cbo_mode.currentIndexChanged.connect(self._update_context_board)
         context_row.addWidget(self.cbo_mode)
         body.addLayout(context_row)
+
+        library_row = QHBoxLayout()
+        self.btn_library = QPushButton(t("study_library_manage"))
+        self.btn_library.clicked.connect(self.open_study_library)
+        self.btn_library.setVisible(self._workspace == "reviewer")
+        library_row.addWidget(self.btn_library)
+        self.chk_follow_library_links = QCheckBox(t("study_library_follow_links"))
+        self.chk_follow_library_links.setToolTip(t("study_library_follow_links_tip"))
+        self.chk_follow_library_links.setVisible(self._workspace == "reviewer")
+        library_row.addWidget(self.chk_follow_library_links, 1)
+        body.addLayout(library_row)
+        scope_row = QHBoxLayout()
+        self.scope_label = QLabel(t("study_library_not_used"))
+        self.scope_label.setObjectName("forgeAiScopeManifest")
+        self.scope_label.setWordWrap(True)
+        self.scope_label.setVisible(self._workspace == "reviewer")
+        scope_row.addWidget(self.scope_label, 1)
+        self.btn_scope_details = QToolButton()
+        self.btn_scope_details.setText("…")
+        self.btn_scope_details.setToolTip(t("study_library_scope_details"))
+        self.btn_scope_details.clicked.connect(self.show_scope_details)
+        self.btn_scope_details.setVisible(self._workspace == "reviewer")
+        scope_row.addWidget(self.btn_scope_details)
+        body.addLayout(scope_row)
 
         artifacts = QHBoxLayout()
         self.cbo_artifact = QComboBox()
@@ -479,6 +511,15 @@ class AiCompanionDock(QDockWidget):
             return
         self._set_provider_model(session.get("provider"), session.get("model"))
         self._render_session(session)
+        if self._workspace == "reviewer":
+            latest_scope = next((
+                (item.get("context_snapshot") or {}).get("study_scope")
+                for item in reversed(session.get("messages", []))
+                if item.get("role") == "user"
+                and isinstance(item.get("context_snapshot"), dict)
+                and (item.get("context_snapshot") or {}).get("study_scope")
+            ), None)
+            self._set_scope_manifest(latest_scope)
         self._update_context_board()
 
     def _set_provider_model(self, provider_id: str, model: str):
@@ -606,7 +647,7 @@ class AiCompanionDock(QDockWidget):
             )
             outcome = str((checkpoint or {}).get("outcome") or "idle")
             self.coach_state.setText(t(f"study_coach_loop_{outcome}"))
-            for button in (self.btn_needs_practice, self.btn_understood):
+            for button in (self.btn_card_drill, self.btn_needs_practice, self.btn_understood):
                 button.setEnabled(bool(self._card_context))
             mode = str((self._card_context or {}).get("study_mode") or "-").upper()
             side_key = (
@@ -705,6 +746,264 @@ class AiCompanionDock(QDockWidget):
             self.source_input.toPlainText(), instruction, fallback=self._lane,
         )
 
+    def draft_card_drill(self):
+        """Prepare a Reviewer-only micro-drill; never call AI or mutate SRS."""
+        if self._workspace != "reviewer":
+            return
+        if not self._card_context:
+            tooltip(t("study_coach_context_required"))
+            return
+        self._set_quick_prompt(t("study_library_card_drill_prompt"))
+        self.status.setText(t("study_library_card_drill_ready"))
+
+    def _set_scope_manifest(self, manifest: Optional[dict]):
+        self._scope_manifest = dict(manifest) if isinstance(manifest, dict) else None
+        if not self._scope_manifest:
+            self.scope_label.setText(t("study_library_not_used"))
+            return
+        status = self._scope_manifest.get("status")
+        sources = list(self._scope_manifest.get("sources") or ())
+        if status == "grounded" and sources:
+            first = sources[0]
+            self.scope_label.setText(t(
+                "study_library_scope_line",
+                pack=first.get("pack_name") or "-",
+                heading=first.get("heading") or "-",
+                count=len(sources),
+            ))
+        else:
+            status_key = {
+                "no_enabled_packs": "study_library_scope_no_enabled_packs",
+                "no_match": "study_library_scope_no_match",
+                "ambiguous": "study_library_scope_ambiguous",
+            }.get(status, "study_library_not_used")
+            self.scope_label.setText(t(status_key))
+
+    def show_scope_details(self):
+        manifest = self._scope_manifest
+        if not manifest:
+            tooltip(t("study_library_not_used"))
+            return
+        dialog = QDialog(self)
+        dialog.setWindowTitle(t("study_library_scope_details"))
+        dialog.resize(720, 460)
+        layout = QVBoxLayout(dialog)
+        details = QPlainTextEdit(dialog)
+        details.setReadOnly(True)
+        lines = [
+            t("study_library_scope_status", status=manifest.get("status", "-")),
+            t("study_library_scope_confidence", value=manifest.get("confidence", 0)),
+            t("study_library_scope_budget", count=manifest.get("context_chars", 0)),
+        ]
+        for index, source in enumerate(manifest.get("sources") or (), start=1):
+            lines.append(t(
+                "study_library_scope_source",
+                index=index,
+                pack=source.get("pack_name", "-"),
+                heading=source.get("heading", "-"),
+                provenance=source.get("provenance", "-"),
+                reason=source.get("reason", "-"),
+            ))
+        details.setPlainText("\n".join(lines))
+        layout.addWidget(details)
+        close = QPushButton(t("study_library_close"))
+        close.clicked.connect(dialog.accept)
+        layout.addWidget(close)
+        apply_theme(dialog)
+        dialog.exec()
+
+    def _choose_scope_candidates(self, manifest: dict) -> list[str]:
+        candidates = list(manifest.get("candidates") or ())
+        dialog = QDialog(self)
+        dialog.setWindowTitle(t("study_library_scope_choose"))
+        dialog.resize(760, 420)
+        layout = QVBoxLayout(dialog)
+        label = QLabel(t("study_library_scope_ambiguous_help"))
+        label.setWordWrap(True)
+        layout.addWidget(label)
+        table = QTableWidget(len(candidates), 3, dialog)
+        table.setHorizontalHeaderLabels([
+            t("study_library_pack"), t("study_library_heading"), t("study_library_reason"),
+        ])
+        table.horizontalHeader().setStretchLastSection(True)
+        table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
+        table.setSelectionMode(QTableWidget.SelectionMode.SingleSelection)
+        for row, candidate in enumerate(candidates):
+            pack_item = QTableWidgetItem(str(candidate.get("pack_name") or ""))
+            pack_item.setData(Qt.ItemDataRole.UserRole, candidate.get("chunk_id"))
+            table.setItem(row, 0, pack_item)
+            table.setItem(row, 1, QTableWidgetItem(str(candidate.get("heading") or "")))
+            table.setItem(row, 2, QTableWidgetItem(str(candidate.get("reason") or "")))
+        if candidates:
+            table.selectRow(0)
+        layout.addWidget(table)
+        actions = QHBoxLayout()
+        cancel = QPushButton(t("study_library_cancel"))
+        use = QPushButton(t("study_library_use_section"))
+        use.setProperty("class", "primary")
+        cancel.clicked.connect(dialog.reject)
+        use.clicked.connect(dialog.accept)
+        actions.addStretch()
+        actions.addWidget(cancel)
+        actions.addWidget(use)
+        layout.addLayout(actions)
+        apply_theme(dialog)
+        if not dialog.exec():
+            return []
+        row = table.currentRow()
+        if row < 0:
+            return []
+        return [str(table.item(row, 0).data(Qt.ItemDataRole.UserRole) or "")]
+
+    def open_study_library(self):
+        """Manage profile-owned packs for the current session language."""
+        if self._workspace != "reviewer":
+            return
+        session = self._current_session()
+        language = try_normalize_language((session or {}).get("language"))
+        if not language:
+            showInfo(t("study_language_required"))
+            return
+        dialog = QDialog(self)
+        dialog.setWindowTitle(t("study_library_title", language=_LANGUAGE_LABELS[language]))
+        dialog.resize(820, 500)
+        layout = QVBoxLayout(dialog)
+        intro = QLabel(t("study_library_intro"))
+        intro.setWordWrap(True)
+        layout.addWidget(intro)
+        table = QTableWidget(0, 5, dialog)
+        table.setHorizontalHeaderLabels([
+            t("study_library_enabled"), t("study_library_pack"),
+            t("study_library_type"), t("study_library_size"), t("study_library_chunks"),
+        ])
+        table.horizontalHeader().setStretchLastSection(True)
+        table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
+        table.setSelectionMode(QTableWidget.SelectionMode.SingleSelection)
+        layout.addWidget(table, 1)
+
+        def refresh():
+            packs = self._library.list_packs(language)
+            table.blockSignals(True)
+            table.setRowCount(len(packs))
+            for row, pack in enumerate(packs):
+                enabled = QTableWidgetItem("")
+                enabled.setFlags(enabled.flags() | Qt.ItemFlag.ItemIsUserCheckable)
+                enabled.setCheckState(
+                    Qt.CheckState.Checked if pack["enabled"] else Qt.CheckState.Unchecked
+                )
+                enabled.setData(Qt.ItemDataRole.UserRole, pack["pack_id"])
+                table.setItem(row, 0, enabled)
+                table.setItem(row, 1, QTableWidgetItem(pack["name"]))
+                table.setItem(row, 2, QTableWidgetItem(pack["source_type"].upper()))
+                table.setItem(row, 3, QTableWidgetItem(t("study_library_bytes", count=pack["text_bytes"])))
+                table.setItem(row, 4, QTableWidgetItem(str(pack["chunk_count"])))
+            table.blockSignals(False)
+
+        def toggle_pack(item):
+            if item.column() != 0:
+                return
+            self._library.set_enabled(
+                language,
+                str(item.data(Qt.ItemDataRole.UserRole) or ""),
+                item.checkState() == Qt.CheckState.Checked,
+            )
+
+        def add_file():
+            filepath, _selected = QFileDialog.getOpenFileName(
+                dialog, t("study_library_add"), "",
+                t("study_library_file_filter"),
+            )
+            if not filepath:
+                return
+            default_name = Path(filepath).stem
+            pack_name, accepted = QInputDialog.getText(
+                dialog, t("study_library_pack_name"),
+                t("study_library_pack_name_prompt"), text=default_name,
+            )
+            if not accepted or not pack_name.strip():
+                return
+            try:
+                self._library.add_pack_from_file(language, filepath, name=pack_name.strip())
+            except Exception as error:
+                logger.warning("Study Library ingest failed: %s", error)
+                showInfo(t("study_library_error", error=str(error)[:180]))
+                return
+            refresh()
+            self.status.setText(t("study_library_added"))
+
+        def selected_pack_id() -> str:
+            row = table.currentRow()
+            return str(table.item(row, 0).data(Qt.ItemDataRole.UserRole) or "") if row >= 0 else ""
+
+        def delete_selected():
+            pack_id = selected_pack_id()
+            if not pack_id:
+                return
+            if QMessageBox.question(
+                dialog, t("study_library_delete"), t("study_library_delete_confirm"),
+            ) == QMessageBox.StandardButton.Yes:
+                self._library.delete_pack(language, pack_id)
+                refresh()
+
+        def clear_all():
+            if QMessageBox.question(
+                dialog, t("study_library_clear"), t("study_library_clear_confirm"),
+            ) == QMessageBox.StandardButton.Yes:
+                self._library.clear_language(language)
+                refresh()
+
+        table.itemChanged.connect(toggle_pack)
+        actions = QHBoxLayout()
+        add = QPushButton(t("study_library_add"))
+        delete = QPushButton(t("study_library_delete"))
+        clear = QPushButton(t("study_library_clear"))
+        close = QPushButton(t("study_library_close"))
+        add.clicked.connect(add_file)
+        delete.clicked.connect(delete_selected)
+        clear.clicked.connect(clear_all)
+        close.clicked.connect(dialog.accept)
+        actions.addWidget(add)
+        actions.addWidget(delete)
+        actions.addWidget(clear)
+        actions.addStretch()
+        actions.addWidget(close)
+        layout.addLayout(actions)
+        refresh()
+        apply_theme(dialog)
+        dialog.exec()
+        self._set_scope_manifest(None)
+
+    def _resolve_library_context(
+        self, language: str, text: str, *, card_context: Optional[dict] = None,
+    ) -> Optional[dict]:
+        if self._workspace != "reviewer":
+            return None
+        safe_card_terms = " ".join(
+            str(value) for key, value in (card_context or {}).items()
+            if key not in {"language", "deck", "note_type", "side", "card_id", "study_mode"}
+            and str(value or "").strip()
+        )[:1_200]
+        retrieval_query = f"{text}\n{safe_card_terms}".strip()
+        resolved = self._library.resolve_scope(
+            language, retrieval_query,
+            follow_links=self.chk_follow_library_links.isChecked(),
+        )
+        manifest = resolved["manifest"]
+        if manifest.get("status") == "ambiguous":
+            selected = self._choose_scope_candidates(manifest)
+            if not selected:
+                self._set_scope_manifest(manifest)
+                self.status.setText(t("study_library_scope_waiting"))
+                return None
+            resolved = self._library.resolve_scope(
+                language, retrieval_query,
+                follow_links=self.chk_follow_library_links.isChecked(),
+                selected_chunk_ids=selected,
+            )
+            manifest = resolved["manifest"]
+        self._set_scope_manifest(manifest)
+        return resolved
+
     def mark_coaching_outcome(self, outcome: str):
         """Persist a local Reviewer checkpoint without calling AI or touching SRS."""
         if self._workspace != "reviewer":
@@ -784,6 +1083,16 @@ class AiCompanionDock(QDockWidget):
                 self._workspace == "reviewer" and self.chk_context.isChecked()
             ),
         )
+        study_library_context = self._resolve_library_context(
+            session["language"], text, card_context=request_context.card_context,
+        )
+        if self._workspace == "reviewer" and study_library_context is None:
+            return
+        message_snapshot = request_context.to_snapshot()
+        if isinstance(study_library_context, dict):
+            message_snapshot["study_scope"] = manifest_snapshot(
+                study_library_context.get("manifest") or {}
+            )
         if (
             selected_mode == "artifact"
             and self._prepared_candidate_source_digest
@@ -799,7 +1108,7 @@ class AiCompanionDock(QDockWidget):
         if self._editing_latest:
             session = self._store.replace_latest_user_message(
                 session["id"], text,
-                context_snapshot=request_context.to_snapshot(),
+                context_snapshot=message_snapshot,
                 workspace=self._workspace,
             )
             if session is None:
@@ -812,7 +1121,7 @@ class AiCompanionDock(QDockWidget):
         else:
             user_message = self._store.add_message(
                 session["id"], role="user", content=text,
-                context_snapshot=request_context.to_snapshot(),
+                context_snapshot=message_snapshot,
             )
         self._pending_user_message_id = user_message["id"]
         self._pending_session_id = session["id"]
@@ -844,6 +1153,7 @@ class AiCompanionDock(QDockWidget):
             runtime_config=runtime,
             workspace=self._workspace,
             workspace_request=request_context,
+            study_library_context=study_library_context,
             on_progress=lambda message, token=request_token: self._on_progress(message, token),
             on_finished=lambda result, token=request_token: self._on_finished(result, token),
             on_error=lambda error, token=request_token: self._on_error(error, token),

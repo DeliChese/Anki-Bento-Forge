@@ -1024,6 +1024,7 @@ def chat_with_ai(
     use_card_context: bool = False,
     session_id: str = "",
     runtime_config: Optional[dict] = None, workspace: str = "reviewer", workspace_request=None,
+    study_library_context: Optional[dict] = None,
 ) -> dict:
     """
     Gửi tin nhắn đến AI và nhận phản hồi. AI có ngữ cảnh Anki.
@@ -1038,6 +1039,17 @@ def chat_with_ai(
         dict với keys: "reply" (text phản hồi), "vocab_json" (nếu AI xuất từ vựng), "error"
     """
     workspace = validate_workspace_request(workspace, lang, workspace_request)
+    if workspace != "reviewer":
+        study_library_context = None
+    elif study_library_context is not None:
+        manifest = (
+            study_library_context.get("manifest")
+            if isinstance(study_library_context, dict) else None
+        )
+        if workspace_request is None or not isinstance(manifest, dict):
+            raise ValueError("Study Library context requires a Reviewer request")
+        if normalize_language(manifest.get("language")) != normalize_language(lang):
+            raise ValueError("Study Library language does not match the Reviewer request")
     if card_kind not in {"vocab", "grammar"}:
         raise ValueError("unsupported chat card kind")
     card_mode = validate_workspace_card_mode(workspace, card_mode)
@@ -1076,6 +1088,7 @@ def chat_with_ai(
             card_context=context,
             use_card_context=use_card_context,
             workspace_request=workspace_request,
+            study_library_context=study_library_context,
         )
         messages = list(prepared.messages)
         context_summary = prepared.summary
@@ -1083,6 +1096,12 @@ def chat_with_ai(
         context_estimated_tokens = prepared.estimated_tokens
     else:
         messages = [{"role": "system", "content": system_content}]
+        if study_library_context is not None:
+            from .study_library import library_context_message
+
+            library_message = library_context_message(study_library_context)
+            if library_message:
+                messages.append(library_message)
         if not quick and context:
             context_text = _build_anki_context_text(context)
             messages.append({
@@ -1204,6 +1223,10 @@ def chat_with_ai(
         "session_summary": context_summary,
         "session_summary_through_message_id": context_summary_marker,
         "context_estimated_tokens": context_estimated_tokens,
+        "scope_manifest": (
+            study_library_context.get("manifest")
+            if isinstance(study_library_context, dict) else None
+        ),
     }
 
 

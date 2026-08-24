@@ -103,6 +103,7 @@ class AiWorkflowCoordinator:
         runtime_config: Optional[dict] = None,
         workspace: str = "reviewer",
         workspace_request=None,
+        study_library_context: Optional[dict] = None,
     ) -> Optional[Any]:
         """Build, wire, and start a chat worker for the current token."""
         if self.is_cancelled():
@@ -122,6 +123,7 @@ class AiWorkflowCoordinator:
             runtime_config=runtime_config,
             workspace=workspace,
             workspace_request=workspace_request,
+            study_library_context=study_library_context,
             cancel_event=self._cancel_event,
         )
         worker.progress.connect(on_progress)

@@ -124,6 +124,7 @@ def prepare_study_context(
     card_context: Optional[Mapping[str, Any]] = None,
     use_card_context: bool = False,
     workspace_request=None,
+    study_library_context: Optional[Mapping[str, Any]] = None,
 ) -> PreparedStudyContext:
     """Build SYSTEM + SUMMARY + request-owned context + RECENT + CURRENT USER."""
     context_window = get_model_context_window(model, DEFAULT_CONTEXT_WINDOW)
@@ -137,6 +138,7 @@ def prepare_study_context(
     fixed = [system]
     workspace_message = None
     workspace_name = None
+    library_message = None
     if workspace_request is not None:
         from .ai_workspace import WorkspaceRequestContext, workspace_context_message
 
@@ -155,6 +157,17 @@ def prepare_study_context(
         ) if use_card_context else {}
         if filtered_card:
             fixed.append(_context_system_message(filtered_card))
+    if study_library_context is not None:
+        if workspace_name != "reviewer":
+            raise ValueError("Study Library context is Reviewer-only")
+        from .study_library import library_context_message
+
+        manifest = study_library_context.get("manifest") if isinstance(study_library_context, Mapping) else None
+        if not isinstance(manifest, Mapping) or manifest.get("language") != workspace_request.language:
+            raise ValueError("Study Library language does not match the Reviewer request")
+        library_message = library_context_message(study_library_context)
+        if library_message:
+            fixed.append(library_message)
 
     history = []
     active_turn_workspace = None
@@ -279,6 +292,8 @@ def prepare_study_context(
         messages.append(summary_message)
     if workspace_message:
         messages.append(workspace_message)
+        if library_message:
+            messages.append(library_message)
     elif filtered_card:
         messages.append(_context_system_message(filtered_card))
     messages.extend(recent)

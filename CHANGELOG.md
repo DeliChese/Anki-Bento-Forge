@@ -7,11 +7,15 @@
 ### 2026-08-24 — Phiên bản: `18.1.0` → `18.3.0`
 
 #### ✨ Added
+- **V18.3 Language Study Library** — Study Coach trong Reviewer có thư viện cục bộ theo profile + ngôn ngữ, cho phép gắn/bật/tắt/xóa Study Pack từ `.txt`, Markdown, CSV, PDF text, DOCX và bảng tính qua extractor hiện có; text, hash và index heading/chunk được lưu atomic, có quota, không thuộc hoặc bị xóa theo session.
+- **Semantic Scope + provenance** — mỗi request Reviewer tạo Scope Manifest bounded từ đúng các pack cùng ngôn ngữ đang bật, hỗ trợ alias/paraphrase Nhật–Trung–Hàn–Anh, dừng để người học chọn khi nguồn mơ hồ và chỉ theo tối đa hai liên kết Markdown nội bộ khi bật “Ưu tiên học đầy đủ”; Forge không nhận context này và tài liệu luôn bị cô lập như dữ liệu không tin cậy.
+- **Card Drill nháp** — action `Bài tập ngắn` chỉ soạn prompt 1–3 câu theo thẻ/chế độ học hiện tại để người dùng tự bấm Gửi; không auto-send, auto-grade, auto-rate hoặc sửa collection/SRS.
 - **Forge Source Candidate Manifest** — thêm bước `SOURCE → CANDIDATE → ARTIFACT`: AI chỉ trả manifest vocab/grammar có `surface` và `source_excerpt` kiểm chứng được trong source; output malformed, prose hoặc cắt cụt bị từ chối, candidate trùng nội bộ bị loại trước khi hiển thị.
 - **Candidate review có chủ quyền người dùng** — Forge cho chọn/bỏ từng candidate rồi mới soạn sẵn request Card Mode chỉ chứa các mục đã chọn; không tự gọi AI lần hai, không tự tạo artifact và không tự import. Bề mặt đã có trong deck hiện tại chỉ được gắn cảnh báo vì có thể khác nghĩa.
 - **Reviewer Learning Checkpoint** — Study Coach có hai điểm kết thúc tường minh theo đúng `card_id + study_mode`: `Đã rõ · tiếp tục ôn` lưu checkpoint cục bộ rồi trả focus về Reviewer, còn `Cần luyện thêm` chỉ soạn sẵn micro-quiz để người dùng chủ động gửi.
 
 #### 🔧 Changed
+- **Study Coach prompt/cache contract** — prompt mặc định nêu rõ Study Library chỉ là source không tin cậy và phải dẫn pack/mục hoặc nói rõ giới hạn; prompt version tăng lên `29` để không tái dùng cache theo contract cũ.
 - **Version metadata / Note Types** — nâng release candidate cục bộ lên `18.3.0`; Note Type mới dùng hậu tố `V18.3`, còn các model `V18.1` và cũ hơn vẫn được nhận diện để migrate an toàn.
 - **Blueprint AI composer** — ô yêu cầu, checkbox `Tạo thẻ · Từ vựng/Ngữ pháp` và nút **Gửi** nay nằm trong cùng một composer; loại artifact bám trực tiếp chế độ đã chọn phía trên. Factory ẩn router/bước xử lý và các nút AI trùng, nhưng giữ nguyên session, worker, schema, import và undo.
 - **Blueprint responsive polish** — ngôn ngữ dùng dropdown đúng bản thiết kế; bỏ nút API trùng trên toolbar; tách trạng thái file/AI khỏi hàng hành động, ưu tiên composer trước transcript/artifact rỗng và tự xếp trạm Kiểm định xuống dưới khi cửa sổ hẹp để không còn cắt chữ hoặc đẩy mất cột.

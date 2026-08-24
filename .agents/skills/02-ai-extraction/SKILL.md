@@ -19,12 +19,12 @@ description: Lõi AI của add-on — utils/ai_extractor.py (~1.489 dòng). Conf
 | Cache owner | `utils/ai_result_cache.py:23-160` | key + prompt dimensions, migration/pruning, TTL 7/14 ngày, persistence, clear; không phụ thuộc AI/Anki/UI |
 | Prompt compatibility | 460-505 | re-export 32 symbol cũ; `get_json_template`:499, `get_grammar_json_template`:504 |
 | Prompt defaults owner | `utils/ai_prompt_defaults.py:12-528` | schema/prompt VI+EN cho vocab/grammar; dữ liệu thuần, không dependency runtime |
-| File extraction compatibility | 514-529 | re-export từ `utils/document_extractors.py` |
+| File extraction compatibility | 627-642 | re-export từ `utils/document_extractors.py` |
 | Vocab extract | 600-750 | `extract_vocabulary_with_ai`:600; parser được inject qua compatibility alias |
 | Response parser owner | `utils/ai_response_parser.py:9-64` | code fence/list/dict/comment/embedded/fallback/error; chỉ phụ thuộc `json_parser` |
-| Chat | 757-1117 | `query_anki_context`:757, `_build_anki_context_text`:843, `chat_with_ai`:965 |
-| Long text | 1124-1209 | `extract_vocabulary_long_text`:1124 |
-| Grammar extract | 1217-1455 | `extract_grammar_with_ai`:1217, `extract_grammar_long_text`:1376 |
+| Chat | 869-1230 | `query_anki_context`:869, `_build_anki_context_text`:955, `chat_with_ai`:1013; Study Library request context chỉ thuộc Reviewer |
+| Long text | 1237-1332 | `extract_vocabulary_long_text`:1237 |
+| Grammar extract | 1340-1588 | `extract_grammar_with_ai`:1340, `extract_grammar_long_text`:1500 |
 | Import-history compatibility | 1458-1489 | re-export API cũ; `init_import_history`:1484 inject Anki scan context lazy |
 | Import-history owner | `utils/import_history.py:30-522` | storage/TTL/scan aggregation/add/query/items/search/summary; không import Anki/UI/AI |
 
@@ -37,7 +37,7 @@ extract_vocabulary_with_ai(text, lang, custom_instruction="", existing_words=Non
 extract_vocabulary_long_text(text, lang, custom_instruction="", existing_words=None, chunk_size=None, progress_callback=None, force_refresh=False) -> list[dict]
 extract_grammar_with_ai(text, lang, custom_instruction="", existing_patterns=None, progress_callback=None, force_refresh=False, token_callback=None) -> list[dict]
 extract_grammar_long_text(text, lang, custom_instruction="", existing_patterns=None, chunk_size=None, progress_callback=None, force_refresh=False) -> list[dict]
-chat_with_ai(user_message, lang="japanese", conversation_history=None, progress_callback=None) -> dict{reply, vocab_json, token_info, error}
+chat_with_ai(user_message, lang="japanese", conversation_history=None, progress_callback=None, ..., study_library_context=None) -> dict{reply, vocab_json, scope_manifest, token_info, error}
 query_anki_context(user_message, lang="japanese") -> dict   # context Anki thông minh
 extract_text_from_file(filepath) -> str    # trích text file đính kèm
 extract_text_from_files(filepaths) -> list[(name, text)]
