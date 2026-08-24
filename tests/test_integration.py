@@ -118,6 +118,11 @@ audio_tts_mock.get_audio_gtts = lambda *a, **kw: ""
 sys.modules["audio.tts"] = audio_tts_mock
 audio_mock.tts = audio_tts_mock
 
+audio_melo_mock = types.ModuleType("audio.melo")
+audio_melo_mock.get_audio_melo_tts = lambda *a, **kw: ""
+sys.modules["audio.melo"] = audio_melo_mock
+audio_mock.melo = audio_melo_mock
+
 audio_engine_mock = types.ModuleType("audio.engine")
 sys.modules["audio.engine"] = audio_engine_mock
 audio_mock.engine = audio_engine_mock

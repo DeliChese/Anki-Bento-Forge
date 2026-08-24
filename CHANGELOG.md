@@ -7,6 +7,7 @@
 ### 2026-08-24 — Phiên bản: `18.1.0` → `18.1.0`
 
 #### ✨ Added
+- **MeloTTS cục bộ** — thay provider cloud cũ bằng engine neural miễn phí MIT cho Nhật–Trung–Hàn–Anh. MeloTTS chạy trong Python 3.11 tách khỏi Anki, giao tiếp qua loopback có token theo phiên, cache model trong RAM và publish WAV vào media theo cơ chế atomic; không cần tài khoản hoặc API key.
 - **Forge Source Candidate Manifest** — thêm bước `SOURCE → CANDIDATE → ARTIFACT`: AI chỉ trả manifest vocab/grammar có `surface` và `source_excerpt` kiểm chứng được trong source; output malformed, prose hoặc cắt cụt bị từ chối, candidate trùng nội bộ bị loại trước khi hiển thị.
 - **Candidate review có chủ quyền người dùng** — Forge cho chọn/bỏ từng candidate rồi mới soạn sẵn request Card Mode chỉ chứa các mục đã chọn; không tự gọi AI lần hai, không tự tạo artifact và không tự import. Bề mặt đã có trong deck hiện tại chỉ được gắn cảnh báo vì có thể khác nghĩa.
 - **Reviewer Learning Checkpoint** — Study Coach có hai điểm kết thúc tường minh theo đúng `card_id + study_mode`: `Đã rõ · tiếp tục ôn` lưu checkpoint cục bộ rồi trả focus về Reviewer, còn `Cần luyện thêm` chỉ soạn sẵn micro-quiz để người dùng chủ động gửi.

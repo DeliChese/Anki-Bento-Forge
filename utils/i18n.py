@@ -223,6 +223,18 @@ _TRANSLATIONS = {
         "vi": "Giọng:",
         "en": "Voice:",
     },
+    "tts_provider_label": {
+        "vi": "TTS:",
+        "en": "TTS:",
+    },
+    "tts_provider_edge": {
+        "vi": "Edge TTS",
+        "en": "Edge TTS",
+    },
+    "tts_provider_melo": {
+        "vi": "MeloTTS · Cục bộ",
+        "en": "MeloTTS · Local",
+    },
     "voice_preview_btn": {
         "vi": "▶ Nghe thử",
         "en": "▶ Preview",
@@ -778,8 +790,8 @@ _TRANSLATIONS = {
         "en": "Could not migrate SRS: {error}",
     },
     "voice_tooltip": {
-        "vi": "🎤 Sử dụng Edge TTS Online (cần internet, fallback gTTS)",
-        "en": "🎤 Uses Edge TTS Online (needs internet, falls back to gTTS)",
+        "vi": "🎤 Edge TTS online (fallback gTTS) hoặc MeloTTS chạy cục bộ khi được chọn.",
+        "en": "🎤 Edge TTS online (with gTTS fallback), or locally running MeloTTS when selected.",
     },
     "ai_input_placeholder_vocab": {
         "vi": "📥 Nạp Quặng/Nguyên Liệu Thô/ Văn Bản Thô (300-800 ký tự tối ưu, ~50-100 từ). Hỗ trợ Nhật, Trung, Hàn & Anh.",

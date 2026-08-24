@@ -21,7 +21,7 @@ logger = get_logger()
 
 
 class PreviewThread(QThread):
-    """Thread preview giọng đọc Edge TTS."""
+    """Thread preview using the TTS provider selected in the Factory."""
 
     done = pyqtSignal(str)  # filepath hoặc ""
 
@@ -36,13 +36,11 @@ class PreviewThread(QThread):
 
     def run(self):
         try:
-            from audio.tts import get_audio_edge_tts, _install_edge_tts
-            from audio.engine import speed_to_edge_rate
-            if not _install_edge_tts():
-                self.done.emit("")
-                return
+            from audio.engine import get_audio_multilang, speed_to_edge_rate
             rate = speed_to_edge_rate(self.speed)
-            tag = get_audio_edge_tts(self.text, self.voice_id, self.lang, rate=rate, cancel_event=self.cancel_event)
+            tag = get_audio_multilang(
+                self.text, self.lang, voice=self.voice_id, rate=rate, cancel_event=self.cancel_event
+            )
             if tag:
                 filename = tag.replace("[sound:", "").replace("]", "")
                 filepath = os.path.join(self.media_dir, filename)

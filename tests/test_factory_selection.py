@@ -97,6 +97,11 @@ audio_tts_mock.get_audio_gtts = lambda *a, **k: ""
 sys.modules["audio.tts"] = audio_tts_mock
 audio_mock.tts = audio_tts_mock
 
+audio_melo_mock = types.ModuleType("audio.melo")
+audio_melo_mock.get_audio_melo_tts = lambda *a, **k: ""
+sys.modules["audio.melo"] = audio_melo_mock
+audio_mock.melo = audio_melo_mock
+
 audio_engine_mock = types.ModuleType("audio.engine")
 _engine_path = os.path.join(_addon_root, "audio", "engine.py")
 with open(_engine_path, "r", encoding="utf-8") as _f:

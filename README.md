@@ -26,7 +26,7 @@ Knowledge Basic/Cloze được giữ trong mã nguồn như beta riêng tư đ�
 |-----------|-------|
 | 🌍 **4 Ngôn Ngữ** | Nhật, Trung, Hàn & Anh — bộ lọc riêng JLPT / HSK / TOPIK / CEFR A1-C2 |
 | 🔤 **Cách đọc** | Furigana, Pinyin, Revised Romanization và IPA tiếng Anh hiển thị trực tiếp trên thẻ |
-| 🎤 **TTS Đa Engine** | Edge TTS → gTTS fallback → VoiceVox (local JP); có giọng Nhật, Trung, Hàn và Anh UK/US |
+| 🎤 **TTS Đa Engine** | Edge TTS → gTTS fallback, MeloTTS cục bộ (Nhật/Trung/Hàn/Anh), VoiceVox (local JP) |
 
 ### 🎯 Combo Mode và SRS độc lập
 | Tính năng | Mô tả |
@@ -67,6 +67,9 @@ Knowledge Basic/Cloze được giữ trong mã nguồn như beta riêng tư đ�
 - Python 3.9+ (Anki 26.5 bundles Python 3.13.5)
 - `edge-tts` (cài rõ ràng bằng lệnh được hiển thị khi thiếu)
 - `gtts` (optional, fallback)
+
+### MeloTTS cục bộ
+Chọn **TTS: MeloTTS · Cục bộ** trong Forge. Engine chạy trong môi trường Python riêng cùng add-on; audio và văn bản chỉ đi qua `127.0.0.1`, không cần tài khoản hay API key. Lần tạo audio đầu tiên của mỗi ngôn ngữ có thể chậm vì model cần nạp vào RAM; các lần tiếp theo dùng lại model đang chạy.
 
 ### Cài đặt thủ công
 > **⚠️ Bento Forge hiện được tích hợp sẵn trong `Bento Station AIOS`** (thư mục con `Bento Forge/`). Thường bạn chỉ cần cài Bento Station AIOS; Forge tự xuất hiện qua `bento_forge_bridge.py`. Nếu muốn chạy độc lập:

@@ -29,6 +29,9 @@ venv/
 env/
 .env
 
+# === Local neural TTS runtime (installed per machine; never ship model weights) ===
+runtime/
+
 # === IDE ===
 .vscode/
 .idea/
