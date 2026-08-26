@@ -16,15 +16,15 @@
 | Item | Status | Next action |
 |---|---|---|
 | P0-01 baseline | local gate xanh | Giữ compile tracked Python và hai vòng isolated suite xanh trước merge/release. |
-| P0-02 smoke profile | chờ chủ dự án | Chạy checklist trên profile Anki đã backup trước merge/release. |
+| P0-02 smoke profile | partial smoke, blocked | Anki 26.5/profile `ChinD` backup: Factory, combo/Usage Guide, Study Coach context và role split pass; Reviewer không inject `Hỏi AI`/`Tự đặt câu` trên card `看`. Không rating/mutation; sửa hook trước khi tiếp tục. |
 | P0-04 release artifact | đã kiểm chứng local | Builder allowlist runtime; artifact `18.3.0` có 104 entries/101 Python files/5 worker files, không cache/state local, clean-profile compile và SHA-256/SBOM xanh. Cài GUI trên profile sạch vẫn thuộc owner smoke. |
 | P0-05 AI Output Reliability | local implementation xanh | Chat/Card Mode dùng reliability contract hiện hành; còn smoke restart/profile backup và manual large-batch metrics trước khi publish 18.1. |
-| P1-07 AI Study Sessions | local implementation xanh | Study Coach có session/context thẻ và checkpoint cục bộ `understood/needs_practice` theo card + study mode; không có Card Mode và không sửa SRS. Còn GUI smoke Anki trên profile backup và CI trước phát hành. |
+| P1-07 AI Study Sessions | menu/context smoke pass, card action blocked | Study Coach mở từ menu, nhận đúng `REVIEWER · QA · Mặt câu hỏi · Thẻ chính: 看`, quick actions/library hiện đủ và ngoài Reviewer fail-closed; `Hỏi AI` trên card vắng mặt. Còn fix/restart/concurrency/mục 42 và CI. |
 | V18.2 Contextual AI Workspaces | local implementation xanh | Reviewer sở hữu riêng AI Study Sessions/learning loop; Factory tích hợp Forge theo workbench Blueprint responsive `Source | AI/Artifact | Review/Import`, với composer gồm ô nhập + checkbox Tạo thẻ theo Vocab/Grammar phía trên + nút Gửi. Router/bước xử lý không còn lộ ra; không còn standalone surface hoặc banner quy trình đánh số. Model history + rolling summary vẫn tách theo workspace; candidate bám source, do người dùng chọn và deck match chỉ advisory. Còn GUI smoke Reviewer + Factory trên profile backup và CI trước merge/release. |
 | V18.3 Language Study Library | guard sắc thái + UI local, chờ re-smoke | Scope mục 42 đúng; prompt/context đặt ý định người học lên trước, cấm suy diễn sắc thái/độ trang trọng giữa biến thể ngữ pháp khi excerpt không đối chiếu và coi history mâu thuẫn là obsolete. Chat dock ưu tiên transcript, toàn bộ chức năng học luôn hiện diện và có chỉ báo AI đang soạn. Isolated `805 passed` ×2. Chưa khép cho tới khi owner re-smoke mục 42 + UI trên thẻ vocabulary/grammar. |
 | P1-05 Usage Guide | đã kiểm chứng | Dùng benchmark/fixture hiện có làm regression gate. |
 | P1-06 Confusion Guard | local implementation xanh | Exact curated same-deck warning đã có fixtures bốn ngôn ngữ; chờ smoke profile backup, vẫn chỉ advisory và không tự sửa note/SRS. |
-| P2-03 Production Drill | local implementation xanh | Reviewer có bài tự đặt câu zero-AI dựa trên Usage Pattern/Collocation; draft chỉ ở webview, gợi ý/câu mẫu opt-in và không sửa note/SRS. Isolated suite `805 passed` ×2; còn GUI smoke bốn ngôn ngữ trên profile backup. |
+| P2-03 Production Drill | GUI smoke fail | Anki 26.5 không hiện `Tự đặt câu` trên card `看` dù có Usage Pattern/Collocation; local suite vẫn `805 passed` ×2. Cần sửa hook injection rồi re-smoke bốn ngôn ngữ; không note/SRS mutation trong phiên phát hiện. |
 
 ## Evidence and boundaries
 

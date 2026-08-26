@@ -11,13 +11,15 @@ Version trong `manifest.json` có thể là release candidate cục bộ; không
   - [ ] Chat đủ dài để context compact, tiếp tục hỏi cùng topic và xác nhận AI không lặp fact bất thường.
   - [ ] Restart Anki, mở lại đúng session và xác nhận mạch học cùng rolling summary vẫn tiếp tục.
 - [ ] Smoke Reviewer: Ask AI, quick prompts, current-card context on/off, đổi thẻ khi AI đang chạy, Back to Review và xác nhận SRS không đổi.
+  - [ ] **BLOCKED 2026-08-26:** Study Coach mở từ menu và nhận đúng `Thẻ chính: 看`, nhưng action `Hỏi AI` không xuất hiện trên mặt hỏi Anki 26.5; cần sửa hook injection rồi re-smoke.
   - [ ] Trên một card từ vựng và một card ngữ pháp thật, chỉ hỏi bằng “từ vựng này”/“ngữ pháp này”; xác nhận AI dùng đúng target hiện tại và Study Pack cùng ngôn ngữ, không yêu cầu nhập lại target.
   - [ ] Trên card `看`, hỏi đúng “Tiếp tục cho tôi câu ví dụ lấy điểm ngữ pháp thứ 42 trong tài liệu”; Scope phải hiện `42. Thái tiến hành: 在, 正在, 正, 呢`, Coach phải xác định/thực hiện mục này trước rồi mới cho ví dụ đúng cấu trúc (có thể dùng `看`, như `我正在看书呢。`). Tuyệt đối không thay bằng bài luyện chung cho `看`, trả `是……的` hoặc tự gán Phương vị từ là mục 41. Lặp lại exact-section flow với một card grammar.
   - [ ] Với cùng mục 42, xác nhận Coach không tự gán quy tắc tuyệt đối kiểu `在` “nhanh”, `正…呢` “vừa hay” hoặc `正在` “trang trọng” nếu excerpt không nêu đối chiếu đó; câu trả lời phải phân biệt rõ giới hạn source với ví dụ Coach tạo.
   - [ ] Kiểm transcript trên dock hẹp và floating: heading/list/code/quote không lộ Markdown thô `**`/`***`; bảng 2 cột có chữ dễ đọc, bảng từ 3 cột hiển thị thành các khối thông tin, không tràn ngang hoặc lẫn role người học/Coach.
   - [ ] Khi gửi request, thấy `AI đang soạn tin…` đổi chấm và tự biến mất khi thành công, Stop hoặc lỗi; transcript chiếm phần lớn chiều cao và mọi điều khiển học vẫn hiện diện/dùng được trong dock hoặc floating.
   - [ ] Kiểm tra nút Ask AI trên light/dark: đọc rõ, không che card, click mới mở companion; Esc/Back to Review trả focus.
-  - [ ] Smoke Production Drill trên card vocab/grammar có Usage Pattern/Collocation: nút **Tự đặt câu** chỉ hiện ở mặt câu hỏi, nhập được Nhật/Trung/Hàn/Anh, gợi ý/câu mẫu ẩn trước thao tác chủ động, Escape đóng panel và note/SRS không đổi.
+- [ ] Smoke Production Drill trên card vocab/grammar có Usage Pattern/Collocation: nút **Tự đặt câu** chỉ hiện ở mặt câu hỏi, nhập được Nhật/Trung/Hàn/Anh, gợi ý/câu mẫu ẩn trước thao tác chủ động, Escape đóng panel và note/SRS không đổi.
+  - [ ] **BLOCKED 2026-08-26:** card `看` có Usage Pattern + Collocation nhưng không hiện `Tự đặt câu`; không chấm/rate hoặc sửa note/SRS trong phiên phát hiện.
 - [ ] Smoke dây chuyền Lò đúc AI tích hợp: chỉ có một Nguồn học liệu; không lộ router/bước xử lý; composer chứa ô nhập + checkbox Tạo thẻ + nút Gửi; đổi Vocab/Grammar phía trên làm checkbox và artifact bám đúng loại.
   - [ ] Từ artifact bubble trong transcript, chạy Review và Đưa sang kiểm định; restart/reopen artifact và xác nhận không gọi AI lại hoặc mở cửa sổ Xưởng riêng.
 - [x] Rà `git diff` và credential scan: không có API key, raw response, user data hay log profile trong thay đổi V18.
