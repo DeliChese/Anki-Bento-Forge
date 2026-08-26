@@ -10,6 +10,8 @@
 - **Production Drill cục bộ trong Reviewer** — thẻ có `Usage Pattern` hoặc `Collocation` nay hiện action **Tự đặt câu** ở mặt câu hỏi. Người học viết câu trước, rồi chủ động mở gợi ý/câu mẫu; draft chỉ tồn tại trong webview hiện tại, không gọi AI, tạo thẻ, chấm điểm hoặc sửa collection/SRS.
 
 #### 🔧 Changed
+- **Compact Factory controls** — gỡ hướng dẫn kéo phân cách đã lỗi thời, thu nhỏ minimum width của các control và xếp lại cụm Import thành `Xuất bản` + hàng `Hoàn tác/Hủy lô`. Vùng tìm kiếm, chọn và khoảng thẻ cũng co lại theo lưới để không đẩy cột phải tràn ngang.
+- **Fixed 6:4 Factory grid** — khóa cột Sản xuất/Kiểm định theo tỉ lệ 60/40, bỏ handle splitter có thể kéo lệch bố cục. Cả hai cột chỉ cuộn dọc khi thiếu chiều cao; thanh cuộn ngang không còn xuất hiện hay che nút Import/Undo/Hủy lô hàng.
 - **Release artifact fail-closed** — builder chỉ đóng gói Python runtime và hai JSON phát hành được allowlist; file cấu hình/lịch sử local, cache bytecode và file debug không thể lọt vào stage. Regression nay kiểm đồng thời `workers/`, manifest, SHA-256 và CycloneDX SBOM trước khi artifact được dùng cho clean-profile smoke.
 
 ### 2026-08-25 — Phiên bản: `18.3.0` → `18.3.0`

@@ -570,8 +570,17 @@ def test_station_ui_has_explicit_surface_ownership_and_bilingual_labels():
     assert "self.forge_panel.body.setVisible(True)" in factory
     assert "btn_top_ai_settings" not in factory
     assert "self.cbo_language = QComboBox()" in factory
-    assert "def _apply_responsive_factory_layout" in factory
-    assert "Qt.Orientation.Vertical if compact" in factory
+    assert "self.main_columns = QHBoxLayout()" in factory
+    assert "self.main_columns.addWidget(self.left_scroll, 6)" in factory
+    assert "self.main_columns.addWidget(self.right_scroll, 4)" in factory
+    assert "self.main_splitter" not in factory
+    assert "self.production_splitter" not in factory
+    assert "self.processing_splitter" not in factory
+    assert "self.lbl_tip.setVisible(False)" in factory
+    assert "Qt.ScrollBarPolicy.ScrollBarAlwaysOff" in factory
+    assert "op_grid.addWidget(self.btn_import, 0, 0, 1, 2)" in factory
+    assert "op_grid.addWidget(self.btn_rollback_import, 1, 0)" in factory
+    assert "op_grid.addWidget(self.btn_cancel_order, 1, 1)" in factory
     assert "forgeSourceProductionScroll" in factory
     assert "forgeReviewImportScroll" in factory
     assert "self.lbl_ai_files.setWordWrap(False)" in factory

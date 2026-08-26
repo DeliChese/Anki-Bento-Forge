@@ -128,7 +128,7 @@ from utils.deck_manager import refresh_anki
 # Import glassmorphism theme engine
 from ui.theme import (
     load_config as load_theme_config,
-    apply_theme, ThemeDialog, snap_maximize, RatioSplitter,
+    apply_theme, ThemeDialog, snap_maximize,
 )
 
 # Import hooks (đã tách ra hooks/)
@@ -168,7 +168,7 @@ class AnkiSmartFactory(QDialog):
         self._last_imported_note_ids = []
         self.setWindowTitle(t("app_title"))
         # Cho phép kéo thả cửa sổ tự do (thích ứng mọi kích thước, chia đôi màn hình)
-        self.setMinimumSize(640, 420)
+        self.setMinimumSize(980, 640)
         self.resize(1300, 900)
         # Cho phép maximize / full màn hình
         self.setWindowFlags(
@@ -474,42 +474,6 @@ class AnkiSmartFactory(QDialog):
         except Exception:
             event.accept()
 
-    def resizeEvent(self, event):
-        """Keep all Blueprint stations reachable instead of clipping narrow windows."""
-        super().resizeEvent(event)
-        self._apply_responsive_factory_layout()
-
-    def _apply_responsive_factory_layout(self):
-        splitter = getattr(self, "main_splitter", None)
-        if splitter is None or getattr(self, "_responsive_layout_busy", False):
-            return
-        compact = self.width() < 1260
-        if compact == getattr(self, "_main_layout_compact", None):
-            return
-        self._responsive_layout_busy = True
-        try:
-            self._main_layout_compact = compact
-            orientation = (
-                Qt.Orientation.Vertical if compact else Qt.Orientation.Horizontal
-            )
-            splitter.setOrientation(orientation)
-            available = splitter.height() if compact else splitter.width()
-            if compact:
-                splitter.setSizes([
-                    max(420, int(available * 0.62)),
-                    max(300, int(available * 0.38)),
-                ])
-            else:
-                splitter.setSizes([
-                    max(620, int(available * 0.55)),
-                    max(480, int(available * 0.45)),
-                ])
-            tip = getattr(self, "lbl_tip", None)
-            if tip is not None:
-                tip.setVisible(not compact)
-        finally:
-            self._responsive_layout_busy = False
-
     def _setup_ui(self):
         root = QVBoxLayout(self)
         root.setContentsMargins(10, 6, 10, 10)
@@ -543,11 +507,17 @@ class AnkiSmartFactory(QDialog):
         top.addStretch()
         self.lbl_tip = QLabel(t("lbl_tip"))
         self.lbl_tip.setProperty("class", "dim")
+        # The workbench is fixed at 6:4, so a drag instruction is obsolete.
+        self.lbl_tip.setVisible(False)
         top.addWidget(self.lbl_tip)
         root.addLayout(top)
 
         # ── MAIN SPLITTER (chia đôi, kéo thả 3:7, thích ứng) ──
-        self.main_splitter = RatioSplitter()
+        # Fixed Blueprint grid: production uses 60%, review/import uses 40%.
+        # A layout (rather than QSplitter) prevents accidental 7:3 states.
+        self.main_columns = QHBoxLayout()
+        self.main_columns.setContentsMargins(0, 0, 0, 0)
+        self.main_columns.setSpacing(10)
 
         # ── LEFT ─────────────────────────────────────────
         left_panel = QWidget()
@@ -574,7 +544,7 @@ class AnkiSmartFactory(QDialog):
         self.lang_grp = QGroupBox(t("lang_grp_title"))
         lang_layout = QHBoxLayout()
         self.cbo_language = QComboBox()
-        self.cbo_language.setMinimumWidth(180)
+        self.cbo_language.setMinimumWidth(130)
         self.btn_lang = {}
         for key, _label, code in LANG_SELECTOR_INFO:
             self.cbo_language.addItem(t(_LANG_LABEL_KEYS[key]), key)
@@ -647,15 +617,15 @@ class AnkiSmartFactory(QDialog):
         left.addLayout(bar)
 
         # ── AI Trích Xuất Từ Vựng ──────────────────────────
-        self.production_splitter = RatioSplitter()
-        self.production_splitter.setObjectName("forgeProductionWorkbench")
-        self.production_splitter.setHandleWidth(8)
-        self.production_splitter.MIN_RATIO = 0.38
-        self.production_splitter.MAX_RATIO = 0.62
+        self.production_workbench = QWidget()
+        self.production_workbench.setObjectName("forgeProductionWorkbench")
+        production_layout = QHBoxLayout(self.production_workbench)
+        production_layout.setContentsMargins(0, 0, 0, 0)
+        production_layout.setSpacing(8)
 
         self.source_grp = QGroupBox(t("factory_source_panel_title"))
         self.source_grp.setObjectName("forgeSourcePanel")
-        self.source_grp.setMinimumWidth(260)
+        self.source_grp.setMinimumWidth(200)
         source_layout = QVBoxLayout(self.source_grp)
         source_layout.setSpacing(6)
 
@@ -790,7 +760,7 @@ class AnkiSmartFactory(QDialog):
         self.ai_text_input.setMinimumHeight(160)
         self.ai_text_input.setStyleSheet("font-size:12px;")
         source_layout.addWidget(self.ai_text_input, 1)
-        self.production_splitter.addWidget(self.source_grp)
+        production_layout.addWidget(self.source_grp, 4)
 
         # Row 3: Custom instruction
         instr_bar = QHBoxLayout()
@@ -822,11 +792,12 @@ class AnkiSmartFactory(QDialog):
         ai_main.addWidget(self.forge_panel, 1)
 
         self.ai_grp.setLayout(ai_main)
-        self.processing_splitter = QSplitter(Qt.Orientation.Vertical)
-        self.processing_splitter.setObjectName("forgeProcessingStack")
-        self.processing_splitter.setChildrenCollapsible(False)
-        self.processing_splitter.setHandleWidth(8)
-        self.processing_splitter.addWidget(self.ai_grp)
+        self.processing_panel = QWidget()
+        self.processing_panel.setObjectName("forgeProcessingStack")
+        processing_layout = QVBoxLayout(self.processing_panel)
+        processing_layout.setContentsMargins(0, 0, 0, 0)
+        processing_layout.setSpacing(8)
+        processing_layout.addWidget(self.ai_grp, 3)
 
         self.json_grp = QGroupBox(t("factory_artifact_panel_title"))
         self.json_grp.setObjectName("forgeArtifactPanel")
@@ -847,16 +818,9 @@ class AnkiSmartFactory(QDialog):
         self.json_input.setMinimumHeight(120)
         self.json_input.textChanged.connect(self._schedule_analyze)
         json_layout.addWidget(self.json_input, 1)
-        self.processing_splitter.addWidget(self.json_grp)
-        self.processing_splitter.setStretchFactor(0, 3)
-        self.processing_splitter.setStretchFactor(1, 2)
-        self.processing_splitter.setSizes([300, 180])
-
-        self.production_splitter.addWidget(self.processing_splitter)
-        self.production_splitter.setStretchFactor(0, 1)
-        self.production_splitter.setStretchFactor(1, 1)
-        self.production_splitter.setSizes([360, 540])
-        left.addWidget(self.production_splitter, 1)
+        processing_layout.addWidget(self.json_grp, 2)
+        production_layout.addWidget(self.processing_panel, 6)
+        left.addWidget(self.production_workbench, 1)
 
         # Filters
         self.filter_grp = QGroupBox(t("filter_group_title"))
@@ -892,18 +856,21 @@ class AnkiSmartFactory(QDialog):
 
         self.btn_verify = QPushButton(t("btn_verify"))
         self.btn_verify.setProperty("class", "warning")
+        self.btn_verify.setMinimumWidth(0)
         self.btn_verify.setMinimumHeight(42)
         self.btn_verify.setToolTip(t("btn_verify_tip"))
         self.btn_verify.clicked.connect(self._verify_batch)
 
         self.btn_rebuild = QPushButton(t("btn_rebuild"))
         self.btn_rebuild.setProperty("class", "purple")
+        self.btn_rebuild.setMinimumWidth(0)
         self.btn_rebuild.setMinimumHeight(42)
         self.btn_rebuild.setToolTip(t("btn_rebuild_tip"))
         self.btn_rebuild.clicked.connect(self._force_rebuild_model)
 
         self.btn_diff_meaning = QPushButton(t("btn_diff_meaning"))
         self.btn_diff_meaning.setProperty("class", "warning")
+        self.btn_diff_meaning.setMinimumWidth(0)
         self.btn_diff_meaning.setMinimumHeight(42)
         self.btn_diff_meaning.setEnabled(False)
         self.btn_diff_meaning.setToolTip(t("btn_diff_meaning_tip"))
@@ -911,6 +878,7 @@ class AnkiSmartFactory(QDialog):
 
         # Hàng ngang 3 nút
         action_bar = QHBoxLayout()
+        action_bar.setSpacing(6)
         action_bar.addWidget(self.btn_verify, 1)
         action_bar.addWidget(self.btn_rebuild, 1)
         action_bar.addWidget(self.btn_diff_meaning, 1)
@@ -971,8 +939,14 @@ class AnkiSmartFactory(QDialog):
         self.left_scroll.setObjectName("forgeSourceProductionScroll")
         self.left_scroll.setWidgetResizable(True)
         self.left_scroll.setFrameShape(QFrame.Shape.NoFrame)
+        self.left_scroll.setHorizontalScrollBarPolicy(
+            Qt.ScrollBarPolicy.ScrollBarAlwaysOff
+        )
+        self.left_scroll.setVerticalScrollBarPolicy(
+            Qt.ScrollBarPolicy.ScrollBarAsNeeded
+        )
         self.left_scroll.setWidget(left_panel)
-        self.main_splitter.addWidget(self.left_scroll)
+        self.main_columns.addWidget(self.left_scroll, 6)
 
         # ── RIGHT ────────────────────────────────────────
         right_panel = QWidget()
@@ -991,11 +965,14 @@ class AnkiSmartFactory(QDialog):
         sf = QHBoxLayout()
         self.txt_search = QLineEdit()
         self.txt_search.setPlaceholderText(t("search_placeholder"))
+        self.txt_search.setMinimumWidth(0)
         self.txt_search.textChanged.connect(self._rebuild_preview)
         sf.addWidget(self.txt_search, 1)
         self.cbo_filter = QComboBox()
         self._repopulate_filter_combo()
         self.cbo_filter.setToolTip(t("cbo_filter_tip"))
+        self.cbo_filter.setMinimumWidth(108)
+        self.cbo_filter.setMaximumWidth(132)
         self.cbo_filter.currentIndexChanged.connect(self._rebuild_preview)
         sf.addWidget(self.cbo_filter, 0)
         right.addLayout(sf)
@@ -1006,22 +983,28 @@ class AnkiSmartFactory(QDialog):
         right.addWidget(self.preview_list, 1)
 
         # ── Nút chọn nhanh + số thẻ đã chọn ──
-        sel = QHBoxLayout()
+        sel = QGridLayout()
+        sel.setHorizontalSpacing(6)
+        sel.setVerticalSpacing(4)
         self.btn_select_all = QPushButton(t("btn_select_all"))
+        self.btn_select_all.setMinimumWidth(0)
         self.btn_select_all.setToolTip(t("btn_select_all_tip"))
         self.btn_select_all.clicked.connect(self._select_all_visible)
-        sel.addWidget(self.btn_select_all)
+        sel.addWidget(self.btn_select_all, 0, 0)
         self.btn_select_none = QPushButton(t("btn_select_none"))
+        self.btn_select_none.setMinimumWidth(0)
         self.btn_select_none.setToolTip(t("btn_select_none_tip"))
         self.btn_select_none.clicked.connect(self._select_none_visible)
-        sel.addWidget(self.btn_select_none)
-        sel.addStretch()
+        sel.addWidget(self.btn_select_none, 0, 1)
         self.lbl_sel = QLabel(t("lbl_sel_count", selected=0, total=0))
         self.lbl_sel.setStyleSheet("color:#2980b9;font-weight:bold;")
-        sel.addWidget(self.lbl_sel)
+        self.lbl_sel.setMinimumWidth(0)
+        sel.addWidget(self.lbl_sel, 1, 0, 1, 2)
         right.addLayout(sel)
 
-        rng = QHBoxLayout()
+        rng = QGridLayout()
+        rng.setHorizontalSpacing(6)
+        rng.setVerticalSpacing(4)
         self.spin_start = QSpinBox()
         self.spin_start.setRange(1, 9999)
         self.spin_start.setToolTip(t("rng_tip"))
@@ -1033,12 +1016,11 @@ class AnkiSmartFactory(QDialog):
         self.lbl_rng_from = QLabel(t("rng_from_label"))
         self.lbl_rng_to = QLabel(t("rng_to_label"))
         self.lbl_rng_hint = QLabel(t("rng_hint"))
-        rng.addWidget(self.lbl_rng_from)
-        rng.addWidget(self.spin_start)
-        rng.addWidget(self.lbl_rng_to)
-        rng.addWidget(self.spin_end)
-        rng.addWidget(self.lbl_rng_hint)
-        rng.addStretch()
+        rng.addWidget(self.lbl_rng_from, 0, 0)
+        rng.addWidget(self.spin_start, 0, 1)
+        rng.addWidget(self.lbl_rng_to, 0, 2)
+        rng.addWidget(self.spin_end, 0, 3)
+        rng.addWidget(self.lbl_rng_hint, 1, 0, 1, 4)
         right.addLayout(rng)
 
         self.lbl_ready = QLabel(t("preview_ready", count=0))
@@ -1065,36 +1047,48 @@ class AnkiSmartFactory(QDialog):
         self.btn_rollback_import.setEnabled(False)
         self.btn_rollback_import.clicked.connect(self._rollback_last_import)
 
-        op_row = QHBoxLayout()
+        op_grid = QGridLayout()
+        op_grid.setHorizontalSpacing(8)
+        op_grid.setVerticalSpacing(8)
         self.btn_cancel = QPushButton(t("btn_cancel"))
         self.btn_cancel.setProperty("class", "danger")
         self.btn_cancel.setVisible(False)
         self.btn_cancel.clicked.connect(self._cancel_import)
-        op_row.addWidget(self.btn_cancel)
+        self.btn_cancel.setMinimumWidth(0)
         self.btn_cancel_order = QPushButton(t("btn_cancel_order"))
         self.btn_cancel_order.setProperty("class", "danger")
         self.btn_cancel_order.setMinimumHeight(52)
         self.btn_cancel_order.setEnabled(False)
         self.btn_cancel_order.setToolTip(t("btn_cancel_order_tip"))
         self.btn_cancel_order.clicked.connect(self._cancel_order)
-        op_row.addWidget(self.btn_import, 3)
-        op_row.addWidget(self.btn_rollback_import, 2)
-        op_row.addWidget(self.btn_cancel_order, 2)
-        right.addLayout(op_row)
+        for button in (
+            self.btn_import, self.btn_rollback_import, self.btn_cancel_order,
+        ):
+            button.setMinimumWidth(0)
+        # Keep the primary action readable at every supported width.  The two
+        # secondary actions share a compact second row instead of forcing a
+        # browser-like horizontal overflow.
+        op_grid.addWidget(self.btn_import, 0, 0, 1, 2)
+        op_grid.addWidget(self.btn_rollback_import, 1, 0)
+        op_grid.addWidget(self.btn_cancel_order, 1, 1)
+        op_grid.addWidget(self.btn_cancel, 2, 0, 1, 2)
+        op_grid.setColumnStretch(0, 1)
+        op_grid.setColumnStretch(1, 1)
+        right.addLayout(op_grid)
 
         self.right_scroll = QScrollArea()
         self.right_scroll.setObjectName("forgeReviewImportScroll")
         self.right_scroll.setWidgetResizable(True)
         self.right_scroll.setFrameShape(QFrame.Shape.NoFrame)
+        self.right_scroll.setHorizontalScrollBarPolicy(
+            Qt.ScrollBarPolicy.ScrollBarAlwaysOff
+        )
+        self.right_scroll.setVerticalScrollBarPolicy(
+            Qt.ScrollBarPolicy.ScrollBarAsNeeded
+        )
         self.right_scroll.setWidget(right_panel)
-        self.main_splitter.addWidget(self.right_scroll)
-        self.main_splitter.setStretchFactor(0, 11)
-        self.main_splitter.setStretchFactor(1, 9)
-        self.main_splitter.setSizes([720, 580])
-        # Thanh phân cách kéo mượt, mỗi cột giới hạn 30%–70% (3:7)
-        self.main_splitter.setHandleWidth(8)
-        root.addWidget(self.main_splitter, 1)
-        QTimer.singleShot(0, self._apply_responsive_factory_layout)
+        self.main_columns.addWidget(self.right_scroll, 4)
+        root.addLayout(self.main_columns, 1)
 
         # ── 💰 Thanh chi phí AI (góc dưới) — theo dõi ngân sách ──
         cost_bar = QHBoxLayout()
