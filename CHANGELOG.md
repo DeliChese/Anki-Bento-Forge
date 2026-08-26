@@ -10,6 +10,7 @@
 - **Production Drill cục bộ trong Reviewer** — thẻ có `Usage Pattern` hoặc `Collocation` nay hiện action **Tự đặt câu** ở mặt câu hỏi. Người học viết câu trước, rồi chủ động mở gợi ý/câu mẫu; draft chỉ tồn tại trong webview hiện tại, không gọi AI, tạo thẻ, chấm điểm hoặc sửa collection/SRS.
 
 #### 🔧 Changed
+- **Study Coach compact reading layout** — AI Study Sessions của Reviewer gom ngôn ngữ, model, ngữ cảnh thẻ và Thư viện học vào panel tùy chọn mở theo nhu cầu; transcript và composer giữ vị trí trung tâm. Transcript tự wrap nội dung bảng/từ dài, không sinh thanh cuộn ngang; các thao tác học nhanh co lại theo lưới.
 - **Compact Factory controls** — gỡ hướng dẫn kéo phân cách đã lỗi thời, thu nhỏ minimum width của các control và xếp lại cụm Import thành `Xuất bản` + hàng `Hoàn tác/Hủy lô`. Vùng tìm kiếm, chọn và khoảng thẻ cũng co lại theo lưới để không đẩy cột phải tràn ngang.
 - **Fixed 6:4 Factory grid** — khóa cột Sản xuất/Kiểm định theo tỉ lệ 60/40, bỏ handle splitter có thể kéo lệch bố cục. Cả hai cột chỉ cuộn dọc khi thiếu chiều cao; thanh cuộn ngang không còn xuất hiện hay che nút Import/Undo/Hủy lô hàng.
 - **Release artifact fail-closed** — builder chỉ đóng gói Python runtime và hai JSON phát hành được allowlist; file cấu hình/lịch sử local, cache bytecode và file debug không thể lọt vào stage. Regression nay kiểm đồng thời `workers/`, manifest, SHA-256 và CycloneDX SBOM trước khi artifact được dùng cho clean-profile smoke.
@@ -21,6 +22,7 @@
 - **Study Coach dock ưu tiên hội thoại** — transcript được đưa lên vùng co giãn chính; quick action bố trí hai cột và dock nổi có kích thước tối thiểu lớn hơn, nhưng mọi chức năng học vẫn luôn hiện diện. Trong lúc worker chạy, chỉ báo `AI đang soạn tin…` chạy bằng timer UI, không chặn luồng Anki.
 
 #### 🐛 Fixed
+- **Study Coach startup on Anki 25.09** — bổ sung import `QTextOption` cho policy wrap transcript; AI Study Sessions không còn crash ngay lúc mở sau compact-layout update.
 - **Coach không còn thay tác vụ nguồn bằng bài luyện thẻ** — transcript smoke cho thấy Scope đã đúng mục 42 nhưng prompt cũ vẫn ép thẻ `看` làm chủ đề. Contract mới phân biệt rõ “tham chiếu thẻ trực tiếp” với “yêu cầu nguồn tường minh”; mục nguồn được hoàn thành trước, chỉ dùng target thẻ khi tự nhiên trong ví dụ và coi assistant reply cũ mâu thuẫn là obsolete.
 - **Dọn file tạm TTS lúc khởi động** — lượt dọn đầu tiên không còn bị bỏ qua khi `time.monotonic()` chưa vượt interval, nên file tạm Bento cũ vẫn được xóa mà không đụng media thẻ.
 - **Transcript Study Coach dễ đọc trong dock hẹp** — Markdown AI nay hiển thị heading, đậm/nghiêng, list, code, quote và đường phân cách thay vì lộ `**`/`***`; bảng hai cột có cỡ chữ/padding dễ đọc, còn bảng nhiều cột tự chuyển thành các khối thông tin để không bị chật hoặc tràn.

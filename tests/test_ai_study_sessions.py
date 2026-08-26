@@ -700,6 +700,9 @@ def test_companion_keeps_reviewer_coaching_only_and_forge_card_mode_one_shot():
     assert "forge-artifact://review/" in companion
     assert "forge-artifact://open/" in companion
     assert "self.transcript.setOpenLinks(False)" in companion
+    assert "Qt.ScrollBarPolicy.ScrollBarAlwaysOff" in companion
+    assert "QTextOption.WrapMode.WrapAtWordBoundaryOrAnywhere" in companion
+    assert "QTextBrowser, QTextEdit, QTextOption, QToolButton" in companion
     assert "def _format_transcript_markdown(value: str)" in companion
     assert "_format_markdown_table(headers, rows)" in companion
     assert "if learner else _format_transcript_markdown(message[\"content\"])" in companion
@@ -709,6 +712,9 @@ def test_companion_keeps_reviewer_coaching_only_and_forge_card_mode_one_shot():
     assert "self._set_typing_indicator(True)" in companion
     assert "self._set_typing_indicator(False)" in companion
     assert "quick.addWidget(button, index // 2, index % 2)" in companion
+    assert "self.btn_toggle_study_options" in companion
+    assert "def toggle_study_options(self, checked: bool = False)" in companion
+    assert "self.study_options.setVisible(self._workspace != \"reviewer\")" in companion
     assert "self.review_artifact()" in companion and "self.open_artifact_in_forge()" in companion
     extractor = (ROOT / "utils" / "ai_extractor.py").read_text(encoding="utf-8")
     assert '"session_summary_through_message_id": context_summary_marker' in extractor

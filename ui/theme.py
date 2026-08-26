@@ -177,6 +177,11 @@ QFrame#forgeAiComposer {
     border: 1px solid rgba(255,255,255,__BORDER__);
     border-radius: 10px;
 }
+QFrame#forgeAiStudyOptions {
+    background: rgba(255,255,255,__GLASS__);
+    border: 1px solid rgba(255,255,255,__BORDER__);
+    border-radius: 8px;
+}
 QFrame#forgeAiComposer QTextEdit#forgeAiInstructionInput {
     background: transparent;
     border: none;

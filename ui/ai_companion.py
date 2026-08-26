@@ -15,7 +15,7 @@ from aqt import mw
 from aqt.qt import (
     QAction, QCheckBox, QComboBox, QDialog, QDockWidget, QFileDialog, QFrame, QHBoxLayout, QInputDialog,
     QKeySequence, QLabel, QMessageBox, QPlainTextEdit, QPushButton, QShortcut, QTimer,
-    QGridLayout, QTableWidget, QTableWidgetItem, QTextBrowser, QTextEdit, QToolButton,
+    QGridLayout, QTableWidget, QTableWidgetItem, QTextBrowser, QTextEdit, QTextOption, QToolButton,
     QVBoxLayout, QWidget, Qt,
 )
 from aqt.utils import showInfo, tooltip
@@ -129,7 +129,7 @@ def _format_markdown_table(headers: list[str], rows: list[list[str]]) -> str:
     )
     return (
         "<table width='100%' cellspacing='0' cellpadding='0' style='margin:8px 0;border-collapse:collapse;"
-        "font-size:14px;border:1px solid rgba(127,127,127,.32)'><thead><tr>"
+        "table-layout:fixed;word-wrap:break-word;font-size:14px;border:1px solid rgba(127,127,127,.32)'><thead><tr>"
         + header_html + "</tr></thead><tbody>" + rows_html + "</tbody></table>"
     )
 
@@ -344,8 +344,16 @@ class AiCompanionDock(QDockWidget):
         sessions = QHBoxLayout()
         self.cbo_session = QComboBox()
         self.cbo_session.setAccessibleName(t("study_sessions"))
+        self.cbo_session.setMinimumWidth(0)
         self.cbo_session.currentIndexChanged.connect(self._on_session_selected)
         sessions.addWidget(self.cbo_session, 1)
+        self.btn_toggle_study_options = QToolButton()
+        self.btn_toggle_study_options.setText("⚙")
+        self.btn_toggle_study_options.setCheckable(True)
+        self.btn_toggle_study_options.setToolTip(t("study_options_toggle"))
+        self.btn_toggle_study_options.clicked.connect(self.toggle_study_options)
+        self.btn_toggle_study_options.setVisible(self._workspace == "reviewer")
+        sessions.addWidget(self.btn_toggle_study_options)
         for label, tip, callback in (
             ("＋", "study_new", self.new_session),
             ("✎", "study_rename", self.rename_session),
@@ -364,6 +372,11 @@ class AiCompanionDock(QDockWidget):
         self.transcript.setOpenLinks(False)
         self.transcript.anchorClicked.connect(self._on_transcript_link)
         self.transcript.setAccessibleName(t("study_conversation"))
+        self.transcript.setHorizontalScrollBarPolicy(
+            Qt.ScrollBarPolicy.ScrollBarAlwaysOff
+        )
+        self.transcript.setLineWrapMode(QTextEdit.LineWrapMode.WidgetWidth)
+        self.transcript.setWordWrapMode(QTextOption.WrapMode.WrapAtWordBoundaryOrAnywhere)
         self.transcript.setMinimumHeight(120 if self._integrated else 140)
         body.addWidget(self.transcript, 1)
 
@@ -386,7 +399,6 @@ class AiCompanionDock(QDockWidget):
         self.cbo_ai_language.setVisible(self._workspace == "reviewer")
         self.cbo_ai_language.currentIndexChanged.connect(self._on_ai_language_selected)
         language_row.addWidget(self.cbo_ai_language, 1)
-        body.addLayout(language_row)
 
         provider_row = QHBoxLayout()
         self.cbo_provider = QComboBox()
@@ -394,9 +406,11 @@ class AiCompanionDock(QDockWidget):
             self.cbo_provider.addItem(provider["name"], provider["id"])
         self.cbo_provider.addItem(t("ai_set_provider_custom"), "__custom__")
         self.cbo_provider.currentIndexChanged.connect(self._on_provider_selected)
+        self.cbo_provider.setMinimumWidth(0)
         provider_row.addWidget(self.cbo_provider, 1)
         self.cbo_model = QComboBox()
         self.cbo_model.setEditable(True)
+        self.cbo_model.setMinimumWidth(0)
         self.cbo_model.currentTextChanged.connect(self._on_model_selected)
         provider_row.addWidget(self.cbo_model, 2)
         self.btn_settings = QToolButton()
@@ -404,7 +418,6 @@ class AiCompanionDock(QDockWidget):
         self.btn_settings.setToolTip(t("ai_settings_btn"))
         self.btn_settings.clicked.connect(self._open_settings)
         provider_row.addWidget(self.btn_settings)
-        body.addLayout(provider_row)
 
         self.source_label = QLabel(t("study_forge_source_label"))
         self.source_label.setObjectName("forgeAiSourceLabel")
@@ -427,6 +440,7 @@ class AiCompanionDock(QDockWidget):
         for index, (key, prompt_key) in enumerate(self._policy.quick_actions):
             button = QPushButton(t(key))
             button.setProperty("class", "stationAction")
+            button.setMinimumWidth(0)
             button.setToolTip(t("study_quick_tip"))
             button.clicked.connect(lambda _checked=False, value=prompt_key: self._set_quick_prompt(t(value)))
             button.setVisible(not self._integrated)
@@ -441,16 +455,19 @@ class AiCompanionDock(QDockWidget):
         coach_actions = QGridLayout()
         self.btn_card_drill = QPushButton(t("study_library_card_drill"))
         self.btn_card_drill.setProperty("class", "stationAction")
+        self.btn_card_drill.setMinimumWidth(0)
         self.btn_card_drill.clicked.connect(self.draft_card_drill)
         coach_actions.addWidget(self.btn_card_drill, 0, 0, 1, 2)
         self.btn_needs_practice = QPushButton(t("study_coach_needs_practice"))
         self.btn_needs_practice.setProperty("class", "stationAction")
+        self.btn_needs_practice.setMinimumWidth(0)
         self.btn_needs_practice.clicked.connect(
             lambda: self.mark_coaching_outcome("needs_practice")
         )
         coach_actions.addWidget(self.btn_needs_practice, 1, 0)
         self.btn_understood = QPushButton(t("study_coach_understood"))
         self.btn_understood.setProperty("class", "primary")
+        self.btn_understood.setMinimumWidth(0)
         self.btn_understood.clicked.connect(
             lambda: self.mark_coaching_outcome("understood")
         )
@@ -485,7 +502,6 @@ class AiCompanionDock(QDockWidget):
         self.cbo_mode.setVisible(self._policy.allows_card_mode and not self._integrated)
         self.cbo_mode.currentIndexChanged.connect(self._update_context_board)
         context_row.addWidget(self.cbo_mode)
-        body.addLayout(context_row)
 
         library_row = QHBoxLayout()
         self.btn_library = QPushButton(t("study_library_manage"))
@@ -496,7 +512,6 @@ class AiCompanionDock(QDockWidget):
         self.chk_follow_library_links.setToolTip(t("study_library_follow_links_tip"))
         self.chk_follow_library_links.setVisible(self._workspace == "reviewer")
         library_row.addWidget(self.chk_follow_library_links, 1)
-        body.addLayout(library_row)
         scope_row = QHBoxLayout()
         self.scope_label = QLabel(t("study_library_not_used"))
         self.scope_label.setObjectName("forgeAiScopeManifest")
@@ -509,7 +524,22 @@ class AiCompanionDock(QDockWidget):
         self.btn_scope_details.clicked.connect(self.show_scope_details)
         self.btn_scope_details.setVisible(self._workspace == "reviewer")
         scope_row.addWidget(self.btn_scope_details)
-        body.addLayout(scope_row)
+
+        # Reviewer-specific configuration is available on demand, leaving the
+        # transcript and composer in view instead of turning the dock into a
+        # long form. Forge keeps the same controls visible in its integrated UI.
+        self.study_options = QFrame(self.body)
+        self.study_options.setObjectName("forgeAiStudyOptions")
+        options_layout = QVBoxLayout(self.study_options)
+        options_layout.setContentsMargins(8, 7, 8, 7)
+        options_layout.setSpacing(5)
+        options_layout.addLayout(language_row)
+        options_layout.addLayout(provider_row)
+        options_layout.addLayout(context_row)
+        options_layout.addLayout(library_row)
+        options_layout.addLayout(scope_row)
+        self.study_options.setVisible(self._workspace != "reviewer")
+        body.insertWidget(1, self.study_options)
 
         artifacts = QHBoxLayout()
         self.cbo_artifact = QComboBox()
@@ -595,6 +625,14 @@ class AiCompanionDock(QDockWidget):
         self._send_shortcut_alt.activated.connect(self.send_message)
         self._escape_shortcut = QShortcut(QKeySequence("Escape"), self)
         self._escape_shortcut.activated.connect(self.back_to_review)
+
+    def toggle_study_options(self, checked: bool = False):
+        """Show or hide low-frequency Reviewer configuration without moving chat."""
+        if self._workspace != "reviewer":
+            return
+        visible = bool(checked)
+        self.study_options.setVisible(visible)
+        self.btn_toggle_study_options.setChecked(visible)
 
     def _set_typing_indicator(self, active: bool):
         """Show a lightweight, non-blocking typing cue while the worker is active."""

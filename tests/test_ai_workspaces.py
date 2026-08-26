@@ -587,6 +587,8 @@ def test_station_ui_has_explicit_surface_ownership_and_bilingual_labels():
     assert "self.title_label.setVisible(not self._integrated)" in companion
     assert "self.context_board.setVisible(not self._integrated)" in companion
     assert "self.transcript.setVisible(bool(blocks))" in companion
+    assert "forgeAiStudyOptions" in companion
+    assert "table-layout:fixed;word-wrap:break-word" in companion
     assert 'self.composer.setObjectName("forgeAiComposer")' in companion
     assert "self.chk_create_card = QCheckBox()" in companion
     assert "def _on_create_card_toggled" in companion

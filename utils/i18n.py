@@ -3066,6 +3066,10 @@ _TRANSLATIONS = {
     },
     "study_sessions": {"vi": "Study Sessions", "en": "Study Sessions"},
     "study_ai_language_label": {"vi": "Ngôn ngữ AI", "en": "AI language"},
+    "study_options_toggle": {
+        "vi": "Hiện hoặc ẩn tùy chọn học, ngữ cảnh và model AI",
+        "en": "Show or hide study options, context, and AI model",
+    },
     "study_ai_language_choose": {"vi": "Chọn ngôn ngữ…", "en": "Choose a language…"},
     "study_ai_language_tip": {
         "vi": "Ngôn ngữ thuộc từng session. Đổi lựa chọn sẽ mở session cùng ngôn ngữ hoặc tạo session mới; không đổi lịch sử cũ.",
