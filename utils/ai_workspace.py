@@ -6,7 +6,9 @@ import re
 from dataclasses import dataclass
 from typing import Mapping, Optional
 
-from .ai_context_manager import minimal_card_context
+from .ai_context_manager import (
+    card_context_system_message, has_usable_card_context, minimal_card_context,
+)
 from .language_identity import normalize_language
 from .logger import redact_sensitive
 
@@ -223,6 +225,8 @@ def build_workspace_request_context(
             card_context,
             include_answer=str((card_context or {}).get("side") or "question") == "answer",
         ) if use_card_context else {}
+        if not has_usable_card_context(filtered):
+            filtered = {}
         return WorkspaceRequestContext(
             workspace=workspace,
             language=language,
@@ -264,18 +268,7 @@ def workspace_context_message(context: WorkspaceRequestContext) -> dict:
         if not context.use_card_context:
             content = "REVIEWER REQUEST CONTEXT: no current-card context was attached."
         else:
-            card = context.card_context
-            side = str(card.get("side") or "question")
-            lines = [f"CURRENT CARD CONTEXT (side={side}; use only when relevant):"]
-            for key, value in card.items():
-                if key != "side":
-                    lines.append(f"{key}: {value}")
-            if side == "question":
-                lines.append(
-                    "Retrieval rule: do not reveal the answer unless the learner explicitly asks; "
-                    "hints must be indirect and limited to 1-2 cues."
-                )
-            content = "\n".join(lines)
+            content = card_context_system_message(context.card_context)["content"]
     else:
         lines = [
             "FORGE REQUEST CONTEXT (use only this explicitly supplied production context):",

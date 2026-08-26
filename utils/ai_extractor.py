@@ -1096,13 +1096,11 @@ def chat_with_ai(
         context_estimated_tokens = prepared.estimated_tokens
     else:
         messages = [{"role": "system", "content": system_content}]
-        if study_library_context is not None:
-            from .study_library import library_context_message
+        if workspace_request is not None:
+            from .ai_workspace import workspace_context_message
 
-            library_message = library_context_message(study_library_context)
-            if library_message:
-                messages.append(library_message)
-        if not quick and context:
+            messages.append(workspace_context_message(workspace_request))
+        elif not quick and context:
             context_text = _build_anki_context_text(context)
             messages.append({
                 "role": "system",
@@ -1114,6 +1112,12 @@ def chat_with_ai(
         if conversation_history:
             for msg in conversation_history[-20:]:
                 messages.append(msg)
+        if study_library_context is not None:
+            from .study_library import library_context_message
+
+            library_message = library_context_message(study_library_context)
+            if library_message:
+                messages.append(library_message)
         messages.append({"role": "user", "content": user_message})
     
     payload = {

@@ -7,35 +7,72 @@ $ErrorActionPreference = "Stop"
 $root = (Resolve-Path -LiteralPath $SourceDirectory).Path
 $output = [System.IO.Path]::GetFullPath($OutputDirectory)
 $stage = Join-Path ([System.IO.Path]::GetTempPath()) ("bento-forge-package-" + [guid]::NewGuid())
+$runtimeDirectories = @("Language", "audio", "hooks", "mode", "ui", "utils", "workers")
+$runtimeJsonFiles = @(
+    "utils/ai_config.example.json",
+    "utils/ui_theme.json"
+)
+$requiredRuntimeFiles = @(
+    "__init__.py",
+    "manifest.json",
+    "workers/__init__.py",
+    "workers/import_worker.py"
+)
+
+function Copy-RuntimeFile {
+    param([string]$SourcePath, [string]$RelativePath)
+
+    $destination = Join-Path $stage $RelativePath
+    $destinationDirectory = Split-Path -Parent $destination
+    New-Item -ItemType Directory -Path $destinationDirectory -Force | Out-Null
+    Copy-Item -LiteralPath $SourcePath -Destination $destination -Force
+}
 
 try {
     New-Item -ItemType Directory -Path $output -Force | Out-Null
     New-Item -ItemType Directory -Path $stage -Force | Out-Null
-    foreach ($item in @("Language", "audio", "hooks", "mode", "ui", "workers")) {
-        Copy-Item -LiteralPath (Join-Path $root $item) -Destination $stage -Recurse -Force
+    foreach ($directory in $runtimeDirectories) {
+        $sourceRoot = Join-Path $root $directory
+        if (-not (Test-Path -LiteralPath $sourceRoot -PathType Container)) {
+            throw "Required runtime directory is missing: $directory"
+        }
+        foreach ($file in Get-ChildItem -LiteralPath $sourceRoot -Recurse -Force -File) {
+            $relativePath = $file.FullName.Substring($root.Length).TrimStart('\', '/')
+            $normalizedPath = $relativePath.Replace('\', '/')
+            $include = $file.Extension.Equals(".py", [System.StringComparison]::OrdinalIgnoreCase) `
+                -or $runtimeJsonFiles.Contains($normalizedPath)
+            if ($include) {
+                Copy-RuntimeFile -SourcePath $file.FullName -RelativePath $relativePath
+            }
+        }
     }
-    $utilsStage = Join-Path $stage "utils"
-    New-Item -ItemType Directory -Path $utilsStage -Force | Out-Null
-    Copy-Item -Path (Join-Path $root "utils\*") -Destination $utilsStage -Recurse -Force `
-        -Exclude "ai_config.json", "ai_prompts.json", "i18n_config.json", "factory_state.json"
     foreach ($item in @("__init__.py", "manifest.json")) {
-        Copy-Item -LiteralPath (Join-Path $root $item) -Destination $stage -Force
+        $sourcePath = Join-Path $root $item
+        if (-not (Test-Path -LiteralPath $sourcePath -PathType Leaf)) {
+            throw "Required package file is missing: $item"
+        }
+        Copy-RuntimeFile -SourcePath $sourcePath -RelativePath $item
     }
 
-    $cacheDirectories = @(
-        Get-ChildItem -LiteralPath $stage -Recurse -Force -Directory |
-            Where-Object { $_.Name -eq "__pycache__" } |
-            Sort-Object { $_.FullName.Length } -Descending
-    )
-    foreach ($cacheDirectory in $cacheDirectories) {
-        Remove-Item -LiteralPath $cacheDirectory.FullName -Recurse -Force
+    foreach ($required in $requiredRuntimeFiles) {
+        if (-not (Test-Path -LiteralPath (Join-Path $stage $required) -PathType Leaf)) {
+            throw "Required runtime file was not staged: $required"
+        }
     }
-    $bytecodeFiles = @(
+    $forbiddenFiles = @(
         Get-ChildItem -LiteralPath $stage -Recurse -Force -File |
-            Where-Object { $_.Extension -in @(".pyc", ".pyo") }
+            Where-Object {
+                $_.Extension -in @(".pyc", ".pyo") -or
+                $_.FullName -match "[\\/]__pycache__[\\/]" -or
+                $_.Name -in @(
+                    "ai_config.json", "ai_prompts.json", "factory_state.json",
+                    "i18n_config.json", "import_history.json"
+                )
+            }
     )
-    foreach ($bytecodeFile in $bytecodeFiles) {
-        Remove-Item -LiteralPath $bytecodeFile.FullName -Force
+    if ($forbiddenFiles.Count -gt 0) {
+        $forbiddenList = ($forbiddenFiles.FullName -join ", ")
+        throw "Forbidden local/runtime state entered the package stage: $forbiddenList"
     }
 
     $artifact = Join-Path $output "bento-forge.ankiaddon"

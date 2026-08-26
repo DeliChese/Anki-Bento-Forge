@@ -700,6 +700,39 @@ def test_companion_keeps_reviewer_coaching_only_and_forge_card_mode_one_shot():
     assert "forge-artifact://review/" in companion
     assert "forge-artifact://open/" in companion
     assert "self.transcript.setOpenLinks(False)" in companion
+    assert "def _format_transcript_markdown(value: str)" in companion
+    assert "_format_markdown_table(headers, rows)" in companion
+    assert "if learner else _format_transcript_markdown(message[\"content\"])" in companion
+    assert 'self.typing_indicator.setObjectName("forgeAiTypingIndicator")' in companion
+    assert "def _set_typing_indicator(self, active: bool)" in companion
+    assert "self._typing_timer.start()" in companion
+    assert "self._set_typing_indicator(True)" in companion
+    assert "self._set_typing_indicator(False)" in companion
+    assert "quick.addWidget(button, index // 2, index % 2)" in companion
     assert "self.review_artifact()" in companion and "self.open_artifact_in_forge()" in companion
     extractor = (ROOT / "utils" / "ai_extractor.py").read_text(encoding="utf-8")
     assert '"session_summary_through_message_id": context_summary_marker' in extractor
+
+
+def test_reviewer_session_language_is_explicit_and_never_relabels_history():
+    companion = (ROOT / "ui" / "ai_companion.py").read_text(encoding="utf-8")
+    build_ui = companion.split("def _build_ui", 1)[1].split("def _restore_state", 1)[0]
+    resolver = companion.split("def _resolve_language", 1)[1].split("def _selected_ai_language", 1)[0]
+    create = companion.split("def new_session", 1)[1].split("def rename_session", 1)[0]
+    switch = companion.split("def _on_ai_language_selected", 1)[1].split("def new_session", 1)[0]
+
+    assert 'self.cbo_ai_language = QComboBox()' in build_ui
+    assert 't("study_ai_language_label")' in build_ui
+    assert 'self.cbo_ai_language.addItem(t("study_ai_language_choose"), None)' in build_ui
+    assert "ai_factory_active_lang" not in resolver and "mw.col.conf" not in resolver
+    assert "self._resolve_language(language) or self._selected_ai_language()" in create
+    assert 'self._store.create_session(' in create
+    assert 'if current and current.get("language") == language' in switch
+    assert 'item.get("language") == language' in switch
+    assert "save_session" not in switch
+    assert "self._refresh_current_reviewer_card()" in companion
+    assert "self._context_user_choice is None" in companion
+    assert "and snapshot_language" not in companion
+    i18n = (ROOT / "utils" / "i18n.py").read_text(encoding="utf-8")
+    reviewer_context = i18n.split('"study_context_reviewer"', 1)[1].split("},", 1)[0]
+    assert "{language}" not in reviewer_context

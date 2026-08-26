@@ -169,7 +169,13 @@ def _cleanup_temporary_audio_files(media_dir: str) -> None:
     global _last_temp_cleanup
     now = time.monotonic()
     with _temp_cleanup_lock:
-        if now - _last_temp_cleanup < _TEMP_CLEANUP_INTERVAL_SECONDS:
+        # ``0`` is the startup/test sentinel, not a real monotonic timestamp.
+        # A short-lived process can have ``now < interval`` and must still make
+        # its first cleanup pass.
+        if (
+            _last_temp_cleanup > 0
+            and now - _last_temp_cleanup < _TEMP_CLEANUP_INTERVAL_SECONDS
+        ):
             return
         _last_temp_cleanup = now
     try:

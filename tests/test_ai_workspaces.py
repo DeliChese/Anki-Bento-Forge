@@ -11,7 +11,7 @@ from utils.ai_study_prompts import build_study_prompt
 from utils import ai_extractor
 from utils.ai_workspace import (
     build_workspace_request_context, get_workspace_policy, resolve_workspace,
-    route_forge_lane,
+    route_forge_lane, workspace_context_message,
 )
 from utils.i18n import t
 
@@ -21,7 +21,9 @@ def _snapshot(mode="qa", side="question"):
         "language": "english",
         "side": side,
         "study_mode": mode,
+        "card_kind": "vocabulary",
         "front": "TARGET",
+        "current_target": "TARGET",
         "meaning": "MEANING",
         "furigana": "FURIGANA",
         "pinyin": "PINYIN",
@@ -76,8 +78,8 @@ def test_forge_router_prefers_explicit_intent_then_preserves_fallback(
     ("mode", "present", "absent"),
     [
         ("qa", {"front"}, {"meaning", "example"}),
-        ("vn", {"meaning"}, {"front", "furigana", "pinyin", "romanization"}),
-        ("wb", {"meaning"}, {"front", "furigana", "pinyin", "romanization"}),
+        ("vn", {"meaning"}, {"front", "current_target", "furigana", "pinyin", "romanization"}),
+        ("wb", {"meaning"}, {"front", "current_target", "furigana", "pinyin", "romanization"}),
         ("pron", {"front", "meaning"}, {"furigana", "pinyin", "romanization"}),
         ("lg", {"meaning", "furigana", "pinyin", "romanization"}, {"front"}),
     ],
@@ -110,6 +112,67 @@ def test_reviewer_context_disabled_is_explicit_and_answer_side_is_allowed():
     assert not disabled.use_card_context
     assert disabled.card_context == {}
     assert {"front", "meaning", "example"} <= set(answer.card_context)
+
+
+def test_reviewer_resolves_deictic_word_reference_to_current_card_target():
+    request = _request(
+        "reviewer", "reviewer-current-word",
+        user_instruction="Lấy cho tôi ví dụ về phương vị từ của từ vựng này",
+        language="chinese",
+        card_context={
+            "language": "chinese", "side": "question", "study_mode": "qa",
+            "card_kind": "vocabulary", "front": "水果", "current_target": "水果",
+            "pinyin": "shuǐguǒ", "meaning": "hoa quả",
+        },
+        use_card_context=True,
+    )
+    content = workspace_context_message(request)["content"]
+
+    assert "current_card_kind: vocabulary" in content
+    assert "current_target: 水果" in content
+    assert "'từ vựng này'" in content
+    assert "meaning: hoa quả" not in content
+
+
+def test_reviewer_grammar_answer_context_keeps_standard_grammar_fields():
+    request = _request(
+        "reviewer", "reviewer-current-grammar", language="japanese",
+        card_context={
+            "language": "japanese", "side": "answer", "study_mode": "qa",
+            "card_kind": "grammar", "pattern": "～わけではない",
+            "current_target": "～わけではない", "meaning": "không hẳn là",
+            "level": "N3", "topic": "phủ định một phần", "usage": "V + わけではない",
+            "explanation": "Phủ định một kết luận tuyệt đối.",
+            "example": "嫌いなわけではない。",
+            "example_romanization": "kirai na wake dewa nai",
+            "example_vn": "Không phải là tôi ghét.",
+        },
+        use_card_context=True,
+    )
+    content = workspace_context_message(request)["content"]
+
+    assert "current_card_kind: grammar" in content
+    assert "current_target: ～わけではない" in content
+    assert "'ngữ pháp này'" in content
+    assert "level: N3" in content
+    assert "topic: phủ định một phần" in content
+    assert "usage: V + わけではない" in content
+    assert "example_romanization: kirai na wake dewa nai" in content
+
+
+def test_reviewer_metadata_only_snapshot_is_not_claimed_as_attached():
+    request = _request(
+        "reviewer", "reviewer-metadata-only",
+        card_context={
+            "language": "chinese", "side": "question", "study_mode": "qa",
+            "card_kind": "vocabulary", "deck": "HSK1",
+        },
+        use_card_context=True,
+    )
+
+    assert not request.use_card_context
+    assert request.card_context == {}
+    assert "no current-card context was attached" in workspace_context_message(request)["content"]
 
 
 def test_forge_request_is_canonical_source_explicit_and_never_owns_a_card():
@@ -160,6 +223,12 @@ def test_workspace_prompt_owner_is_explicit_and_card_contract_stays_canonical():
     assert "complete Quality V2 contract" in forge_card
     assert "ONLY SCHEMA:" not in forge
     assert "learning-material production belongs to Forge AI Workshop" in reviewer
+    assert "verify the exact number and title in the same SOURCE" in reviewer
+    assert "Never infer numbering or titles from chunk order" in reviewer
+    assert "Separate SOURCE facts from Coach-created examples" in reviewer
+    assert "current instruction always determines the task" in reviewer
+    assert "never replace an explicit request with a generic card drill" in reviewer
+    assert "Never invent register, nuance, or usage contrasts between grammar variants" in reviewer
     with pytest.raises(ValueError, match="Reviewer workspace"):
         build_study_prompt(
             "english", "vocab", english_ui=True, workspace="reviewer",
@@ -468,7 +537,8 @@ def test_station_ui_has_explicit_surface_ownership_and_bilingual_labels():
     assert 'self.cbo_lane.addItem(t("study_forge_router_auto"), "auto")' in companion
     assert "if not self._policy.allows_card_mode:" in companion
     assert "refresh_ai_companion_context" in companion
-    assert "340 if not self._integrated else 0" in companion
+    assert "380 if not self._integrated else 0" in companion
+    assert "self.transcript.setMinimumHeight(120 if self._integrated else 140)" in companion
     assert "class AiStudySessionDialog" not in companion
     assert "source_text=source_text" in factory
     assert 'self.cbo_mode.addItem(t("study_forge_mode_candidates"), "candidates")' in companion
@@ -490,6 +560,10 @@ def test_station_ui_has_explicit_surface_ownership_and_bilingual_labels():
     assert "forgeFactoryPipelineStrip" not in theme
     assert "forgeProductionWorkbench" in factory
     assert "forgeProcessingStack" in factory
+    assert "card_target = next(" in companion
+    assert "safe_card_terms" not in companion
+    assert "def _scope_heading(source: dict)" in companion
+    assert 'return f"{number}. {title}"' in companion
     assert "forgeSourcePanel" in factory
     assert "forgeAiPanel" in factory
     assert "forgeArtifactPanel" in factory

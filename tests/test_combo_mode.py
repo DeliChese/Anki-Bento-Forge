@@ -240,6 +240,42 @@ class TestOverviewModeSelector:
 
 
 class TestReviewerHookCompatibility:
+    def test_production_drill_is_opt_in_local_and_hides_guidance(self):
+        import hooks.reviewer as reviewer
+
+        review = MagicMock()
+        snapshot = {
+            "current_target": "affect",
+            "usage_pattern": "affect + object",
+            "collocation": "directly affect",
+            "example": "Weather directly affects demand.",
+        }
+
+        assert reviewer._inject_production_drill(review, snapshot) is True
+
+        script = review.web.eval.call_args[0][0]
+        assert "bento-production-drill-action" in script
+        assert "panel.hidden = true" in script
+        assert "guide.hidden = true" in script
+        assert "draft.focus()" in script
+        assert "affect + object" in script
+        assert "directly affect" in script
+        assert "pycmd(" not in script
+        assert "showAnswer" not in script
+        assert "mw.col" not in script
+
+    def test_production_drill_requires_target_and_usage_guide(self):
+        import hooks.reviewer as reviewer
+
+        review = MagicMock()
+        assert reviewer._inject_production_drill(
+            review, {"current_target": "affect"},
+        ) is False
+        assert reviewer._inject_production_drill(
+            review, {"usage_pattern": "affect + object"},
+        ) is False
+        review.web.eval.assert_not_called()
+
     def test_combo_uses_deck_default_but_independent_card_is_fixed(self):
         from unittest.mock import patch
         import hooks.reviewer as reviewer
@@ -283,9 +319,82 @@ class TestReviewerHookCompatibility:
         assert snapshot["language"] == "english"
         assert snapshot["side"] == "question"
         assert snapshot["front"] == "affect"
+        assert snapshot["current_target"] == "affect"
+        assert snapshot["card_kind"] == "vocabulary"
         assert snapshot["meaning"] == "ảnh hưởng"
         assert snapshot["usage_pattern"] == "affect + object"
         assert "private_field" not in snapshot
+
+    def test_reviewer_snapshot_maps_custom_chinese_vocabulary_target(self):
+        import hooks.reviewer as reviewer
+
+        review = MagicMock()
+        review.card.id = 10
+        review.card.did = 43
+        note = MagicMock()
+        note.model.return_value = {"name": "AnkiTool Chinese V18.3 (Add-on)"}
+        note.items.return_value = [
+            ("Hanzi", "水果"), ("Pinyin", "shuǐguǒ"),
+            ("Meaning", "hoa quả"), ("Private Field", "omit me"),
+        ]
+        review.card.note.return_value = note
+
+        snapshot = reviewer.get_current_card_snapshot(review, side="question")
+
+        assert snapshot["language"] == "chinese"
+        assert snapshot["front"] == "水果"
+        assert snapshot["current_target"] == "水果"
+        assert snapshot["card_kind"] == "vocabulary"
+        assert snapshot["pinyin"] == "shuǐguǒ"
+        assert snapshot["meaning"] == "hoa quả"
+        assert "private_field" not in snapshot
+
+    def test_reviewer_snapshot_maps_grammar_target_and_supporting_fields(self):
+        import hooks.reviewer as reviewer
+
+        review = MagicMock()
+        review.card.id = 11
+        review.card.did = 44
+        note = MagicMock()
+        note.model.return_value = {"name": "AnkiTool Japanese Grammar V18.3 (Add-on)"}
+        note.items.return_value = [
+            ("Pattern", "～わけではない"), ("Furigana", "～わけではない"),
+            ("Meaning", "không hẳn là"), ("JLPT Level", "N3"),
+            ("Topic", "phủ định một phần"), ("Usage", "V + わけではない"),
+            ("Explanation", "Phủ định một kết luận tuyệt đối."),
+            ("Example", "嫌いなわけではない。"),
+            ("Example Romanization", "kirai na wake dewa nai"),
+            ("Example in Vietnamese", "Không phải là tôi ghét."),
+        ]
+        review.card.note.return_value = note
+
+        snapshot = reviewer.get_current_card_snapshot(review, side="answer")
+
+        assert snapshot["language"] == "japanese"
+        assert snapshot["pattern"] == "～わけではない"
+        assert snapshot["current_target"] == "～わけではない"
+        assert snapshot["card_kind"] == "grammar"
+        assert snapshot["level"] == "N3"
+        assert snapshot["topic"] == "phủ định một phần"
+        assert snapshot["usage"] == "V + わけではない"
+        assert snapshot["example_romanization"] == "kirai na wake dewa nai"
+
+    def test_reviewer_snapshot_maps_explicit_custom_target_alias_only(self):
+        import hooks.reviewer as reviewer
+
+        review = MagicMock()
+        note = MagicMock()
+        note.model.return_value = {"name": "My Chinese Custom Notes"}
+        note.items.return_value = [("Expression Text", "方向词"), ("Internal", "omit")]
+        review.card.note.return_value = note
+
+        snapshot = reviewer.get_current_card_snapshot(review, side="question")
+
+        assert snapshot["language"] == "chinese"
+        assert snapshot["current_target"] == "方向词"
+        assert snapshot["card_kind"] == "vocabulary"
+        assert snapshot["front"] == "方向词"
+        assert "internal" not in snapshot
 
     def test_missing_reviewer_hook_does_not_disable_available_hook(self):
         from unittest.mock import patch

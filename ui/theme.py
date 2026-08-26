@@ -186,6 +186,15 @@ QPlainTextEdit#forgeAiSourceInput, QTextEdit#forgeAiInstructionInput,
 QTextBrowser#forgeAiTranscript {
     border-radius: 6px;
 }
+QTextBrowser#forgeAiTranscript {
+    padding: 10px;
+    line-height: 1.58;
+}
+QLabel#forgeAiTypingIndicator {
+    color: __TEXT_DIM__;
+    font-style: italic;
+    padding: 1px 6px;
+}
 QLabel { background: transparent; color: __TEXT__; }
 QLabel[class="dim"] { color: __TEXT_DIM__; }
 QToolTip {

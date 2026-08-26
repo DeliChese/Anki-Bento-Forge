@@ -5,6 +5,7 @@ from __future__ import annotations
 import hashlib
 import html
 import json
+import re
 import uuid
 from pathlib import Path
 from typing import Optional
@@ -26,6 +27,7 @@ from utils.ai_card_artifacts import (
 from utils.ai_coaching_loop import (
     build_reviewer_checkpoint, latest_reviewer_checkpoint,
 )
+from utils.ai_context_manager import has_usable_card_context, minimal_card_context
 from utils.ai_extractor import get_api_config, get_api_key_for_provider
 from utils.ai_providers import AI_PROVIDERS, detect_provider, get_provider
 from utils.ai_source_candidates import (
@@ -53,6 +55,175 @@ _SHORTCUT_ACTION = None
 _LANGUAGE_LABELS = {
     "japanese": "日本語", "chinese": "中文", "korean": "한국어", "english": "English",
 }
+
+
+def _format_transcript_inline(value: str) -> str:
+    """Render a small safe Markdown subset suitable for a narrow QTextBrowser."""
+    text = html.escape(str(value or ""), quote=False)
+    code_fragments = []
+
+    def keep_code(match):
+        index = len(code_fragments)
+        code_fragments.append(
+            "<code style='background:rgba(127,127,127,.20);padding:2px 5px;"
+            "border-radius:3px;font-family:monospace'>" + match.group(1) + "</code>"
+        )
+        return f"\x00CODE{index}\x00"
+
+    text = re.sub(r"`([^`\n]+)`", keep_code, text)
+    text = re.sub(r"\*\*\*([^*\n]+?)\*\*\*", r"<b><i>\1</i></b>", text)
+    text = re.sub(r"\*\*([^*\n]+?)\*\*", r"<b>\1</b>", text)
+    text = re.sub(r"(?<!\*)\*([^*\n]+?)\*(?!\*)", r"<i>\1</i>", text)
+    # Links remain non-clickable text: AI output must not create navigation.
+    text = re.sub(r"\[([^\]]+)\]\([^)]+\)", r"<u>\1</u>", text)
+    for index, fragment in enumerate(code_fragments):
+        text = text.replace(f"\x00CODE{index}\x00", fragment)
+    return text
+
+
+def _markdown_table_cells(line: str) -> list[str]:
+    value = str(line or "").strip()
+    if value.startswith("|"):
+        value = value[1:]
+    if value.endswith("|"):
+        value = value[:-1]
+    return [cell.strip() for cell in value.split("|")]
+
+
+def _is_markdown_table_divider(line: str) -> bool:
+    cells = _markdown_table_cells(line)
+    return bool(cells) and all(re.fullmatch(r":?-{3,}:?", cell) for cell in cells)
+
+
+def _format_markdown_table(headers: list[str], rows: list[list[str]]) -> str:
+    """Use table HTML for compact data, cards for wide tables in the dock."""
+    headers = headers or []
+    if len(headers) > 2:
+        cards = []
+        for row in rows:
+            entries = []
+            for index, cell in enumerate(row):
+                if cell:
+                    label = headers[index] if index < len(headers) else ""
+                    entries.append(
+                        f"<div style='margin:3px 0'><b>{_format_transcript_inline(label)}:</b> "
+                        f"{_format_transcript_inline(cell)}</div>"
+                    )
+            if entries:
+                cards.append(
+                    "<div style='margin:7px 0;padding:8px 10px;border-radius:6px;"
+                    "background:rgba(127,127,127,.13)'>" + "".join(entries) + "</div>"
+                )
+        return "".join(cards)
+    header_html = "".join(
+        "<th style='padding:7px 8px;text-align:left;background:rgba(127,127,127,.18);"
+        "font-weight:700'>" + _format_transcript_inline(cell) + "</th>"
+        for cell in headers
+    )
+    rows_html = "".join(
+        "<tr>" + "".join(
+            "<td style='padding:7px 8px;vertical-align:top'>" + _format_transcript_inline(cell) + "</td>"
+            for cell in row[:len(headers)]
+        ) + "</tr>"
+        for row in rows
+    )
+    return (
+        "<table width='100%' cellspacing='0' cellpadding='0' style='margin:8px 0;border-collapse:collapse;"
+        "font-size:14px;border:1px solid rgba(127,127,127,.32)'><thead><tr>"
+        + header_html + "</tr></thead><tbody>" + rows_html + "</tbody></table>"
+    )
+
+
+def _format_transcript_markdown(value: str) -> str:
+    """Turn common AI Markdown into safe, readable rich text for the transcript."""
+    lines = str(value or "").replace("\r\n", "\n").replace("\r", "\n").split("\n")
+    blocks = []
+    index = 0
+    while index < len(lines):
+        line = lines[index]
+        stripped = line.strip()
+        if not stripped:
+            index += 1
+            continue
+        if stripped.startswith("```"):
+            language = html.escape(stripped[3:].strip())
+            code_lines = []
+            index += 1
+            while index < len(lines) and not lines[index].strip().startswith("```"):
+                code_lines.append(html.escape(lines[index]))
+                index += 1
+            if index < len(lines):
+                index += 1
+            label = f"<div style='font-size:11px;opacity:.72'>{language}</div>" if language else ""
+            blocks.append(
+                label + "<pre style='margin:7px 0;padding:9px;white-space:pre-wrap;"
+                "background:rgba(0,0,0,.18);border-radius:5px;font-family:monospace'>"
+                + "\n".join(code_lines) + "</pre>"
+            )
+            continue
+        if index + 1 < len(lines) and "|" in line and _is_markdown_table_divider(lines[index + 1]):
+            headers = _markdown_table_cells(line)
+            rows = []
+            index += 2
+            while index < len(lines) and "|" in lines[index] and lines[index].strip():
+                rows.append(_markdown_table_cells(lines[index]))
+                index += 1
+            blocks.append(_format_markdown_table(headers, rows))
+            continue
+        heading = re.match(r"^(#{1,4})\s+(.+?)\s*$", stripped)
+        if heading:
+            level = min(4, len(heading.group(1)) + 2)
+            blocks.append(
+                f"<h{level} style='margin:11px 0 5px;font-size:16px;font-weight:700'>"
+                f"{_format_transcript_inline(heading.group(2))}</h{level}>"
+            )
+            index += 1
+            continue
+        if re.fullmatch(r"(?:[-*_]\s*){3,}", stripped):
+            blocks.append("<hr style='border:0;border-top:1px solid rgba(127,127,127,.38);margin:10px 0'>")
+            index += 1
+            continue
+        if stripped.startswith("> "):
+            blocks.append(
+                "<blockquote style='margin:7px 0;padding:5px 9px;border-left:3px solid #7f8c8d;"
+                "background:rgba(127,127,127,.10)'>" + _format_transcript_inline(stripped[2:]) + "</blockquote>"
+            )
+            index += 1
+            continue
+        unordered = re.match(r"^\s*[-*+]\s+(.+)$", line)
+        ordered = re.match(r"^\s*\d+[.)]\s+(.+)$", line)
+        if unordered or ordered:
+            tag = "ul" if unordered else "ol"
+            items = []
+            pattern = r"^\s*[-*+]\s+(.+)$" if unordered else r"^\s*\d+[.)]\s+(.+)$"
+            while index < len(lines):
+                match = re.match(pattern, lines[index])
+                if not match:
+                    break
+                items.append("<li style='margin:3px 0'>" + _format_transcript_inline(match.group(1)) + "</li>")
+                index += 1
+            blocks.append(f"<{tag} style='margin:6px 0;padding-left:22px'>" + "".join(items) + f"</{tag}>")
+            continue
+        paragraph = [stripped]
+        index += 1
+        while index < len(lines):
+            candidate = lines[index].strip()
+            if not candidate or candidate.startswith("```") or re.match(r"^(#{1,4})\s+", candidate):
+                break
+            if re.fullmatch(r"(?:[-*_]\s*){3,}", candidate) or candidate.startswith("> "):
+                break
+            if re.match(r"^\s*(?:[-*+]|\d+[.)])\s+", lines[index]):
+                break
+            if index + 1 < len(lines) and "|" in lines[index] and _is_markdown_table_divider(lines[index + 1]):
+                break
+            paragraph.append(candidate)
+            index += 1
+        blocks.append("<p style='margin:6px 0'>" + "<br>".join(
+            _format_transcript_inline(item) for item in paragraph
+        ) + "</p>")
+    return "".join(blocks) or "<p></p>"
+
+
 class AiCompanionDock(QDockWidget):
     """Workspace-parameterized surface over one shared Study Session backend."""
 
@@ -74,8 +245,8 @@ class AiCompanionDock(QDockWidget):
             "bentoForgeReviewerWorkspace"
             if self._workspace == "reviewer" else "bentoForgeWorkshopWorkspace"
         )
-        self.setMinimumWidth(340 if not self._integrated else 0)
-        self.resize(440, 720)
+        self.setMinimumWidth(380 if not self._integrated else 0)
+        self.resize(520, 760)
         if self._dockable:
             self.setAllowedAreas(
                 Qt.DockWidgetArea.LeftDockWidgetArea | Qt.DockWidgetArea.RightDockWidgetArea
@@ -93,6 +264,7 @@ class AiCompanionDock(QDockWidget):
         self._library = StudyLibraryStore()
         self._workflow = AiWorkflowCoordinator()
         self._card_context = None
+        self._context_user_choice = None
         self._active_session_id = ""
         self._pending_session_id = ""
         self._pending_user_message_id = ""
@@ -107,6 +279,11 @@ class AiCompanionDock(QDockWidget):
         self._lane = "vocab"
         self._editing_latest = False
         self._restoring = True
+        self._typing_phase = 0
+        self._typing_active = False
+        self._typing_timer = QTimer(self)
+        self._typing_timer.setInterval(420)
+        self._typing_timer.timeout.connect(self._advance_typing_indicator)
         self._geometry_timer = QTimer(self)
         self._geometry_timer.setSingleShot(True)
         self._geometry_timer.timeout.connect(self._persist_floating_geometry)
@@ -181,6 +358,36 @@ class AiCompanionDock(QDockWidget):
             sessions.addWidget(button)
         body.addLayout(sessions)
 
+        self.transcript = QTextBrowser()
+        self.transcript.setObjectName("forgeAiTranscript")
+        self.transcript.setOpenExternalLinks(False)
+        self.transcript.setOpenLinks(False)
+        self.transcript.anchorClicked.connect(self._on_transcript_link)
+        self.transcript.setAccessibleName(t("study_conversation"))
+        self.transcript.setMinimumHeight(120 if self._integrated else 140)
+        body.addWidget(self.transcript, 1)
+
+        self.typing_indicator = QLabel()
+        self.typing_indicator.setObjectName("forgeAiTypingIndicator")
+        self.typing_indicator.setVisible(False)
+        body.addWidget(self.typing_indicator)
+
+        language_row = QHBoxLayout()
+        self.ai_language_label = QLabel(t("study_ai_language_label"))
+        self.ai_language_label.setVisible(self._workspace == "reviewer")
+        language_row.addWidget(self.ai_language_label)
+        self.cbo_ai_language = QComboBox()
+        self.cbo_ai_language.setAccessibleName(t("study_ai_language_label"))
+        self.cbo_ai_language.setToolTip(t("study_ai_language_tip"))
+        self.cbo_ai_language.addItem(t("study_ai_language_choose"), None)
+        for language, label in _LANGUAGE_LABELS.items():
+            self.cbo_ai_language.addItem(label, language)
+        self.cbo_ai_language.setCurrentIndex(0)
+        self.cbo_ai_language.setVisible(self._workspace == "reviewer")
+        self.cbo_ai_language.currentIndexChanged.connect(self._on_ai_language_selected)
+        language_row.addWidget(self.cbo_ai_language, 1)
+        body.addLayout(language_row)
+
         provider_row = QHBoxLayout()
         self.cbo_provider = QComboBox()
         for provider in AI_PROVIDERS:
@@ -216,16 +423,6 @@ class AiCompanionDock(QDockWidget):
             self.source_input = self._external_source_input
         self.source_input.textChanged.connect(self._update_context_board)
 
-        self.transcript = QTextBrowser()
-        self.transcript.setObjectName("forgeAiTranscript")
-        self.transcript.setOpenExternalLinks(False)
-        self.transcript.setOpenLinks(False)
-        self.transcript.anchorClicked.connect(self._on_transcript_link)
-        self.transcript.setAccessibleName(t("study_conversation"))
-        if self._integrated:
-            self.transcript.setMinimumHeight(80)
-        body.addWidget(self.transcript, 1)
-
         quick = QGridLayout()
         for index, (key, prompt_key) in enumerate(self._policy.quick_actions):
             button = QPushButton(t(key))
@@ -233,7 +430,7 @@ class AiCompanionDock(QDockWidget):
             button.setToolTip(t("study_quick_tip"))
             button.clicked.connect(lambda _checked=False, value=prompt_key: self._set_quick_prompt(t(value)))
             button.setVisible(not self._integrated)
-            quick.addWidget(button, index // 3, index % 3)
+            quick.addWidget(button, index // 2, index % 2)
         body.addLayout(quick)
 
         coach = QVBoxLayout()
@@ -241,23 +438,23 @@ class AiCompanionDock(QDockWidget):
         self.coach_state.setObjectName("forgeAiCoachState")
         self.coach_state.setWordWrap(True)
         coach.addWidget(self.coach_state)
-        coach_actions = QHBoxLayout()
+        coach_actions = QGridLayout()
         self.btn_card_drill = QPushButton(t("study_library_card_drill"))
         self.btn_card_drill.setProperty("class", "stationAction")
         self.btn_card_drill.clicked.connect(self.draft_card_drill)
-        coach_actions.addWidget(self.btn_card_drill)
+        coach_actions.addWidget(self.btn_card_drill, 0, 0, 1, 2)
         self.btn_needs_practice = QPushButton(t("study_coach_needs_practice"))
         self.btn_needs_practice.setProperty("class", "stationAction")
         self.btn_needs_practice.clicked.connect(
             lambda: self.mark_coaching_outcome("needs_practice")
         )
-        coach_actions.addWidget(self.btn_needs_practice)
+        coach_actions.addWidget(self.btn_needs_practice, 1, 0)
         self.btn_understood = QPushButton(t("study_coach_understood"))
         self.btn_understood.setProperty("class", "primary")
         self.btn_understood.clicked.connect(
             lambda: self.mark_coaching_outcome("understood")
         )
-        coach_actions.addWidget(self.btn_understood)
+        coach_actions.addWidget(self.btn_understood, 1, 1)
         for widget in (
             self.coach_state, self.btn_card_drill, self.btn_needs_practice, self.btn_understood,
         ):
@@ -269,7 +466,7 @@ class AiCompanionDock(QDockWidget):
         self.chk_context = QCheckBox(t("study_use_card_context"))
         self.chk_context.setChecked(False)
         self.chk_context.setVisible(self._policy.allows_card_context)
-        self.chk_context.toggled.connect(self._update_context_board)
+        self.chk_context.toggled.connect(self._on_card_context_toggled)
         context_row.addWidget(self.chk_context, 1)
         self.cbo_lane = QComboBox()
         self.cbo_lane.addItem(t("study_forge_router_auto"), "auto")
@@ -399,6 +596,25 @@ class AiCompanionDock(QDockWidget):
         self._escape_shortcut = QShortcut(QKeySequence("Escape"), self)
         self._escape_shortcut.activated.connect(self.back_to_review)
 
+    def _set_typing_indicator(self, active: bool):
+        """Show a lightweight, non-blocking typing cue while the worker is active."""
+        self._typing_active = bool(active)
+        if not self._typing_active:
+            self._typing_timer.stop()
+            self.typing_indicator.setVisible(False)
+            return
+        self._typing_phase = 0
+        self._advance_typing_indicator()
+        self.typing_indicator.setVisible(True)
+        self._typing_timer.start()
+
+    def _advance_typing_indicator(self):
+        if not self._typing_active:
+            return
+        dots = ("", ".", "..", "...")[self._typing_phase % 4]
+        self.typing_indicator.setText(t("study_typing", dots=dots))
+        self._typing_phase += 1
+
     def _restore_state(self):
         state = self._store.get_ui_state()
         side = state.get("dock_side", "right")
@@ -410,8 +626,8 @@ class AiCompanionDock(QDockWidget):
         if state.get("floating"):
             self.setFloating(True)
             self.resize(
-                max(340, int(state.get("floating_width") or 440)),
-                max(420, int(state.get("floating_height") or 720)),
+                max(380, int(state.get("floating_width") or 520)),
+                max(480, int(state.get("floating_height") or 760)),
             )
             self.move(int(state.get("floating_x") or 80), int(state.get("floating_y") or 80))
         if state.get("collapsed"):
@@ -451,16 +667,40 @@ class AiCompanionDock(QDockWidget):
         return provider_id, model
 
     def _resolve_language(self, language: str = "") -> Optional[str]:
-        candidate = language
-        if not candidate:
-            try:
-                candidate = mw.col.conf.get("ai_factory_active_lang")
-            except Exception:
-                candidate = None
-        return try_normalize_language(candidate)
+        return try_normalize_language(language)
+
+    def _selected_ai_language(self) -> Optional[str]:
+        return try_normalize_language(self.cbo_ai_language.currentData())
+
+    def _set_ai_language(self, language: str = ""):
+        normalized = self._resolve_language(language)
+        index = self.cbo_ai_language.findData(normalized) if normalized else 0
+        self.cbo_ai_language.blockSignals(True)
+        self.cbo_ai_language.setCurrentIndex(index if index >= 0 else 0)
+        self.cbo_ai_language.blockSignals(False)
+
+    def _on_ai_language_selected(self, _index):
+        """Switch language by switching sessions; never relabel existing history."""
+        if self._restoring or self._workspace != "reviewer":
+            return
+        language = self._selected_ai_language()
+        if language is None:
+            return
+        current = self._current_session()
+        if current and current.get("language") == language:
+            self._update_context_board()
+            return
+        matching = next(
+            (item for item in self._store.list_sessions() if item.get("language") == language),
+            None,
+        )
+        if matching:
+            self._reload_sessions(matching["id"])
+            return
+        self.new_session(language=language)
 
     def new_session(self, *, language: str = "", deck: str = ""):
-        language = self._resolve_language(language)
+        language = self._resolve_language(language) or self._selected_ai_language()
         if language is None:
             self.status.setText(t("study_language_required"))
             return None
@@ -470,6 +710,7 @@ class AiCompanionDock(QDockWidget):
             language=language, title=title, provider=provider, model=model,
             optional_deck_context={"deck": deck} if deck else None,
         )
+        self._set_ai_language(language)
         self._active_session_id = session["id"]
         self._reload_sessions(session["id"])
 
@@ -509,6 +750,7 @@ class AiCompanionDock(QDockWidget):
         session = self._store.get_session(session_id)
         if not session:
             return
+        self._set_ai_language(session.get("language"))
         self._set_provider_model(session.get("provider"), session.get("model"))
         self._render_session(session)
         if self._workspace == "reviewer":
@@ -587,15 +829,10 @@ class AiCompanionDock(QDockWidget):
         lane: str = "vocab",
         existing_entries: Optional[list] = None,
     ):
-        snapshot_language = try_normalize_language((snapshot or {}).get("language"))
-        self._card_context = (
-            dict(snapshot)
-            if self._workspace == "reviewer"
-            and isinstance(snapshot, dict)
-            and snapshot_language
-            else None
+        self._card_context = self._accepted_reviewer_context(snapshot)
+        self._set_context_checked(
+            bool(self._card_context) and self._context_user_choice is not False
         )
-        self.chk_context.setChecked(bool(self._card_context))
         self._learning_mode = (
             str(learning_mode or "language").strip().casefold()
             if self._workspace == "forge" else "language"
@@ -612,8 +849,14 @@ class AiCompanionDock(QDockWidget):
             self.source_input.setPlainText(source_text or "")
         else:
             self.source_input.clear()
-        language = self._resolve_language(language or str((snapshot or {}).get("language") or "")) or ""
         current = self._current_session()
+        language = self._resolve_language(
+            language or str((snapshot or {}).get("language") or "")
+        )
+        if language:
+            self._set_ai_language(language)
+        else:
+            language = str((current or {}).get("language") or self._selected_ai_language() or "")
         if language and current and current.get("language") != language:
             matching = next(
                 (item for item in self._store.list_sessions() if item.get("language") == language),
@@ -641,30 +884,45 @@ class AiCompanionDock(QDockWidget):
         language = str((session or {}).get("language") or "")
         language_label = _LANGUAGE_LABELS.get(language, language.title() or "-")
         if self._workspace == "reviewer":
-            context_enabled = bool(self._card_context) and self.chk_context.isChecked()
+            safe_context = minimal_card_context(
+                self._card_context,
+                include_answer=str((self._card_context or {}).get("side") or "question") == "answer",
+            )
+            context_enabled = (
+                has_usable_card_context(safe_context) and self.chk_context.isChecked()
+            )
             checkpoint = latest_reviewer_checkpoint(
                 (session or {}).get("messages", []), self._card_context,
             )
             outcome = str((checkpoint or {}).get("outcome") or "idle")
             self.coach_state.setText(t(f"study_coach_loop_{outcome}"))
             for button in (self.btn_card_drill, self.btn_needs_practice, self.btn_understood):
-                button.setEnabled(bool(self._card_context))
+                button.setEnabled(has_usable_card_context(safe_context))
             mode = str((self._card_context or {}).get("study_mode") or "-").upper()
             side_key = (
                 "study_context_answer_side"
                 if str((self._card_context or {}).get("side") or "question") == "answer"
                 else "study_context_question_side"
             )
-            card_key = (
-                "study_context_card_attached"
-                if context_enabled else "study_context_card_not_sent"
+            target = " ".join(str(
+                safe_context.get("current_target")
+                or safe_context.get("pattern")
+                or safe_context.get("front")
+                or safe_context.get("meaning")
+                or safe_context.get("question")
+                or safe_context.get("concept")
+                or ""
+            ).split())[:80]
+            card_label = (
+                t("study_context_card_attached_target", target=html.escape(target))
+                if context_enabled else t("study_context_card_not_sent")
             )
             self.context_board.setText(t(
                 "study_context_reviewer",
                 language=language_label,
                 mode=mode,
                 side=t(side_key),
-                card=t(card_key),
+                card=card_label,
             ))
             return
         lane = (
@@ -690,17 +948,54 @@ class AiCompanionDock(QDockWidget):
             card=t("study_context_no_current_card"),
         ))
 
+    @staticmethod
+    def _accepted_reviewer_context(snapshot: Optional[dict]) -> Optional[dict]:
+        """Accept usable card fields even when a custom Note Type has no language map."""
+        if not isinstance(snapshot, dict):
+            return None
+        safe_context = minimal_card_context(
+            snapshot,
+            include_answer=str(snapshot.get("side") or "question") == "answer",
+        )
+        return dict(snapshot) if has_usable_card_context(safe_context) else None
+
+    def _set_context_checked(self, checked: bool):
+        self.chk_context.blockSignals(True)
+        self.chk_context.setChecked(bool(checked))
+        self.chk_context.blockSignals(False)
+
+    def _on_card_context_toggled(self, checked: bool):
+        self._context_user_choice = bool(checked)
+        self._update_context_board()
+
     def refresh_reviewer_context(self, snapshot: Optional[dict]):
         """Refresh the current card/side without opening or raising the dock."""
         if self._workspace != "reviewer":
             return
-        snapshot_language = try_normalize_language((snapshot or {}).get("language"))
-        self._card_context = (
-            dict(snapshot) if isinstance(snapshot, dict) and snapshot_language else None
-        )
-        if not self._card_context:
-            self.chk_context.setChecked(False)
+        self._card_context = self._accepted_reviewer_context(snapshot)
+        if self._card_context and self._context_user_choice is None:
+            self._set_context_checked(True)
+        elif not self._card_context:
+            self._set_context_checked(False)
         self._update_context_board()
+
+    def _refresh_current_reviewer_card(self):
+        """Re-read the Reviewer card at send time so requests cannot use stale context."""
+        if self._workspace != "reviewer":
+            return
+        snapshot = None
+        reviewer = getattr(mw, "reviewer", None)
+        if reviewer is not None and str(getattr(mw, "state", "")).casefold() == "review":
+            try:
+                from hooks.reviewer import get_current_card_snapshot
+
+                snapshot = get_current_card_snapshot(reviewer)
+            except Exception as error:
+                log_event(
+                    "AI_CARD_CONTEXT_REFRESH_FAILED", "disable_stale_card_context",
+                    error=error.__class__.__name__,
+                )
+        self.refresh_reviewer_context(snapshot)
 
     def _set_quick_prompt(self, prompt: str):
         self.input.setPlainText(prompt)
@@ -768,7 +1063,7 @@ class AiCompanionDock(QDockWidget):
             self.scope_label.setText(t(
                 "study_library_scope_line",
                 pack=first.get("pack_name") or "-",
-                heading=first.get("heading") or "-",
+                heading=self._scope_heading(first),
                 count=len(sources),
             ))
         else:
@@ -778,6 +1073,15 @@ class AiCompanionDock(QDockWidget):
                 "ambiguous": "study_library_scope_ambiguous",
             }.get(status, "study_library_not_used")
             self.scope_label.setText(t(status_key))
+
+    @staticmethod
+    def _scope_heading(source: dict) -> str:
+        """Prefer a verified numbered section over a generic document chunk label."""
+        number = source.get("section_number")
+        title = str(source.get("section_title") or "").strip()
+        if number is not None and title:
+            return f"{number}. {title}"
+        return str(source.get("heading") or "-")
 
     def show_scope_details(self):
         manifest = self._scope_manifest
@@ -800,7 +1104,7 @@ class AiCompanionDock(QDockWidget):
                 "study_library_scope_source",
                 index=index,
                 pack=source.get("pack_name", "-"),
-                heading=source.get("heading", "-"),
+                heading=self._scope_heading(source),
                 provenance=source.get("provenance", "-"),
                 reason=source.get("reason", "-"),
             ))
@@ -978,12 +1282,16 @@ class AiCompanionDock(QDockWidget):
     ) -> Optional[dict]:
         if self._workspace != "reviewer":
             return None
-        safe_card_terms = " ".join(
-            str(value) for key, value in (card_context or {}).items()
-            if key not in {"language", "deck", "note_type", "side", "card_id", "study_mode"}
-            and str(value or "").strip()
-        )[:1_200]
-        retrieval_query = f"{text}\n{safe_card_terms}".strip()
+        card_target = next(
+            (str((card_context or {}).get(key) or "").strip()
+             for key in (
+                 "current_target", "pattern", "front", "simplified", "traditional",
+                 "question", "concept", "meaning",
+             )
+             if str((card_context or {}).get(key) or "").strip()),
+            "",
+        )[:240]
+        retrieval_query = f"{text}\n{card_target}".strip()
         resolved = self._library.resolve_scope(
             language, retrieval_query,
             follow_links=self.chk_follow_library_links.isChecked(),
@@ -1048,6 +1356,7 @@ class AiCompanionDock(QDockWidget):
             text = t("study_candidates_default_instruction")
         if not text:
             return
+        self._refresh_current_reviewer_card()
         session = self._current_session()
         if not session:
             self.new_session(language=str((self._card_context or {}).get("language") or ""))
@@ -1137,6 +1446,7 @@ class AiCompanionDock(QDockWidget):
         self.btn_send.setEnabled(False)
         self.btn_stop.setVisible(True)
         self.status.setText(t("study_thinking"))
+        self._set_typing_indicator(True)
         self._workflow.begin()
         self._workflow.start_chat(
             AiChatThread,
@@ -1172,6 +1482,7 @@ class AiCompanionDock(QDockWidget):
         self.status.setText(message.splitlines()[0][:120])
 
     def _finish_request_ui(self):
+        self._set_typing_indicator(False)
         self.btn_send.setEnabled(True)
         self.btn_stop.setVisible(False)
         self.cbo_mode.setCurrentIndex(0)
@@ -1486,11 +1797,15 @@ class AiCompanionDock(QDockWidget):
             )
             color = "rgba(53,111,164,0.16)" if learner else "rgba(255,255,255,0.07)"
             edge = "#4f8fbd" if learner else "#7f8c8d"
-            content = html.escape(message["content"]).replace("\n", "<br>")
+            content = (
+                html.escape(str(message["content"] or "")).replace("\n", "<br>")
+                if learner else _format_transcript_markdown(message["content"])
+            )
+            content_style = "font-size:13px;line-height:1.5" if learner else "font-size:14px;line-height:1.58"
             blocks.append(
                 f"<div style='margin:7px 0;padding:9px;border-left:3px solid {edge};"
                 f"border-radius:6px;background:{color};'>"
-                f"<b>{html.escape(label)}</b><br>{content}</div>"
+                f"<b>{html.escape(label)}</b><div style='{content_style}'>{content}</div></div>"
             )
         self.transcript.setHtml("".join(blocks) or f"<p>{t('study_empty')}</p>")
         if self._integrated:

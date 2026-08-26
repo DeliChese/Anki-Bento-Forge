@@ -4,6 +4,26 @@
 
 > Mỗi ngày có thay đổi có một mục riêng. `Phiên bản` là snapshot `manifest.json` ở đầu và cuối ngày theo lịch sử Git, không phải xác nhận phát hành. Chỉ chuyển các mục phù hợp thành bản phát hành khi có bằng chứng CI và smoke Anki.
 
+### 2026-08-26 — Phiên bản: `18.3.0` → `18.3.0`
+
+#### ✨ Added
+- **Production Drill cục bộ trong Reviewer** — thẻ có `Usage Pattern` hoặc `Collocation` nay hiện action **Tự đặt câu** ở mặt câu hỏi. Người học viết câu trước, rồi chủ động mở gợi ý/câu mẫu; draft chỉ tồn tại trong webview hiện tại, không gọi AI, tạo thẻ, chấm điểm hoặc sửa collection/SRS.
+
+#### 🔧 Changed
+- **Release artifact fail-closed** — builder chỉ đóng gói Python runtime và hai JSON phát hành được allowlist; file cấu hình/lịch sử local, cache bytecode và file debug không thể lọt vào stage. Regression nay kiểm đồng thời `workers/`, manifest, SHA-256 và CycloneDX SBOM trước khi artifact được dùng cho clean-profile smoke.
+
+### 2026-08-25 — Phiên bản: `18.3.0` → `18.3.0`
+
+#### 🔧 Changed
+- **Study Coach task-priority contract** — ý định trong prompt người học nay quyết định tác vụ; thẻ hiện tại chỉ là ngữ cảnh cho tham chiếu trực tiếp hoặc ví dụ phù hợp. Yêu cầu mục tài liệu được đặt ngay trước prompt hiện tại và thắng lịch sử trả lời sai; prompt version tăng lên `32` để không tái dùng cache theo contract cũ.
+- **Study Coach dock ưu tiên hội thoại** — transcript được đưa lên vùng co giãn chính; quick action bố trí hai cột và dock nổi có kích thước tối thiểu lớn hơn, nhưng mọi chức năng học vẫn luôn hiện diện. Trong lúc worker chạy, chỉ báo `AI đang soạn tin…` chạy bằng timer UI, không chặn luồng Anki.
+
+#### 🐛 Fixed
+- **Coach không còn thay tác vụ nguồn bằng bài luyện thẻ** — transcript smoke cho thấy Scope đã đúng mục 42 nhưng prompt cũ vẫn ép thẻ `看` làm chủ đề. Contract mới phân biệt rõ “tham chiếu thẻ trực tiếp” với “yêu cầu nguồn tường minh”; mục nguồn được hoàn thành trước, chỉ dùng target thẻ khi tự nhiên trong ví dụ và coi assistant reply cũ mâu thuẫn là obsolete.
+- **Dọn file tạm TTS lúc khởi động** — lượt dọn đầu tiên không còn bị bỏ qua khi `time.monotonic()` chưa vượt interval, nên file tạm Bento cũ vẫn được xóa mà không đụng media thẻ.
+- **Transcript Study Coach dễ đọc trong dock hẹp** — Markdown AI nay hiển thị heading, đậm/nghiêng, list, code, quote và đường phân cách thay vì lộ `**`/`***`; bảng hai cột có cỡ chữ/padding dễ đọc, còn bảng nhiều cột tự chuyển thành các khối thông tin để không bị chật hoặc tràn.
+- **Coach không còn suy diễn sắc thái ngữ pháp ngoài source** — khi Study Library chỉ liệt kê các biến thể như `在 / 正在 / 正 / 呢` mà không đối chiếu, Coach phải nói giới hạn của trích đoạn và giải thích trung tính; không được biến suy luận thành quy tắc tuyệt đối về “nhanh”, “vừa hay” hay “trang trọng”. Prompt cache version tăng lên `33`.
+
 ### 2026-08-24 — Phiên bản: `18.1.0` → `18.3.0`
 
 #### ✨ Added
@@ -15,7 +35,7 @@
 - **Reviewer Learning Checkpoint** — Study Coach có hai điểm kết thúc tường minh theo đúng `card_id + study_mode`: `Đã rõ · tiếp tục ôn` lưu checkpoint cục bộ rồi trả focus về Reviewer, còn `Cần luyện thêm` chỉ soạn sẵn micro-quiz để người dùng chủ động gửi.
 
 #### 🔧 Changed
-- **Study Coach prompt/cache contract** — prompt mặc định nêu rõ Study Library chỉ là source không tin cậy và phải dẫn pack/mục hoặc nói rõ giới hạn; prompt version tăng lên `29` để không tái dùng cache theo contract cũ.
+- **Study Coach prompt/cache contract** — prompt mặc định quy định thẻ Reviewer là đối tượng học chính, Study Library chỉ là tham khảo phụ không tin cậy và mọi tuyên bố số mục phải có số + tiêu đề trong cùng SOURCE; prompt version tăng lên `31` để không tái dùng cache theo contract cũ.
 - **Version metadata / Note Types** — nâng release candidate cục bộ lên `18.3.0`; Note Type mới dùng hậu tố `V18.3`, còn các model `V18.1` và cũ hơn vẫn được nhận diện để migrate an toàn.
 - **Blueprint AI composer** — ô yêu cầu, checkbox `Tạo thẻ · Từ vựng/Ngữ pháp` và nút **Gửi** nay nằm trong cùng một composer; loại artifact bám trực tiếp chế độ đã chọn phía trên. Factory ẩn router/bước xử lý và các nút AI trùng, nhưng giữ nguyên session, worker, schema, import và undo.
 - **Blueprint responsive polish** — ngôn ngữ dùng dropdown đúng bản thiết kế; bỏ nút API trùng trên toolbar; tách trạng thái file/AI khỏi hàng hành động, ưu tiên composer trước transcript/artifact rỗng và tự xếp trạm Kiểm định xuống dưới khi cửa sổ hẹp để không còn cắt chữ hoặc đẩy mất cột.
@@ -27,6 +47,9 @@
 - **Workspace-scoped session memory** — Reviewer và Forge vẫn dùng chung transcript cục bộ để theo dõi, nhưng model history và rolling summary nay được tách theo workspace; assistant reply/candidate/artifact mới đều lưu provenance owner và transcript hiển thị đúng nhãn AI đã tạo message.
 
 #### 🐛 Fixed
+- **Không còn bịa số mục Study Library** — yêu cầu như “điểm ngữ pháp thứ 42” nay được khóa vào đúng heading đánh số `42.` trong text tài liệu; resolver fail-closed nếu không thấy số + tiêu đề chính xác, không để từ phụ trong pinyin/usage/collocation lấn át số mục. Scope Manifest lưu `section_number`/`section_title`, còn Coach bị cấm suy ra thứ tự từ chunk, mục lân cận, lịch sử hoặc kiến thức chung và phải tách dữ kiện nguồn khỏi ví dụ tự tạo.
+- **Thẻ Reviewer là ngữ cảnh chính của Study Coach** — mỗi lần bấm Gửi sẽ đọc lại card hiện tại thay vì tin snapshot lúc mở dock; Note Type tùy biến không còn bị loại chỉ vì thiếu mapping ngôn ngữ chính xác. Payload đặt Study Library ở vai trò tham khảo phụ và đặt card gần câu hỏi hơn với `current_target` bắt buộc; thanh trạng thái hiện trực tiếp `Thẻ chính: <target>` để người học kiểm chứng. Field vocabulary/grammar vẫn qua whitelist và không quét collection/deck.
+- **Ngôn ngữ AI của Study Session** — Reviewer có selector `Ngôn ngữ AI` riêng; nút tạo session không còn âm thầm lấy `ai_factory_active_lang` từ Factory. Đổi selector sẽ mở session cùng ngôn ngữ hoặc tạo session mới, không relabel lịch sử cũ; context board chỉ còn hiển thị mặt/chế độ/context thẻ.
 - **English study-mode labels and card-history clear** — English no longer falls back to Japanese labels in the study-mode selector; clearing card history now persists an explicitly empty initialized cache, so a later Factory launch cannot repopulate the UI from the collection.
 - **TTS local gây tăng RAM** — gỡ MeloTTS sidecar và lựa chọn provider cục bộ; Bento Forge quay lại Edge TTS với gTTS fallback, nên không còn khởi chạy tiến trình model neural riêng.
 - **Factory startup** — `_on_lang_changed()` nay lấy `lang_code` từ cấu hình hiện tại trước khi đồng bộ tốc độ, loại bỏ `NameError: lang is not defined` làm Bento Forge không mở được trên Anki 25.09.4.

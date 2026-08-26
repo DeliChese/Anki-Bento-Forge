@@ -14,6 +14,9 @@ DEFAULT_OUTPUT_RESERVE = 2_048
 SYSTEM_RESERVE = 768
 SAFETY_MARGIN = 512
 SUMMARY_MAX_CHARS = 4_000
+CARD_CONTEXT_METADATA_KEYS = {
+    "language", "deck", "note_type", "side", "card_id", "study_mode", "card_kind",
+}
 
 
 @dataclass(frozen=True)
@@ -65,18 +68,21 @@ def minimal_card_context(snapshot: Optional[Mapping[str, Any]], *, include_answe
     """Whitelist current-card data; never attach review history or another deck."""
     if not isinstance(snapshot, Mapping):
         return {}
-    metadata_keys = {"language", "deck", "note_type", "side", "card_id", "study_mode"}
     target_keys = {
         "front", "simplified", "traditional", "pattern", "furigana", "pinyin",
-        "romanization", "question", "concept", "usage_pattern", "collocation",
+        "romanization", "reading", "pronunciation", "question", "concept",
+        "current_target", "usage_pattern", "collocation",
     }
     answer_keys = {
         "meaning", "usage_note", "usage", "explanation", "answer", "example",
-        "example_vn", "example2", "example2_vn", "example3", "example3_vn",
-        "example4", "example4_vn",
+        "sino_vietnamese", "level", "topic", "example_pinyin",
+        "example_romanization", "example_vn", "example2", "example2_pinyin",
+        "example2_romanization", "example2_vn", "example3", "example3_pinyin",
+        "example3_romanization", "example3_vn", "example4", "example4_pinyin",
+        "example4_romanization", "example4_vn",
     }
     if include_answer:
-        allowed = metadata_keys | target_keys | answer_keys
+        allowed = CARD_CONTEXT_METADATA_KEYS | target_keys | answer_keys
     else:
         # Legacy external snapshots predate study_mode and are forward cards.
         # Reviewer-owned snapshots always provide the explicit current mode.
@@ -87,13 +93,16 @@ def minimal_card_context(snapshot: Optional[Mapping[str, Any]], *, include_answe
             "wb": {"meaning"},
             "pron": {
                 "front", "simplified", "traditional", "pattern", "meaning",
-                "question", "concept",
+                "question", "concept", "current_target",
             },
-            "lg": {"meaning", "furigana", "pinyin", "romanization"},
+            "lg": {
+                "meaning", "furigana", "pinyin", "romanization", "reading",
+                "pronunciation",
+            },
         }
         # A missing/unknown mode owns no card-content fields. This is safer
         # than pretending every question is the forward qa direction.
-        allowed = metadata_keys | mode_keys.get(mode, set())
+        allowed = CARD_CONTEXT_METADATA_KEYS | mode_keys.get(mode, set())
     result = {}
     for key, value in snapshot.items():
         normalized = str(key).strip().lower().replace(" ", "_")
@@ -102,11 +111,53 @@ def minimal_card_context(snapshot: Optional[Mapping[str, Any]], *, include_answe
     return result
 
 
-def _context_system_message(card_context: Mapping[str, Any]) -> dict:
+def has_usable_card_context(card_context: Optional[Mapping[str, Any]]) -> bool:
+    """Return whether a filtered snapshot contains card content, not just metadata."""
+    return bool(
+        isinstance(card_context, Mapping)
+        and any(key not in CARD_CONTEXT_METADATA_KEYS for key in card_context)
+    )
+
+
+def card_context_system_message(card_context: Mapping[str, Any]) -> dict:
+    """Make current-card identity and learner deictic references explicit to AI."""
     side = str(card_context.get("side") or "question")
-    lines = [f"CURRENT CARD CONTEXT (side={side}; use only when relevant):"]
+    lines = [
+        f"ACTIVE REVIEWER CARD CONTEXT (side={side}):",
+        "The learner's current instruction determines the task. This card is active learning context, "
+        "not a default task: use it as the subject only when the learner directly refers to this word, "
+        "this vocabulary item, this grammar pattern, or an equivalent deictic reference. For an explicit "
+        "document/source/section task, complete that task first; use this card only in relevant examples "
+        "and never replace the request with a generic card drill.",
+    ]
+    card_kind = str(card_context.get("card_kind") or "").strip().casefold()
+    if card_kind not in {"vocabulary", "grammar"}:
+        card_kind = "grammar" if card_context.get("pattern") else "vocabulary"
+    target_order = (
+        ("current_target", "pattern", "front", "question", "concept")
+        if card_kind == "grammar"
+        else ("current_target", "front", "simplified", "traditional", "question", "concept")
+    )
+    current_target = next(
+        (str(card_context.get(key) or "").strip() for key in target_order
+         if str(card_context.get(key) or "").strip()),
+        "",
+    )
+    lines.append(f"current_card_kind: {card_kind}")
+    if current_target:
+        lines.extend((
+            f"current_target: {current_target}",
+            "MANDATORY REFERENCE RESOLUTION: phrases such as 'this word', 'this vocabulary item', "
+            "'this grammar pattern', 'từ này', 'từ vựng này', 'cụm này', "
+            "'cấu trúc này', or 'ngữ pháp này' refer to current_target above.",
+        ))
+    else:
+        lines.append(
+            "REFERENCE RESOLUTION: no safe current target is exposed on this card side; "
+            "do not infer or reveal a hidden answer."
+        )
     for key, value in card_context.items():
-        if key != "side":
+        if key not in {"side", "card_kind", "current_target"}:
             lines.append(f"{key}: {value}")
     if side == "question":
         lines.append("Retrieval rule: do not reveal the answer unless the learner explicitly asks; hints must be indirect and limited to 1–2 cues.")
@@ -155,8 +206,10 @@ def prepare_study_context(
             card_context,
             include_answer=str((card_context or {}).get("side") or "question") == "answer",
         ) if use_card_context else {}
-        if filtered_card:
-            fixed.append(_context_system_message(filtered_card))
+        if has_usable_card_context(filtered_card):
+            fixed.append(card_context_system_message(filtered_card))
+        else:
+            filtered_card = {}
     if study_library_context is not None:
         if workspace_name != "reviewer":
             raise ValueError("Study Library context is Reviewer-only")
@@ -292,11 +345,13 @@ def prepare_study_context(
         messages.append(summary_message)
     if workspace_message:
         messages.append(workspace_message)
-        if library_message:
-            messages.append(library_message)
     elif filtered_card:
-        messages.append(_context_system_message(filtered_card))
+        messages.append(card_context_system_message(filtered_card))
     messages.extend(recent)
+    # Put reference material immediately before the current request so an
+    # explicit source task cannot be displaced by stale session replies.
+    if library_message:
+        messages.append(library_message)
     messages.append(current)
     estimated = sum(estimate_tokens(item["content"]) + 8 for item in messages)
     if estimated > available and summary_message:
@@ -321,5 +376,6 @@ def prepare_study_context(
 
 __all__ = [
     "PreparedStudyContext", "compact_session_summary", "estimate_tokens",
+    "card_context_system_message", "has_usable_card_context",
     "minimal_card_context", "prepare_study_context",
 ]

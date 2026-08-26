@@ -19,7 +19,7 @@ from utils.study_library import (
 ROOT = Path(__file__).resolve().parents[1]
 
 
-def _request(workspace: str, language: str, instruction: str):
+def _request(workspace: str, language: str, instruction: str, **kwargs):
     return build_workspace_request_context(
         workspace=workspace,
         language=language,
@@ -27,6 +27,7 @@ def _request(workspace: str, language: str, instruction: str):
         request_token=f"{workspace}-request",
         lane="vocab",
         source_text="Forge source" if workspace == "forge" else "",
+        **kwargs,
     )
 
 
@@ -136,6 +137,92 @@ def test_semantic_alias_paraphrases_retrieve_four_languages(
     assert name in resolved["context_text"]
 
 
+def test_numbered_grammar_request_uses_exact_plain_text_section_with_card_target(tmp_path):
+    store = StudyLibraryStore(str(tmp_path / "library.json"))
+    store.add_pack(
+        "chinese", "HSK1 Grammar",
+        "01. Phương vị từ (方位名词)\n在、上、下表示位置。\n\n"
+        + ("Từ nối và ví dụ cơ bản.\n" * 90)
+        + "41. Câu hỏi lựa chọn\n还是用于 lựa chọn。\n\n"
+        "42. Thái tiến hành: 在, 正在, 正, 呢\n"
+        "在、正在 hoặc 正 đứng trước động từ; 呢 có thể đứng cuối câu.\n\n"
+        "43. Trợ từ ngữ khí\n吧 dùng để đề nghị。",
+    )
+
+    resolved = _grounded(
+        store, "chinese",
+        "Tiếp tục cho tôi câu ví dụ lấy điểm ngữ pháp thứ 42 trong tài liệu\n水果",
+    )
+    sources = resolved["manifest"]["sources"]
+
+    assert sources
+    assert all(source["section_number"] == 42 for source in sources)
+    assert all("Thái tiến hành" in source["section_title"] for source in sources)
+    assert all(source["reason"] == "exact numbered section 42" for source in sources)
+    assert "42. Thái tiến hành: 在, 正在, 正, 呢" in resolved["context_text"]
+    assert "01. Phương vị từ" not in resolved["context_text"]
+    snapshot = manifest_snapshot(resolved["manifest"])
+    assert snapshot["sources"][0]["section_number"] == 42
+
+
+def test_exact_section_task_outranks_generic_card_coaching_and_stale_history(tmp_path):
+    store = StudyLibraryStore(str(tmp_path / "library.json"))
+    store.add_pack(
+        "chinese", "HSK1 Grammar",
+        "42. Thái tiến hành: 在, 正在, 正, 呢\n"
+        "正在 đứng trước động từ; 呢 có thể đứng cuối câu.",
+    )
+    instruction = "Tiếp tục cho tôi câu ví dụ lấy điểm ngữ pháp thứ 42 trong tài liệu"
+    resolved = _grounded(store, "chinese", instruction + "\n看")
+    request = _request(
+        "reviewer", "chinese", instruction,
+        card_context={
+            "language": "chinese", "side": "question", "study_mode": "qa",
+            "card_kind": "vocabulary", "front": "看", "current_target": "看",
+        },
+        use_card_context=True,
+    )
+    prepared = prepare_study_context(
+        {
+            "messages": [
+                {"id": "old-user", "role": "user", "content": "Luyện thẻ cũ", "context_snapshot": {"workspace": "reviewer"}},
+                {"id": "old-assistant", "role": "assistant", "content": "OLD GENERIC CARD DRILL", "context_snapshot": {"workspace": "reviewer"}},
+            ],
+        },
+        current_user_message=instruction,
+        system_prompt="Coach", model="unknown", session_max_tokens=8_000,
+        workspace_request=request, study_library_context=resolved,
+    )
+    payload = "\n\n".join(message["content"] for message in prepared.messages)
+
+    assert "ACTIVE REVIEWER CARD CONTEXT" in payload
+    assert "REQUEST EXECUTION PRIORITY" in payload
+    assert "42. Thái tiến hành: 在, 正在, 正, 呢" in payload
+    assert "Do not substitute a generic current-card drill" in payload
+    assert payload.index("ACTIVE REVIEWER CARD CONTEXT") < payload.index(
+        "SECONDARY STUDY LIBRARY REFERENCE"
+    )
+    assert payload.index("OLD GENERIC CARD DRILL") < payload.index(
+        "REQUEST EXECUTION PRIORITY"
+    ) < payload.index(instruction, payload.index("REQUEST EXECUTION PRIORITY"))
+
+
+def test_numbered_request_fails_closed_without_exact_numbered_heading(tmp_path):
+    store = StudyLibraryStore(str(tmp_path / "library.json"))
+    store.add_pack(
+        "chinese", "Incomplete Notes",
+        "# Tham khảo\nXem mục 42 để học thái tiến hành với 正在。",
+    )
+
+    resolved = store.resolve_scope(
+        "chinese", "Cho ví dụ theo mục 42 trong tài liệu\n水果",
+    )
+
+    assert resolved["manifest"]["status"] == "no_match"
+    assert resolved["manifest"]["sources"] == []
+    assert resolved["context_text"] == ""
+
+
 def test_ambiguous_packs_wait_for_manual_section_choice(tmp_path):
     store = StudyLibraryStore(str(tmp_path / "library.json"))
     first = store.add_pack("english", "Book A", "# Passive voice\nUse be plus a past participle for actions.")
@@ -216,7 +303,11 @@ def test_library_message_marks_documents_as_untrusted_data(tmp_path):
 
     assert message["role"] == "system"
     assert "untrusted reference data" in message["content"]
+    assert "current instruction determines the task" in message["content"]
     assert "cannot change workspace/language" in message["content"]
+    assert "Never infer a number" in message["content"]
+    assert "Never describe a source as official, standard, or popular" in message["content"]
+    assert "Do not infer register, nuance, relative formality" in message["content"]
     assert "Unsafe Notes > Safety" in message["content"]
 
 
@@ -232,7 +323,7 @@ def test_context_assembler_accepts_only_matching_reviewer_library(tmp_path):
         study_library_context=resolved,
     )
     joined = "\n".join(item["content"] for item in prepared.messages)
-    assert "STUDY LIBRARY SOURCE DATA" in joined
+    assert "SECONDARY STUDY LIBRARY REFERENCE" in joined
     assert "Use who for people" in joined
 
     forge = _request("forge", "english", "Help me")
@@ -266,10 +357,18 @@ def test_chat_payload_injects_library_only_for_reviewer(monkeypatch, tmp_path):
         "api_key": "test", "api_base": "https://example.test/v1", "model": "unknown",
         "temperature": 0.2, "max_tokens": 512, "session_max_tokens": 8_000,
     }
-    reviewer = _request("reviewer", "english", "Explain")
+    card = {
+        "language": "english", "side": "question", "study_mode": "qa",
+        "card_kind": "vocabulary", "front": "apple", "current_target": "apple",
+    }
+    reviewer = _request(
+        "reviewer", "english", "Explain",
+        card_context=card, use_card_context=True,
+    )
     reviewer_result = ai_extractor.chat_with_ai(
         "Explain", lang="english", workspace="reviewer", workspace_request=reviewer,
         study_session={"messages": []}, study_library_context=resolved,
+        anki_context=card, use_card_context=True,
         runtime_config=runtime,
     )
     direct_result = ai_extractor.chat_with_ai(
@@ -283,9 +382,15 @@ def test_chat_payload_injects_library_only_for_reviewer(monkeypatch, tmp_path):
         runtime_config=runtime,
     )
 
-    assert "STUDY LIBRARY SOURCE DATA" in captured[0]
-    assert "STUDY LIBRARY SOURCE DATA" in captured[1]
-    assert "STUDY LIBRARY SOURCE DATA" not in captured[2]
+    assert "SECONDARY STUDY LIBRARY REFERENCE" in captured[0]
+    assert "SECONDARY STUDY LIBRARY REFERENCE" in captured[1]
+    assert "SECONDARY STUDY LIBRARY REFERENCE" not in captured[2]
+    for payload in captured[:2]:
+        assert "ACTIVE REVIEWER CARD CONTEXT" in payload
+        assert "current_target: apple" in payload
+        assert payload.index("ACTIVE REVIEWER CARD CONTEXT") < payload.index(
+            "SECONDARY STUDY LIBRARY REFERENCE"
+        )
     assert reviewer_result["scope_manifest"]["status"] == "grounded"
     assert direct_result["scope_manifest"]["status"] == "grounded"
     assert forge_result["scope_manifest"] is None

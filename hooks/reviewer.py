@@ -2,6 +2,8 @@
 Hooks package — Reviewer hooks for AnkiTool.
 """
 
+import json
+
 try:
     from aqt import gui_hooks
 except Exception:
@@ -17,16 +19,38 @@ _REGISTERED_HOOKS = set()
 
 _AI_CONTEXT_FIELDS = {
     "front": "front", "simplified": "simplified", "traditional": "traditional",
-    "pattern": "pattern", "furigana": "furigana", "pinyin": "pinyin",
+    "word": "front", "vocabulary": "front", "term": "front", "expression": "front",
+    "target": "front", "target word": "front", "vocabulary word": "front",
+    "expression text": "front",
+    "hanzi": "front", "kanji": "front", "hangul": "front",
+    "pattern": "pattern", "grammar pattern": "pattern", "structure": "pattern",
+    "reading": "reading", "pronunciation": "pronunciation",
+    "furigana": "furigana", "pinyin": "pinyin",
     "romanization": "romanization", "meaning": "meaning", "usage": "usage",
     "explanation": "explanation", "usage pattern": "usage_pattern",
     "usage note": "usage_note", "collocation": "collocation", "example": "example",
+    "sino-vietnamese": "sino_vietnamese", "jlpt level": "level",
+    "hsk level": "level", "topik level": "level", "cefr level": "level",
+    "level": "level", "topic": "topic",
+    "example pinyin": "example_pinyin",
+    "example romanization": "example_romanization",
     "example in vietnamese": "example_vn", "example2": "example2",
+    "example2 pinyin": "example2_pinyin",
+    "example2 romanization": "example2_romanization",
     "example2 in vietnamese": "example2_vn", "example3": "example3",
+    "example3 pinyin": "example3_pinyin",
+    "example3 romanization": "example3_romanization",
     "example3 in vietnamese": "example3_vn", "example4": "example4",
+    "example4 pinyin": "example4_pinyin",
+    "example4 romanization": "example4_romanization",
     "example4 in vietnamese": "example4_vn", "question": "question",
     "answer": "answer", "concept": "concept",
 }
+
+_TARGET_FIELD_KEYS = (
+    "front", "simplified", "pattern", "question", "concept",
+    "traditional",
+)
 
 
 def _inject_ai_action(reviewer):
@@ -90,6 +114,172 @@ def _inject_ai_action(reviewer):
         pass
 
 
+def _production_drill_payload(snapshot):
+    """Build a local-only production drill from explicit Usage Guide fields."""
+    if not isinstance(snapshot, dict):
+        return None
+    target = str(snapshot.get("current_target") or "").strip()
+    guides = []
+    for key, label_key in (
+        ("usage_pattern", "production_drill_pattern"),
+        ("collocation", "production_drill_collocation"),
+    ):
+        value = str(snapshot.get(key) or "").strip()
+        if value:
+            guides.append({"label": t(label_key), "value": value[:1_000]})
+    if not target or not guides:
+        return None
+    example = str(snapshot.get("example") or "").strip()
+    if example:
+        guides.append({"label": t("production_drill_example"), "value": example[:1_000]})
+    return {
+        "target": target[:240],
+        "guides": guides,
+    }
+
+
+def _inject_production_drill(reviewer, snapshot):
+    """Inject an opt-in, zero-AI sentence-production drill on the question side."""
+    payload = _production_drill_payload(snapshot)
+    if payload is None:
+        return False
+    strings = {
+        "action": t("production_drill_action"),
+        "title": t("production_drill_title"),
+        "instruction": t("production_drill_instruction"),
+        "placeholder": t("production_drill_placeholder"),
+        "reveal": t("production_drill_reveal"),
+        "hide": t("production_drill_hide"),
+        "clear": t("production_drill_clear"),
+        "close": t("production_drill_close"),
+    }
+    data_json = json.dumps(payload, ensure_ascii=False)
+    strings_json = json.dumps(strings, ensure_ascii=False)
+    try:
+        reviewer.web.eval(f"""
+            (() => {{
+              if (document.getElementById('bento-production-drill-action')) return;
+              const data = {data_json};
+              const copy = {strings_json};
+              if (!document.getElementById('bento-production-drill-style')) {{
+                const style = document.createElement('style');
+                style.id = 'bento-production-drill-style';
+                style.textContent = `
+                  #bento-production-drill-action {{
+                    position: fixed; right: 12px; top: 48px; z-index: 9999;
+                    border: 1px solid rgba(53,111,164,.46); border-radius: 10px;
+                    padding: 5px 9px; background: rgba(53,111,164,.13);
+                    color: inherit; font: inherit; font-size: 12px; cursor: pointer;
+                  }}
+                  #bento-production-drill {{
+                    position: fixed; right: 12px; top: 84px; z-index: 10000;
+                    width: min(390px, calc(100vw - 24px)); box-sizing: border-box;
+                    padding: 14px; border: 1px solid rgba(127,127,127,.42);
+                    border-radius: 14px; background: var(--canvas, #fff); color: inherit;
+                    box-shadow: 0 10px 34px rgba(0,0,0,.22); font: inherit;
+                  }}
+                  #bento-production-drill[hidden] {{ display: none; }}
+                  #bento-production-drill textarea {{
+                    width: 100%; min-height: 92px; box-sizing: border-box; resize: vertical;
+                    margin: 10px 0; padding: 9px; border: 1px solid rgba(127,127,127,.45);
+                    border-radius: 9px; background: transparent; color: inherit; font: inherit;
+                  }}
+                  #bento-production-drill-guide {{
+                    margin: 8px 0; padding: 9px; border-radius: 9px;
+                    background: rgba(53,111,164,.10); white-space: pre-wrap;
+                  }}
+                  #bento-production-drill-actions {{ display: flex; gap: 7px; flex-wrap: wrap; }}
+                  #bento-production-drill button {{
+                    border: 1px solid rgba(127,127,127,.42); border-radius: 8px;
+                    padding: 5px 9px; background: transparent; color: inherit;
+                    font: inherit; cursor: pointer;
+                  }}
+                  #bento-production-drill-title {{ font-weight: 700; margin-right: 24px; }}
+                  #bento-production-drill-target {{ font-weight: 650; color: #356fa4; }}
+                  #bento-production-drill-close {{ position: absolute; right: 9px; top: 7px; }}
+                  @media (prefers-color-scheme: dark) {{
+                    #bento-production-drill {{ background: #252525; }}
+                  }}
+                `;
+                document.head.appendChild(style);
+              }}
+
+              const action = document.createElement('button');
+              action.id = 'bento-production-drill-action';
+              action.type = 'button';
+              action.textContent = copy.action;
+              action.setAttribute('aria-expanded', 'false');
+
+              const panel = document.createElement('section');
+              panel.id = 'bento-production-drill';
+              panel.hidden = true;
+              panel.setAttribute('aria-label', copy.title);
+
+              const title = document.createElement('div');
+              title.id = 'bento-production-drill-title';
+              title.textContent = copy.title;
+              const close = document.createElement('button');
+              close.id = 'bento-production-drill-close';
+              close.type = 'button';
+              close.textContent = '×';
+              close.setAttribute('aria-label', copy.close);
+              const instruction = document.createElement('div');
+              instruction.textContent = copy.instruction + ' ';
+              const target = document.createElement('span');
+              target.id = 'bento-production-drill-target';
+              target.textContent = data.target;
+              instruction.appendChild(target);
+              const draft = document.createElement('textarea');
+              draft.placeholder = copy.placeholder;
+              draft.setAttribute('aria-label', copy.placeholder);
+              const guide = document.createElement('div');
+              guide.id = 'bento-production-drill-guide';
+              guide.hidden = true;
+              const guideText = document.createElement('div');
+              data.guides.forEach((item, index) => {{
+                if (index) guideText.appendChild(document.createElement('br'));
+                const label = document.createElement('strong');
+                label.textContent = item.label + ': ';
+                guideText.appendChild(label);
+                guideText.appendChild(document.createTextNode(item.value));
+              }});
+              guide.appendChild(guideText);
+              const actions = document.createElement('div');
+              actions.id = 'bento-production-drill-actions';
+              const reveal = document.createElement('button');
+              reveal.type = 'button';
+              reveal.textContent = copy.reveal;
+              const clear = document.createElement('button');
+              clear.type = 'button';
+              clear.textContent = copy.clear;
+              actions.append(reveal, clear);
+              panel.append(title, close, instruction, draft, guide, actions);
+              document.body.append(action, panel);
+
+              const setOpen = (open) => {{
+                panel.hidden = !open;
+                action.setAttribute('aria-expanded', String(open));
+                if (open) draft.focus();
+              }};
+              action.onclick = () => setOpen(panel.hidden);
+              close.onclick = () => setOpen(false);
+              reveal.onclick = () => {{
+                guide.hidden = !guide.hidden;
+                reveal.textContent = guide.hidden ? copy.reveal : copy.hide;
+              }};
+              clear.onclick = () => {{ draft.value = ''; draft.focus(); }};
+              panel.addEventListener('keydown', (event) => {{
+                event.stopPropagation();
+                if (event.key === 'Escape') setOpen(false);
+              }});
+            }})();
+        """)
+        return True
+    except Exception as error:
+        logger.debug("Production drill injection unavailable: %s", error)
+        return False
+
+
 def get_current_card_snapshot(reviewer, side=None):
     """Return relevant current-card fields only; never attach review history."""
     try:
@@ -101,6 +291,13 @@ def get_current_card_snapshot(reviewer, side=None):
         model_name = str((model or {}).get("name") or "")
         lang_code = detect_lang_from_model(model_name)
         language = {"ja": "japanese", "zh": "chinese", "ko": "korean", "en": "english"}.get(lang_code, "")
+        if not language:
+            normalized_model = model_name.casefold()
+            language = next(
+                (name for name in ("japanese", "chinese", "korean", "english")
+                 if name in normalized_model),
+                "",
+            )
         snapshot = {
             "language": language,
             "note_type": model_name,
@@ -116,9 +313,22 @@ def get_current_card_snapshot(reviewer, side=None):
         if note is not None:
             items = note.items() if callable(getattr(note, "items", None)) else []
             for field_name, value in items:
+                clean_value = str(value or "").strip()
                 key = _AI_CONTEXT_FIELDS.get(str(field_name).strip().casefold())
-                if key and str(value or "").strip():
-                    snapshot[key] = str(value).strip()[:4_000]
+                if key and clean_value:
+                    snapshot[key] = clean_value[:4_000]
+            is_grammar = "grammar" in model_name.casefold() or bool(snapshot.get("pattern"))
+            target_order = (
+                ("pattern", "front", "question", "concept")
+                if is_grammar else _TARGET_FIELD_KEYS
+            )
+            current_target = next(
+                (snapshot.get(key) for key in target_order if snapshot.get(key)),
+                "",
+            )
+            if current_target:
+                snapshot["current_target"] = current_target
+            snapshot["card_kind"] = "grammar" if is_grammar else "vocabulary"
         return snapshot
     except Exception as error:
         log_event(
@@ -166,6 +376,7 @@ def _on_reviewer_question(reviewer):
         _refresh_companion_context(snapshot)
         q = card.q() or ""
         _inject_ai_action(reviewer)
+        _inject_production_drill(reviewer, snapshot)
         # Card combo (1 từ = 1 card, 5 chế độ): đồng bộ mode từ config
         if 'id="combo-mode-bar"' in q and 'data-srs-layout="combo"' in q:
             mode = str((snapshot or {}).get("study_mode") or "qa")
