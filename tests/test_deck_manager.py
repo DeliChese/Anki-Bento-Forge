@@ -21,7 +21,11 @@ if _addon_root not in sys.path:
     sys.path.insert(0, _addon_root)
 
 
-# ── Mock Anki (aqt.qt + aqt.utils) để cho phép import ui package ──
+# ── Mock Anki (aqt + aqt.qt + aqt.utils) để cho phép import ui package ──
+aqt = types.ModuleType("aqt")
+aqt.mw = None
+sys.modules["aqt"] = aqt
+
 aqt_qt = types.ModuleType("aqt.qt")
 for _n in ("QDialog", "QVBoxLayout", "QHBoxLayout", "QGridLayout", "QFormLayout",
            "QLabel", "QPushButton", "QTreeWidget", "QTreeWidgetItem",
@@ -30,7 +34,7 @@ for _n in ("QDialog", "QVBoxLayout", "QHBoxLayout", "QGridLayout", "QFormLayout"
            "QTextEdit", "QListWidget", "QListWidgetItem", "QWidget", "QTimer", "QAction",
            "QApplication", "QFileDialog", "QColorDialog", "QDoubleSpinBox",
            "QSlider", "QTableWidget", "QTableWidgetItem", "QScrollArea",
-           "QTextBrowser", "QAbstractItemView"):
+           "QTextBrowser", "QAbstractItemView", "QTabWidget", "QHeaderView"):
     aqt_qt.__dict__[_n] = MagicMock
 aqt_qt.Qt = MagicMock()
 aqt_qt.Qt.ItemDataRole = type("ItemDataRole", (), {"UserRole": 0})
@@ -52,7 +56,7 @@ sys.modules["aqt.utils"] = aqt_utils
 
 from utils.deck_manager import (
     get_deck_tree, create_deck, rename_deck, delete_deck,
-    get_deck_card_count, refresh_anki,
+    delete_decks, collapse_selected_deck_names, get_deck_card_count, refresh_anki,
 )
 
 
@@ -139,6 +143,19 @@ def test_delete_deck_empty_returns_false():
     mw.col.decks.rem.assert_not_called()
 
 
+def test_selected_deck_roots_skip_checked_descendants():
+    assert collapse_selected_deck_names([
+        "Chinese::HSK1", "Chinese", "Japanese", "Chinese::HSK1::Lesson 1", "Japanese",
+    ]) == ["Chinese", "Japanese"]
+
+
+def test_delete_decks_only_deletes_selected_roots():
+    with patch("utils.deck_manager.delete_deck", return_value=True) as delete:
+        assert delete_decks(["Chinese", "Chinese::HSK1", "Japanese"]) == ["Chinese", "Japanese"]
+    assert delete.call_args_list[0].args == ("Chinese",)
+    assert delete.call_args_list[1].args == ("Japanese",)
+
+
 def test_get_deck_card_count():
     mw = _make_mw()
     mw.col.decks.id.return_value = 5
@@ -189,11 +206,27 @@ def test_ui_package_imports_deck_manager_dialog():
     assert DeckManagerDialog is not None
 
 
+def test_deck_manager_dialog_exposes_checked_multi_selection_controls():
+    source = open(
+        os.path.join(_addon_root, "ui", "deck_manager_dialog.py"), encoding="utf-8"
+    ).read()
+    assert "ExtendedSelection" in source
+    assert "ItemIsUserCheckable" in source
+    assert "def _checked_deck_names" in source
+    assert "def _set_all_checked" in source
+    assert "delete_decks(roots)" in source
+
+
 def test_utils_package_exports_deck_manager():
     """Xác minh utils/__init__.py export các hàm deck_manager."""
-    from utils import get_deck_tree, create_deck, rename_deck, delete_deck, refresh_anki
+    from utils import (
+        get_deck_tree, create_deck, rename_deck, delete_deck, delete_decks,
+        collapse_selected_deck_names, refresh_anki,
+    )
     assert callable(get_deck_tree)
     assert callable(create_deck)
     assert callable(rename_deck)
     assert callable(delete_deck)
+    assert callable(delete_decks)
+    assert callable(collapse_selected_deck_names)
     assert callable(refresh_anki)

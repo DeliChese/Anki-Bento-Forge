@@ -430,20 +430,20 @@ _TRANSLATIONS = {
 
     # ── Deck Manager ─────────────────────────────────────
     "deck_manage_btn": {
-        "vi": "🗂️ Quản Lý Deck",
-        "en": "🗂️ Manage Decks",
+        "vi": "🗂️ Deck Center",
+        "en": "🗂️ Deck Center",
     },
     "deck_refresh_btn": {
         "vi": "🔄",
         "en": "🔄",
     },
     "deck_manage_title": {
-        "vi": "🗂️ Quản Lý Deck — Parent / Sub",
-        "en": "🗂️ Deck Manager — Parent / Sub",
+        "vi": "🗂️ Deck Center — Parent / Sub",
+        "en": "🗂️ Deck Center — Parent / Sub",
     },
     "deck_manage_desc": {
-        "vi": "Tạo, đổi tên, xóa Parent/Sub Deck ngay trong add-on. Mọi thay đổi được đồng bộ tức thì vào Anki.",
-        "en": "Create, rename, delete Parent/Sub Decks right in the add-on. All changes sync instantly to Anki.",
+        "vi": "Quản lý Parent/Sub Deck hoặc mở AI Blueprint để đề xuất cây từ nguồn H1–H6.",
+        "en": "Manage Parent/Sub Decks or open AI Blueprint to propose a tree from H1–H6 sources.",
     },
     "deck_col_name": {
         "vi": "Deck",
@@ -466,8 +466,8 @@ _TRANSLATIONS = {
         "en": "✏️ Rename",
     },
     "deck_delete": {
-        "vi": "🗑 Xóa",
-        "en": "🗑 Delete",
+        "vi": "🗑 Xóa đã tích",
+        "en": "🗑 Delete checked",
     },
     "deck_refresh": {
         "vi": "🔄 Làm mới",
@@ -524,6 +524,34 @@ _TRANSLATIONS = {
     "deck_deleted": {
         "vi": "🗑 Đã xóa deck: {name}",
         "en": "🗑 Deck deleted: {name}",
+    },
+    "deck_select_all": {
+        "vi": "☑ Chọn tất cả",
+        "en": "☑ Select all",
+    },
+    "deck_select_all_tip": {
+        "vi": "Tích toàn bộ deck cha và deck con đang hiển thị",
+        "en": "Check every visible parent and child deck",
+    },
+    "deck_clear_selection": {
+        "vi": "☐ Bỏ chọn",
+        "en": "☐ Clear checks",
+    },
+    "deck_clear_selection_tip": {
+        "vi": "Bỏ toàn bộ dấu tích; không thay đổi deck",
+        "en": "Clear all checks without changing decks",
+    },
+    "deck_selected_count": {
+        "vi": "☑ Đã tích {count} deck",
+        "en": "☑ {count} decks checked",
+    },
+    "deck_delete_many_confirm": {
+        "vi": "Xóa {count} deck đã tích? Nếu đã tích cả deck cha và con, chỉ deck cha được xóa vì Anki đã xóa toàn bộ deck con và thẻ bên trong. Hành động này không thể hoàn tác.",
+        "en": "Delete {count} checked decks? When both a parent and child are checked, only the parent is deleted because Anki also deletes its child decks and cards. This cannot be undone.",
+    },
+    "deck_deleted_many": {
+        "vi": "🗑 Đã xóa {count} deck đã chọn",
+        "en": "🗑 Deleted {count} selected decks",
     },
     "deck_count_parents": {
         "vi": "✅ {count} deck cha",
@@ -602,8 +630,8 @@ _TRANSLATIONS = {
         "en": "Refresh deck list from Anki",
     },
     "btn_manage_deck_tip": {
-        "vi": "Tạo, đổi tên, xóa Parent/Sub Deck ngay trong add-on.\nMọi thay đổi được đồng bộ tức thì vào Anki.",
-        "en": "Create, rename, delete Parent/Sub Decks right in the add-on.\nAll changes sync instantly to Anki.",
+        "vi": "Mở Deck Center: quản lý deck và AI đề xuất cây deck tại một nơi.",
+        "en": "Open Deck Center for deck management and AI tree proposals in one place.",
     },
     "btn_history": {
         "vi": "📚 Lịch Sử AI",
@@ -1790,8 +1818,8 @@ _TRANSLATIONS = {
 
     # ── Deck Manager extras ──────────────────────────────
     "deck_manage_header": {
-        "vi": "🗂️ Quản Lý Deck",
-        "en": "🗂️ Manage Decks",
+        "vi": "🗂️ Deck Center",
+        "en": "🗂️ Deck Center",
     },
 
     # ── Theme Dialog ─────────────────────────────────────
@@ -3312,6 +3340,76 @@ _TRANSLATIONS = {
     "production_drill_pattern": {"vi": "Mẫu dùng", "en": "Usage pattern"},
     "production_drill_collocation": {"vi": "Cụm đi kèm", "en": "Collocation"},
     "production_drill_example": {"vi": "Câu mẫu", "en": "Example"},
+    # ── AI Deck Blueprint ──────────────────────────────────
+    "deck_center_open_blueprint": {"vi": "🌳 AI đề xuất cây deck", "en": "🌳 AI Deck Blueprint"},
+    "deck_center_open_blueprint_tip": {
+        "vi": "Dán nguồn H1–H6, duyệt/chỉnh cây Parent/Sub rồi mới lưu vào Anki.",
+        "en": "Paste an H1–H6 source, review or edit its Parent/Sub tree, then save it to Anki.",
+    },
+    "blueprint_title": {"vi": "AI Deck Blueprint — Đề xuất cây deck", "en": "AI Deck Blueprint"},
+    "blueprint_intro": {
+        "vi": "Dán danh sách từ có H1–H6, kiểm tra outline, rồi để AI đề xuất cây Parent/Sub. Bạn có thể sửa trực tiếp trước khi lưu.",
+        "en": "Paste an H1–H6 vocabulary list, verify its outline, then let AI propose an editable Parent/Sub deck tree.",
+    },
+    "blueprint_language": {"vi": "Ngôn ngữ", "en": "Language"},
+    "blueprint_expand_source": {"vi": "Mở rộng nguồn", "en": "Expand source"},
+    "blueprint_collapse_source": {"vi": "Thu gọn nguồn", "en": "Collapse source"},
+    "blueprint_source_placeholder": {
+        "vi": "# Du lịch\n## Sân bay\n搭乗券 | thẻ lên máy bay\n預け荷物 | hành lý ký gửi",
+        "en": "# Travel\n## Airport\n搭乗券 | boarding pass\n預け荷物 | checked baggage",
+    },
+    "blueprint_outline_empty": {"vi": "Chưa nhận diện section H1–H6.", "en": "No H1–H6 sections detected yet."},
+    "blueprint_outline_more": {"vi": "+ {count} section khác", "en": "+ {count} more sections"},
+    "blueprint_outline_detected": {
+        "vi": "Đã nhận diện {count} section: {outline}",
+        "en": "Detected {count} sections: {outline}",
+    },
+    "blueprint_instruction": {"vi": "Yêu cầu", "en": "Constraints"},
+    "blueprint_instruction_placeholder": {
+        "vi": "Ví dụ: 20–30 từ mỗi sub-deck, ưu tiên N3, gộp section dưới 8 từ…",
+        "en": "For example: 20–30 words per subdeck, prioritize N3, merge sections below 8 words…",
+    },
+    "blueprint_col_deck": {"vi": "Cây deck (sửa trực tiếp)", "en": "Deck tree (edit inline)"},
+    "blueprint_col_words": {"vi": "Số từ", "en": "Words"},
+    "blueprint_col_description": {"vi": "Mô tả", "en": "Description"},
+    "blueprint_words_title": {"vi": "Từ trong nhánh", "en": "Words in branch"},
+    "blueprint_words_empty": {"vi": "Chọn một sub-deck để xem từ.", "en": "Select a subdeck to inspect its words."},
+    "blueprint_add_parent": {"vi": "+ Parent", "en": "+ Parent"},
+    "blueprint_add_sub": {"vi": "+ Sub-deck", "en": "+ Subdeck"},
+    "blueprint_remove_branch": {"vi": "Xóa nhánh nháp", "en": "Remove draft branch"},
+    "blueprint_name_prompt": {"vi": "Tên deck", "en": "Deck name"},
+    "blueprint_select_parent": {"vi": "Hãy chọn một parent deck trước.", "en": "Select a parent deck first."},
+    "blueprint_generate": {"vi": "AI đề xuất cây deck", "en": "Generate blueprint"},
+    "blueprint_save": {"vi": "Lưu cây deck", "en": "Save deck tree"},
+    "blueprint_status_ready": {"vi": "Sẵn sàng — chưa có thay đổi nào trong collection.", "en": "Ready — the collection has not been changed."},
+    "blueprint_status_starting": {"vi": "Đang chuẩn bị nguồn…", "en": "Preparing source…"},
+    "blueprint_status_reading_source": {"vi": "Đang đọc H1–H6 và dựng outline…", "en": "Reading H1–H6 and building the outline…"},
+    "blueprint_status_enriching": {"vi": "Đang tra soát và làm giàu danh sách từ…", "en": "Reviewing and enriching vocabulary…"},
+    "blueprint_status_organizing": {"vi": "Đang đề xuất cây deck theo source path…", "en": "Proposing a deck tree from source paths…"},
+    "blueprint_status_generated": {
+        "vi": "Đã tạo bản nháp {decks} deck cho {words} từ. Hãy duyệt/sửa trước khi lưu.",
+        "en": "Drafted {decks} decks for {words} words. Review or edit before saving.",
+    },
+    "blueprint_status_stopped": {"vi": "Đã dừng; collection chưa thay đổi.", "en": "Stopped; the collection is unchanged."},
+    "blueprint_status_saving": {"vi": "Đang lưu cây deck đã duyệt…", "en": "Saving the approved deck tree…"},
+    "blueprint_status_saved": {
+        "vi": "Đã tạo {created} deck mới và dùng lại {reused} deck có sẵn.",
+        "en": "Created {created} new decks and reused {reused} existing decks.",
+    },
+    "blueprint_status_error": {"vi": "Lỗi Blueprint: {error}", "en": "Blueprint error: {error}"},
+    "blueprint_error_empty_source": {"vi": "Hãy dán nguồn từ vựng trước.", "en": "Paste a vocabulary source first."},
+    "blueprint_error_no_vocab": {"vi": "Không tìm thấy từ vựng hợp lệ trong nguồn.", "en": "No valid vocabulary was found in the source."},
+    "blueprint_error_empty_tree": {"vi": "Cây deck đang trống.", "en": "The deck tree is empty."},
+    "blueprint_unsectioned": {"vi": "Chưa phân section", "en": "Unsectioned"},
+    "blueprint_default_parent": {"vi": "Từ vựng AI", "en": "AI Vocabulary"},
+    "blueprint_unassigned": {"vi": "Cần duyệt", "en": "Needs review"},
+    "blueprint_general": {"vi": "Tổng hợp", "en": "General"},
+    "blueprint_save_confirm_title": {"vi": "Xác nhận lưu cây deck", "en": "Confirm deck tree"},
+    "blueprint_save_confirm": {
+        "vi": "Lưu {total} deck đã duyệt? Forge sẽ tạo {new} deck mới và dùng lại {reused} deck trùng tên. Không deck/note/SRS hiện hữu nào bị đổi tên hoặc xóa.",
+        "en": "Save {total} approved decks? Forge will create {new} new decks and reuse {reused} matching decks. No existing deck, note, or SRS data will be renamed or deleted.",
+    },
+    "blueprint_saved_tooltip": {"vi": "Đã lưu {count} deck trong Blueprint.", "en": "Saved {count} Blueprint decks."},
 }
 
 # ═══════════════════════════════════════════════════════════

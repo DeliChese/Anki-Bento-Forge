@@ -4,8 +4,13 @@
 
 ### 2026-08-29 — Version: `18.3.0` → `18.3.0`
 
+#### ✨ Added
+- **Deck Manager multi-select** — parent and child decks can now be checked independently, with Select all/Clear checks controls and extended tree selection. Delete applies once per selected root, so checked child decks are never double-deleted when their parent is also checked; create-sub and rename remain explicitly single-deck actions.
+- **Deck Center + AI Deck Blueprint** — nút quản lý deck sẵn có trong Forge nay mở một trung tâm duy nhất cho cả cây deck hiện hữu và AI Blueprint; action Blueprint rời đã được gỡ khỏi menu Tools. Blueprint nhận danh sách H1–H6, cho sửa/di chuyển nhánh và chỉ create/reuse các deck đã duyệt sau xác nhận, không rename/delete deck, note hoặc SRS hiện hữu.
+
 #### 🔧 Changed
 - **Grammarbook DOCX retrieval** — Study Library now retains Word Title/Heading styles as Markdown during extraction, with a local fallback when `python-docx` is unavailable, so Grammarbook chapters and numbered lessons become searchable section boundaries. Exact numbered requests can match the indexed heading itself; prompts, SRS, card generation, and source quotas are unchanged.
+- **Deck organizer giữ provenance của heading** — rich HTML `<h1>`–`<h6>`, Markdown `#`–`######` và marker `H1:`–`H6:` được chuẩn hóa thành source path; AI nhận outline bounded cùng path từng từ, ưu tiên H1–H3 và giữ H4–H6 làm ngữ cảnh để không tạo cây Anki quá sâu. Prompt cache version tăng lên `34`.
 
 ### 2026-08-28 — Version: `18.3.0` → `18.3.0`
 

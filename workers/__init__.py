@@ -6,6 +6,7 @@ from .import_worker import ImportWorker
 from .ai_workers import PreviewThread, AiExtractThread, AiChatThread
 from .deck_scan_worker import DeckScanWorker
 from .batch_workers import BatchProcessThread, DeckOrganizerThread
+from .deck_blueprint_worker import DeckBlueprintWorker
 
 __all__ = [
     "ImportWorker",
@@ -15,4 +16,5 @@ __all__ = [
     "DeckScanWorker",
     "BatchProcessThread",
     "DeckOrganizerThread",
+    "DeckBlueprintWorker",
 ]

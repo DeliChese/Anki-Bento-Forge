@@ -53,6 +53,8 @@ from .deck_manager import (
     create_deck,
     rename_deck,
     delete_deck,
+    delete_decks,
+    collapse_selected_deck_names,
     get_deck_card_count,
     refresh_anki,
 )
@@ -96,6 +98,8 @@ __all__ = [
     "create_deck",
     "rename_deck",
     "delete_deck",
+    "delete_decks",
+    "collapse_selected_deck_names",
     "get_deck_card_count",
     "refresh_anki",
 ]

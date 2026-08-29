@@ -123,6 +123,29 @@ def delete_deck(name: str) -> bool:
         return False
 
 
+def collapse_selected_deck_names(names) -> list[str]:
+    """Keep only selected deck roots; a selected parent already owns its children."""
+    unique_names = []
+    for value in names or ():
+        name = str(value or "").strip()
+        if name and name not in unique_names:
+            unique_names.append(name)
+    roots = []
+    for name in sorted(unique_names, key=lambda value: (value.count("::"), value)):
+        if not any(name.startswith(f"{root}::") for root in roots):
+            roots.append(name)
+    return roots
+
+
+def delete_decks(names) -> list[str]:
+    """Delete selected deck roots once, never re-delete checked descendants."""
+    deleted = []
+    for name in collapse_selected_deck_names(names):
+        if delete_deck(name):
+            deleted.append(name)
+    return deleted
+
+
 def get_deck_card_count(name: str) -> int:
     """Đếm số thẻ trong deck (bao gồm sub deck con).
 
