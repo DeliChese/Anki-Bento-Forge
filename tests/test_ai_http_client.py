@@ -70,7 +70,7 @@ def test_ssl_verification_is_relaxed_only_for_loopback_hosts():
     assert client._pick_ssl_context("localhost.example.com").verify_mode == ssl.CERT_REQUIRED
 
 
-def test_post_json_preserves_request_contract(monkeypatch):
+def test_post_json_preserves_request_contract_without_mutating_headers(monkeypatch):
     from utils import ai_http_client as client
 
     response = _FakeResponse(
@@ -83,6 +83,7 @@ def test_post_json_preserves_request_contract(monkeypatch):
     client._reset_rate_limit_delay()
 
     headers = {"Authorization": "Bearer secret"}
+    original_headers = dict(headers)
     body = client.post_json(
         "https://example.test/v1/chat/completions?source=anki",
         {"model": "test"},
@@ -94,8 +95,61 @@ def test_post_json_preserves_request_contract(monkeypatch):
     assert method == "POST"
     assert path == "/v1/chat/completions?source=anki"
     assert json.loads(request_body.decode("utf-8")) == {"model": "test"}
-    assert request_headers is headers
-    assert int(headers["Content-Length"]) == len(request_body)
+    assert request_headers is not headers
+    assert headers == original_headers
+    assert request_headers["Authorization"] == "Bearer secret"
+    assert int(request_headers["Content-Length"]) == len(request_body)
+
+
+def test_post_json_rejects_non_http_and_relative_urls(monkeypatch):
+    from utils import ai_http_client as client
+
+    def unexpected_connection(*_args, **_kwargs):
+        pytest.fail("invalid URL must not open a connection")
+
+    monkeypatch.setattr(client, "_get_thread_conn", unexpected_connection)
+    for url in ("", "/v1/chat/completions", "ftp://example.test/file"):
+        with pytest.raises(ValueError, match="absolute http"):
+            client.post_json(url, {}, {})
+
+
+def test_post_json_uses_root_path_for_origin_only_url(monkeypatch):
+    from utils import ai_http_client as client
+
+    connection = _FakeConnection(_FakeResponse(200, b"{}"))
+    monkeypatch.setattr(client, "_get_thread_conn", lambda *args, **kwargs: connection)
+
+    client.post_json("https://example.test", {}, {})
+
+    assert connection.requests[0][1] == "/"
+
+
+def test_response_size_is_bounded_by_declared_content_length(monkeypatch):
+    from utils import ai_http_client as client
+
+    response = _FakeResponse(
+        200,
+        b"{}",
+        headers={"Content-Length": str(client._MAX_RESPONSE_BYTES + 1)},
+    )
+    connection = _FakeConnection(response)
+    monkeypatch.setattr(client, "_get_thread_conn", lambda *args, **kwargs: connection)
+
+    with pytest.raises(client.ResponseTooLargeError, match="safety limit"):
+        client.post_json("https://example.test/v1", {}, {})
+    assert connection.closed
+
+
+def test_response_size_is_bounded_even_without_content_length(monkeypatch):
+    from utils import ai_http_client as client
+
+    response = _FakeResponse(200, b"x" * (client._MAX_RESPONSE_BYTES + 1))
+    connection = _FakeConnection(response)
+    monkeypatch.setattr(client, "_get_thread_conn", lambda *args, **kwargs: connection)
+
+    with pytest.raises(client.ResponseTooLargeError, match="safety limit"):
+        client.post_json("https://example.test/v1", {}, {})
+    assert connection.closed
 
 
 def test_rate_limit_retries_on_a_fresh_connection(monkeypatch):
@@ -127,6 +181,32 @@ def test_rate_limit_retries_on_a_fresh_connection(monkeypatch):
     assert force_new_values == [False, True]
     assert waits == [0.0]
     assert client.get_rate_limit_delay() == 0.0
+
+
+def test_negative_retry_after_is_clamped_to_zero(monkeypatch):
+    from utils import ai_http_client as client
+
+    limited = _FakeConnection(
+        _FakeResponse(429, b"slow down", headers={"Retry-After": "-10"})
+    )
+    success = _FakeConnection(_FakeResponse(200, b"{}"))
+    connections = iter([limited, success])
+    waits = []
+
+    monkeypatch.setattr(
+        client,
+        "_get_thread_conn",
+        lambda *_args, **_kwargs: next(connections),
+    )
+    monkeypatch.setattr(
+        client,
+        "abortable_wait",
+        lambda seconds, should_abort=None: waits.append(seconds),
+    )
+    client._reset_rate_limit_delay()
+
+    client.post_json("https://example.test/v1", {}, {})
+    assert waits == [0.0]
 
 
 def test_cancellation_stops_before_opening_connection(monkeypatch):
