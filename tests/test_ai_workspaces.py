@@ -537,8 +537,8 @@ def test_station_ui_has_explicit_surface_ownership_and_bilingual_labels():
     assert 'self.cbo_lane.addItem(t("study_forge_router_auto"), "auto")' in companion
     assert "if not self._policy.allows_card_mode:" in companion
     assert "refresh_ai_companion_context" in companion
-    assert "380 if not self._integrated else 0" in companion
-    assert "self.transcript.setMinimumHeight(120 if self._integrated else 140)" in companion
+    assert "440 if not self._integrated else 0" in companion
+    assert "self.transcript.setMinimumHeight(150 if self._integrated else 180)" in companion
     assert "class AiStudySessionDialog" not in companion
     assert "source_text=source_text" in factory
     assert 'self.cbo_mode.addItem(t("study_forge_mode_candidates"), "candidates")' in companion

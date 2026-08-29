@@ -711,7 +711,11 @@ def test_companion_keeps_reviewer_coaching_only_and_forge_card_mode_one_shot():
     assert "self._typing_timer.start()" in companion
     assert "self._set_typing_indicator(True)" in companion
     assert "self._set_typing_indicator(False)" in companion
-    assert "quick.addWidget(button, index // 2, index % 2)" in companion
+    assert "quick.addWidget(button, index // 3, index % 3)" in companion
+    assert "self.resize(600, 820)" in companion
+    assert "self.transcript.setMinimumHeight(150 if self._integrated else 180)" in companion
+    assert "body.addWidget(self.composer)" in companion
+    assert companion.index("body.addWidget(self.composer)") < companion.index("body.addLayout(quick)")
     assert "self.btn_toggle_study_options" in companion
     assert "def toggle_study_options(self, checked: bool = False)" in companion
     assert "self.study_options.setVisible(self._workspace != \"reviewer\")" in companion

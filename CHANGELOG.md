@@ -2,6 +2,17 @@
 
 ## [Unreleased]
 
+### 2026-08-29 — Version: `18.3.0` → `18.3.0`
+
+#### 🔧 Changed
+- **Grammarbook DOCX retrieval** — Study Library now retains Word Title/Heading styles as Markdown during extraction, with a local fallback when `python-docx` is unavailable, so Grammarbook chapters and numbered lessons become searchable section boundaries. Exact numbered requests can match the indexed heading itself; prompts, SRS, card generation, and source quotas are unchanged.
+
+### 2026-08-28 — Version: `18.3.0` → `18.3.0`
+
+#### 🔧 Changed
+- **Card reading surface** — vocabulary and grammar cards are wider and airier; long headers and examples wrap instead of overflowing, typed-answer feedback is clearer, and the mode selector/self-check inputs reflow on narrow screens. Dark mode and existing SRS/template behavior are unchanged.
+- **Study Coach reading order** — the Reviewer dock now gives transcript and composer the centre of the layout, puts six quick prompts in a compact 3×2 grid, and presents the three local coaching actions in one row. The floating default is wider/taller; model and library controls remain on demand behind the existing options button.
+
 > Mỗi ngày có thay đổi có một mục riêng. `Phiên bản` là snapshot `manifest.json` ở đầu và cuối ngày theo lịch sử Git, không phải xác nhận phát hành. Chỉ chuyển các mục phù hợp thành bản phát hành khi có bằng chứng CI và smoke Anki.
 
 ### 2026-08-26 — Phiên bản: `18.3.0` → `18.3.0`

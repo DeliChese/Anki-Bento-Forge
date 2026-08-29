@@ -8,6 +8,7 @@ và kiểm tra dependency DOCX/XLSX mà không cần cài thư viện ngoài.
 import os
 import sys
 import types
+import zipfile
 from pathlib import Path
 
 import pytest
@@ -90,6 +91,44 @@ class TestExtractTextFromFile:
         monkeypatch.setitem(sys.modules, "docx", fake_docx)
 
         assert document_extractors.extract_text_from_file(str(path)) == "第一行"
+
+    def test_docx_heading_styles_are_retained_as_markdown(self, monkeypatch, tmp_path):
+        from utils import document_extractors
+
+        path = tmp_path / "headings.docx"
+        path.touch()
+        document = types.SimpleNamespace(
+            paragraphs=[
+                types.SimpleNamespace(text="Grammarbook", style=types.SimpleNamespace(name="Title")),
+                types.SimpleNamespace(text="02. 会 và 能", style=types.SimpleNamespace(name="Heading 2")),
+                types.SimpleNamespace(text="Nội dung", style=types.SimpleNamespace(name="Normal")),
+            ]
+        )
+        fake_docx = types.SimpleNamespace(Document=lambda _: document)
+        monkeypatch.setattr(document_extractors, "_document_dependency_available", lambda name: True)
+        monkeypatch.setitem(sys.modules, "docx", fake_docx)
+
+        assert document_extractors.extract_text_from_file(str(path)) == (
+            "# Grammarbook\n## 02. 会 và 能\nNội dung"
+        )
+
+    def test_study_docx_fallback_retains_word_heading_styles(self, monkeypatch, tmp_path):
+        from utils import document_extractors
+
+        path = tmp_path / "grammarbook.docx"
+        xml = (
+            '<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">'
+            '<w:body><w:p><w:pPr><w:pStyle w:val="Heading2"/></w:pPr>'
+            '<w:r><w:t>02. 会 và 能</w:t></w:r></w:p><w:p><w:r><w:t>Nội dung</w:t>'
+            '</w:r></w:p></w:body></w:document>'
+        )
+        with zipfile.ZipFile(path, "w") as archive:
+            archive.writestr("word/document.xml", xml)
+        monkeypatch.setattr(document_extractors, "_document_dependency_available", lambda name: False)
+
+        assert document_extractors.extract_study_text_from_file(str(path)) == (
+            "## 02. 会 và 能\nNội dung"
+        )
 
     def test_xlsx_existing_dependency_extracts_cells(self, monkeypatch, tmp_path):
         from utils import document_extractors

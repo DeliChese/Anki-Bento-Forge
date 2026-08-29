@@ -18,7 +18,7 @@ import uuid
 from pathlib import Path
 from typing import Any, Iterable, Mapping, Optional
 
-from .document_extractors import extract_text_from_file
+from .document_extractors import extract_study_text_from_file
 from .language_identity import normalize_language
 from .user_data import atomic_write_json, get_user_data_path, read_json
 
@@ -354,7 +354,7 @@ class StudyLibraryStore:
 
     def add_pack_from_file(self, language: str, filepath: str, *, name: str = "") -> dict:
         path = Path(filepath)
-        text = extract_text_from_file(str(path))
+        text = extract_study_text_from_file(str(path))
         if not str(text or "").strip():
             raise ValueError("The selected document contains no extractable text")
         return self.add_pack(
@@ -448,7 +448,9 @@ class StudyLibraryStore:
                 heading_folded = _fold(chunk.get("heading"))
                 heading_score = sum(3.0 for term in query_terms if term in heading_folded)
                 phrase_score = sum(4.0 for phrase in phrases if len(phrase) >= 3 and phrase in _fold(excerpt))
-                exact_section = _exact_numbered_heading(excerpt, requested_sections)
+                exact_section = _exact_numbered_heading(
+                    f"{chunk.get('heading', '')}\n{excerpt}", requested_sections,
+                )
                 score = heading_score + phrase_score + float(len(overlap))
                 if exact_section:
                     score += 1_000.0

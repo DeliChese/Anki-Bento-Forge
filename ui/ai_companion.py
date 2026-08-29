@@ -245,8 +245,8 @@ class AiCompanionDock(QDockWidget):
             "bentoForgeReviewerWorkspace"
             if self._workspace == "reviewer" else "bentoForgeWorkshopWorkspace"
         )
-        self.setMinimumWidth(380 if not self._integrated else 0)
-        self.resize(520, 760)
+        self.setMinimumWidth(440 if not self._integrated else 0)
+        self.resize(600, 820)
         if self._dockable:
             self.setAllowedAreas(
                 Qt.DockWidgetArea.LeftDockWidgetArea | Qt.DockWidgetArea.RightDockWidgetArea
@@ -377,7 +377,7 @@ class AiCompanionDock(QDockWidget):
         )
         self.transcript.setLineWrapMode(QTextEdit.LineWrapMode.WidgetWidth)
         self.transcript.setWordWrapMode(QTextOption.WrapMode.WrapAtWordBoundaryOrAnywhere)
-        self.transcript.setMinimumHeight(120 if self._integrated else 140)
+        self.transcript.setMinimumHeight(150 if self._integrated else 180)
         body.addWidget(self.transcript, 1)
 
         self.typing_indicator = QLabel()
@@ -444,8 +444,9 @@ class AiCompanionDock(QDockWidget):
             button.setToolTip(t("study_quick_tip"))
             button.clicked.connect(lambda _checked=False, value=prompt_key: self._set_quick_prompt(t(value)))
             button.setVisible(not self._integrated)
-            quick.addWidget(button, index // 2, index % 2)
-        body.addLayout(quick)
+            quick.addWidget(button, index // 3, index % 3)
+        for column in range(3):
+            quick.setColumnStretch(column, 1)
 
         coach = QVBoxLayout()
         self.coach_state = QLabel(t("study_coach_loop_idle"))
@@ -457,27 +458,28 @@ class AiCompanionDock(QDockWidget):
         self.btn_card_drill.setProperty("class", "stationAction")
         self.btn_card_drill.setMinimumWidth(0)
         self.btn_card_drill.clicked.connect(self.draft_card_drill)
-        coach_actions.addWidget(self.btn_card_drill, 0, 0, 1, 2)
+        coach_actions.addWidget(self.btn_card_drill, 0, 0)
         self.btn_needs_practice = QPushButton(t("study_coach_needs_practice"))
         self.btn_needs_practice.setProperty("class", "stationAction")
         self.btn_needs_practice.setMinimumWidth(0)
         self.btn_needs_practice.clicked.connect(
             lambda: self.mark_coaching_outcome("needs_practice")
         )
-        coach_actions.addWidget(self.btn_needs_practice, 1, 0)
+        coach_actions.addWidget(self.btn_needs_practice, 0, 1)
         self.btn_understood = QPushButton(t("study_coach_understood"))
         self.btn_understood.setProperty("class", "primary")
         self.btn_understood.setMinimumWidth(0)
         self.btn_understood.clicked.connect(
             lambda: self.mark_coaching_outcome("understood")
         )
-        coach_actions.addWidget(self.btn_understood, 1, 1)
+        coach_actions.addWidget(self.btn_understood, 0, 2)
+        for column in range(3):
+            coach_actions.setColumnStretch(column, 1)
         for widget in (
             self.coach_state, self.btn_card_drill, self.btn_needs_practice, self.btn_understood,
         ):
             widget.setVisible(self._workspace == "reviewer")
         coach.addLayout(coach_actions)
-        body.addLayout(coach)
 
         context_row = QHBoxLayout()
         self.chk_context = QCheckBox(t("study_use_card_context"))
@@ -604,6 +606,10 @@ class AiCompanionDock(QDockWidget):
         actions.addWidget(self.btn_send)
         composer_layout.addLayout(actions)
         body.addWidget(self.composer)
+        # Keep the conversation and reply box together.  The two compact action
+        # rows stay visible below them instead of pushing the composer off-screen.
+        body.addLayout(quick)
+        body.addLayout(coach)
 
         footer = QHBoxLayout()
         self.status = QLabel(t("study_ready"))

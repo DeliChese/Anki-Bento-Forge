@@ -165,6 +165,21 @@ def test_numbered_grammar_request_uses_exact_plain_text_section_with_card_target
     assert snapshot["sources"][0]["section_number"] == 42
 
 
+def test_numbered_grammar_request_uses_heading_when_docx_is_markdown_normalized(tmp_path):
+    store = StudyLibraryStore(str(tmp_path / "library.json"))
+    store.add_pack(
+        "chinese", "HSK1 Grammar",
+        "# CẨM NANG\n## 02. 会 và 能\n会 nói về kỹ năng đã học; 能 nói về điều kiện hoặc khả năng.",
+    )
+
+    resolved = _grounded(store, "chinese", "Giải thích điểm ngữ pháp thứ 02 trong tài liệu")
+
+    source = resolved["manifest"]["sources"][0]
+    assert source["section_number"] == 2
+    assert source["section_title"] == "会 và 能"
+    assert source["heading"] == "02. 会 và 能"
+
+
 def test_exact_section_task_outranks_generic_card_coaching_and_stale_history(tmp_path):
     store = StudyLibraryStore(str(tmp_path / "library.json"))
     store.add_pack(

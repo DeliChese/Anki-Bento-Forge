@@ -119,6 +119,14 @@ class TestComboCss:
             assert ".combo-check" in css
             assert ".combo-res" in css
 
+    def test_css_has_responsive_reading_guards(self):
+        from mode.css import css_japanese, css_chinese, css_english, css_korean
+        for css in (css_japanese(), css_chinese(), css_korean(), css_english()):
+            assert "max-width:680px" in css
+            assert "overflow-wrap:anywhere" in css
+            assert "@media (max-width:520px)" in css
+            assert ".typeGood" in css
+
 
 class TestComboJs:
     def test_combo_mode_js_exists(self):

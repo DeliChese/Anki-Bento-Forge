@@ -7,12 +7,18 @@ runtime dependency installation belongs here.
 
 import csv
 import os
+import re
+import zipfile
+from xml.etree import ElementTree
 from typing import Iterable, List, Tuple
 
 from .logger import get_logger
 
 
 logger = get_logger()
+
+_DOCX_HEADING_STYLE_RE = re.compile(r"^heading\s*([1-6])$", re.IGNORECASE)
+_DOCX_NAMESPACE = "{http://schemas.openxmlformats.org/wordprocessingml/2006/main}"
 
 _DOCUMENT_DEPENDENCIES = {
     "docx": "python-docx==1.1.2",
@@ -121,6 +127,17 @@ def extract_text_from_files(filepaths: Iterable[str]) -> List[Tuple[str, str]]:
     return results
 
 
+def extract_study_text_from_file(filepath: str) -> str:
+    """Read a Study Library source, with a local DOCX fallback for headings."""
+    if os.path.splitext(str(filepath or ""))[1].lower() != ".docx":
+        return extract_text_from_file(filepath)
+    try:
+        import docx  # noqa: F401
+    except ImportError:
+        return _extract_docx_package_text(filepath)
+    return _extract_docx_text(filepath)
+
+
 def _extract_csv_text(filepath: str) -> str:
     """Read CSV rows and join non-empty cells with commas."""
     try:
@@ -220,17 +237,59 @@ def _extract_pdf_text(filepath: str) -> str:
     return ""
 
 
+def _docx_heading(text: str, style_name: str) -> str:
+    """Represent supported Word heading styles as stable Markdown headings."""
+    normalized_style = re.sub(r"\s+", "", str(style_name or "")).casefold()
+    level_match = _DOCX_HEADING_STYLE_RE.match(normalized_style)
+    if normalized_style == "title":
+        return f"# {text}"
+    if level_match:
+        return f"{'#' * int(level_match.group(1))} {text}"
+    return text
+
+
 def _extract_docx_text(filepath: str) -> str:
-    """Read DOCX paragraphs with an already-installed python-docx parser."""
+    """Read DOCX text while retaining Word heading styles as Markdown."""
     if not _document_dependency_available("docx"):
         raise MissingDocumentDependencyError("docx")
     try:
         from docx import Document
 
-        parts = [paragraph.text for paragraph in Document(filepath).paragraphs if paragraph.text.strip()]
+        parts = []
+        for paragraph in Document(filepath).paragraphs:
+            text = str(getattr(paragraph, "text", "") or "").strip()
+            if not text:
+                continue
+            style_name = str(
+                getattr(getattr(paragraph, "style", None), "name", "") or ""
+            ).strip()
+            parts.append(_docx_heading(text, style_name))
         return "\n".join(parts)
     except Exception as error:
         logger.warning("python-docx đọc lỗi %s: %s", filepath, error)
+        return ""
+
+
+def _extract_docx_package_text(filepath: str) -> str:
+    """Extract DOCX paragraphs and Word style IDs without optional packages."""
+    try:
+        with zipfile.ZipFile(filepath) as archive:
+            document = archive.read("word/document.xml")
+        root = ElementTree.fromstring(document)
+        paragraphs = []
+        for paragraph in root.iter(f"{_DOCX_NAMESPACE}p"):
+            text = "".join(
+                node.text or "" for node in paragraph.iter(f"{_DOCX_NAMESPACE}t")
+            ).strip()
+            if not text:
+                continue
+            properties = paragraph.find(f"{_DOCX_NAMESPACE}pPr")
+            style = properties.find(f"{_DOCX_NAMESPACE}pStyle") if properties is not None else None
+            style_name = style.get(f"{_DOCX_NAMESPACE}val", "") if style is not None else ""
+            paragraphs.append(_docx_heading(text, style_name))
+        return "\n".join(paragraphs)
+    except (ElementTree.ParseError, KeyError, OSError, zipfile.BadZipFile) as error:
+        logger.warning("DOCX fallback could not read %s: %s", filepath, error)
         return ""
 
 
@@ -238,5 +297,6 @@ __all__ = [
     "MissingDocumentDependencyError",
     "extract_text_from_file",
     "extract_text_from_files",
+    "extract_study_text_from_file",
     "get_document_install_command",
 ]
