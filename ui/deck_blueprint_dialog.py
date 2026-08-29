@@ -24,15 +24,26 @@ from aqt.qt import (
 )
 from aqt.utils import tooltip
 
+from Language import LANG_CONFIG
+from mode import LANG_CSS, LANG_TEMPLATES
+from mode.card_render import build_afmt, build_qfmt
 from utils.anki_ops import run_collection, run_query
+from utils.ai_output_validation import validate_ai_cards
+from utils.deck_cache import invalidate_deck_cache
 from utils.deck_blueprint import (
+    build_blueprint_import_plan,
     create_blueprint_decks,
     deck_names_from_blueprint,
     parse_structured_source,
+    read_blueprint_existing_cards,
     sanitize_deck_segment,
 )
+from utils.deck_blueprint_import import apply_blueprint_import
 from utils.i18n import t
+from utils.import_safety import rollback_added_notes
 from utils.logger import get_logger
+from utils.prompt_config import apply_field_map_to_cfg
+from utils.srs_policy import apply_srs_layout_to_config
 from workers.deck_blueprint_worker import DeckBlueprintWorker
 
 
@@ -46,7 +57,14 @@ _EXPANDED_SOURCE_HEIGHT = 310
 class DeckBlueprintDialog(QDialog):
     """Reviewable source-outline to parent/subdeck proposal workflow."""
 
-    def __init__(self, parent=None):
+    def __init__(
+        self,
+        parent=None,
+        *,
+        initial_source="",
+        initial_language="",
+        source_files=(),
+    ):
         super().__init__(parent or mw)
         self.setWindowTitle(t("blueprint_title"))
         self.resize(1040, 760)
@@ -56,7 +74,10 @@ class DeckBlueprintDialog(QDialog):
         self._vocab_list = []
         self._organization = {"suggestion": "", "decks": []}
         self._source_expanded = False
+        self._generation_lang = None
+        self._last_import_note_ids = []
         self._build_ui()
+        self._apply_initial_source(initial_source, initial_language, source_files)
 
     def _build_ui(self):
         root = QVBoxLayout(self)
@@ -158,7 +179,33 @@ class DeckBlueprintDialog(QDialog):
         self.btn_save.setEnabled(False)
         self.btn_save.clicked.connect(self._prepare_save)
         buttons.addWidget(self.btn_save)
+        self.btn_import = QPushButton(t("blueprint_import"))
+        self.btn_import.setEnabled(False)
+        self.btn_import.setToolTip(t("blueprint_import_tip"))
+        self.btn_import.clicked.connect(self._prepare_import)
+        buttons.addWidget(self.btn_import)
+        self.btn_undo_import = QPushButton(t("blueprint_undo_import"))
+        self.btn_undo_import.setEnabled(False)
+        self.btn_undo_import.clicked.connect(self._prepare_undo_import)
+        buttons.addWidget(self.btn_undo_import)
         root.addLayout(buttons)
+
+    def _apply_initial_source(self, source_text, language, source_files):
+        """Prefill a detached snapshot from Forge without starting AI work."""
+        language_index = self.cbo_language.findData(str(language or ""))
+        if language_index >= 0:
+            self.cbo_language.setCurrentIndex(language_index)
+        source_text = str(source_text or "")
+        if not source_text.strip():
+            return
+        self.txt_source.setPlainText(source_text)
+        source_files = source_files if isinstance(source_files, (tuple, list, set)) else ()
+        file_count = len([name for name in source_files if str(name).strip()])
+        self.lbl_status.setText(t(
+            "blueprint_source_reused",
+            chars=len(source_text),
+            files=file_count,
+        ))
 
     def _toggle_source_height(self):
         self._source_expanded = not self._source_expanded
@@ -199,6 +246,10 @@ class DeckBlueprintDialog(QDialog):
         ):
             widget.setEnabled(not busy)
         self.btn_save.setEnabled(not busy and self.tree.topLevelItemCount() > 0)
+        self.btn_import.setEnabled(
+            not busy and self.tree.topLevelItemCount() > 0 and bool(self._vocab_list)
+        )
+        self.btn_undo_import.setEnabled(not busy and bool(self._last_import_note_ids))
         self.btn_stop.setVisible(busy)
         self.progress.setVisible(busy)
         self.progress.setRange(0, 0 if busy else 100)
@@ -217,6 +268,7 @@ class DeckBlueprintDialog(QDialog):
             lang=self.cbo_language.currentData(),
             custom_instruction=self.txt_instruction.toPlainText().strip(),
         )
+        self._generation_lang = self.cbo_language.currentData()
         self._worker.progress.connect(self.lbl_status.setText)
         self._worker.outline_ready.connect(self._on_outline_ready)
         self._worker.blueprint_ready.connect(self._on_blueprint_ready)
@@ -233,6 +285,7 @@ class DeckBlueprintDialog(QDialog):
         self._populate_tree(self._organization)
         self._set_busy(False)
         self.btn_save.setEnabled(bool(deck_names_from_blueprint(self._organization)))
+        self.btn_import.setEnabled(bool(self._vocab_list))
         self.progress.setValue(100)
         self.lbl_status.setText(t(
             "blueprint_status_generated",
@@ -293,6 +346,7 @@ class DeckBlueprintDialog(QDialog):
             item.setData(0, _WORDS_ROLE, [])
             self.tree.setCurrentItem(item)
             self.btn_save.setEnabled(True)
+            self.btn_import.setEnabled(bool(self._vocab_list))
 
     def _add_sub(self):
         parent = self._selected_parent()
@@ -321,6 +375,9 @@ class DeckBlueprintDialog(QDialog):
             parent.removeChild(item)
         self.txt_words.clear()
         self.btn_save.setEnabled(self.tree.topLevelItemCount() > 0)
+        self.btn_import.setEnabled(
+            self.tree.topLevelItemCount() > 0 and bool(self._vocab_list)
+        )
 
     def _show_selected_words(self):
         item = self.tree.currentItem()
@@ -412,6 +469,172 @@ class DeckBlueprintDialog(QDialog):
         logger.warning("Deck Blueprint save failed: %s", error)
         self.btn_save.setEnabled(True)
         self.lbl_status.setText(t("blueprint_status_error", error=str(error)))
+
+    def _blueprint_cfg(self):
+        lang = self._generation_lang or self.cbo_language.currentData()
+        cfg = apply_field_map_to_cfg(LANG_CONFIG[lang], lang, "vocab")
+        return apply_srs_layout_to_config(cfg, "combo")
+
+    def _set_import_busy(self, busy):
+        for widget in (
+            self.tree, self.cbo_language, self.btn_add_parent,
+            self.btn_add_sub, self.btn_remove,
+        ):
+            widget.setEnabled(not busy)
+        self.btn_import.setEnabled(
+            not busy and self.tree.topLevelItemCount() > 0 and bool(self._vocab_list)
+        )
+        self.btn_save.setEnabled(not busy and self.tree.topLevelItemCount() > 0)
+        self.btn_generate.setEnabled(not busy)
+        self.btn_undo_import.setEnabled(not busy and bool(self._last_import_note_ids))
+
+    def _prepare_import(self):
+        blueprint = self._tree_to_blueprint()
+        if not deck_names_from_blueprint(blueprint) or not self._vocab_list:
+            tooltip(t("blueprint_import_nothing"))
+            return
+        if self.cbo_language.currentData() != self._generation_lang:
+            tooltip(t("blueprint_import_language_changed"))
+            return
+
+        cfg = self._blueprint_cfg()
+        validation = validate_ai_cards(
+            self._vocab_list,
+            lang=self._generation_lang,
+            kind="vocab",
+            require_example="example" in (cfg.get("json_field_map") or {}),
+        )
+        if not validation.valid_cards:
+            tooltip(t("blueprint_import_no_valid_cards", invalid=len(validation.invalid)))
+            return
+
+        self._set_import_busy(True)
+        self.lbl_status.setText(t("blueprint_status_scanning_duplicates"))
+        run_query(
+            self,
+            lambda col: read_blueprint_existing_cards(col, cfg),
+            lambda existing: self._confirm_import(
+                blueprint, cfg, validation, existing
+            ),
+            self._on_import_error,
+        )
+
+    def _confirm_import(self, blueprint, cfg, validation, existing_cards):
+        plan = build_blueprint_import_plan(
+            blueprint,
+            validation.valid_cards,
+            existing_cards,
+            detect_key=cfg.get("detect_key", "front"),
+        )
+        plan["duplicates"] += int(validation.duplicate_count)
+        plan["skipped"] += int(validation.duplicate_count)
+        plan["invalid"] = len(validation.invalid)
+        plan["skipped"] += plan["invalid"]
+        if not plan["new"]:
+            self._set_import_busy(False)
+            QMessageBox.information(
+                self,
+                t("blueprint_import_confirm_title"),
+                t(
+                    "blueprint_import_no_new",
+                    duplicates=plan["duplicates"],
+                    conflicts=plan["conflicts"],
+                    invalid=plan["invalid"],
+                    unassigned=plan["unassigned"] + plan["missing_assignments"],
+                ),
+            )
+            return
+
+        answer = QMessageBox.question(
+            self,
+            t("blueprint_import_confirm_title"),
+            t(
+                "blueprint_import_confirm",
+                new=plan["new"],
+                decks=len(plan["groups"]),
+                duplicates=plan["duplicates"],
+                conflicts=plan["conflicts"],
+                invalid=plan["invalid"],
+                unassigned=plan["unassigned"] + plan["missing_assignments"],
+            ),
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+        )
+        if answer != QMessageBox.StandardButton.Yes:
+            self._set_import_busy(False)
+            return
+
+        lang = self._generation_lang
+        templates = LANG_TEMPLATES[lang]
+        css = LANG_CSS[lang]()
+        self.lbl_status.setText(t("blueprint_status_importing"))
+        run_collection(
+            self,
+            lambda col: apply_blueprint_import(
+                col,
+                blueprint,
+                plan,
+                cfg,
+                templates,
+                css,
+                build_qfmt,
+                build_afmt,
+            ),
+            self._on_imported,
+            self._on_import_error,
+        )
+
+    def _on_imported(self, result):
+        self._last_import_note_ids = [
+            int(note_id) for note_id in result.get("added_note_ids", ()) if int(note_id) > 0
+        ]
+        invalidate_deck_cache()
+        mw.reset()
+        self._set_import_busy(False)
+        self.lbl_status.setText(t(
+            "blueprint_status_imported",
+            added=result.get("added", 0),
+            decks=len(result.get("deck_counts", {})),
+            errors=result.get("errors", 0),
+            late=(
+                int(result.get("late_duplicates", 0))
+                + int(result.get("late_conflicts", 0))
+            ),
+        ))
+        tooltip(t("blueprint_imported_tooltip", count=len(self._last_import_note_ids)))
+
+    def _on_import_error(self, error):
+        logger.warning("Deck Blueprint import failed: %s", error)
+        self._set_import_busy(False)
+        self.lbl_status.setText(t("blueprint_status_error", error=str(error)))
+
+    def _prepare_undo_import(self):
+        note_ids = list(self._last_import_note_ids)
+        if not note_ids:
+            return
+        answer = QMessageBox.question(
+            self,
+            t("blueprint_undo_confirm_title"),
+            t("blueprint_undo_confirm", count=len(note_ids)),
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+        )
+        if answer != QMessageBox.StandardButton.Yes:
+            return
+        self._set_import_busy(True)
+        self.lbl_status.setText(t("blueprint_status_undoing"))
+        run_collection(
+            self,
+            lambda col: {"removed": rollback_added_notes(col, note_ids)},
+            self._on_import_undone,
+            self._on_import_error,
+        )
+
+    def _on_import_undone(self, result):
+        removed = int(result.get("removed", 0))
+        self._last_import_note_ids = []
+        invalidate_deck_cache()
+        mw.reset()
+        self._set_import_busy(False)
+        self.lbl_status.setText(t("blueprint_status_undone", count=removed))
 
     def reject(self):
         self._stop_worker()

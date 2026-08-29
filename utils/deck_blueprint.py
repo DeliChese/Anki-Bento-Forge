@@ -11,6 +11,8 @@ from html.parser import HTMLParser
 import re
 from typing import Iterable, Mapping, Sequence
 
+from .import_quality import normalize_for_comparison
+
 
 _MARKDOWN_HEADING_RE = re.compile(
     r"^\s{0,3}(#{1,6})[ \t]+(.+?)(?:[ \t]+#+)?\s*$"
@@ -344,6 +346,222 @@ def deck_names_from_blueprint(organization: Mapping) -> list[str]:
                 names.append(full_name)
                 seen.add(full_name.casefold())
     return names
+
+
+def read_blueprint_existing_cards(collection, cfg: Mapping) -> list[dict]:
+    """Read canonical duplicate fields for the Blueprint vocabulary note type.
+
+    The query is intentionally global to the note type, not limited to a target
+    deck.  Moving the proposed branch must never become a duplicate bypass.
+    Missing models are a normal first-run state and produce an empty snapshot.
+    """
+    models = []
+    seen_model_ids = set()
+    for model_name in (cfg["model_name"], *cfg.get("old_model_names", ())):
+        model = collection.models.by_name(model_name)
+        try:
+            model_id = int(model["id"])
+        except (KeyError, TypeError, ValueError):
+            continue
+        if model_id not in seen_model_ids:
+            models.append(model_id)
+            seen_model_ids.add(model_id)
+    if not models:
+        return []
+    front_field = str(cfg.get("front_field") or "")
+    meaning_field = str((cfg.get("json_field_map") or {}).get("meaning") or "Meaning")
+    cards = []
+    seen_note_ids = set()
+    for model_id in models:
+        for note_id in collection.find_notes(f'"mid:{model_id}"'):
+            try:
+                normalized_note_id = int(note_id)
+                if normalized_note_id in seen_note_ids:
+                    continue
+                note = collection.get_note(note_id)
+                front = str(note[front_field]).strip()
+                meaning = str(note[meaning_field]).strip()
+            except Exception:
+                continue
+            if normalize_for_comparison(front):
+                cards.append({
+                    "front": front, "meaning": meaning, "nid": normalized_note_id,
+                })
+                seen_note_ids.add(normalized_note_id)
+    return cards
+
+
+def build_blueprint_import_plan(
+    organization: Mapping,
+    vocab_list: Sequence[Mapping],
+    existing_cards: Sequence[Mapping] = (),
+    *,
+    detect_key: str = "front",
+) -> dict:
+    """Build a fail-closed, add-only multi-deck import plan.
+
+    A surface assigned more than once, an ambiguous source surface, or an
+    existing note with a different meaning is never emitted as an import entry.
+    The result is pure data and remains reviewable before any Anki mutation.
+    """
+    inventory: dict[str, list[dict]] = {}
+    for raw_item in vocab_list or ():
+        if not isinstance(raw_item, Mapping):
+            continue
+        item = dict(raw_item)
+        front = item.get(detect_key) or item.get("front") or item.get("simplified") or ""
+        key = normalize_for_comparison(front)
+        if key:
+            inventory.setdefault(key, []).append(item)
+
+    existing: dict[str, list[dict]] = {}
+    for raw_card in existing_cards or ():
+        if not isinstance(raw_card, Mapping):
+            continue
+        key = normalize_for_comparison(raw_card.get("front"))
+        if key:
+            existing.setdefault(key, []).append(dict(raw_card))
+
+    groups: list[dict] = []
+    group_index: dict[str, dict] = {}
+    assigned = set()
+    duplicate_count = 0
+    conflict_count = 0
+    missing_assignment_count = 0
+    conflict_examples = []
+
+    for parent_info in organization.get("decks", ()) if isinstance(organization, Mapping) else ():
+        if not isinstance(parent_info, Mapping):
+            continue
+        parent = sanitize_deck_segment(parent_info.get("parent"))
+        if not parent:
+            continue
+        for sub_info in parent_info.get("sub_decks", ()):
+            if not isinstance(sub_info, Mapping):
+                continue
+            sub = sanitize_deck_segment(sub_info.get("name"))
+            if not sub:
+                continue
+            deck_name = f"{parent}::{sub}"
+            group = group_index.get(deck_name.casefold())
+            if group is None:
+                group = {"deck_name": deck_name, "entries": []}
+                group_index[deck_name.casefold()] = group
+                groups.append(group)
+
+            for raw_word in sub_info.get("words", ()):
+                key = normalize_for_comparison(raw_word)
+                if not key or key not in inventory:
+                    missing_assignment_count += 1
+                    continue
+                if key in assigned:
+                    duplicate_count += 1
+                    continue
+                assigned.add(key)
+
+                candidates = inventory[key]
+                meanings = {
+                    normalize_for_comparison(candidate.get("meaning"))
+                    for candidate in candidates
+                    if normalize_for_comparison(candidate.get("meaning"))
+                }
+                if len(candidates) != 1 or len(meanings) > 1:
+                    conflict_count += 1
+                    conflict_examples.append(str(raw_word).strip())
+                    continue
+
+                item = candidates[0]
+                meaning_key = normalize_for_comparison(item.get("meaning"))
+                old_cards = existing.get(key, ())
+                if old_cards:
+                    old_meanings = {
+                        normalize_for_comparison(card.get("meaning"))
+                        for card in old_cards
+                        if normalize_for_comparison(card.get("meaning"))
+                    }
+                    if meaning_key and old_meanings and meaning_key not in old_meanings:
+                        conflict_count += 1
+                        conflict_examples.append(str(raw_word).strip())
+                    else:
+                        duplicate_count += 1
+                    continue
+
+                group["entries"].append({
+                    "item": item,
+                    "action": "add",
+                    "nid": None,
+                    "update_fields": [],
+                    "audio_enabled": (False, False, False),
+                })
+
+    groups = [group for group in groups if group["entries"]]
+    unassigned_count = sum(1 for key in inventory if key not in assigned)
+    new_count = sum(len(group["entries"]) for group in groups)
+    return {
+        "groups": groups,
+        "new": new_count,
+        "duplicates": duplicate_count,
+        "conflicts": conflict_count,
+        "unassigned": unassigned_count,
+        "missing_assignments": missing_assignment_count,
+        "skipped": (
+            duplicate_count + conflict_count + unassigned_count + missing_assignment_count
+        ),
+        "conflict_examples": conflict_examples[:10],
+    }
+
+
+def recheck_blueprint_import_plan(
+    plan: Mapping,
+    existing_cards: Sequence[Mapping],
+    *,
+    detect_key: str = "front",
+) -> dict:
+    """Recheck an approved add-only plan against the latest collection state."""
+    existing: dict[str, set[str]] = {}
+    for card in existing_cards or ():
+        if not isinstance(card, Mapping):
+            continue
+        key = normalize_for_comparison(card.get("front"))
+        if key:
+            existing.setdefault(key, set()).add(
+                normalize_for_comparison(card.get("meaning"))
+            )
+
+    groups = []
+    late_duplicates = 0
+    late_conflicts = 0
+    for raw_group in plan.get("groups", ()) if isinstance(plan, Mapping) else ():
+        if not isinstance(raw_group, Mapping):
+            continue
+        entries = []
+        for raw_entry in raw_group.get("entries", ()):
+            if not isinstance(raw_entry, Mapping) or raw_entry.get("action") != "add":
+                continue
+            item = raw_entry.get("item") or {}
+            front = item.get(detect_key) or item.get("front") or item.get("simplified") or ""
+            key = normalize_for_comparison(front)
+            if not key:
+                continue
+            meaning = normalize_for_comparison(item.get("meaning"))
+            if key in existing:
+                old_meanings = {value for value in existing[key] if value}
+                if meaning and old_meanings and meaning not in old_meanings:
+                    late_conflicts += 1
+                else:
+                    late_duplicates += 1
+                continue
+            entries.append(dict(raw_entry))
+            existing[key] = {meaning}
+        if entries:
+            groups.append({"deck_name": str(raw_group.get("deck_name") or ""), "entries": entries})
+    return {
+        **dict(plan),
+        "groups": groups,
+        "new": sum(len(group["entries"]) for group in groups),
+        "late_duplicates": late_duplicates,
+        "late_conflicts": late_conflicts,
+    }
 
 
 def create_blueprint_decks(collection, organization: Mapping) -> dict:

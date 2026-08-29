@@ -26,8 +26,11 @@ from utils.i18n import t
 class DeckManagerDialog(QDialog):
     """Dialog quản lý deck parent/sub với cập nhật tức thì."""
 
-    def __init__(self, parent=None):
+    def __init__(self, parent=None, blueprint_source=None):
         super().__init__(parent)
+        self._blueprint_source = (
+            dict(blueprint_source) if isinstance(blueprint_source, dict) else {}
+        )
         self.setWindowTitle(t("deck_manage_title"))
         self.setMinimumSize(520, 520)
         self.resize(620, 600)
@@ -181,7 +184,12 @@ class DeckManagerDialog(QDialog):
         """Open the review-first AI planner from the single Deck Center entry."""
         from ui.deck_blueprint_dialog import DeckBlueprintDialog
 
-        dialog = DeckBlueprintDialog(self)
+        dialog = DeckBlueprintDialog(
+            self,
+            initial_source=self._blueprint_source.get("text", ""),
+            initial_language=self._blueprint_source.get("language", ""),
+            source_files=self._blueprint_source.get("files", ()),
+        )
         dialog.exec()
         self._reload_tree()
 

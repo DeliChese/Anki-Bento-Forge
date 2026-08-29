@@ -1386,7 +1386,17 @@ class AnkiSmartFactory(QDialog):
 
     def _open_deck_manager(self):
         """Mở dialog quản lý Parent/Sub Deck (tạo/sửa/xóa, đồng bộ tức thì)."""
-        dlg = DeckManagerDialog(self)
+        source_text = self.ai_text_input.toPlainText()
+        source_files = [
+            str(entry[0])
+            for entry in getattr(self, "_ai_attached_files", ())
+            if isinstance(entry, (tuple, list)) and entry and str(entry[0]).strip()
+        ]
+        dlg = DeckManagerDialog(self, blueprint_source={
+            "text": source_text,
+            "language": self._current_lang,
+            "files": source_files,
+        })
         dlg.exec()
         # Sau khi đóng dialog, làm mới deck_chooser để phản ánh thay đổi
         self._refresh_deck_chooser()

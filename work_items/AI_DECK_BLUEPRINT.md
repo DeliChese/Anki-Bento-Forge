@@ -1,6 +1,6 @@
 # AI Deck Blueprint — Kế hoạch triển khai
 
-> Status: local implementation complete; GUI smoke pending  
+> Status: card-import slice locally implemented; GUI smoke pending
 > Authority: supporting; `PERSONAL_ROADMAP.md` vẫn là backlog chuẩn  
 > Opened: 2026-08-29  
 > Owner: Bento Forge personal workflow
@@ -15,11 +15,13 @@ chỉ ghi vào Anki sau khi duyệt.
 Kết quả quan sát được:
 
 1. Source editor mặc định gọn, có nút mở rộng/thu gọn.
-2. Heading HTML `<h1>`…`<h6>`, Markdown `#`…`######` và nhãn văn bản
+2. Khi mở từ Deck Center trong Forge, source editor nhận snapshot văn bản/file đã nạp
+   và ngôn ngữ hiện tại; không yêu cầu dán lại và không đồng bộ ngược.
+3. Heading HTML `<h1>`…`<h6>`, Markdown `#`…`######` và nhãn văn bản
    `H1:`…`H6:` được chuẩn hóa thành section path.
-3. AI nhận từng từ cùng đường dẫn section thay vì một danh sách phẳng.
-4. Cây đề xuất cho phép đổi tên, thêm/xóa và kéo thả trước khi lưu.
-5. Lưu chỉ tạo đúng các deck đã duyệt; không đổi tên hoặc xóa deck hiện hữu.
+4. AI nhận từng từ cùng đường dẫn section thay vì một danh sách phẳng.
+5. Cây đề xuất cho phép đổi tên, thêm/xóa và kéo thả trước khi lưu.
+6. Lưu chỉ tạo đúng các deck đã duyệt; không đổi tên hoặc xóa deck hiện hữu.
 
 ## Không làm
 
@@ -132,11 +134,14 @@ Kết quả quan sát được:
 
 ### Bước 6 — Card import nhiều deck (gate sau)
 
-- Tái dùng validate/duplicate review của Factory theo từng target deck.
-- Preview toàn bộ add/update/conflict trước mutation.
-- Một CollectionOp có undo token; hỗ trợ rollback đúng note vừa thêm.
-- Chỉ bật sau smoke profile backup. Cho tới lúc đó blueprint vẫn giữ mapping từ
-  để người dùng kiểm tra nhưng nút Lưu chỉ tạo cây deck.
+- [x] Tái dùng schema validation và chuẩn duplicate Unicode/punctuation của Factory;
+  scan toàn note type để đổi target deck không trở thành cách lách duplicate.
+- [x] Preview tổng add/duplicate/conflict/invalid/unassigned trước mutation; lát cắt này
+  fail-closed, chỉ phát `add`, không update note cũ và chưa tạo audio.
+- [x] Re-check collection ngay trong một CollectionOp để đóng khe đua sau preview;
+  giữ exact added note IDs và có nút rollback đúng batch vừa nhập.
+- [ ] Smoke trên profile backup: import vào ít nhất hai sub-deck, thử duplicate/conflict,
+  undo batch và restart. Chưa coi là verified/release-ready trước gate này.
 
 ## Acceptance criteria
 
@@ -145,17 +150,23 @@ Kết quả quan sát được:
 - [x] Word summary gửi AI có source path và instruction người dùng.
 - [x] Output AI sai/trùng được normalize hoặc fallback hữu hạn.
 - [x] Source editor mặc định gọn và mở rộng được.
+- [x] Nguồn học liệu đang dán/nạp file trong Forge được chuyển vào Blueprint bằng
+  snapshot khi mở Deck Center; nguồn rỗng và entry ngoài Factory vẫn an toàn.
 - [x] Cây proposal sửa được trước khi lưu.
 - [x] Không có mutation trước confirmation.
 - [x] Lưu chỉ tạo parent/sub deck; deck hiện hữu không bị đổi/xóa.
 - [x] Một điểm vào Deck Center trong Forge; menu Tools không có action Blueprint rời.
+- [x] Import nhiều deck chỉ thêm note mới sau preview; duplicate/conflict/invalid fail-closed.
+- [x] Final re-check chạy trong CollectionOp và rollback chỉ nhận note ID vừa thêm.
+- [x] Đổi ngôn ngữ sau khi sinh cây chặn import cho tới khi tạo lại Blueprint.
 - [x] Targeted tests và `tests/test_release_metadata.py` xanh.
 - [x] Full isolated suite xanh trước khi báo sẵn sàng release.
 - [x] GUI smoke Anki/profile backup còn được ghi rõ nếu chưa chạy.
 
 ## Handoff / kết quả
 
-- Quyết định: một nút Deck Center trong Forge gom quản lý deck + Blueprint; parser quyết định cấu trúc, AI chỉ tổ chức/gộp/đề xuất; lưu create/reuse-only.
-- Files đã đổi: `utils/deck_blueprint.py`, `utils/batch_processor.py`, `workers/deck_blueprint_worker.py`, `ui/deck_blueprint_dialog.py`, `ui/deck_manager_dialog.py`, entry Factory, i18n, tests và tài liệu trạng thái/changelog.
-- Kiểm chứng đã chạy và kết quả: `py_compile` sạch; gate Deck Center/UI/i18n `105 passed`; full isolated suite cuối `822 passed`.
-- Còn lại / blocker: GUI smoke menu/paste rich text/drag-edit/confirm-save trên Anki 26.5 profile backup; card import nhiều deck cần duplicate review + undo riêng trước khi bật.
+- Quyết định: một nút Deck Center trong Forge gom quản lý deck + Blueprint; parser quyết định cấu trúc, AI tổ chức/gộp/đề xuất. Lưu cây vẫn create/reuse-only; import riêng là add-only, không audio/update.
+- Files đã đổi: thêm `utils/deck_blueprint_import.py`; mở rộng contract/scan/re-check ở `utils/deck_blueprint.py`, UI Blueprint, i18n, tests và tài liệu trạng thái/changelog.
+- Kiểm chứng: `py_compile` sạch; gate source-transfer/Deck Center/UI/i18n `97 passed`;
+  full isolated suite cuối sau lát cắt dùng lại nguồn `831 passed`.
+- Còn lại / blocker: GUI smoke paste rich text/drag-edit/save, import ít nhất hai sub-deck, duplicate/conflict, undo và restart trên Anki 26.5 profile backup.

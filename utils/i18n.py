@@ -3343,8 +3343,8 @@ _TRANSLATIONS = {
     # ── AI Deck Blueprint ──────────────────────────────────
     "deck_center_open_blueprint": {"vi": "🌳 AI đề xuất cây deck", "en": "🌳 AI Deck Blueprint"},
     "deck_center_open_blueprint_tip": {
-        "vi": "Dán nguồn H1–H6, duyệt/chỉnh cây Parent/Sub rồi mới lưu vào Anki.",
-        "en": "Paste an H1–H6 source, review or edit its Parent/Sub tree, then save it to Anki.",
+        "vi": "Dùng lại nguồn hiện có từ Forge (nếu có), duyệt/chỉnh cây Parent/Sub rồi mới lưu vào Anki.",
+        "en": "Reuse the current Forge source when available, review or edit its Parent/Sub tree, then save it to Anki.",
     },
     "blueprint_title": {"vi": "AI Deck Blueprint — Đề xuất cây deck", "en": "AI Deck Blueprint"},
     "blueprint_intro": {
@@ -3381,7 +3381,17 @@ _TRANSLATIONS = {
     "blueprint_select_parent": {"vi": "Hãy chọn một parent deck trước.", "en": "Select a parent deck first."},
     "blueprint_generate": {"vi": "AI đề xuất cây deck", "en": "Generate blueprint"},
     "blueprint_save": {"vi": "Lưu cây deck", "en": "Save deck tree"},
+    "blueprint_import": {"vi": "Tạo deck + nhập thẻ", "en": "Create decks + import cards"},
+    "blueprint_import_tip": {
+        "vi": "Kiểm tra trùng/xung đột, xem trước rồi chỉ nhập note mới; chưa tạo audio.",
+        "en": "Review duplicates/conflicts, then import new notes only; audio is not generated yet.",
+    },
+    "blueprint_undo_import": {"vi": "Hoàn tác batch vừa nhập", "en": "Undo last import batch"},
     "blueprint_status_ready": {"vi": "Sẵn sàng — chưa có thay đổi nào trong collection.", "en": "Ready — the collection has not been changed."},
+    "blueprint_source_reused": {
+        "vi": "Đã lấy lại nguồn hiện có từ Forge: {chars} ký tự, {files} file. Hãy kiểm tra outline rồi mới chạy AI.",
+        "en": "Reused the current Forge source: {chars} characters, {files} files. Check the outline before running AI.",
+    },
     "blueprint_status_starting": {"vi": "Đang chuẩn bị nguồn…", "en": "Preparing source…"},
     "blueprint_status_reading_source": {"vi": "Đang đọc H1–H6 và dựng outline…", "en": "Reading H1–H6 and building the outline…"},
     "blueprint_status_enriching": {"vi": "Đang tra soát và làm giàu danh sách từ…", "en": "Reviewing and enriching vocabulary…"},
@@ -3392,6 +3402,26 @@ _TRANSLATIONS = {
     },
     "blueprint_status_stopped": {"vi": "Đã dừng; collection chưa thay đổi.", "en": "Stopped; the collection is unchanged."},
     "blueprint_status_saving": {"vi": "Đang lưu cây deck đã duyệt…", "en": "Saving the approved deck tree…"},
+    "blueprint_status_scanning_duplicates": {
+        "vi": "Đang kiểm tra trùng/xung đột trên toàn bộ note type…",
+        "en": "Scanning the full note type for duplicates and conflicts…",
+    },
+    "blueprint_status_importing": {
+        "vi": "Đang tạo deck và nhập các note mới đã duyệt…",
+        "en": "Creating decks and importing approved new notes…",
+    },
+    "blueprint_status_imported": {
+        "vi": "Đã nhập {added} note mới vào {decks} deck; {errors} lỗi, {late} mục được chặn khi kiểm tra lại. Có thể hoàn tác đúng batch này.",
+        "en": "Imported {added} new notes into {decks} decks with {errors} errors; {late} items were blocked by the final recheck. This exact batch can be undone.",
+    },
+    "blueprint_status_undoing": {
+        "vi": "Đang hoàn tác đúng các note của batch Blueprint vừa nhập…",
+        "en": "Undoing only notes from the latest Blueprint batch…",
+    },
+    "blueprint_status_undone": {
+        "vi": "Đã hoàn tác {count} note của batch Blueprint vừa nhập.",
+        "en": "Undid {count} notes from the latest Blueprint batch.",
+    },
     "blueprint_status_saved": {
         "vi": "Đã tạo {created} deck mới và dùng lại {reused} deck có sẵn.",
         "en": "Created {created} new decks and reused {reused} existing decks.",
@@ -3400,6 +3430,18 @@ _TRANSLATIONS = {
     "blueprint_error_empty_source": {"vi": "Hãy dán nguồn từ vựng trước.", "en": "Paste a vocabulary source first."},
     "blueprint_error_no_vocab": {"vi": "Không tìm thấy từ vựng hợp lệ trong nguồn.", "en": "No valid vocabulary was found in the source."},
     "blueprint_error_empty_tree": {"vi": "Cây deck đang trống.", "en": "The deck tree is empty."},
+    "blueprint_import_nothing": {
+        "vi": "Chưa có cây deck kèm dữ liệu từ vựng để nhập.",
+        "en": "There is no deck tree with vocabulary data to import.",
+    },
+    "blueprint_import_language_changed": {
+        "vi": "Ngôn ngữ đã đổi sau khi tạo cây. Hãy chạy AI đề xuất lại trước khi nhập.",
+        "en": "The language changed after generation. Generate the blueprint again before importing.",
+    },
+    "blueprint_import_no_valid_cards": {
+        "vi": "Không có thẻ hợp lệ để nhập ({invalid} mục không đạt schema).",
+        "en": "No valid cards can be imported ({invalid} items failed schema validation).",
+    },
     "blueprint_unsectioned": {"vi": "Chưa phân section", "en": "Unsectioned"},
     "blueprint_default_parent": {"vi": "Từ vựng AI", "en": "AI Vocabulary"},
     "blueprint_unassigned": {"vi": "Cần duyệt", "en": "Needs review"},
@@ -3410,6 +3452,28 @@ _TRANSLATIONS = {
         "en": "Save {total} approved decks? Forge will create {new} new decks and reuse {reused} matching decks. No existing deck, note, or SRS data will be renamed or deleted.",
     },
     "blueprint_saved_tooltip": {"vi": "Đã lưu {count} deck trong Blueprint.", "en": "Saved {count} Blueprint decks."},
+    "blueprint_import_confirm_title": {
+        "vi": "Duyệt batch Blueprint", "en": "Review Blueprint batch"
+    },
+    "blueprint_import_confirm": {
+        "vi": "Nhập {new} note mới vào {decks} sub-deck? Forge sẽ bỏ qua {duplicates} mục trùng, {conflicts} xung đột, {invalid} mục sai schema và {unassigned} mục chưa gán. Không cập nhật note cũ và chưa tạo audio. Bạn có thể hoàn tác đúng các note vừa thêm.",
+        "en": "Import {new} new notes into {decks} subdecks? Forge will skip {duplicates} duplicates, {conflicts} conflicts, {invalid} schema-invalid items, and {unassigned} unassigned items. Existing notes are not updated and audio is not generated. The added notes can be undone as one batch.",
+    },
+    "blueprint_import_no_new": {
+        "vi": "Không có note mới an toàn để nhập. Đã bỏ qua {duplicates} mục trùng, {conflicts} xung đột, {invalid} mục sai schema và {unassigned} mục chưa gán.",
+        "en": "There are no safe new notes to import. Skipped {duplicates} duplicates, {conflicts} conflicts, {invalid} schema-invalid items, and {unassigned} unassigned items.",
+    },
+    "blueprint_imported_tooltip": {
+        "vi": "Đã nhập {count} note mới từ Blueprint.",
+        "en": "Imported {count} new Blueprint notes.",
+    },
+    "blueprint_undo_confirm_title": {
+        "vi": "Hoàn tác batch Blueprint", "en": "Undo Blueprint batch"
+    },
+    "blueprint_undo_confirm": {
+        "vi": "Xóa đúng {count} note vừa được batch Blueprint gần nhất thêm vào? Deck đã tạo sẽ được giữ lại.",
+        "en": "Remove exactly {count} notes added by the latest Blueprint batch? Created decks will be kept.",
+    },
 }
 
 # ═══════════════════════════════════════════════════════════

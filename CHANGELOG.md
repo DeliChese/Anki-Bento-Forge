@@ -7,6 +7,8 @@
 #### ✨ Added
 - **Deck Manager multi-select** — parent and child decks can now be checked independently, with Select all/Clear checks controls and extended tree selection. Delete applies once per selected root, so checked child decks are never double-deleted when their parent is also checked; create-sub and rename remain explicitly single-deck actions.
 - **Deck Center + AI Deck Blueprint** — nút quản lý deck sẵn có trong Forge nay mở một trung tâm duy nhất cho cả cây deck hiện hữu và AI Blueprint; action Blueprint rời đã được gỡ khỏi menu Tools. Blueprint nhận danh sách H1–H6, cho sửa/di chuyển nhánh và chỉ create/reuse các deck đã duyệt sau xác nhận, không rename/delete deck, note hoặc SRS hiện hữu.
+- **Blueprint multi-deck import an toàn** — ngay trong Deck Center, cây đã duyệt có thể tạo/reuse deck và nhập note mới theo từng sub-deck sau một màn hình tổng hợp trùng/xung đột/sai schema/chưa gán. Luồng chỉ phát action `add`, không ghi đè note cũ, chưa tạo audio, re-check collection ngay trước ghi và giữ chính xác note ID để hoàn tác batch vừa nhập.
+- **Dùng lại Nguồn học liệu trong Deck Center** — khi mở Deck Center từ Forge, AI Deck Blueprint nhận một snapshot của văn bản hiện có, ngôn ngữ đang chọn và số file đã nạp; không cần dán lại, không dùng global cache, không tự chạy AI và không đồng bộ ngược vào nguồn gốc.
 
 #### 🔧 Changed
 - **Grammarbook DOCX retrieval** — Study Library now retains Word Title/Heading styles as Markdown during extraction, with a local fallback when `python-docx` is unavailable, so Grammarbook chapters and numbered lessons become searchable section boundaries. Exact numbered requests can match the indexed heading itself; prompts, SRS, card generation, and source quotas are unchanged.
