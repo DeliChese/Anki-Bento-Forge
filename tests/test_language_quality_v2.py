@@ -19,6 +19,12 @@ from utils.usage_guide import normalize_language_card
 
 
 ROOT = Path(__file__).resolve().parents[1]
+SEMANTIC_KEYS = (
+    "semantic_group", "relationship_note", "register_nuance", "related_terms",
+)
+SEMANTIC_FIELDS = (
+    "Semantic Group", "Relationship Note", "Register / Nuance", "Related Terms",
+)
 
 
 class _ModelManager:
@@ -83,6 +89,7 @@ def test_prompts_require_four_examples_and_grounded_usage_nuance_for_every_langu
         assert "example_3" in prompt and "example_4" in prompt
         assert "Bắt buộc đủ Ex1–Ex4" in prompt
         assert "sắc thái/mức độ dùng" in prompt
+        assert "relationship_note" in prompt
     for prompt in _GRAMMAR_SYSTEM_PROMPTS.values():
         assert "Function → Form → Constraint → Contrast/Error → Variants" in prompt
         assert "Ex3/4" in prompt
@@ -159,6 +166,21 @@ def test_vocab_import_contract_requires_all_four_examples_but_grammar_does_not()
     assert validate_ai_cards(
         [grammar], lang="english", kind="grammar", require_example=True,
     ).valid_cards
+
+
+def test_semantic_context_schema_migrates_and_renders_only_on_vocab_answers():
+    for language, cfg in LANG_CONFIG.items():
+        schema = json.loads(prompt_config.get_json_template(language, "vocab"))
+        assert all(key in schema for key in SEMANTIC_KEYS)
+        assert tuple(cfg["json_field_map"][key] for key in SEMANTIC_KEYS) == SEMANTIC_FIELDS
+        assert all(field in cfg["all_fields"] for field in SEMANTIC_FIELDS)
+
+        back = build_afmt(cfg, LANG_TEMPLATES[language], 1)
+        for field, label in zip(SEMANTIC_FIELDS, (
+            "Nhóm nghĩa", "Quan hệ / ghi chú", "Sắc thái / mức độ", "Từ liên quan",
+        )):
+            assert f"{{{{#{field}}}}}" in back
+            assert label in back
 
 
 def test_example_field_migration_is_additive_idempotent_and_keeps_card_count():

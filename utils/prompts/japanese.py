@@ -15,6 +15,10 @@ _JAPANESE_JSON_TEMPLATE = """{
   "usage_pattern": "Nを食べる",
   "usage_note": "食う suồng sã; 召し上がる là kính ngữ.",
   "collocation": "ご飯を食べる — ăn cơm",
+  "semantic_group": "Ăn uống",
+  "relationship_note": "",
+  "register_nuance": "Trung tính; 食う suồng sã hơn.",
+  "related_terms": "食事",
   "sino-vietnamese": "thực",
   "jlptlevel": "N5",
   "topic": "Động từ",
@@ -35,7 +39,7 @@ MẪU:
 {_JAPANESE_JSON_TEMPLATE}
 
 LUẬT:
-1. Đủ 17 key; field tùy chọn không hữu ích = "". Ưu tiên particle/case, valency, tự động từ/tha động từ, register và fixed construction; không biến mọi noun + particle thành pattern.
+1. Đủ 21 key; field tùy chọn không hữu ích = "". Ưu tiên particle/case, valency, tự động từ/tha động từ, register và fixed construction; không biến mọi noun + particle thành pattern.
 2. Sinh đủ 4 ví dụ tự nhiên, 5–12 từ, cùng nghĩa ngữ cảnh và đúng JLPT; mỗi ví dụ dùng một khung ngữ pháp/mục đích câu khác nhau.
 3. KIỂM: đúng trợ từ/collocation; 聞く “hỏi” = Nに聞く, không dịch 質問を聞く là hỏi; bản dịch đúng câu; furigana hiragana.
 4. Bỏ "TỪ ĐÃ CÓ", giữ thứ tự văn bản; không bịa nghĩa/cách dùng.
@@ -50,6 +54,10 @@ _JAPANESE_JSON_TEMPLATE_EN = """{
   "usage_pattern": "Nを食べる",
   "usage_note": "食う is rough; 召し上がる is honorific.",
   "collocation": "ご飯を食べる — eat a meal",
+  "semantic_group": "Food / eating",
+  "relationship_note": "",
+  "register_nuance": "Neutral; 食う is rougher.",
+  "related_terms": "食事",
   "sino-vietnamese": "",
   "jlptlevel": "N5",
   "topic": "Verb",
@@ -70,7 +78,7 @@ TEMPLATE:
 {_JAPANESE_JSON_TEMPLATE_EN}
 
 RULES:
-1. Fill all 17 keys; optional low-value fields = "". Prioritize particle/case, valency, transitivity, register, and fixed constructions; do not turn every noun + particle into a pattern.
+1. Fill all 21 keys; optional low-value fields = "". Prioritize particle/case, valency, transitivity, register, and fixed constructions; do not turn every noun + particle into a pattern.
 2. Write all 4 natural 5–12-word examples at the same JLPT and contextual sense; each must use a different grammar frame or sentence purpose.
 3. CHECK particles/collocations; ask with 聞く = Nに聞く, never translate 質問を聞く as ask; exact translation; hiragana furigana.
 4. Skip "EXISTING WORDS", preserve text order, and never invent usage.

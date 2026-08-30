@@ -22,6 +22,12 @@ _QUALITY_V2_EXAMPLE_FIELDS = {
     for index in (3, 4)
     for suffix in ("", " Pinyin", " Romanization", " in Vietnamese")
 }
+_SEMANTIC_FIELD_LABELS = {
+    "Semantic Group": "Nhóm nghĩa",
+    "Relationship Note": "Quan hệ / ghi chú",
+    "Register / Nuance": "Sắc thái / mức độ",
+    "Related Terms": "Từ liên quan",
+}
 
 
 def quality_v2_examples_block(cfg: dict) -> str:
@@ -127,7 +133,7 @@ def extra_fields_block(cfg: dict, base_fields=None, side: str = "back") -> str:
             'letter-spacing:1px;text-transform:uppercase;margin-bottom:4px;">%s</div>'
             '<div class="ef-value" style="font-size:15px;line-height:1.6;color:inherit;">{{%s}}</div>'
             '</div>'
-            '{{/%s}}' % (f, f, f, f)
+            '{{/%s}}' % (f, _SEMANTIC_FIELD_LABELS.get(f, f), f, f)
         )
     return "\n".join(parts)
 

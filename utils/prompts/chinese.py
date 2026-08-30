@@ -16,6 +16,10 @@ _CHINESE_JSON_TEMPLATE = """{
   "usage_pattern": "在 + nơi chốn + 学习 + nội dung",
   "usage_note": "Không dùng 学习 để chỉ biết một người.",
   "collocation": "学习中文 — học tiếng Trung",
+  "semantic_group": "Học tập",
+  "relationship_note": "",
+  "register_nuance": "Trung tính.",
+  "related_terms": "学",
   "sino_vietnamese": "học tập",
   "hsk_level": "HSK1",
   "topic": "Động từ",
@@ -40,7 +44,7 @@ MẪU:
 {_CHINESE_JSON_TEMPLATE}
 
 LUẬT:
-1. Đủ 22 key; field tùy chọn không hữu ích = "". Ưu tiên 搭配, classifier có lexical value, result/directional complement, separable verb, register và word-class ambiguity; không tuyệt đối hóa kiểu “觉得 không dùng trang trọng” hay sinh 很 + tính từ chỉ để đủ collocation.
+1. Đủ 26 key; field tùy chọn không hữu ích = "". Ưu tiên 搭配, classifier có lexical value, result/directional complement, separable verb, register và word-class ambiguity; không tuyệt đối hóa kiểu “觉得 không dùng trang trọng” hay sinh 很 + tính từ chỉ để đủ collocation.
 2. Sinh đủ 4 ví dụ tự nhiên, 5–12 từ, cùng nghĩa ngữ cảnh và đúng cấp HSK; mỗi ví dụ dùng một khung ngữ pháp/mục đích câu khác nhau.
 3. KIỂM: giản/thể cùng từ; pinyin dấu thanh; bản dịch đúng câu; từ đích có trong ví dụ.
 4. Bỏ "TỪ ĐÃ CÓ", giữ thứ tự văn bản; không bịa nghĩa/cách dùng.
@@ -56,6 +60,10 @@ _CHINESE_JSON_TEMPLATE_EN = """{
   "usage_pattern": "在 + place + 学习 + subject",
   "usage_note": "Do not use 学习 to mean know a person.",
   "collocation": "学习中文 — study Chinese",
+  "semantic_group": "Learning",
+  "relationship_note": "",
+  "register_nuance": "Neutral.",
+  "related_terms": "学",
   "sino-vietnamese": "",
   "hsk_level": "HSK1",
   "topic": "Verb",
@@ -80,7 +88,7 @@ TEMPLATE:
 {_CHINESE_JSON_TEMPLATE_EN}
 
 RULES:
-1. Fill all 22 keys; optional low-value fields = "". Prioritize 搭配, lexically useful classifiers, result/directional complements, separable verbs, register, and word-class ambiguity; do not generate 很 + adjective merely to fill collocations.
+1. Fill all 26 keys; optional low-value fields = "". Prioritize 搭配, lexically useful classifiers, result/directional complements, separable verbs, register, and word-class ambiguity; do not generate 很 + adjective merely to fill collocations.
 2. Write all 4 natural 5–12-word examples at the same HSK and contextual sense; each must use a different grammar frame or sentence purpose.
 3. CHECK matching simplified/traditional, tone-marked pinyin, exact translation, and target in each example.
 4. Skip "EXISTING WORDS", preserve text order, and never invent usage.

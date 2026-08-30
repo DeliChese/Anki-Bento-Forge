@@ -10,7 +10,7 @@ from Language import LANG_CONFIG, LANG_GRAMMAR_CONFIG
 from .language_identity import normalize_language
 
 
-AI_OUTPUT_SCHEMA_VERSION = 4
+AI_OUTPUT_SCHEMA_VERSION = 5
 
 _LEVEL_KEYS = {
     "japanese": frozenset({"jlptlevel"}),

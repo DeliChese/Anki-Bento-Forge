@@ -8,6 +8,9 @@ from collections.abc import Mapping, Sequence
 
 
 USAGE_GUIDE_FIELDS = ("usage_pattern", "usage_note", "collocation")
+SEMANTIC_CONTEXT_FIELDS = (
+    "semantic_group", "relationship_note", "register_nuance", "related_terms",
+)
 _EMPTY_MARKERS = frozenset({
     "", "-", "?", "n/a", "na", "none", "null", "undefined", "unknown",
     "tbd", "todo", "not available", "not applicable",
@@ -153,6 +156,15 @@ def normalize_usage_guide_card(card: object) -> object:
             continue
         normalized[field] = "\n".join(kept)
 
+    # Semantic fields are source facts, not guide lists.  Drop placeholders so
+    # cards only surface information that the AI actually supplied.
+    for field in SEMANTIC_CONTEXT_FIELDS:
+        value = _clean_text(normalized.get(field))
+        if _is_empty_marker(value):
+            normalized.pop(field, None)
+        elif value:
+            normalized[field] = value
+
     seen_examples = set()
     for index in range(1, 5):
         key = _comparison_key(_first_example_value(normalized, index))
@@ -223,6 +235,7 @@ def evaluate_usage_guide_card(card: object) -> dict:
 
 __all__ = [
     "USAGE_GUIDE_FIELDS",
+    "SEMANTIC_CONTEXT_FIELDS",
     "evaluate_usage_guide_card",
     "normalize_language_card",
     "normalize_language_cards",

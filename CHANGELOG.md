@@ -5,6 +5,7 @@
 ### 2026-08-31 — Version: `18.3.0` → `18.3.0`
 
 #### 🔧 Changed
+- **Ngữ cảnh ngữ nghĩa bám nguồn** — vocabulary card Nhật, Trung, Hàn và Anh có thêm Nhóm nghĩa, Quan hệ/ghi chú, Sắc thái/mức độ và Từ liên quan; các khối trống tự ẩn, xuất hiện trong Preview trước import. AI chỉ được ghi các fact này khi SOURCE nêu rõ, không được suy diễn quan hệ, vùng miền hay độ trang trọng. Prompt/cache tăng lên `36`; artifact theo schema trước thay đổi ở chế độ chỉ đọc tương thích cũ.
 - **Bốn ví dụ học từ vựng** — thẻ Nhật, Trung, Hàn và Anh mới bắt buộc có bốn ví dụ cùng nghĩa/cấp độ, mỗi câu ưu tiên một khung ngữ pháp hoặc mục đích câu khác; `Usage Note` nay nêu rõ sắc thái/mức độ dùng khi có căn cứ. Ví dụ 3–4 hiển thị trực tiếp ở mặt đáp án, không còn phần đối chiếu thu gọn. Prompt/cache tăng lên `35`; artifact thẻ cũ dùng schema trước thay đổi sẽ được giữ ở trạng thái chỉ đọc tương thích cũ.
 
 ### 2026-08-29 — Version: `18.3.0` → `18.3.0`

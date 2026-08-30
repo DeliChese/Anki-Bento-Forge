@@ -108,26 +108,26 @@ def show_ai_preview_dialog(parent, vocab_list, lang, ai_text_input, ai_instructi
                        "example_3", "example_3_vn", "example_4", "example_4_vn"]
     elif lang == "chinese":
         columns = ["simplified", "traditional", "pinyin", "meaning",
-                   "usage_pattern", "usage_note", "collocation", "sino_vietnamese",
+                   "usage_pattern", "usage_note", "collocation", "semantic_group", "relationship_note", "register_nuance", "related_terms", "sino_vietnamese",
                    "hsk_level", "topic", "example", "example_pinyin", "example_vn",
                    "example_2", "example_2_pinyin", "example_2_vn",
                    "example_3", "example_3_pinyin", "example_3_vn",
                    "example_4", "example_4_pinyin", "example_4_vn"]
     elif lang == "korean":
         columns = ["front", "romanization", "meaning",
-                   "usage_pattern", "usage_note", "collocation", "sino_vietnamese",
+                   "usage_pattern", "usage_note", "collocation", "semantic_group", "relationship_note", "register_nuance", "related_terms", "sino_vietnamese",
                    "topik_level", "topic", "example", "example_romanization", "example_vn",
                    "example_2", "example_2_romanization", "example_2_vn",
                    "example_3", "example_3_romanization", "example_3_vn",
                    "example_4", "example_4_romanization", "example_4_vn"]
     elif lang == "english":
         columns = ["front", "pronunciation", "meaning",
-                   "usage_pattern", "usage_note", "collocation", "cefr_level", "topic",
+                   "usage_pattern", "usage_note", "collocation", "semantic_group", "relationship_note", "register_nuance", "related_terms", "cefr_level", "topic",
                    "example", "example_vn", "example_2", "example_2_vn",
                    "example_3", "example_3_vn", "example_4", "example_4_vn"]
     else:
         columns = ["front", "furigana", "meaning",
-                   "usage_pattern", "usage_note", "collocation", "sino-vietnamese",
+                   "usage_pattern", "usage_note", "collocation", "semantic_group", "relationship_note", "register_nuance", "related_terms", "sino-vietnamese",
                    "jlptlevel", "topic", "example", "example_vn", "example_2", "example_2_vn",
                    "example_3", "example_3_vn", "example_4", "example_4_vn"]
 
