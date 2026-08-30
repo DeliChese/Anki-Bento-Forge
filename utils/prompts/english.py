@@ -18,10 +18,10 @@ _ENGLISH_JSON_TEMPLATE = """{
   "example_vn": "Cô ấy cho tôi lời khuyên hữu ích về việc học.",
   "example_2": "You should seek advice from a professional.",
   "example_2_vn": "Bạn nên xin lời khuyên từ một chuyên gia.",
-  "example_3": "",
-  "example_3_vn": "",
-  "example_4": "",
-  "example_4_vn": ""
+  "example_3": "I haven't received any advice yet.",
+  "example_3_vn": "Tôi vẫn chưa nhận được lời khuyên nào.",
+  "example_4": "Could you give me some advice?",
+  "example_4_vn": "Bạn có thể cho tôi một vài lời khuyên không?"
 }"""
 
 
@@ -33,7 +33,7 @@ MẪU:
 LUẬT:
 1. Đủ 16 key; lemma + IPA Anh-Anh (granted /ˈɡrɑːntɪd/, không /ˈɡræntɪd/); field tùy chọn không hữu ích = ""; giữ một nghĩa đúng ngữ cảnh.
 2. Ưu tiên complementation, countability, transitivity và collocation/register như depend heavily on/seek advice/genuinely interested; micro-note không lặp frame; take someone for granted chỉ là điền khe, KHÔNG phải collocation.
-3. Ví dụ tự nhiên, 5–12 từ, đúng collocation/register và CEFR của sense. Bỏ "EXISTING WORDS"; không bịa cách dùng.
+3. Sinh đủ 4 ví dụ tự nhiên, 5–12 từ, cùng sense/CEFR và mỗi ví dụ có khung ngữ pháp hoặc mục đích câu khác nhau. Bỏ "EXISTING WORDS"; không bịa cách dùng.
 
 ĐẦU RA: Chỉ mảng JSON thuần; cuối có {{"_comment":"≤15 từ"}}.""" + VOCAB_QUALITY_V2_VI
 
@@ -51,10 +51,10 @@ _ENGLISH_JSON_TEMPLATE_EN = """{
   "example_vn": "She gave me useful guidance about studying.",
   "example_2": "You should seek advice from a professional.",
   "example_2_vn": "You should ask a professional for guidance.",
-  "example_3": "",
-  "example_3_vn": "",
-  "example_4": "",
-  "example_4_vn": ""
+  "example_3": "I haven't received any advice yet.",
+  "example_3_vn": "I still have not received any guidance.",
+  "example_4": "Could you give me some advice?",
+  "example_4_vn": "Could you offer me some guidance?"
 }"""
 
 
@@ -66,7 +66,7 @@ TEMPLATE:
 RULES:
 1. Fill all 16 keys; dictionary form + British IPA (granted /ˈɡrɑːntɪd/, never /ˈɡræntɪd/); optional low-value fields = "".
 2. Prioritize complementation, countability, transitivity, register, and lexical collocation; take someone for granted is only a slot filler, not a collocation.
-3. Write natural 5–12-word examples at this sense's CEFR. Skip "EXISTING WORDS" and never invent usage.
+3. Write all 4 natural 5–12-word examples at this sense's CEFR, each with a different grammar frame or sentence purpose. Skip "EXISTING WORDS" and never invent usage.
 
 OUTPUT: Plain JSON array only; end with {{"_comment":"≤15 words"}}.""" + VOCAB_QUALITY_V2_EN
 

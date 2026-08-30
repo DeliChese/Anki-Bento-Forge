@@ -32,7 +32,7 @@ from .language_identity import normalize_language
 logger = get_logger()
 
 # Version của cấu trúc prompt config — bump khi thay đổi defaults (cache invalidation)
-PROMPT_CONFIG_VERSION = 7
+PROMPT_CONFIG_VERSION = 8
 
 _LEGACY_CONFIG_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "ai_prompts.json")
 CONFIG_PATH = get_user_data_path("ai_prompts.json")

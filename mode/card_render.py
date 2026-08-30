@@ -25,10 +25,9 @@ _QUALITY_V2_EXAMPLE_FIELDS = {
 
 
 def quality_v2_examples_block(cfg: dict) -> str:
-    """Render optional examples 3/4 on the answer side with disclosure."""
+    """Render examples 3/4 directly on the answer side, without comparison UI."""
     fields = set(cfg.get("all_fields") or [])
     parts = []
-    roles = {3: "Đối chiếu / ràng buộc", 4: "Sản sinh / nâng cao"}
     for index in (3, 4):
         example = f"Example{index}"
         if example not in fields:
@@ -44,10 +43,10 @@ def quality_v2_examples_block(cfg: dict) -> str:
         )
         translation = f"Example{index} in Vietnamese"
         body = (
-            f'{{{{#{example}}}}}<details class="quality-v2-example" '
+            f'{{{{#{example}}}}}<div class="ec quality-v2-example" '
             'style="margin-top:10px;text-align:left;">'
-            f'<summary style="cursor:pointer;font-weight:700;">Ví dụ {index} · {roles[index]}</summary>'
-            f'<div class="ej" style="margin-top:8px;">{{{{{example}}}}}</div>'
+            f'<div class="en">VÍ DỤ {index}</div>'
+            f'<div class="ej">{{{{{example}}}}}</div>'
         )
         if pronunciation:
             body += (
@@ -59,7 +58,7 @@ def quality_v2_examples_block(cfg: dict) -> str:
                 f'{{{{#{translation}}}}}<div class="ev">{{{{{translation}}}}}</div>'
                 f'{{{{/{translation}}}}}'
             )
-        body += f'</details>{{{{/{example}}}}}'
+        body += f'</div>{{{{/{example}}}}}'
         parts.append(body)
     return "".join(parts)
 

@@ -43,12 +43,24 @@ def test_invalid_language_never_becomes_japanese(tmp_path, value):
 
 def _card(lang, kind="vocab", *, identity=None, example=None):
     values = {
-        "japanese": ("聞く", "彼の話を聞きます。"),
-        "chinese": ("学习", "我每天学习中文。"),
-        "korean": ("배우다", "저는 매일 한국어를 배워요."),
-        "english": ("learn", "I learn something every day."),
+        "japanese": (
+            "聞く", "彼の話を聞きます。", "先生の話を聞きました。",
+            "音楽を聞きません。", "何を聞きますか。",
+        ),
+        "chinese": (
+            "学习", "我每天学习中文。", "她在学校学习汉语。",
+            "我今天不学习。", "你想学习中文吗？",
+        ),
+        "korean": (
+            "배우다", "저는 매일 한국어를 배워요.", "학교에서 한국어를 배웠어요.",
+            "오늘은 한국어를 배우지 않아요.", "무엇을 배우고 싶어요?",
+        ),
+        "english": (
+            "learn", "I learn something every day.", "She learned the rule yesterday.",
+            "We do not learn by waiting.", "Can you learn this quickly?",
+        ),
     }
-    front, sentence = values[lang]
+    front, sentence, example_2, example_3, example_4 = values[lang]
     if kind == "grammar":
         return {
             "pattern": identity or front, "meaning": "meaning", "usage": "usage",
@@ -56,6 +68,7 @@ def _card(lang, kind="vocab", *, identity=None, example=None):
         }
     return {
         "front": identity or front, "meaning": "meaning", "example": example or sentence,
+        "example_2": example_2, "example_3": example_3, "example_4": example_4,
     }
 
 
@@ -116,7 +129,8 @@ def test_artifact_is_immutable_current_schema_and_rejects_stale_or_future():
 def test_artifact_never_semantically_rewrites_kiku_example():
     card = {
         "front": "聞く", "meaning": "ask", "example": "質問を聞く",
-        "example_vn": "ask a question",
+        "example_vn": "ask a question", "example_2": "先生に聞きました。",
+        "example_3": "友達に聞きませんでした。", "example_4": "誰に聞きますか。",
     }
     artifact = create_card_artifact(
         session_id="session-a", language="japanese", kind="vocab",

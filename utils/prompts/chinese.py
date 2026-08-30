@@ -25,12 +25,12 @@ _CHINESE_JSON_TEMPLATE = """{
   "example_2": "他在图书馆认真学习。",
   "example_2_pinyin": "Tā zài túshūguǎn rènzhēn xuéxí.",
   "example_2_vn": "Anh ấy học tập chăm chỉ ở thư viện.",
-  "example_3": "",
-  "example_3_pinyin": "",
-  "example_3_vn": "",
-  "example_4": "",
-  "example_4_pinyin": "",
-  "example_4_vn": ""
+  "example_3": "我今天不学习汉字。",
+  "example_3_pinyin": "Wǒ jīntiān bù xuéxí hànzì.",
+  "example_3_vn": "Hôm nay tôi không học chữ Hán.",
+  "example_4": "你想学习中文吗？",
+  "example_4_pinyin": "Nǐ xiǎng xuéxí zhōngwén ma?",
+  "example_4_vn": "Bạn muốn học tiếng Trung không?"
 }"""
 
 
@@ -41,7 +41,7 @@ MẪU:
 
 LUẬT:
 1. Đủ 22 key; field tùy chọn không hữu ích = "". Ưu tiên 搭配, classifier có lexical value, result/directional complement, separable verb, register và word-class ambiguity; không tuyệt đối hóa kiểu “觉得 không dùng trang trọng” hay sinh 很 + tính từ chỉ để đủ collocation.
-2. Sinh 2–4 ví dụ tự nhiên, 5–12 từ: Ex1 canonical, Ex2 transfer; Ex3/4 chỉ cho restriction/contrast/complement hoặc productive variant; cùng nghĩa ngữ cảnh và đúng cấp HSK.
+2. Sinh đủ 4 ví dụ tự nhiên, 5–12 từ, cùng nghĩa ngữ cảnh và đúng cấp HSK; mỗi ví dụ dùng một khung ngữ pháp/mục đích câu khác nhau.
 3. KIỂM: giản/thể cùng từ; pinyin dấu thanh; bản dịch đúng câu; từ đích có trong ví dụ.
 4. Bỏ "TỪ ĐÃ CÓ", giữ thứ tự văn bản; không bịa nghĩa/cách dùng.
 
@@ -65,12 +65,12 @@ _CHINESE_JSON_TEMPLATE_EN = """{
   "example_2": "他在图书馆认真学习。",
   "example_2_pinyin": "Tā zài túshūguǎn rènzhēn xuéxí.",
   "example_2_vn": "He studies hard in the library.",
-  "example_3": "",
-  "example_3_pinyin": "",
-  "example_3_vn": "",
-  "example_4": "",
-  "example_4_pinyin": "",
-  "example_4_vn": ""
+  "example_3": "我今天不学习汉字。",
+  "example_3_pinyin": "Wǒ jīntiān bù xuéxí hànzì.",
+  "example_3_vn": "I am not studying Chinese characters today.",
+  "example_4": "你想学习中文吗？",
+  "example_4_pinyin": "Nǐ xiǎng xuéxí zhōngwén ma?",
+  "example_4_vn": "Do you want to study Chinese?"
 }"""
 
 
@@ -81,7 +81,7 @@ TEMPLATE:
 
 RULES:
 1. Fill all 22 keys; optional low-value fields = "". Prioritize 搭配, lexically useful classifiers, result/directional complements, separable verbs, register, and word-class ambiguity; do not generate 很 + adjective merely to fill collocations.
-2. Write 2–4 natural 5–12-word examples: Ex1 canonical, Ex2 transfer; use Ex3/4 only for a real restriction/contrast/complement or productive variant; match HSK and the same contextual sense.
+2. Write all 4 natural 5–12-word examples at the same HSK and contextual sense; each must use a different grammar frame or sentence purpose.
 3. CHECK matching simplified/traditional, tone-marked pinyin, exact translation, and target in each example.
 4. Skip "EXISTING WORDS", preserve text order, and never invent usage.
 

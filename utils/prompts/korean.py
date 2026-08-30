@@ -24,12 +24,12 @@ _KOREAN_JSON_TEMPLATE = """{
   "example_2": "친구와 함께 저녁을 먹었어요.",
   "example_2_romanization": "chinguwa hamkke jeonyeogeul meogeosseoyo.",
   "example_2_vn": "Tôi đã ăn tối cùng bạn bè.",
-  "example_3": "",
-  "example_3_romanization": "",
-  "example_3_vn": "",
-  "example_4": "",
-  "example_4_romanization": "",
-  "example_4_vn": ""
+  "example_3": "오늘 아침을 먹지 않았어요.",
+  "example_3_romanization": "oneul achimeul meokji anasseoyo.",
+  "example_3_vn": "Hôm nay tôi đã không ăn sáng.",
+  "example_4": "무엇을 먹을까요?",
+  "example_4_romanization": "mueoseul meogeulkkayo?",
+  "example_4_vn": "Chúng ta sẽ ăn gì?"
 }"""
 
 
@@ -40,7 +40,7 @@ MẪU:
 
 LUẬT:
 1. Đủ 21 key; field tùy chọn không hữu ích = "". Ưu tiên 조사, 어미, speech level, honorific constraint như N께 N을/를 드리다, transitivity và verb–noun/adjective pairing; 묻다: 길을 묻다, KHÔNG 질문을 묻다.
-2. Sinh 2–4 ví dụ tự nhiên, 5–12 từ: Ex1 canonical, Ex2 transfer; Ex3/4 chỉ cho particle/ending/register/contrast hoặc productive variant; cùng nghĩa ngữ cảnh và đúng cấp TOPIK.
+2. Sinh đủ 4 ví dụ tự nhiên, 5–12 từ, cùng nghĩa ngữ cảnh và đúng cấp TOPIK; mỗi ví dụ dùng một khung ngữ pháp/mục đích câu khác nhau.
 3. KIỂM: bản dịch đúng câu; từ đích có thể chia; Romanization Revised không gạch nối.
 4. Bỏ "TỪ ĐÃ CÓ", giữ thứ tự văn bản; không bịa nghĩa/cách dùng.
 
@@ -63,12 +63,12 @@ _KOREAN_JSON_TEMPLATE_EN = """{
   "example_2": "친구와 함께 저녁을 먹었어요.",
   "example_2_romanization": "chinguwa hamkke jeonyeogeul meogeosseoyo.",
   "example_2_vn": "I had dinner with my friend.",
-  "example_3": "",
-  "example_3_romanization": "",
-  "example_3_vn": "",
-  "example_4": "",
-  "example_4_romanization": "",
-  "example_4_vn": ""
+  "example_3": "오늘 아침을 먹지 않았어요.",
+  "example_3_romanization": "oneul achimeul meokji anasseoyo.",
+  "example_3_vn": "I did not eat breakfast today.",
+  "example_4": "무엇을 먹을까요?",
+  "example_4_romanization": "mueoseul meogeulkkayo?",
+  "example_4_vn": "What shall we eat?"
 }"""
 
 
@@ -79,7 +79,7 @@ TEMPLATE:
 
 RULES:
 1. Fill all 21 keys; optional low-value fields = "". Prioritize 조사, 어미, speech level, honorific constraints, transitivity, and verb–noun/adjective pairing; 묻다: 길을 묻다, NEVER 질문을 묻다.
-2. Write 2–4 natural 5–12-word examples: Ex1 canonical, Ex2 transfer; use Ex3/4 only for a useful particle/ending/register contrast or productive variant; match TOPIK and the same contextual sense.
+2. Write all 4 natural 5–12-word examples at the same TOPIK and contextual sense; each must use a different grammar frame or sentence purpose.
 3. CHECK exact translation, inflected target use, and Revised Romanization without hyphens.
 4. Skip "EXISTING WORDS", preserve text order, and never invent usage.
 

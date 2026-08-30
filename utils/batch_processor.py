@@ -347,9 +347,9 @@ For EACH word in the list above, create a complete JSON object following this te
 {template}
 
 QUALITY: Preserve any supplied meaning/level. If a meaning is supplied, use it consistently
-in meaning, both examples, and both translations; never switch to another sense. Follow the
-system rules exactly; keep correct form/usage, concise topic, and two natural distinct examples
-at the assigned proficiency level. Fill every schema field; never invent missing facts.
+in meaning, all four examples, and all translations; never switch to another sense. Follow the
+system rules exactly; keep correct form/usage, concise topic, and four natural examples with
+different grammar frames or sentence purposes at the assigned proficiency level. Fill every schema field; never invent missing facts.
 """
         else:
             prompt = f"""📝 BATCH {batch_num}/{total_batches} — XỬ LÝ {len(words)} TỪ VỰNG
@@ -361,9 +361,9 @@ DANH SÁCH TỪ CẦN XỬ LÝ:
 Với MỖI từ trong danh sách trên, tạo một object JSON đầy đủ theo mẫu:
 {template}
 
-CHẤT LƯỢNG: Giữ nghĩa/cấp độ đã cung cấp. Nếu có nghĩa, meaning, hai ví dụ và hai bản dịch
+CHẤT LƯỢNG: Giữ nghĩa/cấp độ đã cung cấp. Nếu có nghĩa, meaning, cả bốn ví dụ và mọi bản dịch
 phải cùng nghĩa đó, không đổi sang nghĩa khác. Tuân thủ system prompt; giữ dạng từ/cách dùng
-chuẩn, topic gọn và hai ví dụ tự nhiên khác ngữ cảnh, đúng cấp độ đã gán. Điền đủ schema;
+chuẩn, topic gọn và bốn ví dụ tự nhiên với khung ngữ pháp hoặc mục đích câu khác nhau, đúng cấp độ đã gán. Điền đủ schema;
 không bịa dữ kiện còn thiếu.
 """
     

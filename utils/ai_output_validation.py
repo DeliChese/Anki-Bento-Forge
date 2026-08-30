@@ -10,7 +10,7 @@ from Language import LANG_CONFIG, LANG_GRAMMAR_CONFIG
 from .language_identity import normalize_language
 
 
-AI_OUTPUT_SCHEMA_VERSION = 3
+AI_OUTPUT_SCHEMA_VERSION = 4
 
 _LEVEL_KEYS = {
     "japanese": frozenset({"jlptlevel"}),
@@ -159,8 +159,15 @@ def _validate_one(
         value = str(card[level_key]).strip().upper()
         if not _LEVEL_PATTERNS[lang].fullmatch(value):
             return "invalid_level"
-    if require_example and not _visible(card.get("example")):
-        return "missing_primary_example"
+    if require_example:
+        if not _visible(card.get("example")):
+            return "missing_primary_example"
+        # New vocabulary cards deliberately provide four useful production
+        # contexts. Grammar cards retain their established minimum of one.
+        if kind == "vocab":
+            for index in range(2, 5):
+                if not _visible(card.get(f"example_{index}")):
+                    return f"missing_example_{index}"
     return _content_language_issue(card, lang, kind)
 
 

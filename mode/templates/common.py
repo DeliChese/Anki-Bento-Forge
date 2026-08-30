@@ -12,7 +12,7 @@ def _usage_guide_block() -> str:
         '{{#Usage Pattern}}<div class="es usage-guide"><div class="esl">Mẫu dùng</div>'
         '<div class="ec"><div class="ev" style="font-style:normal;color:var(--text);white-space:pre-line;">'
         '{{Usage Pattern}}</div></div></div>{{/Usage Pattern}}'
-        '{{#Usage Note}}<div class="es usage-guide"><div class="esl">Lưu ý dùng</div>'
+        '{{#Usage Note}}<div class="es usage-guide"><div class="esl">Sắc thái & lưu ý dùng</div>'
         '<div class="ec"><div class="ev" style="font-style:normal;color:var(--text);white-space:pre-line;">'
         '{{Usage Note}}</div></div></div>{{/Usage Note}}'
         '{{#Collocation}}<div class="es usage-guide"><div class="esl">Cụm đi kèm</div>'

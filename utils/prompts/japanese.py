@@ -18,14 +18,14 @@ _JAPANESE_JSON_TEMPLATE = """{
   "sino-vietnamese": "thực",
   "jlptlevel": "N5",
   "topic": "Động từ",
-  "example": "毎日ご飯を食べるよ。",
-  "example_vn": "Hàng ngày tớ ăn cơm đó.",
-  "example_2": "お客様とご一緒に夕食を召し上がりました。",
-  "example_2_vn": "Tôi đã dùng bữa tối cùng với quý khách.",
-  "example_3": "",
-  "example_3_vn": "",
-  "example_4": "",
-  "example_4_vn": ""
+  "example": "毎朝パンを食べます。",
+  "example_vn": "Mỗi sáng tôi ăn bánh mì.",
+  "example_2": "週末は家族と外で食べる。",
+  "example_2_vn": "Cuối tuần tôi ăn ngoài cùng gia đình.",
+  "example_3": "今朝は朝ご飯を食べなかった。",
+  "example_3_vn": "Sáng nay tôi đã không ăn sáng.",
+  "example_4": "何を食べたいですか。",
+  "example_4_vn": "Bạn muốn ăn gì?"
 }"""
 
 
@@ -36,7 +36,7 @@ MẪU:
 
 LUẬT:
 1. Đủ 17 key; field tùy chọn không hữu ích = "". Ưu tiên particle/case, valency, tự động từ/tha động từ, register và fixed construction; không biến mọi noun + particle thành pattern.
-2. Sinh 2–4 ví dụ tự nhiên, 5–12 từ: Ex1 canonical, Ex2 transfer; Ex3/4 chỉ khi làm rõ constraint/contrast hoặc productive variant; độ khó khớp JLPT và cùng nghĩa ngữ cảnh.
+2. Sinh đủ 4 ví dụ tự nhiên, 5–12 từ, cùng nghĩa ngữ cảnh và đúng JLPT; mỗi ví dụ dùng một khung ngữ pháp/mục đích câu khác nhau.
 3. KIỂM: đúng trợ từ/collocation; 聞く “hỏi” = Nに聞く, không dịch 質問を聞く là hỏi; bản dịch đúng câu; furigana hiragana.
 4. Bỏ "TỪ ĐÃ CÓ", giữ thứ tự văn bản; không bịa nghĩa/cách dùng.
 
@@ -53,14 +53,14 @@ _JAPANESE_JSON_TEMPLATE_EN = """{
   "sino-vietnamese": "",
   "jlptlevel": "N5",
   "topic": "Verb",
-  "example": "毎日ご飯を食べるよ。",
-  "example_vn": "I eat rice every day.",
-  "example_2": "お客様とご一緒に夕食を召し上がりました。",
-  "example_2_vn": "I had dinner together with the guest.",
-  "example_3": "",
-  "example_3_vn": "",
-  "example_4": "",
-  "example_4_vn": ""
+  "example": "毎朝パンを食べます。",
+  "example_vn": "I eat bread every morning.",
+  "example_2": "週末は家族と外で食べる。",
+  "example_2_vn": "I eat out with my family on weekends.",
+  "example_3": "今朝は朝ご飯を食べなかった。",
+  "example_3_vn": "I did not eat breakfast this morning.",
+  "example_4": "何を食べたいですか。",
+  "example_4_vn": "What would you like to eat?"
 }"""
 
 
@@ -71,7 +71,7 @@ TEMPLATE:
 
 RULES:
 1. Fill all 17 keys; optional low-value fields = "". Prioritize particle/case, valency, transitivity, register, and fixed constructions; do not turn every noun + particle into a pattern.
-2. Write 2–4 natural 5–12-word examples: Ex1 canonical, Ex2 transfer; use Ex3/4 only for a real constraint/contrast or productive variant; match JLPT and the same contextual sense.
+2. Write all 4 natural 5–12-word examples at the same JLPT and contextual sense; each must use a different grammar frame or sentence purpose.
 3. CHECK particles/collocations; ask with 聞く = Nに聞く, never translate 質問を聞く as ask; exact translation; hiragana furigana.
 4. Skip "EXISTING WORDS", preserve text order, and never invent usage.
 

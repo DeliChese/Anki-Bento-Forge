@@ -2,6 +2,11 @@
 
 ## [Unreleased]
 
+### 2026-08-31 — Version: `18.3.0` → `18.3.0`
+
+#### 🔧 Changed
+- **Bốn ví dụ học từ vựng** — thẻ Nhật, Trung, Hàn và Anh mới bắt buộc có bốn ví dụ cùng nghĩa/cấp độ, mỗi câu ưu tiên một khung ngữ pháp hoặc mục đích câu khác; `Usage Note` nay nêu rõ sắc thái/mức độ dùng khi có căn cứ. Ví dụ 3–4 hiển thị trực tiếp ở mặt đáp án, không còn phần đối chiếu thu gọn. Prompt/cache tăng lên `35`; artifact thẻ cũ dùng schema trước thay đổi sẽ được giữ ở trạng thái chỉ đọc tương thích cũ.
+
 ### 2026-08-29 — Version: `18.3.0` → `18.3.0`
 
 #### ✨ Added

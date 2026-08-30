@@ -12,6 +12,7 @@ from utils.ai_benchmark import (
     summarize_quality_v2_cards,
     validate_quality_v2_corpus,
 )
+from utils.ai_output_validation import validate_ai_cards
 from utils.import_quality import evaluate_card_candidate, find_confusion_candidates
 from utils.model_lifecycle import ensure_model
 from utils.usage_guide import normalize_language_card
@@ -51,15 +52,19 @@ class _ModelManager:
         model["tmpls"].remove(template)
 
 
-def test_all_language_schemas_support_optional_example_3_and_4():
+def test_all_language_schemas_support_example_3_and_4_with_vocab_samples():
     for kind, configs in (("vocab", LANG_CONFIG), ("grammar", LANG_GRAMMAR_CONFIG)):
         for language, cfg in configs.items():
             schema = json.loads(prompt_config.get_json_template(language, kind))
             for index in (3, 4):
                 assert f"example_{index}" in schema
                 assert f"example_{index}_vn" in schema
-                assert schema[f"example_{index}"] == ""
-                assert schema[f"example_{index}_vn"] == ""
+                if kind == "vocab":
+                    assert schema[f"example_{index}"]
+                    assert schema[f"example_{index}_vn"]
+                else:
+                    assert schema[f"example_{index}"] == ""
+                    assert schema[f"example_{index}_vn"] == ""
                 assert cfg["json_field_map"][f"example_{index}"] == f"Example{index}"
                 assert f"Example{index}" in cfg["all_fields"]
             if language == "chinese":
@@ -68,7 +73,7 @@ def test_all_language_schemas_support_optional_example_3_and_4():
                 assert all(f"example_{index}_romanization" in schema for index in (3, 4))
 
 
-def test_prompts_encode_information_gain_and_optional_enrichment_for_every_language():
+def test_prompts_require_four_examples_and_grounded_usage_nuance_for_every_language():
     from utils.prompts import _GRAMMAR_SYSTEM_PROMPTS, _SYSTEM_PROMPTS
 
     for prompt in _SYSTEM_PROMPTS.values():
@@ -76,7 +81,8 @@ def test_prompts_encode_information_gain_and_optional_enrichment_for_every_langu
         assert "0–3 micro-note" in prompt
         assert "0–3" in prompt and "collocation —" in prompt
         assert "example_3" in prompt and "example_4" in prompt
-        assert "Empty >" in prompt
+        assert "Bắt buộc đủ Ex1–Ex4" in prompt
+        assert "sắc thái/mức độ dùng" in prompt
     for prompt in _GRAMMAR_SYSTEM_PROMPTS.values():
         assert "Function → Form → Constraint → Contrast/Error → Variants" in prompt
         assert "Ex3/4" in prompt
@@ -120,17 +126,39 @@ def test_normalizer_removes_duplicate_and_orphan_optional_example_bundles():
     assert all(not key.startswith("example_4") for key in normalized)
 
 
-def test_example_3_and_4_render_collapsed_on_answers_only():
+def test_example_3_and_4_render_directly_on_answers_without_comparison_labels():
     for language, cfg in LANG_CONFIG.items():
         front = build_qfmt(cfg, LANG_TEMPLATES[language], 0)
         back = build_afmt(cfg, LANG_TEMPLATES[language], 1)
         assert "{{Example3}}" not in front and "{{Example4}}" not in front
         assert "{{#Example3}}" in back and "{{#Example4}}" in back
-        assert back.count('class="quality-v2-example"') == 2
+        assert back.count("quality-v2-example") == 2
+        assert "<details" not in back
+        assert "Đối chiếu" not in back
+        assert "VÍ DỤ 3" in back and "VÍ DỤ 4" in back
 
     for language, cfg in LANG_GRAMMAR_CONFIG.items():
         back = build_afmt(cfg, LANG_GRAMMAR_TEMPLATES[language], 1)
         assert "{{#Example3}}" in back and "{{#Example4}}" in back
+
+
+def test_vocab_import_contract_requires_all_four_examples_but_grammar_does_not():
+    partial_vocab = {
+        "front": "advice", "meaning": "lời khuyên", "example": "Ask for advice.",
+        "example_2": "She gave advice.",
+    }
+    report = validate_ai_cards(
+        [partial_vocab], lang="english", kind="vocab", require_example=True,
+    )
+    assert report.invalid[0].category == "missing_example_3"
+
+    grammar = {
+        "pattern": "used to + V", "meaning": "thói quen cũ",
+        "usage": "S + used to + V", "example": "I used to walk home.",
+    }
+    assert validate_ai_cards(
+        [grammar], lang="english", kind="grammar", require_example=True,
+    ).valid_cards
 
 
 def test_example_field_migration_is_additive_idempotent_and_keeps_card_count():

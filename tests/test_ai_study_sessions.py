@@ -24,6 +24,9 @@ def _english_card(front="opportunity"):
     return {
         "front": front, "meaning": "opportunity", "cefr_level": "B1",
         "example": f"This is an example with {front}.",
+        "example_2": f"She discussed {front} with her manager.",
+        "example_3": f"They did not ignore the {front}.",
+        "example_4": f"Could this be a {front}?",
     }
 
 
