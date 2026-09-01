@@ -15,6 +15,12 @@ from utils.ai_extractor import (
     chat_with_ai,
 )
 from utils.ai_candidate_extractor import extract_source_candidates_with_ai
+from utils.ai_inventory_scanner import (
+    apply_prepared_inventory,
+    inventory_source_from_text,
+    scan_inventory_with_ai,
+    topic_catalog_instruction,
+)
 from utils.knowledge_extractor import extract_knowledge_long_text
 
 logger = get_logger()
@@ -88,11 +94,42 @@ class AiExtractThread(QThread):
                 )
                 self.progress.emit(t("status_deck_avoid", count=len(self.existing_words), label=label))
 
+            preflight = None
+            generation_instruction = self.custom_instruction
+            if self.learning_mode != "knowledge":
+                self.progress.emit(t("worker_progress_topic_inventory"))
+                preflight = scan_inventory_with_ai(
+                    inventory_source_from_text(self.text, name="Forge AI source"),
+                    self.lang,
+                    card_kind=self.card_kind,
+                    progress_callback=lambda msg: self.progress.emit(msg),
+                    should_abort=self.cancel_event.is_set,
+                    turbo=True,
+                )
+                if self.cancel_event.is_set():
+                    return
+                topic_instruction = topic_catalog_instruction(preflight.get("topic_catalog", ()))
+                generation_instruction = "\n".join(
+                    part for part in (self.custom_instruction.strip(), topic_instruction) if part
+                )
+                approved = sum(
+                    1 for item in preflight.get("inventory", ())
+                    if item.get("decision") == "keep" and item.get("topic")
+                )
+                self.progress.emit(t(
+                    "worker_progress_topic_inventory_done",
+                    topics=len(preflight.get("topic_catalog", ())),
+                    count=approved,
+                ))
+                if not approved:
+                    self.error.emit(t("empty_preproduction_inventory"))
+                    return
+
             if self.learning_mode == "knowledge":
                 self.progress.emit(t("worker_progress_knowledge"))
                 result_list = extract_knowledge_long_text(
                     self.text,
-                    self.custom_instruction,
+                    generation_instruction,
                     existing_keys=self.existing_words,
                     progress_callback=lambda msg: self.progress.emit(msg),
                     should_abort=self.cancel_event.is_set,
@@ -103,7 +140,7 @@ class AiExtractThread(QThread):
                 result_list = extract_grammar_long_text(
                     self.text,
                     self.lang,
-                    self.custom_instruction,
+                    generation_instruction,
                     existing_patterns=self.existing_words,
                     progress_callback=lambda msg: self.progress.emit(msg),
                     should_abort=self.cancel_event.is_set,
@@ -117,7 +154,7 @@ class AiExtractThread(QThread):
                 result_list = extract_vocabulary_long_text(
                     self.text,
                     self.lang,
-                    self.custom_instruction,
+                    generation_instruction,
                     existing_words=self.existing_words,
                     progress_callback=lambda msg: self.progress.emit(msg),
                     should_abort=self.cancel_event.is_set,
@@ -129,6 +166,13 @@ class AiExtractThread(QThread):
 
             if self.cancel_event.is_set():
                 return
+            if preflight is not None:
+                result_list = apply_prepared_inventory(
+                    result_list,
+                    preflight.get("inventory", ()),
+                    preflight.get("topic_catalog", ()),
+                    card_kind=self.card_kind,
+                )
             if not result_list:
                 self.error.emit(empty_msg)
                 return

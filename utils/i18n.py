@@ -1512,7 +1512,7 @@ _TRANSLATIONS = {
         "en": "Spreadsheets and documents (*.xlsx *.xls *.csv *.tsv *.txt *.md *.pdf *.docx);;All files (*)",
     },
     "supervised_analyze": {"vi": "🤖 AI quét & lập kho", "en": "🤖 AI scan & build inventory"},
-    "supervised_scan_details": {"vi": "Xem mục AI loại", "en": "Review AI exclusions"},
+    "supervised_scan_details": {"vi": "Xem mục đã loại", "en": "Review exclusions"},
     "supervised_scan_details_title": {
         "vi": "Các dòng Cần xem / Bỏ qua",
         "en": "Review / skipped source rows",
@@ -1522,8 +1522,8 @@ _TRANSLATIONS = {
         "en": "AI did not mark any rows for review or skipping.",
     },
     "supervised_scan_detail_row": {
-        "vi": "[{decision}] {source_id}\nỨng viên: {surface}\nLý do: {reason}\nNguồn: {source}",
-        "en": "[{decision}] {source_id}\nCandidate: {surface}\nReason: {reason}\nSource: {source}",
+        "vi": "[{decision}]\nỨng viên: {surface}\nLý do: {reason}\nDòng nguồn: {source}",
+        "en": "[{decision}]\nCandidate: {surface}\nReason: {reason}\nSource row: {source}",
     },
     "supervised_restore_selected": {
         "vi": "Đưa mục đã chọn sang Cần xem",
@@ -1548,6 +1548,18 @@ _TRANSLATIONS = {
     },
     "supervised_filter_group": {"vi": "2. Chọn lượt sản xuất", "en": "2. Choose a production run"},
     "supervised_topic": {"vi": "Chủ đề:", "en": "Topic:"},
+    "supervised_topic_catalog_pending": {
+        "vi": "Danh mục chủ đề chưa khóa. Nút Sản xuất chỉ mở sau khi hệ thống gộp chủ đề trùng, đếm và gán xong từng mục.",
+        "en": "The topic catalog is not locked yet. Production unlocks only after duplicate labels are merged, counted, and assigned.",
+    },
+    "supervised_topic_catalog_ready": {
+        "vi": "✓ Đã khóa {topics} chủ đề: {preview}{more}",
+        "en": "✓ Locked {topics} topics: {preview}{more}",
+    },
+    "supervised_topic_catalog_more": {
+        "vi": " · và {count} chủ đề khác",
+        "en": " · and {count} more",
+    },
     "supervised_level": {"vi": "Cấp độ:", "en": "Level:"},
     "supervised_decision": {"vi": "Trạng thái AI:", "en": "AI decision:"},
     "supervised_decision_keep": {"vi": "Giữ", "en": "Keep"},
@@ -1587,6 +1599,14 @@ _TRANSLATIONS = {
     },
     "supervised_preview_more": {"vi": "… và {count} mục nữa", "en": "… and {count} more"},
     "supervised_settings_group": {"vi": "3. Thiết lập sản xuất", "en": "3. Production settings"},
+    "supervised_turbo_scan": {
+        "vi": "⚡ Quét nhanh 1.5×",
+        "en": "⚡ 1.5× fast scan",
+    },
+    "supervised_turbo_scan_tip": {
+        "vi": "Tăng số dòng mỗi request 1,5 lần và dùng JSON compact. Bảng Excel có header rõ được đọc cục bộ, không tốn token quét.",
+        "en": "Scan 1.5× more rows per request with compact JSON. Header-based Excel tables are read locally with zero scan tokens.",
+    },
     "supervised_estimate_empty": {
         "vi": "Chọn một nhóm để xem ước tính lượt sản xuất.",
         "en": "Choose a group to see the production estimate.",
@@ -1632,13 +1652,45 @@ _TRANSLATIONS = {
         "vi": "AI đã lập kho {count} ứng viên: giữ {keep}, cần xem {review}, bỏ qua {skip}. Mặc định chỉ sản xuất mục Giữ.",
         "en": "AI built {count} candidates: kept {keep}, review {review}, skipped {skip}. Only Keep items are produced by default.",
     },
+    "supervised_analyzed_local": {
+        "vi": "Đã đọc cục bộ {count} mục từ các cột Excel: giữ {keep}, cần xem {review}, bỏ qua {skip}. Quét kho dùng 0 request và 0 token AI.",
+        "en": "Read {count} items locally from Excel columns: kept {keep}, review {review}, skipped {skip}. Inventory scan used 0 AI requests and 0 tokens.",
+    },
+    "supervised_scan_usage": {
+        "vi": "Chi phí quét: {requests} request · input {input_tokens} · output {output_tokens} token · ${cost:.4f}.",
+        "en": "Scan usage: {requests} requests · {input_tokens} input · {output_tokens} output tokens · ${cost:.4f}.",
+    },
     "inventory_ai_empty_source": {
         "vi": "Nguồn không có dòng dữ liệu để AI quét.",
         "en": "The source has no rows for AI scanning.",
     },
+    "inventory_ai_malformed_json": {
+        "vi": "AI trả về dữ liệu quét không đúng định dạng. Hãy quét lại; hệ thống không dùng kết quả lỗi này.",
+        "en": "AI returned malformed scan data. Scan again; the invalid result was not used.",
+    },
+    "inventory_ai_invalid_shape": {
+        "vi": "AI trả về dữ liệu quét thiếu danh sách kết quả. Hãy quét lại; hệ thống không dùng kết quả này.",
+        "en": "AI returned scan data without a result list. Scan again; this result was not used.",
+    },
+    "inventory_ai_invalid_api_response": {
+        "vi": "Dịch vụ AI trả về phản hồi API không hợp lệ. Hãy kiểm tra cấu hình endpoint/model rồi thử lại.",
+        "en": "The AI service returned an invalid API response. Check the endpoint/model configuration and try again.",
+    },
     "inventory_ai_starting": {
         "vi": "Đang khởi động AI Inventory Scanner…",
         "en": "Starting AI Inventory Scanner…",
+    },
+    "worker_progress_topic_inventory": {
+        "vi": "Đang chuẩn hóa chủ đề và lập kho tiền sản xuất…",
+        "en": "Normalizing topics and building the pre-production inventory…",
+    },
+    "worker_progress_topic_inventory_done": {
+        "vi": "Đã khóa {topics} chủ đề và duyệt {count} mục; bắt đầu tạo nội dung thẻ…",
+        "en": "Locked {topics} topics and approved {count} items; starting card generation…",
+    },
+    "empty_preproduction_inventory": {
+        "vi": "Kho tiền sản xuất không có mục đã được gán chủ đề và duyệt. Hãy dùng Sản xuất có giám sát để xem các mục Cần xem.",
+        "en": "The pre-production inventory has no approved topic-assigned items. Use supervised production to review ambiguous items.",
     },
     "inventory_ai_cache_hit": {
         "vi": "Đã dùng kết quả quét đã kiểm chứng trong bộ nhớ đệm ({count} ứng viên).",
@@ -1651,6 +1703,10 @@ _TRANSLATIONS = {
     "inventory_ai_complete": {
         "vi": "AI đã quét xong {count} ứng viên có neo nguồn.",
         "en": "AI finished scanning {count} source-anchored candidates.",
+    },
+    "inventory_local_complete": {
+        "vi": "Đã đọc cục bộ {count} mục từ bảng có cấu trúc; không gọi AI.",
+        "en": "Read {count} items locally from structured tables; AI was not called.",
     },
     "supervised_nothing_selected": {
         "vi": "Không còn mục nào trong bộ lọc hiện tại.",

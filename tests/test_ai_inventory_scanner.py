@@ -1,7 +1,22 @@
 import json
 import zipfile
 
+import pytest
+
 from utils import ai_inventory_scanner as scanner
+
+
+def test_inventory_json_parser_repairs_compact_envelope_and_trailing_comma():
+    parsed = scanner._parse_json_object(
+        '{r:[[0,"机场","","sân bay","Du lịch","HSK1","k",99,"word"]], metadata: "ignored"}'
+    )
+
+    assert parsed["r"][0][1] == "机场"
+
+
+def test_inventory_json_parser_reports_a_safe_error_for_unrecoverable_content():
+    with pytest.raises(ValueError, match="AI trả về dữ liệu quét không đúng định dạng"):
+        scanner._parse_json_object('{"r":[}')
 
 
 def test_pasted_source_keeps_stable_line_anchors_and_heading_context():
@@ -16,6 +31,17 @@ def test_pasted_source_keeps_stable_line_anchors_and_heading_context():
     assert source["rows"][1]["context"] == "Du lịch"
     assert source["rows"][3]["context"] == "Du lịch > HSK 2"
     assert source["source_hash"]
+
+
+def test_technical_excel_preview_is_recovered_as_real_cells():
+    source = scanner.inventory_source_from_text(
+        'A1000!R000001\tC1="STT" | C2="Nhóm" | C3="Từ tiếng Trung" | C4="Pinyin"\n'
+        'A1000!R000002\tC1="1" | C2="Du lịch" | C3="机场" | C4="jīchǎng"'
+    )
+
+    assert source["rows"][0]["sheet"] == "A1000"
+    assert source["rows"][1]["row"] == 2
+    assert source["rows"][1]["cells"] == ["1", "Du lịch", "机场", "jīchǎng"]
 
 
 def test_csv_source_preserves_empty_columns_and_row_numbers(tmp_path):
@@ -145,6 +171,127 @@ def test_user_can_restore_a_source_anchored_skip_as_review_inventory():
     assert inventory[0]["decision"] == "review"
 
 
+def test_structured_excel_fast_path_uses_zero_ai_tokens(tmp_path, monkeypatch):
+    source = scanner.inventory_source_from_text(
+        'A1000!R000001\tC1="STT" | C2="Nhóm" | C3="Từ tiếng Trung" | C4="Pinyin" | '
+        'C5="Nghĩa tiếng Việt" | C6="HSK Level"\n'
+        'A1000!R000002\tC1="1" | C2="Du lịch" | C3="机场" | C4="jīchǎng" | '
+        'C5="sân bay" | C6="HSK 2"\n'
+        'Phân nhóm!R000001\tC1="Nhóm" | C2="Số mục" | C3="Vai trò"\n'
+        'Phân nhóm!R000002\tC1="Du lịch" | C2="1" | C3="Mô tả phụ"'
+    )
+    monkeypatch.setattr(
+        scanner._api,
+        "get_api_config",
+        lambda: (_ for _ in ()).throw(AssertionError("AI must not be called")),
+    )
+
+    result = scanner.scan_inventory_with_ai(source, "chinese")
+
+    assert result["scan_mode"] == "structured_local"
+    assert result["counts"] == {
+        "source_rows": 4, "keep": 1, "skip": 3, "review": 0, "unresolved": 0,
+    }
+    assert result["inventory"][0]["front"] == "机场"
+    assert result["inventory"][0]["topic"] == "Du lịch"
+    assert result["inventory"][0]["level"] == "HSK2"
+    assert result["token_info"]["total_tokens"] == 0
+    assert result["token_info"]["requests"] == 0
+
+
+def test_chinese_register_column_is_not_a_level_and_is_enriched_as_hsk(tmp_path, monkeypatch):
+    source = scanner.inventory_source_from_text(
+        'A1000!R000001\tC1="STT" | C2="Nhóm" | C3="Từ tiếng Trung" | '
+        'C4="Pinyin" | C5="Nghĩa" | C6="Mức độ / sắc thái"\n'
+        'A1000!R000002\tC1="1" | C2="Du lịch" | C3="机场" | '
+        'C4="jīchǎng" | C5="sân bay" | C6="A – cực thường dùng"'
+    )
+    monkeypatch.setattr(scanner, "INVENTORY_CACHE_DIR", str(tmp_path / "cache"))
+    monkeypatch.setattr(scanner, "TOPIC_CATALOG_PATH", str(tmp_path / "topics.json"))
+    monkeypatch.setattr(scanner._api, "_record_token_info", lambda *args, **kwargs: None)
+    calls = []
+
+    def fake_post(_url, payload, _headers, **_kwargs):
+        calls.append(payload)
+        content = payload["messages"][1]["content"]
+        assert "Structured columns:" in content
+        assert "Mức độ / sắc thái is not proficiency" in content
+        return json.dumps({
+            "choices": [{
+                "finish_reason": "stop",
+                "message": {"content": json.dumps({
+                    "r": [[0, "机场", "jīchǎng", "sân bay", "Du lịch", "HSK 1", "k", 99, "word"]],
+                }, ensure_ascii=False)},
+            }],
+            "usage": {"prompt_tokens": 20, "completion_tokens": 10, "total_tokens": 30},
+        })
+
+    monkeypatch.setattr(scanner._api, "_http_post_json", fake_post)
+    result = scanner.scan_inventory_with_ai(source, "chinese", runtime_config={
+        "api_key": "test", "api_base": "http://localhost:11434/v1",
+        "model": "test", "temperature": 0.2, "max_tokens": 4096,
+    })
+
+    assert result["scan_mode"] == "hybrid"
+    assert result["inventory"][0]["level"] == "HSK1"
+    assert result["counts"]["keep"] == 1
+    assert len(calls) == 1
+
+
+def test_chinese_rejects_bare_a_as_invalid_proficiency_level():
+    validated, _missing = scanner._validate_chunk_output(
+        {"r": [[0, "机场", "", "sân bay", "Du lịch", "A", "k", 99, "word"]]},
+        [{"source_id": "R1", "text": 'C1="机场"'}],
+        lang="chinese",
+    )
+
+    assert validated[0]["decision"] == "review"
+    assert validated[0]["level"] == ""
+    assert "not valid" in validated[0]["reason"]
+
+
+def test_turbo_compact_protocol_uses_fewer_chunks_and_expands_output():
+    source_rows = [
+        {"source_id": f"L{index:06d}", "text": f"word {index}", "context": "List"}
+        for index in range(200)
+    ]
+
+    normal = scanner._chunk_rows(source_rows, turbo=False)
+    turbo = scanner._chunk_rows(source_rows, turbo=True)
+    payload = {"r": [[0, "word 0", "", "nghĩa", "Topic", "A1", "k", 95, "word"]]}
+    validated, missing = scanner._validate_chunk_output(payload, normal[0], lang="english")
+
+    assert len(normal) == 3
+    assert len(turbo) == 2
+    assert set(normal[0][0]["compact"]) == {"i", "v", "x"}
+    assert "source_id" not in normal[0][0]["compact"]
+    assert validated[0]["source_id"] == "L000000"
+    assert validated[0]["decision"] == "keep"
+    assert validated[0]["confidence"] == 0.95
+    assert missing == len(normal[0]) - 1
+
+
+def test_compact_protocol_reduces_repeated_json_overhead():
+    source_row = {
+        "source_id": "A1000!R000002",
+        "text": 'C1="1" | C2="Du lịch" | C3="机场" | C4="jīchǎng"',
+        "context": "Sheet: A1000",
+        "cells": ["1", "Du lịch", "机场", "jīchǎng"],
+    }
+    compact = scanner._chunk_rows([source_row])[0][0]["compact"]
+    verbose_output = {
+        "source_id": source_row["source_id"], "surface": "机场", "reading": "jīchǎng",
+        "meaning": "sân bay", "topic": "Du lịch", "level": "HSK 2",
+        "decision": "keep", "confidence": 0.98, "reason": "headword",
+    }
+    compact_output = [0, "机场", "jīchǎng", "sân bay", "Du lịch", "HSK 2", "k", 98, "headword"]
+
+    assert len(json.dumps(compact, ensure_ascii=False)) < len(json.dumps(source_row, ensure_ascii=False))
+    assert len(json.dumps(compact_output, ensure_ascii=False)) < len(
+        json.dumps(verbose_output, ensure_ascii=False)
+    ) * 0.6
+
+
 def test_ai_scan_keeps_only_source_anchored_candidates_and_caches(tmp_path, monkeypatch):
     source = scanner.inventory_source_from_text("STT | Từ | Pinyin\n1 | 机场 | jīchǎng")
     monkeypatch.setattr(scanner, "INVENTORY_CACHE_DIR", str(tmp_path / "cache"))
@@ -153,30 +300,17 @@ def test_ai_scan_keeps_only_source_anchored_candidates_and_caches(tmp_path, monk
 
     def fake_post(_url, payload, _headers, **_kwargs):
         calls.append(payload)
+        user_content = payload["messages"][1]["content"]
+        assert '"i":0' in user_content and '"v":' in user_content
+        assert "source_id" not in user_content
         response_rows = [
-            {
-                "source_id": "L000001",
-                "surface": "",
-                "decision": "skip",
-                "confidence": 1,
-                "reason": "header",
-            },
-            {
-                "source_id": "L000002",
-                "surface": "机场",
-                "reading": "jīchǎng",
-                "meaning": "sân bay",
-                "topic": "Du lịch",
-                "level": "HSK 2",
-                "decision": "keep",
-                "confidence": 0.98,
-                "reason": "headword",
-            },
+            [0, "", "", "", "", "", "s", 100, "header"],
+            [1, "机场", "jīchǎng", "sân bay", "Du lịch", "HSK 2", "k", 98, "headword"],
         ]
         return json.dumps({
             "choices": [{
                 "finish_reason": "stop",
-                "message": {"content": json.dumps({"rows": response_rows}, ensure_ascii=False)},
+                "message": {"content": json.dumps({"r": response_rows}, ensure_ascii=False)},
             }],
             "usage": {"prompt_tokens": 100, "completion_tokens": 40, "total_tokens": 140},
         })
@@ -212,4 +346,120 @@ def test_dialog_wires_ai_scanner_excel_and_decision_filter():
     assert "InventoryScanThread" in source
     assert "inventory_source_from_file" in source
     assert "self.cbo_decision" in source
+    assert "self.chk_turbo_scan" in source
+    assert 'lines.append("\\t".join(str(cell) for cell in cells))' in source
     assert 'item.get("decision") == decision' in source
+
+
+def test_topic_catalog_merges_only_visible_label_variants():
+    rows, catalog = scanner.canonicalize_topics([
+        {"surface": "机场", "topic": "05. Du lịch", "decision": "keep"},
+        {"surface": "酒店", "topic": "DU LỊCH", "decision": "keep"},
+        {"surface": "预订", "topic": "Du lich", "decision": "review"},
+        {"surface": "登机", "topic": "Giao thông", "decision": "keep"},
+    ])
+
+    assert [row["topic"] for row in rows] == [
+        "Du lịch", "Du lịch", "Du lịch", "Giao thông",
+    ]
+    assert catalog == [
+        {"id": "du lich", "name": "Du lịch", "count": 3},
+        {"id": "giao thong", "name": "Giao thông", "count": 1},
+    ]
+
+
+def test_structured_topic_catalog_is_saved_without_source_content(tmp_path, monkeypatch):
+    source = scanner.inventory_source_from_text(
+        'A1000!R000001\tC1="STT" | C2="Nhóm" | C3="Từ tiếng Trung" | C4="HSK Level"\n'
+        'A1000!R000002\tC1="1" | C2="05. Du lịch" | C3="机场" | C4="HSK 1"\n'
+        'A1000!R000003\tC1="2" | C2="DU LỊCH" | C3="酒店" | C4="HSK 1"'
+    )
+    catalog_path = tmp_path / "topics.json"
+    monkeypatch.setattr(scanner, "TOPIC_CATALOG_PATH", str(catalog_path))
+
+    result = scanner.scan_inventory_with_ai(source, "chinese")
+    persisted = json.loads(catalog_path.read_text(encoding="utf-8"))
+
+    assert result["topic_catalog"] == [
+        {"id": "du lich", "name": "Du lịch", "count": 2},
+    ]
+    serialized = json.dumps(persisted, ensure_ascii=False)
+    assert "机场" not in serialized
+    assert "酒店" not in serialized
+    assert "Du lịch" in serialized
+
+
+def test_structured_rows_missing_topic_use_ai_only_for_topic_enrichment(tmp_path, monkeypatch):
+    source = scanner.inventory_source_from_text(
+        'Sheet1!R000001\tC1="STT" | C2="Từ tiếng Trung" | C3="Nghĩa"\n'
+        'Sheet1!R000002\tC1="1" | C2="机场" | C3="sân bay"'
+    )
+    monkeypatch.setattr(scanner, "INVENTORY_CACHE_DIR", str(tmp_path / "cache"))
+    monkeypatch.setattr(scanner, "TOPIC_CATALOG_PATH", str(tmp_path / "topics.json"))
+    monkeypatch.setattr(scanner._api, "_record_token_info", lambda *args, **kwargs: None)
+    calls = []
+
+    def fake_post(_url, payload, _headers, **_kwargs):
+        calls.append(payload)
+        content = payload["messages"][1]["content"]
+        assert '"v":["1","机场","sân bay"]' in content
+        assert '"STT"' not in content
+        return json.dumps({
+            "choices": [{
+                "finish_reason": "stop",
+                "message": {"content": json.dumps({
+                    "r": [[0, "机场", "", "sân bay", "Du lịch", "HSK 2", "k", 99, "word"]],
+                }, ensure_ascii=False)},
+            }],
+            "usage": {"prompt_tokens": 20, "completion_tokens": 10, "total_tokens": 30},
+        })
+
+    monkeypatch.setattr(scanner._api, "_http_post_json", fake_post)
+    result = scanner.scan_inventory_with_ai(source, "chinese", runtime_config={
+        "api_key": "test", "api_base": "http://localhost:11434/v1",
+        "model": "test", "temperature": 0.2, "max_tokens": 4096,
+    })
+
+    assert result["scan_mode"] == "hybrid"
+    assert result["topic_catalog"][0]["name"] == "Du lịch"
+    assert result["inventory"][0]["topic"] == "Du lịch"
+    assert len(calls) == 1
+
+
+def test_prepared_inventory_filters_generation_and_forces_saved_topic():
+    inventory = [{
+        "identity": "takeabreak", "front": "take a break", "topic": "Daily life",
+        "decision": "keep",
+    }, {
+        "identity": "outofcontext", "front": "out of context", "topic": "",
+        "decision": "review",
+    }]
+    generated = [
+        {"chunk": "take a break", "topic": "Everyday routine", "meaning": "nghỉ giải lao"},
+        {"chunk": "invented phrase", "topic": "Daily life", "meaning": "bịa"},
+    ]
+
+    result = scanner.apply_prepared_inventory(
+        generated,
+        inventory,
+        [{"id": "daily life", "name": "Daily life", "count": 1}],
+        card_kind="collocation",
+    )
+
+    assert result == [{
+        "chunk": "take a break", "topic": "Daily life", "meaning": "nghỉ giải lao",
+    }]
+
+
+def test_ai_extract_worker_has_topic_preflight_before_all_language_generation():
+    worker_path = scanner.os.path.join(
+        scanner.os.path.dirname(scanner.os.path.dirname(__file__)), "workers", "ai_workers.py",
+    )
+    source = open(worker_path, encoding="utf-8").read()
+
+    preflight = source.index("scan_inventory_with_ai(")
+    vocabulary = source.index("extract_vocabulary_long_text(")
+    grammar = source.index("extract_grammar_long_text(")
+    assert preflight < vocabulary
+    assert preflight < grammar
+    assert "apply_prepared_inventory(" in source

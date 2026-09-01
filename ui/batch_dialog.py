@@ -26,6 +26,7 @@ from aqt.utils import tooltip
 
 from utils.ai_extractor import get_api_config, is_openrouter
 from utils.ai_inventory_scanner import (
+    canonicalize_topics,
     inventory_from_scan_rows,
     inventory_source_from_file,
     inventory_source_from_files,
@@ -71,6 +72,8 @@ class BatchWordListDialog(QDialog):
         self._inventory_source = None
         self._scan_rows = []
         self._scan_counts = {}
+        self._topic_catalog = []
+        self._topic_catalog_ready = False
         self._source_id = ""
         self._persisted_completed_ids = set()
         self._existing_completed_ids = set()
@@ -168,6 +171,14 @@ class BatchWordListDialog(QDialog):
         filter_layout.addWidget(self.lbl_recommended, 2, 2, 1, 2)
         layout.addWidget(filter_group)
 
+        self.lbl_topic_catalog = QLabel(t("supervised_topic_catalog_pending"))
+        self.lbl_topic_catalog.setWordWrap(True)
+        self.lbl_topic_catalog.setStyleSheet(
+            "background:#eef9f4;border:1px solid #73b99a;border-radius:8px;"
+            "padding:8px;color:#245442;"
+        )
+        layout.addWidget(self.lbl_topic_catalog)
+
         self.lbl_inventory = QLabel(t("supervised_inventory_empty"))
         self.lbl_inventory.setWordWrap(True)
         self.lbl_inventory.setStyleSheet(
@@ -189,6 +200,10 @@ class BatchWordListDialog(QDialog):
         self.txt_instruction.setPlaceholderText(t("batch_instruction_placeholder"))
         self.txt_instruction.setMaximumHeight(45)
         settings_layout.addWidget(self.txt_instruction, 1)
+        self.chk_turbo_scan = QCheckBox(t("supervised_turbo_scan"))
+        self.chk_turbo_scan.setChecked(True)
+        self.chk_turbo_scan.setToolTip(t("supervised_turbo_scan_tip"))
+        settings_layout.addWidget(self.chk_turbo_scan)
         if self._is_openrouter:
             self.chk_slow_mode = QCheckBox(t("batch_chk_slow_mode"))
             self.chk_slow_mode.setChecked(True)
@@ -240,6 +255,8 @@ class BatchWordListDialog(QDialog):
         self._inventory = []
         self._scan_rows = []
         self._scan_counts = {}
+        self._topic_catalog = []
+        self._topic_catalog_ready = False
         self._source_id = ""
         self._persisted_completed_ids.clear()
         self._existing_completed_ids.clear()
@@ -247,6 +264,7 @@ class BatchWordListDialog(QDialog):
         self.result_vocab = []
         self.btn_use_results.setVisible(False)
         self.btn_scan_details.setEnabled(False)
+        self._refresh_topic_catalog_label()
         self._populate_filters()
         self._update_selection(reset_quantity=True)
 
@@ -272,10 +290,14 @@ class BatchWordListDialog(QDialog):
 
     @staticmethod
     def _source_preview(source):
-        return "\n".join(
-            f"{row.get('source_id', '')}\t{row.get('text', '')}"
-            for row in source.get("rows", ())
-        )
+        lines = []
+        for row in source.get("rows", ()):
+            cells = row.get("cells")
+            if isinstance(cells, list):
+                lines.append("\t".join(str(cell) for cell in cells))
+            else:
+                lines.append(str(row.get("text") or ""))
+        return "\n".join(lines)
 
     def _open_source_file(self):
         filepath, _selected_filter = QFileDialog.getOpenFileName(
@@ -327,6 +349,7 @@ class BatchWordListDialog(QDialog):
             lang=self.lang,
             custom_instruction=self.txt_instruction.toPlainText().strip(),
             grammar=self.grammar,
+            turbo=self.chk_turbo_scan.isChecked(),
         )
         self._scan_thread.progress.connect(self._on_progress)
         self._scan_thread.finished.connect(self._on_scan_finished)
@@ -338,11 +361,14 @@ class BatchWordListDialog(QDialog):
         inventory = list(result.get("inventory", ()))
         self._scan_rows = list(result.get("rows", ()))
         self._scan_counts = dict(result.get("counts", {}))
+        self._topic_catalog = list(result.get("topic_catalog", ()))
+        self._topic_catalog_ready = True
         self._source_id = str(result.get("source_hash") or "")
         self._set_scanning(False)
         if not inventory:
             self.lbl_status.setText(t("supervised_no_inventory"))
             self.btn_scan_details.setEnabled(bool(self._scan_rows))
+            self._refresh_topic_catalog_label()
             return
         self._inventory = inventory
         self._persisted_completed_ids = load_supervised_progress(self._source_id)
@@ -353,15 +379,31 @@ class BatchWordListDialog(QDialog):
         self.result_vocab = []
         self.btn_use_results.setVisible(False)
         self.btn_scan_details.setEnabled(bool(self._scan_rows))
+        self._refresh_topic_catalog_label()
         self._populate_filters()
         self._update_selection(reset_quantity=True)
-        self.lbl_status.setText(t(
-            "supervised_analyzed_ai",
+        status_key = (
+            "supervised_analyzed_local"
+            if result.get("scan_mode") == "structured_local"
+            else "supervised_analyzed_ai"
+        )
+        status = t(
+            status_key,
             count=len(inventory),
             keep=self._scan_counts.get("keep", 0),
             skip=self._scan_counts.get("skip", 0),
             review=self._scan_counts.get("review", 0),
-        ))
+        )
+        token_info = dict(result.get("token_info", {}))
+        if token_info.get("requests"):
+            status += " " + t(
+                "supervised_scan_usage",
+                requests=int(token_info.get("requests", 0)),
+                input_tokens=int(token_info.get("prompt_tokens", 0)),
+                output_tokens=int(token_info.get("completion_tokens", 0)),
+                cost=float(token_info.get("total_cost", 0.0)),
+            )
+        self.lbl_status.setText(status)
 
     def _on_scan_error(self, error_message):
         self._set_scanning(False)
@@ -437,6 +479,9 @@ class BatchWordListDialog(QDialog):
             self.lang,
             grammar=self.grammar,
         )
+        self._scan_rows, self._topic_catalog = canonicalize_topics(self._scan_rows)
+        self._topic_catalog_ready = True
+        self._refresh_topic_catalog_label()
         self._existing_completed_ids = supervised_existing_ids(
             self._inventory, self.existing_words, grammar=self.grammar,
         )
@@ -444,6 +489,22 @@ class BatchWordListDialog(QDialog):
         self._update_selection(reset_quantity=True)
         self.lbl_status.setText(t("supervised_restored", count=restored))
         dialog.accept()
+
+    def _refresh_topic_catalog_label(self):
+        if not self._topic_catalog_ready:
+            self.lbl_topic_catalog.setText(t("supervised_topic_catalog_pending"))
+            return
+        preview = " · ".join(
+            f"{topic.get('name', '')} ({int(topic.get('count', 0))})"
+            for topic in self._topic_catalog[:12]
+        )
+        more = max(0, len(self._topic_catalog) - 12)
+        self.lbl_topic_catalog.setText(t(
+            "supervised_topic_catalog_ready",
+            topics=len(self._topic_catalog),
+            preview=preview or t("supervised_unclassified"),
+            more=(t("supervised_topic_catalog_more", count=more) if more else ""),
+        ))
 
     def _completed_ids(self):
         return (
@@ -603,7 +664,10 @@ class BatchWordListDialog(QDialog):
             ),
         ) if recommended else t("supervised_recommended_empty"))
         self.btn_process.setEnabled(
-            bool(available) and self._batch_thread is None and self._scan_thread is None
+            self._topic_catalog_ready
+            and bool(available)
+            and self._batch_thread is None
+            and self._scan_thread is None
         )
         self._quantity_changed()
 
@@ -742,6 +806,7 @@ class BatchWordListDialog(QDialog):
         self.cbo_decision.setEnabled(not running)
         self.spin_quantity.setEnabled(not running)
         self.txt_instruction.setEnabled(not running)
+        self.chk_turbo_scan.setEnabled(not running)
         if self._is_openrouter:
             self.chk_slow_mode.setEnabled(not running)
         self.btn_process.setVisible(not running)
@@ -769,6 +834,7 @@ class BatchWordListDialog(QDialog):
         self.cbo_decision.setEnabled(not running)
         self.spin_quantity.setEnabled(not running)
         self.txt_instruction.setEnabled(not running)
+        self.chk_turbo_scan.setEnabled(not running)
         if self._is_openrouter:
             self.chk_slow_mode.setEnabled(not running)
         self.btn_process.setVisible(not running)

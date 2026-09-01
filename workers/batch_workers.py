@@ -26,12 +26,13 @@ class InventoryScanThread(QThread):
     finished = pyqtSignal(dict)
     error = pyqtSignal(str)
 
-    def __init__(self, source, lang, custom_instruction="", grammar=False):
+    def __init__(self, source, lang, custom_instruction="", grammar=False, turbo=False):
         super().__init__()
         self.source = dict(source or {})
         self.lang = lang
         self.custom_instruction = custom_instruction
         self.grammar = bool(grammar)
+        self.turbo = bool(turbo)
         self.cancel_event = threading.Event()
 
     def run(self):
@@ -45,6 +46,7 @@ class InventoryScanThread(QThread):
                 custom_instruction=self.custom_instruction,
                 progress_callback=self.progress.emit,
                 should_abort=self.cancel_event.is_set,
+                turbo=self.turbo,
             )
             if not self.cancel_event.is_set():
                 self.finished.emit(result)
