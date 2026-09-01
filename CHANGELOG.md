@@ -2,7 +2,20 @@
 
 ## [Unreleased]
 
+### 2026-09-01 — Version: `18.3.0` → `18.3.0`
+
+#### ✨ Added
+- **Xử lý từ quy mô lớn có giám sát** — thay Batch vô điều kiện bằng kho chờ lấy snapshot trực tiếp từ Nguồn học liệu của Forge Workshop. Nguồn có heading hoặc cột topic/level được lập bộ lọc cục bộ, cho chọn chủ đề, cấp độ và số lượng khuyến nghị trước mỗi lượt; chỉ lựa chọn đã duyệt mới đi qua các request Quality V2 nhỏ. Màn hình giữ số đã sản xuất/có sẵn/còn lại, cho chạy tiếp nhiều lượt và lưu checkpoint opaque theo checksum mà không lưu lại nội dung tài liệu.
+- **AI Inventory Scanner cho nguồn lộn xộn** — mở trực tiếp `.xlsx`, `.csv`, `.tsv`, tài liệu thường và `.xls` khi parser tương thích có sẵn; `.xlsx` giữ nguyên sheet/hàng/vị trí cột ngay cả khi không có `openpyxl`. AI phân loại từng dòng thành **Giữ / Cần xem / Bỏ qua**, loại header, STT, pinyin/reading, bản dịch, ví dụ và ghi chú phụ; mọi ứng viên phải khớp nguyên văn với dòng nguồn, dòng thiếu hoặc không chắc chắn tự chuyển sang Cần xem. Mặc định chỉ mục Giữ được đưa sang sản xuất; người dùng có thể xem lý do/nguồn và khôi phục ứng viên bị loại sang Cần xem.
+
+#### 🔧 Changed
+- **Nhãn nguồn có chủ quyền** — topic/cấp độ khai báo trong tài liệu được giữ sau AI enrichment; kết quả thiếu hoặc lỗi không bị đánh dấu hoàn tất. Nút Batch trong Factory đổi thành **Sản xuất có giám sát**, không còn tự tổ chức hoặc tạo Parent/Sub Deck.
+- **AI preflight tách khỏi sản xuất thẻ** — quét kho chạy bằng worker riêng, chia nguồn lớn thành request nhỏ, cache theo checksum/model và không ghi Anki. Prompt/cache version tăng lên `38` để không tái dùng kết quả theo contract cũ.
+
 ### 2026-08-31 — Version: `18.3.0` → `18.3.0`
+
+#### ✨ Added
+- **Collocation / Thành ngữ thành subtype Language riêng** — Factory và Forge có lựa chọn chủ động thứ ba bên cạnh Từ vựng/Ngữ pháp cho Nhật, Trung, Hàn và Anh. Mỗi ngôn ngữ dùng Note Type `Collocation V18.3` riêng, không migrate hoặc đổi template/SRS của note cũ; mỗi cụm tạo hai hướng Nhận diện và Sản xuất, với loại cụm, khung/khe thay thế, sắc thái, ràng buộc, từ vựng liên kết, từ liên quan và bốn ngữ cảnh khác nhau. AI chỉ tách collocation/chunk/phrasal verb/thành ngữ/cụm cố định vượt cổng giá trị và có bằng chứng trong source; batch danh sách không ngữ cảnh được chặn. Prompt/cache tăng lên `37`, prompt config lên `10` và AI output schema lên `6`.
 
 #### 🔧 Changed
 - **Ngữ cảnh ngữ nghĩa bám nguồn** — vocabulary card Nhật, Trung, Hàn và Anh có thêm Nhóm nghĩa, Quan hệ/ghi chú, Sắc thái/mức độ và Từ liên quan; các khối trống tự ẩn, xuất hiện trong Preview trước import. AI chỉ được ghi các fact này khi SOURCE nêu rõ, không được suy diễn quan hệ, vùng miền hay độ trang trọng. Prompt/cache tăng lên `36`; artifact theo schema trước thay đổi ở chế độ chỉ đọc tương thích cũ.

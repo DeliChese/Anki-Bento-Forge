@@ -31,7 +31,7 @@ def extract_source_candidates_with_ai(
         raise ValueError("Forge candidate request context is required")
     if workspace_request.learning_mode != "language":
         raise ValueError("Forge candidates require the language workflow")
-    if workspace_request.lane not in {"vocab", "grammar"}:
+    if workspace_request.lane not in {"vocab", "grammar", "collocation"}:
         raise ValueError("unsupported Forge candidate lane")
     source_text = str(workspace_request.source_text or "").strip()
     if not source_text:

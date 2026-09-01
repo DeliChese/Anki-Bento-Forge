@@ -34,7 +34,7 @@ def _force_vi_lang():
 
 
 LANGS = ("japanese", "chinese", "korean", "english")
-KINDS = ("vocab", "grammar")
+KINDS = ("vocab", "grammar", "collocation")
 
 
 @pytest.fixture
@@ -78,6 +78,8 @@ def _default_tpl(lang, kind):
     from utils import ai_extractor
     if kind == "grammar":
         return ai_extractor._GRAMMAR_JSON_TEMPLATES.get(lang, ai_extractor._JAPANESE_GRAMMAR_JSON_TEMPLATE)
+    if kind == "collocation":
+        return ai_extractor._COLLOCATION_JSON_TEMPLATES[lang]
     return ai_extractor._JSON_TEMPLATES.get(lang, ai_extractor._JAPANESE_JSON_TEMPLATE)
 
 
@@ -85,6 +87,8 @@ def _default_sp(lang, kind):
     from utils import ai_extractor
     if kind == "grammar":
         return ai_extractor._GRAMMAR_SYSTEM_PROMPTS.get(lang, ai_extractor._GRAMMAR_SYSTEM_PROMPTS["japanese"])
+    if kind == "collocation":
+        return ai_extractor._COLLOCATION_SYSTEM_PROMPTS[lang]
     return ai_extractor._SYSTEM_PROMPTS.get(lang, ai_extractor._JAPANESE_SYSTEM_PROMPT)
 
 
@@ -235,8 +239,11 @@ class TestSignature:
 
 
 def _lang_base(lang, kind):
-    from Language import LANG_CONFIG, LANG_GRAMMAR_CONFIG
-    return (LANG_GRAMMAR_CONFIG if kind == "grammar" else LANG_CONFIG)[lang]
+    from Language import LANG_CONFIG, LANG_GRAMMAR_CONFIG, LANG_COLLOCATION_CONFIG
+    return {
+        "vocab": LANG_CONFIG, "grammar": LANG_GRAMMAR_CONFIG,
+        "collocation": LANG_COLLOCATION_CONFIG,
+    }[kind][lang]
 
 
 class TestFieldMap:

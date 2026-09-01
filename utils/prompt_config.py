@@ -32,13 +32,13 @@ from .language_identity import normalize_language
 logger = get_logger()
 
 # Version của cấu trúc prompt config — bump khi thay đổi defaults (cache invalidation)
-PROMPT_CONFIG_VERSION = 9
+PROMPT_CONFIG_VERSION = 10
 
 _LEGACY_CONFIG_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "ai_prompts.json")
 CONFIG_PATH = get_user_data_path("ai_prompts.json")
 
 LANGS = ("japanese", "chinese", "korean", "english")
-KINDS = ("vocab", "grammar")
+KINDS = ("vocab", "grammar", "collocation")
 
 # Placeholder đánh dấu chỗ chèn JSON template vào system prompt (dạng RAW)
 TEMPLATE_PLACEHOLDER = "{{JSON_TEMPLATE}}"
@@ -109,6 +109,9 @@ def _default_json_template(lang: str, kind: str) -> str:
     if kind == "grammar":
         table = defaults._GRAMMAR_JSON_TEMPLATES_EN if en else defaults._GRAMMAR_JSON_TEMPLATES
         return table[lang]
+    if kind == "collocation":
+        table = defaults._COLLOCATION_JSON_TEMPLATES_EN if en else defaults._COLLOCATION_JSON_TEMPLATES
+        return table[lang]
     table = defaults._JSON_TEMPLATES_EN if en else defaults._JSON_TEMPLATES
     return table[lang]
 
@@ -121,6 +124,9 @@ def _default_system_prompt(lang: str, kind: str) -> str:
     en = _ui_is_english()
     if kind == "grammar":
         table = defaults._GRAMMAR_SYSTEM_PROMPTS_EN if en else defaults._GRAMMAR_SYSTEM_PROMPTS
+        return table[lang]
+    if kind == "collocation":
+        table = defaults._COLLOCATION_SYSTEM_PROMPTS_EN if en else defaults._COLLOCATION_SYSTEM_PROMPTS
         return table[lang]
     table = defaults._SYSTEM_PROMPTS_EN if en else defaults._SYSTEM_PROMPTS
     return table[lang]
@@ -167,7 +173,8 @@ def validate_json_template(template: str, lang: str | None = None, kind: str | N
         if kind not in KINDS:
             return False, "unsupported card kind", fields
         keys = {str(key).strip().casefold() for key in data}
-        identity_keys = {"pattern"} if kind == "grammar" else {"front", "simplified"}
+        identity_keys = ({"pattern"} if kind == "grammar" else
+                         {"chunk"} if kind == "collocation" else {"front", "simplified"})
         if not keys.intersection(identity_keys) or "meaning" not in keys:
             return False, "template_missing_core_card_fields", fields
         if kind == "grammar" and not keys.intersection({"usage", "explanation"}):
@@ -200,8 +207,12 @@ def _language_base_config(lang: str, kind: str) -> dict:
     """Config gốc từ Language/*.py (json_field_map, all_fields, model_name...).
     Lazy import — Language là pure data, không cần aqt, không circular.
     """
-    from Language import LANG_CONFIG, LANG_GRAMMAR_CONFIG
-    return (LANG_GRAMMAR_CONFIG if kind == "grammar" else LANG_CONFIG)[lang]
+    from Language import LANG_CONFIG, LANG_GRAMMAR_CONFIG, LANG_COLLOCATION_CONFIG
+    registry = {
+        "vocab": LANG_CONFIG, "grammar": LANG_GRAMMAR_CONFIG,
+        "collocation": LANG_COLLOCATION_CONFIG,
+    }[kind]
+    return registry[lang]
 
 
 def _read_field_map_override(lang: str, kind: str) -> dict:
@@ -246,7 +257,7 @@ def get_effective_config() -> dict:
         }
     """
     overrides = _read_overrides()
-    eff = {"version": PROMPT_CONFIG_VERSION, "vocab": {}, "grammar": {}}
+    eff = {"version": PROMPT_CONFIG_VERSION, **{kind: {} for kind in KINDS}}
     for kind in KINDS:
         for lang in LANGS:
             d_tpl = _default_json_template(lang, kind)
@@ -355,7 +366,7 @@ def save_config(entries: dict, field_map: dict = None, card_show: dict = None) -
     card_show:  {kind: {lang: {anki_field: "front"|"back"|"both"}}} (Mức 2 — nơi hiện trên thẻ)
     Chỉ lưu phần cần thiết; bỏ các khóa dẫn xuất (fields/field_count/system_prompt interpolated).
     """
-    clean = {"version": PROMPT_CONFIG_VERSION, "vocab": {}, "grammar": {}}
+    clean = {"version": PROMPT_CONFIG_VERSION, **{kind: {} for kind in KINDS}}
     for kind in KINDS:
         lang_map = (entries or {}).get(kind)
         if not isinstance(lang_map, dict):
@@ -378,7 +389,7 @@ def save_config(entries: dict, field_map: dict = None, card_show: dict = None) -
                 clean[kind][lang] = entry
     # Field map (Mức 1)
     if field_map:
-        clean_fm = {"vocab": {}, "grammar": {}}
+        clean_fm = {kind: {} for kind in KINDS}
         for kind in KINDS:
             lang_map = field_map.get(kind)
             if not isinstance(lang_map, dict):
@@ -393,7 +404,7 @@ def save_config(entries: dict, field_map: dict = None, card_show: dict = None) -
         clean["field_map"] = clean_fm
     # Card show (Mức 2 — nơi hiển thị field tuỳ chỉnh trên thẻ)
     if card_show:
-        clean_cs = {"vocab": {}, "grammar": {}}
+        clean_cs = {kind: {} for kind in KINDS}
         for kind in KINDS:
             lang_map = card_show.get(kind)
             if not isinstance(lang_map, dict):
@@ -470,4 +481,4 @@ def reset_config() -> None:
 def has_overrides() -> bool:
     """Kiểm tra xem có file ghi đè với nội dung không."""
     ov = _read_overrides()
-    return bool(ov.get("vocab") or ov.get("grammar"))
+    return any(ov.get(kind) for kind in KINDS)

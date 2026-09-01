@@ -108,7 +108,7 @@ def route_forge_lane(source_text: str, instruction: str = "", fallback: str = "v
     silently changes the user's current draft.
     """
     fallback = str(fallback or "vocab").strip().casefold()
-    if fallback not in {"vocab", "grammar"}:
+    if fallback not in {"vocab", "grammar", "collocation"}:
         fallback = "vocab"
     instruction_text = str(instruction or "").casefold()
     source = str(source_text or "").casefold()
@@ -175,7 +175,7 @@ def validate_workspace_card_mode(workspace: str, card_mode: Optional[str]) -> Op
     """Allow importable card output only on the Forge production surface."""
     workspace = resolve_workspace(workspace)
     mode = None if card_mode is None else str(card_mode).strip().casefold()
-    if mode not in {None, "vocab", "grammar"}:
+    if mode not in {None, "vocab", "grammar", "collocation"}:
         raise ValueError("unsupported study-session card mode")
     if mode is not None and not get_workspace_policy(workspace).allows_card_mode:
         raise ValueError("Reviewer workspace does not allow Card Mode")
@@ -246,7 +246,7 @@ def build_workspace_request_context(
         lane = "knowledge"
     else:
         lane = str(lane or "").strip().casefold()
-        if lane not in {"vocab", "grammar"}:
+        if lane not in {"vocab", "grammar", "collocation"}:
             raise ValueError("unsupported Forge language lane")
     source = str(redact_sensitive(source_text or "")).strip()[:50_000]
     return WorkspaceRequestContext(

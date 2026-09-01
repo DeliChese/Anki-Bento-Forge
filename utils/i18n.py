@@ -116,8 +116,8 @@ _TRANSLATIONS = {
         "en": "Send the source and extra request to generate strict Knowledge Basic/Cloze cards.",
     },
     "ai_batch_btn": {
-        "vi": "📋 Batch từ",
-        "en": "📋 Batch vocab",
+        "vi": "📋 Sản xuất có giám sát",
+        "en": "📋 Supervised production",
     },
     "ai_chat_btn": {
         "vi": "🧭 Nạp vào AI",
@@ -642,8 +642,8 @@ _TRANSLATIONS = {
         "en": "Review saved vocabulary history (AI extract / import) — viewable even after closing the Factory.\nSelect the required words and send them to Review & Import.",
     },
     "btn_ai_batch_tip": {
-        "vi": "Xử lý danh sách từ vựng LỚN (hàng trăm/hàng nghìn từ).\nAI sẽ làm giàu từng từ + tự động tổ chức Parent/Sub Deck theo chủ đề.",
-        "en": "Process LARGE vocabulary lists (hundreds/thousands of words).\nAI enriches each word + auto-organizes Parent/Sub Decks by topic.",
+        "vi": "Lấy kho từ từ nguồn Forge Workshop, lọc chủ đề/cấp độ và chỉ sản xuất số lượng bạn duyệt.",
+        "en": "Use the Forge Workshop source, filter by topic/level, and produce only an approved amount.",
     },
     "btn_ai_chat_tip": {
         "vi": "Đồng bộ nguồn, yêu cầu, router và cảnh báo trùng của deck vào trạm AI. AI chỉ chạy khi bạn bấm Gửi.",
@@ -1472,7 +1472,196 @@ _TRANSLATIONS = {
         "en": "⚠️ No vocabulary after editing.",
     },
 
-    # ── Batch Dialog ─────────────────────────────────────
+    # ── Supervised large-scale production ────────────────
+    "supervised_title_vocab": {
+        "vi": "Kho từ quy mô lớn có giám sát",
+        "en": "Supervised Large-Scale Vocabulary",
+    },
+    "supervised_title_grammar": {
+        "vi": "Kho ngữ pháp quy mô lớn có giám sát",
+        "en": "Supervised Large-Scale Grammar",
+    },
+    "supervised_header_vocab": {
+        "vi": "📦 Kho từ có giám sát — {language}",
+        "en": "📦 Supervised vocabulary inventory — {language}",
+    },
+    "supervised_header_grammar": {
+        "vi": "📦 Kho ngữ pháp có giám sát — {language}",
+        "en": "📦 Supervised grammar inventory — {language}",
+    },
+    "supervised_desc": {
+        "vi": "Đọc nguồn thành kho chờ, cho bạn chọn chủ đề, cấp độ và số lượng trước mỗi lượt. Không tự đẩy toàn bộ tài liệu vào AI.",
+        "en": "Turn the source into a pending inventory, then choose topic, level, and quantity for each run. The full source is never sent blindly.",
+    },
+    "supervised_source_group": {"vi": "1. Nguồn kho", "en": "1. Inventory source"},
+    "supervised_take_workshop": {
+        "vi": "⬇ Lấy tài liệu từ Forge Workshop",
+        "en": "⬇ Use Forge Workshop source",
+    },
+    "supervised_take_workshop_tip": {
+        "vi": "Chụp nội dung hiện có trong ô Nguồn học liệu của Forge Workshop để AI lập kho có kiểm chứng nguồn.",
+        "en": "Snapshot the current Forge Workshop source for source-verified AI inventory scanning.",
+    },
+    "supervised_open_file": {"vi": "📊 Mở Excel / file", "en": "📊 Open Excel / file"},
+    "supervised_open_file_title": {
+        "vi": "Chọn tài liệu từ vựng",
+        "en": "Choose a vocabulary source",
+    },
+    "supervised_open_file_filter": {
+        "vi": "Bảng tính và tài liệu (*.xlsx *.xls *.csv *.tsv *.txt *.md *.pdf *.docx);;Tất cả file (*)",
+        "en": "Spreadsheets and documents (*.xlsx *.xls *.csv *.tsv *.txt *.md *.pdf *.docx);;All files (*)",
+    },
+    "supervised_analyze": {"vi": "🤖 AI quét & lập kho", "en": "🤖 AI scan & build inventory"},
+    "supervised_scan_details": {"vi": "Xem mục AI loại", "en": "Review AI exclusions"},
+    "supervised_scan_details_title": {
+        "vi": "Các dòng Cần xem / Bỏ qua",
+        "en": "Review / skipped source rows",
+    },
+    "supervised_no_scan_details": {
+        "vi": "AI không đánh dấu dòng nào là Cần xem hoặc Bỏ qua.",
+        "en": "AI did not mark any rows for review or skipping.",
+    },
+    "supervised_scan_detail_row": {
+        "vi": "[{decision}] {source_id}\nỨng viên: {surface}\nLý do: {reason}\nNguồn: {source}",
+        "en": "[{decision}] {source_id}\nCandidate: {surface}\nReason: {reason}\nSource: {source}",
+    },
+    "supervised_restore_selected": {
+        "vi": "Đưa mục đã chọn sang Cần xem",
+        "en": "Move selected items to Review",
+    },
+    "supervised_restore_empty": {
+        "vi": "Chỉ các mục Bỏ qua có ứng viên nguồn mới có thể khôi phục.",
+        "en": "Only skipped rows with a source candidate can be restored.",
+    },
+    "supervised_restored_reason": {
+        "vi": "Người dùng khôi phục từ kết quả AI loại.",
+        "en": "Restored by the user from AI exclusions.",
+    },
+    "supervised_restored": {
+        "vi": "Đã đưa {count} mục sang Cần xem; hãy chọn bộ lọc Cần xem để kiểm định/sản xuất.",
+        "en": "Moved {count} items to Review; choose the Review filter to inspect or produce them.",
+    },
+    "supervised_none": {"vi": "—", "en": "—"},
+    "supervised_source_placeholder": {
+        "vi": "Dán danh sách có cột từ/nghĩa/cấp độ/chủ đề, hoặc dùng heading Chủ đề → Cấp độ rồi mỗi dòng một từ…",
+        "en": "Paste a list with word/meaning/level/topic columns, or use Topic → Level headings followed by one item per line…",
+    },
+    "supervised_filter_group": {"vi": "2. Chọn lượt sản xuất", "en": "2. Choose a production run"},
+    "supervised_topic": {"vi": "Chủ đề:", "en": "Topic:"},
+    "supervised_level": {"vi": "Cấp độ:", "en": "Level:"},
+    "supervised_decision": {"vi": "Trạng thái AI:", "en": "AI decision:"},
+    "supervised_decision_keep": {"vi": "Giữ", "en": "Keep"},
+    "supervised_decision_skip": {"vi": "Bỏ qua", "en": "Skip"},
+    "supervised_decision_review": {"vi": "Cần xem", "en": "Review"},
+    "supervised_decision_actionable": {
+        "vi": "Giữ + Cần xem",
+        "en": "Keep + Review",
+    },
+    "supervised_quantity": {"vi": "Số lượng:", "en": "Quantity:"},
+    "supervised_all_topics": {"vi": "Tất cả chủ đề", "en": "All topics"},
+    "supervised_all_levels": {"vi": "Tất cả cấp độ", "en": "All levels"},
+    "supervised_unclassified": {"vi": "Chưa phân loại", "en": "Unclassified"},
+    "supervised_recommended_empty": {
+        "vi": "Chưa có mục phù hợp để khuyến nghị.",
+        "en": "No matching items to recommend yet.",
+    },
+    "supervised_recommended": {
+        "vi": "Khuyến nghị {count} mục/lượt để dễ kiểm định; hệ thống vẫn chia ngầm {api_size} mục/request AI.",
+        "en": "Recommended: {count} items per reviewable run; the system still uses {api_size} items per AI request internally.",
+    },
+    "supervised_inventory_empty": {
+        "vi": "Chưa lập kho. Hãy lấy nguồn Workshop hoặc dán danh sách rồi bấm Lập kho.",
+        "en": "No inventory yet. Use the Workshop source or paste a list, then build the inventory.",
+    },
+    "supervised_inventory_summary": {
+        "vi": "Tổng {total} · Đã sản xuất/có sẵn {completed} · Còn {remaining} · Khớp bộ lọc {filtered} · Thiếu chủ đề {unknown_topics} · Thiếu cấp độ {unknown_levels}",
+        "en": "Total {total} · Produced/existing {completed} · Remaining {remaining} · Filter match {filtered} · Missing topic {unknown_topics} · Missing level {unknown_levels}",
+    },
+    "supervised_inventory_summary_ai": {
+        "vi": "Nguồn {source_rows} dòng · AI giữ {keep} · Cần xem {review} · Bỏ qua {skip} · Đã sản xuất/có sẵn {completed} · Khớp bộ lọc {filtered}",
+        "en": "Source {source_rows} rows · AI kept {keep} · Review {review} · Skipped {skip} · Produced/existing {completed} · Filter match {filtered}",
+    },
+    "supervised_preview_empty": {
+        "vi": "Các mục của lượt sắp sản xuất sẽ hiện ở đây.",
+        "en": "Items in the next production run will appear here.",
+    },
+    "supervised_preview_more": {"vi": "… và {count} mục nữa", "en": "… and {count} more"},
+    "supervised_settings_group": {"vi": "3. Thiết lập sản xuất", "en": "3. Production settings"},
+    "supervised_estimate_empty": {
+        "vi": "Chọn một nhóm để xem ước tính lượt sản xuất.",
+        "en": "Choose a group to see the production estimate.",
+    },
+    "supervised_estimate": {
+        "vi": "Lượt này: {count} mục → {batches} request AI · khoảng ${cost:.4f} · khoảng {seconds}s",
+        "en": "This run: {count} items → {batches} AI requests · about ${cost:.4f} · about {seconds}s",
+    },
+    "supervised_produce": {"vi": "⚙ Sản xuất lượt đã chọn", "en": "⚙ Produce selected run"},
+    "supervised_use_results": {
+        "vi": "Đưa {count} kết quả vào Xưởng",
+        "en": "Send {count} results to Workshop",
+    },
+    "supervised_workshop_empty": {
+        "vi": "Forge Workshop chưa có tài liệu nguồn.",
+        "en": "Forge Workshop has no source document.",
+    },
+    "supervised_source_required": {
+        "vi": "Hãy lấy nguồn từ Workshop hoặc dán danh sách trước.",
+        "en": "Use the Workshop source or paste a list first.",
+    },
+    "supervised_file_loaded": {
+        "vi": "Đã mở {name}: {count} dòng có dữ liệu. Đang chuẩn bị quét AI…",
+        "en": "Opened {name}: {count} non-empty rows. Preparing AI scan…",
+    },
+    "supervised_file_error": {
+        "vi": "Không thể mở file: {error}",
+        "en": "Could not open file: {error}",
+    },
+    "supervised_no_source_rows": {
+        "vi": "File không có dòng dữ liệu để quét.",
+        "en": "The file has no data rows to scan.",
+    },
+    "supervised_no_inventory": {
+        "vi": "Không tìm thấy mục hợp lệ. Nguồn nên có mỗi dòng một mục hoặc bảng có cột từ/pattern.",
+        "en": "No valid items found. Use one item per line or a table with a word/pattern column.",
+    },
+    "supervised_analyzed": {
+        "vi": "Đã lập kho {count} mục. Chưa gọi AI.",
+        "en": "Built an inventory of {count} items. AI has not been called.",
+    },
+    "supervised_analyzed_ai": {
+        "vi": "AI đã lập kho {count} ứng viên: giữ {keep}, cần xem {review}, bỏ qua {skip}. Mặc định chỉ sản xuất mục Giữ.",
+        "en": "AI built {count} candidates: kept {keep}, review {review}, skipped {skip}. Only Keep items are produced by default.",
+    },
+    "inventory_ai_empty_source": {
+        "vi": "Nguồn không có dòng dữ liệu để AI quét.",
+        "en": "The source has no rows for AI scanning.",
+    },
+    "inventory_ai_starting": {
+        "vi": "Đang khởi động AI Inventory Scanner…",
+        "en": "Starting AI Inventory Scanner…",
+    },
+    "inventory_ai_cache_hit": {
+        "vi": "Đã dùng kết quả quét đã kiểm chứng trong bộ nhớ đệm ({count} ứng viên).",
+        "en": "Used the verified cached scan ({count} candidates).",
+    },
+    "inventory_ai_scanning": {
+        "vi": "AI đang quét phần {current}/{total}…",
+        "en": "AI is scanning chunk {current}/{total}…",
+    },
+    "inventory_ai_complete": {
+        "vi": "AI đã quét xong {count} ứng viên có neo nguồn.",
+        "en": "AI finished scanning {count} source-anchored candidates.",
+    },
+    "supervised_nothing_selected": {
+        "vi": "Không còn mục nào trong bộ lọc hiện tại.",
+        "en": "No items remain in the current filter.",
+    },
+    "supervised_run_done": {
+        "vi": "Đã sản xuất {produced} mục hợp lệ; bộ lọc hiện còn {remaining} mục.",
+        "en": "Produced {produced} valid items; {remaining} remain in the current filter.",
+    },
+
+    # ── Legacy Batch Dialog strings ──────────────────────
     "batch_title_vocab": {
         "vi": "🚀 Xử Lý Danh Sách Từ Vựng Lớn — Batch AI",
         "en": "🚀 Large Vocabulary Processing — Batch AI",
@@ -3474,6 +3663,27 @@ _TRANSLATIONS = {
         "vi": "Xóa đúng {count} note vừa được batch Blueprint gần nhất thêm vào? Deck đã tạo sẽ được giữ lại.",
         "en": "Remove exactly {count} notes added by the latest Blueprint batch? Created decks will be kept.",
     },
+    "btn_mode_collocation": {"vi": "🧩 Cụm từ / Thành ngữ", "en": "🧩 Collocations / Idioms"},
+    "tooltip_switched_collocation": {"vi": "🧩 Đã chuyển sang Cụm từ / Thành ngữ", "en": "🧩 Switched to Collocations / Idioms"},
+    "ai_input_placeholder_collocation": {
+        "vi": "Dán ngữ liệu để AI chọn collocation, lexical chunk, phrasal verb và thành ngữ đáng học…",
+        "en": "Paste source material so AI can select worthwhile collocations, lexical chunks, phrasal verbs, and idioms…",
+    },
+    "item_label_collocation": {"vi": "Cụm từ / Thành ngữ", "en": "Collocations / Idioms"},
+    "item_label_collocation_lower": {"vi": "cụm từ / thành ngữ", "en": "collocations / idioms"},
+    "item_label_collocation_short": {"vi": "Cụm", "en": "Chunks"},
+    "worker_progress_collocation": {"vi": "🧩 Đang trích xuất cụm từ và thành ngữ…", "en": "🧩 Extracting chunks and idioms…"},
+    "empty_collocation": {"vi": "Không tìm thấy cụm từ/thành ngữ đủ giá trị để tách thẻ.", "en": "No chunk or idiom met the standalone-card threshold."},
+    "prompt_kind_collocation": {"vi": "Cụm từ / Thành ngữ", "en": "Collocations / Idioms"},
+    "collocation_batch_not_available": {
+        "vi": "Batch danh sách chưa dùng cho Collocation; hãy trích từ ngữ liệu để giữ đúng ngữ cảnh.",
+        "en": "List batch is not used for Collocations yet; extract from source material to preserve context.",
+    },
+    "study_forge_router_collocation": {"vi": "Cụm từ / Thành ngữ", "en": "Collocations / Idioms"},
+    "study_create_card_collocation": {"vi": "Tạo thẻ · Cụm từ", "en": "Create card · Collocation"},
+    "study_context_lane_collocation": {"vi": "Cụm từ / Thành ngữ", "en": "Collocations / Idioms"},
+    "status_poured_collocation": {"vi": "✅ Đã đưa {count} thẻ cụm từ vào xưởng", "en": "✅ Poured {count} chunk cards into the Factory"},
+    "msg_chat_poured_collocation": {"vi": "Đã đưa {count} thẻ cụm từ/thành ngữ vào xưởng.", "en": "Sent {count} collocation/idiom cards to the Factory."},
 }
 
 # ═══════════════════════════════════════════════════════════

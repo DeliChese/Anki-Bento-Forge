@@ -33,6 +33,7 @@ from .english import (
     tmpl_en_lg_q, tmpl_en_lg_a,
 )
 from .common import _independent_template
+from .collocation import collocation_templates_for
 
 
 def _independent_pair(question, answer, skill, label):
@@ -81,8 +82,12 @@ LANG_GRAMMAR_TEMPLATES = {
     "english": (tmpl_en_g_q, tmpl_en_g_a, tmpl_en_g_rev_q, tmpl_en_g_rev_a),
 }
 
+LANG_COLLOCATION_TEMPLATES = {
+    lang: collocation_templates_for(lang) for lang in LANG_TEMPLATES
+}
+
 
 __all__ = [
-    "LANG_TEMPLATES", "LANG_GRAMMAR_TEMPLATES",
+    "LANG_TEMPLATES", "LANG_GRAMMAR_TEMPLATES", "LANG_COLLOCATION_TEMPLATES",
     *[name for name in globals() if name.startswith("tmpl_")],
 ]

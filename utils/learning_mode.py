@@ -14,7 +14,7 @@ from typing import Mapping, MutableMapping, Optional, Tuple
 DEFAULT_LEARNING_MODE = "language"
 LEARNING_MODE_CONFIG_KEY = "bento_forge_learning_mode_by_deck"
 LEARNING_MODES = ("language", "knowledge")
-LANGUAGE_KINDS = ("vocab", "grammar")
+LANGUAGE_KINDS = ("vocab", "grammar", "collocation")
 
 # Knowledge is retained as a private beta, but deliberately has no UI entry
 # while Bento Forge focuses on the language-learning workflow.  Keep the

@@ -34,7 +34,7 @@ class AiChatDialog(QDialog):
         self.accepted_vocab = None
         self.accepted_cards = None
         self._vocab_json = vocab_json
-        self._card_kind = card_kind if card_kind in {"vocab", "grammar"} else "vocab"
+        self._card_kind = card_kind if card_kind in {"vocab", "grammar", "collocation"} else "vocab"
 
         self._setup_ui(reply_text, error, card_warning)
 
@@ -117,6 +117,12 @@ class AiChatDialog(QDialog):
                     "pattern", "meaning", "explanation", "usage", "example",
                     "example_vn", "jlptlevel", "hsk_level", "topik_level",
                     "cefr_level", "topic",
+                ]
+            elif self._card_kind == "collocation":
+                columns = [
+                    "chunk", "meaning", "phrase_type", "pattern_slots",
+                    "register_nuance", "constraint", "source_word",
+                    "jlptlevel", "hsk_level", "topik_level", "cefr_level", "topic",
                 ]
             elif self._vocab_json[0].get("simplified"):
                 columns = ["simplified", "traditional", "pinyin", "meaning", "hsk_level", "topic"]

@@ -29,11 +29,12 @@ def _lang_options():
 
 
 def _kind_options():
-    """Bộ lọc loại mục trong lịch sử (vocab / grammar)."""
+    """Bộ lọc loại mục trong lịch sử Language/Knowledge."""
     return [
         (t("history_kind_all"), None),
         (t("history_kind_vocab"), "vocab"),
         (t("history_kind_grammar"), "grammar"),
+        (t("item_label_collocation"), "collocation"),
         (t("item_label_knowledge"), "knowledge"),
     ]
 

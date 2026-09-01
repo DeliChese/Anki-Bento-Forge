@@ -602,6 +602,10 @@ from .ai_prompt_defaults import (
     _GRAMMAR_JSON_TEMPLATES,
     _GRAMMAR_SYSTEM_PROMPTS_EN,
     _GRAMMAR_JSON_TEMPLATES_EN,
+    _COLLOCATION_SYSTEM_PROMPTS,
+    _COLLOCATION_JSON_TEMPLATES,
+    _COLLOCATION_SYSTEM_PROMPTS_EN,
+    _COLLOCATION_JSON_TEMPLATES_EN,
     _KNOWLEDGE_JSON_TEMPLATE,
     _KNOWLEDGE_SYSTEM_PROMPT,
 )
@@ -667,7 +671,7 @@ def _format_existing_context(existing: List[str], text: str, label: str = "TỪ"
     overlap = []
     seen = set()
     for w in existing:
-        raw = (w.get("front") or w.get("simplified") or w.get("pattern")) if isinstance(w, dict) else w
+        raw = (w.get("chunk") or w.get("front") or w.get("simplified") or w.get("pattern")) if isinstance(w, dict) else w
         w = str(raw or "").strip()
         if not w:
             continue
@@ -718,6 +722,7 @@ def extract_vocabulary_with_ai(
     force_refresh: bool = False,
     token_callback: Optional[Callable[[dict], None]] = None,
     should_abort: Optional[Callable[[], bool]] = None,
+    kind: str = "vocab",
 ) -> list:
     """
     Gửi văn bản đến AI API để trích xuất từ vựng. Cache thông minh.
@@ -733,14 +738,16 @@ def extract_vocabulary_with_ai(
     Returns:
         List các dict từ vựng (chỉ từ mới, không trùng deck)
     """
+    if kind not in {"vocab", "collocation"}:
+        raise ValueError("unsupported lexical card kind")
     existing_hash = _make_existing_hash(existing_words or [])
     if should_abort and should_abort():
         raise RuntimeError(t("error_cancelled_by_user"))
 
     # Cache
     if not force_refresh:
-        cached = _ai_cache_get(text, lang, custom_instruction, existing_hash)
-        if cached is not None and cache_payload_is_compatible(cached, lang=lang, kind="vocab"):
+        cached = _ai_cache_get(text, lang, custom_instruction, existing_hash, kind=kind)
+        if cached is not None and cache_payload_is_compatible(cached, lang=lang, kind=kind):
             if progress_callback:
                 progress_callback(t("status_cache_vocab", count=len(cached)))
             return cached
@@ -749,7 +756,7 @@ def extract_vocabulary_with_ai(
     if not cfg.get("api_key") and "localhost" not in cfg.get("api_base", ""):
         raise ValueError(t("error_api_key_missing"))
 
-    system_prompt = get_effective_system_prompt(lang, "vocab")
+    system_prompt = get_effective_system_prompt(lang, kind)
 
     # Giới hạn text — có thể cấu hình (mặc định 45k ký tự, DeepSeek 64k context)
     max_chars = cfg.get("max_chars", 45000)
@@ -762,12 +769,20 @@ def extract_vocabulary_with_ai(
         progress_callback(t("status_calling_model", model=cfg["model"]))
 
     # User message: text + existing words context (đã lọc gọn để tiết kiệm token)
-    request = "Extract all vocabulary from the following text:" if _ui_lang_en() \
-        else "Hãy trích xuất tất cả từ vựng từ văn bản sau:"
+    is_collocation = kind == "collocation"
+    request = (
+        ("Extract high-value collocations, chunks, and idioms from the following text:"
+         if is_collocation else "Extract all vocabulary from the following text:")
+        if _ui_lang_en() else
+        ("Hãy trích xuất collocation, cụm từ và thành ngữ đáng học từ văn bản sau:"
+         if is_collocation else "Hãy trích xuất tất cả từ vựng từ văn bản sau:")
+    )
     user_msg = f"{request}\n\n{text}"
 
     if existing_words and len(existing_words) > 0:
-        user_msg += _format_existing_context(existing_words, text, label="WORDS" if _ui_lang_en() else "TỪ")
+        label = (("CHUNKS" if _ui_lang_en() else "CỤM TỪ") if is_collocation
+                 else ("WORDS" if _ui_lang_en() else "TỪ"))
+        user_msg += _format_existing_context(existing_words, text, label=label)
 
     if custom_instruction.strip():
         heading = "ADDITIONAL REQUIREMENT (highest priority)" if _ui_lang_en() \
@@ -820,7 +835,7 @@ def extract_vocabulary_with_ai(
         )
         _record_token_info(
             token_info,
-            operation="vocab_extraction",
+            operation="collocation_extraction" if is_collocation else "vocab_extraction",
             started_at=request_started_at,
             duration_seconds=time.monotonic() - request_started_monotonic,
         )
@@ -834,7 +849,7 @@ def extract_vocabulary_with_ai(
         progress_callback(t("status_parsing_json"))
 
     vocab_list, comment = _validated_cards_from_result(
-        result, cfg, lang=lang, kind="vocab", progress_callback=progress_callback,
+        result, cfg, lang=lang, kind=kind, progress_callback=progress_callback,
     )
 
     # Lọc bỏ từ trùng với existing_words (safety net)
@@ -842,7 +857,7 @@ def extract_vocabulary_with_ai(
         original_count = len(vocab_list)
         vocab_list = [
             v for v in vocab_list
-            if not is_exact_existing_card(v, existing_words, kind="vocab")
+            if not is_exact_existing_card(v, existing_words, kind=kind)
         ]
         if len(vocab_list) < original_count and progress_callback:
             progress_callback(t("status_filtered_vocab", count=original_count - len(vocab_list)))
@@ -857,7 +872,7 @@ def extract_vocabulary_with_ai(
 
     # Lưu cache
     if vocab_list:
-        _ai_cache_set(text, lang, custom_instruction, existing_hash, vocab_list)
+        _ai_cache_set(text, lang, custom_instruction, existing_hash, vocab_list, kind=kind)
 
     return vocab_list
 
@@ -1000,6 +1015,8 @@ def _build_anki_context_text(context: dict) -> str:
 def _get_study_chat_system_prompt(
     lang: str = "japanese", card_mode: Optional[str] = None, workspace: str = "reviewer",
 ) -> str:
+    if workspace == "forge" and card_mode == "collocation":
+        return get_effective_system_prompt(lang, "collocation")
     return build_study_prompt(lang, card_mode, english_ui=_ui_lang_en(), workspace=workspace)
 
 
@@ -1050,7 +1067,7 @@ def chat_with_ai(
             raise ValueError("Study Library context requires a Reviewer request")
         if normalize_language(manifest.get("language")) != normalize_language(lang):
             raise ValueError("Study Library language does not match the Reviewer request")
-    if card_kind not in {"vocab", "grammar"}:
+    if card_kind not in {"vocab", "grammar", "collocation"}:
         raise ValueError("unsupported chat card kind")
     card_mode = validate_workspace_card_mode(workspace, card_mode)
     cfg = dict(runtime_config) if isinstance(runtime_config, dict) else get_api_config()
@@ -1247,8 +1264,11 @@ def extract_vocabulary_long_text(
     progress_callback: Optional[Callable[[str], None]] = None,
     force_refresh: bool = False,
     should_abort: Optional[Callable[[], bool]] = None,
+    kind: str = "vocab",
 ) -> list:
     """Xử lý văn bản dài: chia đoạn, gọi AI, loại trùng, tổng hợp token."""
+    if kind not in {"vocab", "collocation"}:
+        raise ValueError("unsupported lexical card kind")
     ensure_ai_session_budget(text)
     if chunk_size is None:
         chunk_size = get_api_config().get("chunk_size", 8000)
@@ -1292,20 +1312,21 @@ def extract_vocabulary_long_text(
                     progress_callback=None, force_refresh=force_refresh,
                     token_callback=_acc,
                     should_abort=should_abort,
+                    kind=kind,
                 )
 
             vocab_chunk, unresolved_spans = _recover_text_chunk(
                 _call_vocab, chunk, progress_callback=progress_callback,
-                should_abort=should_abort, kind="vocab",
+                should_abort=should_abort, kind=kind,
             )
             unresolved_total += unresolved_spans
             for item in vocab_chunk:
                 if not isinstance(item, dict):
                     continue
-                front = (item.get("front") or item.get("simplified") or "").strip().lower()
+                front = (item.get("chunk") or item.get("front") or item.get("simplified") or "").strip().lower()
                 meaning = (item.get("meaning") or "").strip().lower()
                 key = f"{front}|{meaning}"
-                if front and key not in seen and not is_exact_existing_card(item, existing_words or [], kind="vocab"):
+                if front and key not in seen and not is_exact_existing_card(item, existing_words or [], kind=kind):
                     seen.add(key)
                     all_vocab.append(item)
                     prior_fronts.append(front)

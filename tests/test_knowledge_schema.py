@@ -25,7 +25,7 @@ def test_knowledge_prompt_and_schema_are_not_language_overrides():
     assert template in prompt
     assert "pronunciation" in prompt.lower()
     assert ai_prompt_defaults.KNOWLEDGE_PROMPT_VERSION == 1
-    assert prompt_config.KINDS == ("vocab", "grammar")
+    assert prompt_config.KINDS == ("vocab", "grammar", "collocation")
 
 
 def test_knowledge_corpus_accepts_valid_basic_and_cloze(corpus):

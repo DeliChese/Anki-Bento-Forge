@@ -45,6 +45,10 @@ from .prompts import (
     _GRAMMAR_JSON_TEMPLATES,
     _GRAMMAR_SYSTEM_PROMPTS_EN,
     _GRAMMAR_JSON_TEMPLATES_EN,
+    _COLLOCATION_JSON_TEMPLATES,
+    _COLLOCATION_SYSTEM_PROMPTS,
+    _COLLOCATION_JSON_TEMPLATES_EN,
+    _COLLOCATION_SYSTEM_PROMPTS_EN,
 )
 
 # Knowledge is intentionally independent from the language prompt registry:

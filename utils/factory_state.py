@@ -89,7 +89,7 @@ class FactoryStateStore:
             if not isinstance(lang_state, dict):
                 continue
             clean_lang = {}
-            for mode in ("vocab", "grammar"):
+            for mode in ("vocab", "grammar", "collocation"):
                 flow = clean_flow(lang_state.get(mode))
                 if flow is None:
                     continue

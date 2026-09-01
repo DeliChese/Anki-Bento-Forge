@@ -491,6 +491,7 @@ class AiCompanionDock(QDockWidget):
         self.cbo_lane.addItem(t("study_forge_router_auto"), "auto")
         self.cbo_lane.addItem(t("study_forge_router_vocab"), "vocab")
         self.cbo_lane.addItem(t("study_forge_router_grammar"), "grammar")
+        self.cbo_lane.addItem(t("study_forge_router_collocation"), "collocation")
         self.cbo_lane.setAccessibleName(t("study_forge_router_label"))
         self.cbo_lane.setVisible(self._policy.allows_card_mode and not self._integrated)
         self.cbo_lane.currentIndexChanged.connect(self._update_context_board)
@@ -1049,10 +1050,11 @@ class AiCompanionDock(QDockWidget):
         checkbox = getattr(self, "chk_create_card", None)
         if checkbox is None:
             return
-        lane = self._lane if self._lane in {"vocab", "grammar"} else "vocab"
+        lane = self._lane if self._lane in {"vocab", "grammar", "collocation"} else "vocab"
         checkbox.setText(t(
-            "study_create_card_grammar" if lane == "grammar"
-            else "study_create_card_vocab"
+            "study_create_card_grammar" if lane == "grammar" else
+            "study_create_card_collocation" if lane == "collocation" else
+            "study_create_card_vocab"
         ))
         checkbox.setToolTip(t("study_create_card_tip"))
         checkbox.setVisible(
@@ -1077,9 +1079,9 @@ class AiCompanionDock(QDockWidget):
         if self._workspace != "forge" or self._learning_mode != "language":
             return "knowledge" if self._learning_mode == "knowledge" else "vocab"
         if self._integrated:
-            return self._lane if self._lane in {"vocab", "grammar"} else "vocab"
+            return self._lane if self._lane in {"vocab", "grammar", "collocation"} else "vocab"
         selected = str(self.cbo_lane.currentData() or "auto")
-        if selected in {"vocab", "grammar"}:
+        if selected in {"vocab", "grammar", "collocation"}:
             return selected
         return route_forge_lane(
             self.source_input.toPlainText(), instruction, fallback=self._lane,

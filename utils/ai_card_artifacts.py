@@ -94,7 +94,10 @@ def artifact_to_factory_payload(artifact: dict) -> tuple[str, str, list[dict]]:
 
 
 def artifact_label(artifact: dict) -> str:
-    kind = "Grammar" if artifact.get("kind") == "grammar" else "Vocabulary"
+    kind = {
+        "grammar": "Grammar", "collocation": "Collocation / Idiom",
+        "vocab": "Vocabulary",
+    }.get(artifact.get("kind"), "Vocabulary")
     language = str(artifact.get("language") or "").title()
     return f"{language} {kind} · {len(artifact.get('cards') or [])}"
 

@@ -4,6 +4,7 @@ from .japanese import LANG_CONFIG as _JA, GRAMMAR_CONFIG as _JA_G
 from .chinese import LANG_CONFIG as _ZH, GRAMMAR_CONFIG as _ZH_G
 from .korean import LANG_CONFIG as _KO, GRAMMAR_CONFIG as _KO_G
 from .english import LANG_CONFIG as _EN, GRAMMAR_CONFIG as _EN_G
+from .collocation import LANG_COLLOCATION_CONFIG
 
 LANG_CONFIG = {
     "japanese": _JA,

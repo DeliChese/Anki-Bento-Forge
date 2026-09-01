@@ -298,3 +298,17 @@ LANG_GRAMMAR_CSS = {
     "korean":   css_korean_grammar,
     "english":  css_english_grammar,
 }
+
+
+_COLLOCATION_EXTRA = '''
+.collocation-card .ch{background:linear-gradient(135deg,#7c3aed,#4f46e5 65%,#2563eb);}
+.collocation-card{border-left:3px solid #7c3aed;}
+.collocation-card .hanzi{font-size:40px;overflow-wrap:anywhere;word-break:break-word;}
+'''
+
+LANG_COLLOCATION_CSS = {
+    "japanese": lambda: css_japanese() + _COLLOCATION_EXTRA,
+    "chinese": lambda: css_chinese() + _COLLOCATION_EXTRA,
+    "korean": lambda: css_korean() + _COLLOCATION_EXTRA,
+    "english": lambda: css_english() + _COLLOCATION_EXTRA,
+}

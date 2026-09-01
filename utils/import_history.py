@@ -308,7 +308,7 @@ def add_to_import_history(vocab_list: list, lang: str, deck_name: str = "", sour
         front = (
             item.get("question") or item.get("cloze_text")
             if learning_mode == "knowledge"
-            else item.get("front") or item.get("simplified") or item.get("pattern")
+            else item.get("chunk") or item.get("front") or item.get("simplified") or item.get("pattern")
         ) or ""
         front = str(front).strip()
         if not front:
@@ -323,7 +323,10 @@ def add_to_import_history(vocab_list: list, lang: str, deck_name: str = "", sour
                 item.get("answer") or item.get("explanation") or ""
                 if learning_mode == "knowledge" else item.get("meaning", "")
             ).strip(),
-            "level": str(item.get("jlptlevel") or item.get("hsk_level") or "").strip(),
+            "level": str(
+                item.get("jlptlevel") or item.get("hsk_level")
+                or item.get("topik_level") or item.get("cefr_level") or ""
+            ).strip(),
             "deck": deck_name,
             "imported_at": now,
             "source": source,

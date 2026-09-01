@@ -23,7 +23,8 @@ logger = get_logger()
 
 def show_ai_preview_dialog(parent, vocab_list, lang, ai_text_input, ai_instruction,
                            lbl_ai_status, get_existing_words_fn,
-                           on_finalize_callback, grammar=False, learning_mode="language"):
+                           on_finalize_callback, grammar=False, learning_mode="language",
+                           card_kind=None):
     """
     Mở dialog xem trước & chỉnh sửa thẻ sau AI extract (từ vựng HOẶC ngữ pháp).
 
@@ -38,9 +39,11 @@ def show_ai_preview_dialog(parent, vocab_list, lang, ai_text_input, ai_instructi
         on_finalize_callback: Callback khi user chấp nhận (nhận final_list)
         grammar: True nếu đang ở chế độ Ngữ pháp
     """
+    card_kind = card_kind or ("grammar" if grammar else "vocab")
     item_label = (
         t("item_label_knowledge") if learning_mode == "knowledge"
-        else (t("item_label_grammar") if grammar else t("item_label_vocab"))
+        else (t("item_label_collocation") if card_kind == "collocation" else
+              t("item_label_grammar") if grammar else t("item_label_vocab"))
     )
     dlg = QDialog(parent)
     dlg.setWindowTitle(t("dlg_preview_edit", count=len(vocab_list), item=item_label))
@@ -68,7 +71,7 @@ def show_ai_preview_dialog(parent, vocab_list, lang, ai_text_input, ai_instructi
     btn_accept_all.clicked.connect(lambda: (
         _finalize_and_close(
             dlg, table, columns, vocab_list, on_finalize_callback,
-            lang=lang, grammar=grammar,
+            lang=lang, grammar=grammar, card_kind=card_kind,
         )
     ))
     header.addWidget(btn_accept_all)
@@ -85,6 +88,21 @@ def show_ai_preview_dialog(parent, vocab_list, lang, ai_text_input, ai_instructi
     # Xác định cột dựa trên chế độ (ngữ pháp) + ngôn ngữ
     if learning_mode == "knowledge":
         columns = ["type", "question", "answer", "explanation", "source", "tags", "cloze_text"]
+    elif card_kind == "collocation":
+        pronunciation = {
+            "japanese": "furigana", "chinese": "pinyin",
+            "korean": "romanization", "english": "pronunciation",
+        }[lang]
+        level = {
+            "japanese": "jlptlevel", "chinese": "hsk_level",
+            "korean": "topik_level", "english": "cefr_level",
+        }[lang]
+        columns = [
+            "chunk", pronunciation, "meaning", "phrase_type", "pattern_slots",
+            "register_nuance", "constraint", "source_word", "related_terms",
+            level, "topic", "example", "example_vn", "example_2", "example_2_vn",
+            "example_3", "example_3_vn", "example_4", "example_4_vn",
+        ]
     elif grammar:
         if lang == "chinese":
             columns = ["pattern", "pinyin", "meaning", "hsk_level", "topic", "usage",
@@ -165,7 +183,7 @@ def show_ai_preview_dialog(parent, vocab_list, lang, ai_text_input, ai_instructi
         else:
             _update_quality_summary(
                 quality_summary, table, current, lang=lang, grammar=grammar,
-                existing_terms=existing_terms,
+                existing_terms=existing_terms, card_kind=card_kind,
             )
 
     refresh_quality_summary()
@@ -194,7 +212,7 @@ def show_ai_preview_dialog(parent, vocab_list, lang, ai_text_input, ai_instructi
     btn_regenerate.setStyleSheet("padding:6px 12px;background:#e67e22;color:white;font-weight:bold;border-radius:6px;")
     btn_regenerate.clicked.connect(lambda: _regenerate_selected(
         table, columns, vocab_list, lang, ai_text_input, ai_instruction,
-        get_existing_words_fn, lbl_ai_status, parent, grammar, learning_mode
+        get_existing_words_fn, lbl_ai_status, parent, grammar, learning_mode, card_kind
     ))
     action_bar.addWidget(btn_regenerate)
 
@@ -202,7 +220,7 @@ def show_ai_preview_dialog(parent, vocab_list, lang, ai_text_input, ai_instructi
     btn_regenerate_all.setStyleSheet("padding:6px 12px;background:#8e44ad;color:white;font-weight:bold;border-radius:6px;")
     btn_regenerate_all.clicked.connect(lambda: _regenerate_all(
         table, columns, vocab_list, lang, ai_text_input, ai_instruction,
-        get_existing_words_fn, lbl_ai_status, parent, dlg, grammar, learning_mode
+        get_existing_words_fn, lbl_ai_status, parent, dlg, grammar, learning_mode, card_kind
     ))
     action_bar.addWidget(btn_regenerate_all)
 
@@ -227,7 +245,7 @@ def show_ai_preview_dialog(parent, vocab_list, lang, ai_text_input, ai_instructi
     btn_accept.clicked.connect(lambda: (
         _finalize_and_close(
             dlg, table, columns, vocab_list, on_finalize_callback,
-            lang=lang, grammar=grammar,
+            lang=lang, grammar=grammar, card_kind=card_kind,
         )
     ))
     bottom_bar.addWidget(btn_accept)
@@ -275,14 +293,19 @@ def _update_knowledge_validation(label, cards):
 
 
 def _update_quality_summary(
-    label, table, vocab_list, *, lang, grammar, existing_terms=(),
+    label, table, vocab_list, *, lang, grammar, existing_terms=(), card_kind="vocab",
 ):
     """Show deterministic, advisory quality feedback without blocking import."""
+    quality_items = [
+        ({**item, "front": item.get("chunk", "")} if
+         card_kind == "collocation" and isinstance(item, dict) else item)
+        for item in vocab_list
+    ]
     results = [
         evaluate_card_candidate(
             item, lang=lang, grammar=grammar, existing_terms=existing_terms,
         )
-        for item in vocab_list
+        for item in quality_items
     ]
     _set_quality_tooltips(table, results)
     if not results:
@@ -398,7 +421,7 @@ def _edit_selected_card(table, columns, vocab_list):
 
 def _regenerate_selected(table, columns, vocab_list, lang, ai_text_input,
                          ai_instruction, get_existing_words_fn, lbl_ai_status, parent,
-                         grammar=False, learning_mode="language"):
+                         grammar=False, learning_mode="language", card_kind="vocab"):
     """Tái tạo các thẻ được chọn bằng AI (hỗ trợ cả từ vựng & ngữ pháp)."""
     selected_rows = set()
     for item in table.selectedItems():
@@ -456,6 +479,7 @@ def _regenerate_selected(table, columns, vocab_list, lang, ai_text_input,
                 existing_words=existing_words,
                 progress_callback=lambda m: lbl_ai_status.setText(m),
                 force_refresh=True,
+                kind=card_kind,
             )
 
         if vocab_list_new:
@@ -484,7 +508,7 @@ def _regenerate_selected(table, columns, vocab_list, lang, ai_text_input,
 
 def _regenerate_all(table, columns, vocab_list, lang, ai_text_input,
                     ai_instruction, get_existing_words_fn, lbl_ai_status, parent, dlg,
-                    grammar=False, learning_mode="language"):
+                    grammar=False, learning_mode="language", card_kind="vocab"):
     """Tái tạo toàn bộ từ đầu (hỗ trợ cả từ vựng & ngữ pháp)."""
     from aqt.qt import QMessageBox
     item_label = (
@@ -535,6 +559,7 @@ def _regenerate_all(table, columns, vocab_list, lang, ai_text_input,
                 existing_words=existing_words,
                 progress_callback=lambda m: lbl_ai_status.setText(m),
                 force_refresh=True,
+                kind=card_kind,
             )
 
         if vocab_list_new:
@@ -565,6 +590,7 @@ def _regenerate_all(table, columns, vocab_list, lang, ai_text_input,
 
 def _finalize_and_close(
     dlg, table, columns, vocab_list, on_finalize_callback, *, lang, grammar,
+    card_kind="vocab",
 ):
     """Lấy dữ liệu cuối cùng từ bảng và gọi callback."""
     learning_mode = "knowledge" if "cloze_text" in columns and "question" in columns else "language"
@@ -578,7 +604,7 @@ def _finalize_and_close(
             return
     else:
         validation = validate_ai_cards(
-            final_list, lang=lang, kind="grammar" if grammar else "vocab",
+            final_list, lang=lang, kind=card_kind,
             require_example=True,
         )
         if validation.invalid or len(validation.valid_cards) != len(final_list):

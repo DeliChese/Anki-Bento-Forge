@@ -61,8 +61,11 @@ def _factory_state_store():
 # ═══════════════════════════════════════════════════════════
 #  IMPORTS FROM MODULES (Bridge)
 # ═══════════════════════════════════════════════════════════
-from Language import LANG_CONFIG, LANG_GRAMMAR_CONFIG, LANG_SELECTOR_INFO
-from mode import LANG_TEMPLATES, LANG_CSS, LANG_GRAMMAR_TEMPLATES, LANG_GRAMMAR_CSS
+from Language import LANG_CONFIG, LANG_GRAMMAR_CONFIG, LANG_COLLOCATION_CONFIG, LANG_SELECTOR_INFO
+from mode import (
+    LANG_TEMPLATES, LANG_CSS, LANG_GRAMMAR_TEMPLATES, LANG_GRAMMAR_CSS,
+    LANG_COLLOCATION_TEMPLATES, LANG_COLLOCATION_CSS,
+)
 from mode.card_render import build_qfmt as _build_qfmt, build_afmt as _build_afmt
 from audio.engine import get_voice_options, get_selected_voice, set_selected_voice, VOICE_SAMPLE
 from audio.engine import get_default_speed, set_default_speed
@@ -184,6 +187,7 @@ class AnkiSmartFactory(QDialog):
         self.prepared_data = []
         self._current_lang = "japanese"
         self._is_grammar = False   # False = từ vựng, True = ngữ pháp
+        self._card_kind = "vocab"
         self.import_worker = None
         self._import_cancel_event = None
         self._ai_workflow = AiWorkflowCoordinator()
@@ -315,13 +319,21 @@ class AnkiSmartFactory(QDialog):
         if getattr(self, "_learning_mode", DEFAULT_LEARNING_MODE) == "knowledge":
             return dict(KNOWLEDGE_IMPORT_CONFIG)
         from utils.prompt_config import apply_field_map_to_cfg
-        is_grammar = bool(getattr(self, '_is_grammar', False))
-        base = (LANG_GRAMMAR_CONFIG if is_grammar else LANG_CONFIG)[self._current_lang]
-        kind = "grammar" if is_grammar else "vocab"
+        kind = self._current_card_kind()
+        base = {
+            "vocab": LANG_CONFIG, "grammar": LANG_GRAMMAR_CONFIG,
+            "collocation": LANG_COLLOCATION_CONFIG,
+        }[kind][self._current_lang]
         cfg = apply_field_map_to_cfg(base, self._current_lang, kind)
-        if not is_grammar:
+        if kind == "vocab":
             cfg = apply_srs_layout_to_config(cfg, get_srs_layout(self._current_deck_id()))
         return cfg
+
+    def _current_card_kind(self):
+        kind = getattr(self, "_card_kind", "")
+        if kind in {"vocab", "grammar", "collocation"}:
+            return kind
+        return "grammar" if getattr(self, "_is_grammar", False) else "vocab"
 
     def _current_deck_id(self):
         """Resolve the selected deck without assuming UI setup has completed."""
@@ -333,20 +345,35 @@ class AnkiSmartFactory(QDialog):
             return None
 
     def _select_mode(self, is_grammar):
-        """Chuyển chế độ Từ vựng ↔ Ngữ pháp (Note Type riêng)"""
-        if self._learning_mode != "language":
+        """Compatibility wrapper for callers that still pass a grammar bool."""
+        self._select_card_kind("grammar" if is_grammar else "vocab")
+
+    def _select_card_kind(self, kind):
+        """Switch the explicit Language subtype without migrating old notes."""
+        if getattr(self, "_learning_mode", "language") != "language":
+            return
+        if kind not in {"vocab", "grammar", "collocation"}:
             return
         # Luôn đồng bộ trạng thái nút (tránh toggle lệch khi bấm lại nút đang active)
-        self.btn_mode_vocab.setChecked(not is_grammar)
-        self.btn_mode_grammar.setChecked(is_grammar)
-        if getattr(self, '_is_grammar', False) == is_grammar:
+        if hasattr(self, "btn_mode_vocab"):
+            self.btn_mode_vocab.setChecked(kind == "vocab")
+        if hasattr(self, "btn_mode_grammar"):
+            self.btn_mode_grammar.setChecked(kind == "grammar")
+        if hasattr(self, "btn_mode_collocation"):
+            self.btn_mode_collocation.setChecked(kind == "collocation")
+        if self._current_card_kind() == kind:
             return
         # Lưu trạng thái luồng hiện tại TRƯỚC khi đổi mode
         self._save_current_flow()
-        self._is_grammar = is_grammar
+        self._card_kind = kind
+        self._is_grammar = kind == "grammar"
         self._collapse_integrated_forge()
         self._on_lang_changed()
-        tooltip(t("tooltip_switched_grammar") if is_grammar else t("tooltip_switched_vocab"))
+        tooltip(t({
+            "vocab": "tooltip_switched_vocab",
+            "grammar": "tooltip_switched_grammar",
+            "collocation": "tooltip_switched_collocation",
+        }[kind]))
 
     # ═══════════════════════════════════════════════════════
     #  LƯU / KHÔI PHỤC TRẠNG THÁI Ô AI (text + file) theo luồng
@@ -364,7 +391,7 @@ class AnkiSmartFactory(QDialog):
         """Return the explicit V18 draft key for Language or Knowledge."""
         if getattr(self, "_learning_mode", DEFAULT_LEARNING_MODE) == "knowledge":
             return "knowledge", "default", "knowledge"
-        subtype = "grammar" if self._is_grammar else "vocab"
+        subtype = self._current_card_kind()
         return "language", self._current_lang, subtype
 
     def _flow_state_path(self):
@@ -413,7 +440,7 @@ class AnkiSmartFactory(QDialog):
             initial_text=current_instruction,
             source_text=self.ai_text_input.toPlainText(),
             learning_mode="language",
-            lane="grammar" if self._is_grammar else "vocab",
+            lane=self._current_card_kind(),
             existing_entries=[],
         )
         panel.body.setVisible(True)
@@ -577,6 +604,18 @@ class AnkiSmartFactory(QDialog):
         self.btn_mode_grammar.clicked.connect(lambda checked: self._select_mode(True))
         self.btn_mode_grammar.setToolTip(t("factory_card_type_tip"))
         mode_layout.addWidget(self.btn_mode_grammar)
+        self.btn_mode_collocation = QPushButton(t("btn_mode_collocation"))
+        self.btn_mode_collocation.setCheckable(True)
+        self.btn_mode_collocation.setStyleSheet(
+            "padding:8px;font-weight:bold;border-radius:10px;"
+            "QPushButton:checked{background:#7c3aed;color:white;border:2px solid #6d28d9;}"
+            "QPushButton:!checked{background:rgba(255,255,255,0.08);color:#eaf0f6;border:1px solid rgba(255,255,255,0.18);}"
+        )
+        self.btn_mode_collocation.clicked.connect(
+            lambda checked: self._select_card_kind("collocation")
+        )
+        self.btn_mode_collocation.setToolTip(t("factory_card_type_tip"))
+        mode_layout.addWidget(self.btn_mode_collocation)
         self.mode_grp.setLayout(mode_layout)
 
         # Blueprint: keep language and the AI router on one compact control row.
@@ -1262,8 +1301,12 @@ class AnkiSmartFactory(QDialog):
             self.mode_grp.setTitle(t("mode_grp_title"))
             self.btn_mode_vocab.setText(t("btn_mode_vocab"))
             self.btn_mode_grammar.setText(t("btn_mode_grammar"))
+            if hasattr(self, "btn_mode_collocation"):
+                self.btn_mode_collocation.setText(t("btn_mode_collocation"))
             self.btn_mode_vocab.setToolTip(t("factory_card_type_tip"))
             self.btn_mode_grammar.setToolTip(t("factory_card_type_tip"))
+            if hasattr(self, "btn_mode_collocation"):
+                self.btn_mode_collocation.setToolTip(t("factory_card_type_tip"))
             self.lbl_deck.setText(t("deck_label"))
             self.btn_refresh_deck.setToolTip(t("btn_refresh_deck_tip"))
             self.btn_manage_deck.setText(t("deck_manage_btn"))
@@ -1497,7 +1540,11 @@ class AnkiSmartFactory(QDialog):
     def _ai_input_placeholder_key(self):
         if getattr(self, "_learning_mode", "language") == "knowledge":
             return "ai_input_placeholder_knowledge"
-        return "ai_input_placeholder_grammar" if self._is_grammar else "ai_input_placeholder_vocab"
+        return {
+            "vocab": "ai_input_placeholder_vocab",
+            "grammar": "ai_input_placeholder_grammar",
+            "collocation": "ai_input_placeholder_collocation",
+        }[self._current_card_kind()]
 
     def _current_ai_instruction(self):
         """Use the Blueprint composer as the single visible AI instruction source."""
@@ -1530,7 +1577,7 @@ class AnkiSmartFactory(QDialog):
             widget.setVisible(True)
         # This opens the Language-only vocabulary/grammar batch dialog.
         # Knowledge already accepts multiple strict cards through AI extract.
-        self.btn_ai_batch.setVisible(is_language)
+        self.btn_ai_batch.setVisible(is_language and self._current_card_kind() != "collocation")
         self.btn_ai_chat.setVisible(False)
         if hasattr(self, "forge_panel"):
             self.forge_panel.setVisible(is_language)
@@ -1671,7 +1718,7 @@ class AnkiSmartFactory(QDialog):
         self.spin_speed.setValue(get_default_speed(lang))
         self.spin_speed.blockSignals(False)
 
-        is_vocab = not self._is_grammar
+        is_vocab = self._current_card_kind() == "vocab"
         for widget in (self.lbl_study_mode, self.cbo_study_mode, self.lbl_srs_layout,
                        self.cbo_srs_layout, self.btn_migrate_srs):
             widget.setVisible(is_vocab)
@@ -1769,7 +1816,7 @@ class AnkiSmartFactory(QDialog):
 
     def _migrate_current_deck_srs(self):
         """Opt existing Combo notes into five schedules under one undo checkpoint."""
-        if self._is_grammar:
+        if self._current_card_kind() != "vocab":
             return
         deck_id = self._current_deck_id()
         if deck_id is None:
@@ -1930,7 +1977,7 @@ class AnkiSmartFactory(QDialog):
         # any user override made in Prompt Editor.
         raw = get_effective_json_template(
             self._current_lang,
-            "grammar" if self._is_grammar else "vocab",
+            self._current_card_kind(),
         )
 
         if isinstance(raw, dict):
@@ -2070,7 +2117,7 @@ class AnkiSmartFactory(QDialog):
         validation = validate_ai_cards(
             self.raw_data,
             lang=self._current_lang,
-            kind="grammar" if self._is_grammar else "vocab",
+            kind=self._current_card_kind(),
             require_example="example" in (cfg.get("json_field_map") or {}),
         )
         self._factory_validation_report = validation
@@ -2575,7 +2622,7 @@ class AnkiSmartFactory(QDialog):
             final_validation = validate_ai_cards(
                 [entry.get("item") for entry in batch],
                 lang=self._current_lang,
-                kind="grammar" if self._is_grammar else "vocab",
+                kind=self._current_card_kind(),
                 require_example="example" in (self._cfg().get("json_field_map") or {}),
             )
             if final_validation.invalid or len(final_validation.valid_cards) != len(batch):
@@ -2714,7 +2761,7 @@ class AnkiSmartFactory(QDialog):
                         deck_name=deck_name,
                         source="manual",
                         kind=("knowledge" if import_mode == "knowledge" else
-                              ("grammar" if getattr(self, '_is_grammar', False) else "vocab")),
+                              self._current_card_kind()),
                         learning_mode=import_mode,
                     )
                 invalidate_deck_cache()
@@ -2819,7 +2866,7 @@ class AnkiSmartFactory(QDialog):
 
     def _prepare_legacy_srs_model(self, cfg):
         """Preserve old multi-card notes before installing conditional templates."""
-        if self._is_grammar:
+        if self._current_card_kind() != "vocab":
             return
         mm = mw.col.models
         model = mm.by_name(cfg["model_name"])
@@ -2846,7 +2893,7 @@ class AnkiSmartFactory(QDialog):
         result = ensure_model(
             mm, cfg, templates, css, _build_qfmt, _build_afmt,
             rename_primary_template=False,
-            prune_extra_templates=self._is_grammar,
+            prune_extra_templates=self._current_card_kind() != "vocab",
         )
         message_key = "model_rebuilt" if result.existed else "model_created"
         showInfo(t(message_key, model=cfg['model_name']))
@@ -2855,6 +2902,8 @@ class AnkiSmartFactory(QDialog):
         """Select card assets; model mutation lives in ``utils.model_lifecycle``."""
         if self._is_grammar:
             return LANG_GRAMMAR_TEMPLATES[self._current_lang], LANG_GRAMMAR_CSS[self._current_lang]()
+        if self._current_card_kind() == "collocation":
+            return LANG_COLLOCATION_TEMPLATES[self._current_lang], LANG_COLLOCATION_CSS[self._current_lang]()
         return LANG_TEMPLATES[self._current_lang], LANG_CSS[self._current_lang]()
 
     def get_or_create_model(self):
@@ -2863,8 +2912,8 @@ class AnkiSmartFactory(QDialog):
         self._prepare_legacy_srs_model(cfg)
         result = ensure_model(
             mw.col.models, cfg, templates, css, _build_qfmt, _build_afmt,
-            rename_primary_template=not self._is_grammar,
-            prune_extra_templates=self._is_grammar,
+            rename_primary_template=self._current_card_kind() == "vocab",
+            prune_extra_templates=self._current_card_kind() != "vocab",
         )
         return result.model
 
@@ -3063,11 +3112,12 @@ class AnkiSmartFactory(QDialog):
         self._warn_reasoner_model()
 
         custom_instr = self._current_ai_instruction()
-        if getattr(self, "_learning_mode", "language") == "language":
+        if (getattr(self, "_learning_mode", "language") == "language"
+                and self._current_card_kind() != "collocation"):
             routed_lane = route_forge_lane(
                 text,
                 custom_instr,
-                fallback="grammar" if self._is_grammar else "vocab",
+                fallback=self._current_card_kind(),
             )
             if (routed_lane == "grammar") != bool(self._is_grammar):
                 self._select_mode(routed_lane == "grammar")
@@ -3154,6 +3204,7 @@ class AnkiSmartFactory(QDialog):
             custom_instruction=custom_instr,
             existing_words=existing_words,
             grammar=self._is_grammar,
+            card_kind=self._current_card_kind(),
             learning_mode=getattr(self, "_learning_mode", "language"),
             on_progress=self._on_ai_progress,
             on_finished=self._on_ai_finished,
@@ -3195,22 +3246,29 @@ class AnkiSmartFactory(QDialog):
     def _enable_ai_buttons(self):
         self.btn_ai_extract.setEnabled(True)
         self.btn_ai_chat.setEnabled(True)
-        self.btn_ai_batch.setEnabled(self._learning_mode == "language")
+        self.btn_ai_batch.setEnabled(
+            self._learning_mode == "language" and self._current_card_kind() != "collocation"
+        )
         self.btn_ai_settings.setEnabled(True)
         self.btn_ai_clear_text.setEnabled(True)
         self.btn_mode_vocab.setEnabled(True)
         self.btn_mode_grammar.setEnabled(True)
+        if hasattr(self, "btn_mode_collocation"):
+            self.btn_mode_collocation.setEnabled(True)
         self.btn_learning_language.setEnabled(True)
         self.btn_learning_knowledge.setEnabled(True)
         self.btn_ai_stop.setVisible(False)
 
     # ═══════════════════════════════════════════════════════
-    #  AI BATCH PROCESS — Xử lý danh sách từ vựng lớn
+    #  SUPERVISED PRODUCTION — Kho từ quy mô lớn có giám sát
     # ═══════════════════════════════════════════════════════
     def _ai_batch_process(self):
-        """Mở dialog xử lý danh sách từ vựng lớn qua AI"""
+        """Mở kho sản xuất có giám sát; không tự xử lý toàn bộ nguồn."""
         if getattr(self, "_learning_mode", "language") == "knowledge":
             # Guard programmatic/stale signal calls as well as hiding the UI.
+            return
+        if self._current_card_kind() == "collocation":
+            tooltip(t("collocation_batch_not_available"))
             return
         cfg_api = get_api_config()
         if not self._ensure_ai_access(cfg_api):
@@ -3237,6 +3295,8 @@ class AnkiSmartFactory(QDialog):
             existing_words=existing_words,
             parent=self,
             grammar=self._is_grammar,
+            workshop_text=self.ai_text_input.toPlainText(),
+            workshop_paths=list(getattr(self, "_ai_attached_paths", ())),
         )
         if dlg.exec():
             vocab_list = dlg.get_result_vocab()
@@ -3297,7 +3357,7 @@ class AnkiSmartFactory(QDialog):
         source_text = self.ai_text_input.toPlainText().strip()
         custom_instr = self._current_ai_instruction()
         learning_mode = getattr(self, "_learning_mode", "language")
-        lane = "grammar" if self._is_grammar else "vocab"
+        lane = self._current_card_kind()
 
         def open_workspace(existing_entries=None):
             self.open_integrated_forge(
@@ -3377,6 +3437,8 @@ class AnkiSmartFactory(QDialog):
         self.btn_ai_clear_text.setEnabled(False)
         self.btn_mode_vocab.setEnabled(False)
         self.btn_mode_grammar.setEnabled(False)
+        if hasattr(self, "btn_mode_collocation"):
+            self.btn_mode_collocation.setEnabled(False)
 
         # Khởi tạo conversation history nếu chưa có
         if not hasattr(self, '_ai_chat_history'):
@@ -3425,7 +3487,7 @@ class AnkiSmartFactory(QDialog):
             lang=self._current_lang,
             conversation_history=self._ai_chat_history if len(self._ai_chat_history) > 0 else None,
             anki_context=anki_context,
-            card_kind="grammar" if self._is_grammar else "vocab",
+            card_kind=self._current_card_kind(),
             on_progress=self._on_ai_chat_progress,
             on_finished=self._on_ai_chat_finished,
             on_error=self._on_ai_chat_error,
@@ -3530,9 +3592,8 @@ class AnkiSmartFactory(QDialog):
 
         if dlg.exec() == QDialog.DialogCode.Accepted and dlg.accepted_vocab:
             # Đổ đúng card kind đã snapshot khi gửi request vào RAW/Xưởng.
-            wants_grammar = card_kind == "grammar"
-            if bool(getattr(self, "_is_grammar", False)) != wants_grammar:
-                self._select_mode(wants_grammar)
+            if self._current_card_kind() != card_kind:
+                self._select_card_kind(card_kind)
             json_str = json.dumps(dlg.accepted_vocab, indent=2, ensure_ascii=False)
             self.json_input.setPlainText(json_str)
             self._schedule_analyze()
@@ -3552,10 +3613,12 @@ class AnkiSmartFactory(QDialog):
 
             status_key = (
                 "status_poured_grammar" if card_kind == "grammar"
+                else "status_poured_collocation" if card_kind == "collocation"
                 else "status_poured_vocab"
             )
             message_key = (
                 "msg_chat_poured_grammar" if card_kind == "grammar"
+                else "msg_chat_poured_collocation" if card_kind == "collocation"
                 else "msg_chat_poured"
             )
             self.lbl_ai_status.setText(t(status_key, count=len(dlg.accepted_vocab)))
@@ -3577,6 +3640,7 @@ class AnkiSmartFactory(QDialog):
             get_existing_words_fn=self._get_existing_words_for_ai,
             on_finalize_callback=self._finalize_ai_vocab,
             grammar=self._is_grammar,
+            card_kind=self._current_card_kind(),
             learning_mode=getattr(self, "_learning_mode", "language"),
         )
 
@@ -3589,7 +3653,10 @@ class AnkiSmartFactory(QDialog):
             self._select_learning_mode("language", persist=False, announce=False)
         if self._current_lang != language:
             self._select_lang(language)
-        self._select_mode(kind == "grammar")
+        if kind == "collocation":
+            self._select_card_kind(kind)
+        else:
+            self._select_mode(kind == "grammar")
         self.json_input.setPlainText(json.dumps(cards, indent=2, ensure_ascii=False))
         self._schedule_analyze()
         self.lbl_ai_status.setText(t("study_sent_forge"))
@@ -3613,12 +3680,7 @@ class AnkiSmartFactory(QDialog):
         self.json_input.setPlainText(json_str)
         self._schedule_analyze()
 
-        final_kind = (
-            "grammar"
-            if getattr(self, "_learning_mode", "language") == "language"
-            and getattr(self, "_is_grammar", False)
-            else "vocab"
-        )
+        final_kind = self._current_card_kind()
 
         # Language preserves its legacy preview history. Knowledge is recorded
         # only after a successful CollectionOp import.
@@ -3637,6 +3699,7 @@ class AnkiSmartFactory(QDialog):
 
         status_key = (
             "status_poured_grammar" if final_kind == "grammar"
+            else "status_poured_collocation" if final_kind == "collocation"
             else "status_poured_vocab"
         )
         self.lbl_ai_status.setText(t(status_key, count=len(final_list)))
@@ -3672,6 +3735,15 @@ class AnkiSmartFactory(QDialog):
                 self._select_learning_mode("language", persist=True, announce=False)
             self._current_lang = lang
             self._on_lang_changed()
+        if getattr(self, "_learning_mode", "language") == "language":
+            kinds = {
+                str(item.get("kind") or "vocab") for item in items
+                if isinstance(item, dict)
+            }
+            if len(kinds) == 1:
+                kind = next(iter(kinds))
+                if kind in {"vocab", "grammar", "collocation"}:
+                    self._select_card_kind(kind)
         json_str = json.dumps(items, indent=2, ensure_ascii=False)
         self.json_input.setPlainText(json_str)
         self._analyze_content()

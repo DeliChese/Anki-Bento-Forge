@@ -8,13 +8,53 @@ from aqt.qt import QThread, pyqtSignal
 
 from utils.logger import get_logger
 from utils.i18n import t
+from utils.ai_inventory_scanner import scan_inventory_with_ai
 from utils.batch_processor import (
     process_large_word_list,
     organize_decks_with_ai,
     estimate_batch_cost,
+    parse_word_list,
 )
 
 logger = get_logger()
+
+
+class InventoryScanThread(QThread):
+    """Scan a noisy source into a source-anchored supervised inventory."""
+
+    progress = pyqtSignal(str)
+    finished = pyqtSignal(dict)
+    error = pyqtSignal(str)
+
+    def __init__(self, source, lang, custom_instruction="", grammar=False):
+        super().__init__()
+        self.source = dict(source or {})
+        self.lang = lang
+        self.custom_instruction = custom_instruction
+        self.grammar = bool(grammar)
+        self.cancel_event = threading.Event()
+
+    def run(self):
+        try:
+            if self.cancel_event.is_set():
+                return
+            result = scan_inventory_with_ai(
+                self.source,
+                self.lang,
+                grammar=self.grammar,
+                custom_instruction=self.custom_instruction,
+                progress_callback=self.progress.emit,
+                should_abort=self.cancel_event.is_set,
+            )
+            if not self.cancel_event.is_set():
+                self.finished.emit(result)
+        except Exception as error:
+            logger.warning("AI inventory scan error: %s", error)
+            if not self.cancel_event.is_set():
+                self.error.emit(str(error))
+
+    def stop(self):
+        self.cancel_event.set()
 
 
 class BatchProcessThread(QThread):
@@ -50,7 +90,7 @@ class BatchProcessThread(QThread):
                 return
 
             # Báo cáo ước tính
-            word_count = len(self.raw_text.split("\n"))
+            word_count = len(parse_word_list(self.raw_text, self.lang))
             estimate = estimate_batch_cost(
                 word_count, self.lang, self.batch_size, grammar=self.grammar,
             )

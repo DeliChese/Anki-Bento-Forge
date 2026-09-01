@@ -27,6 +27,10 @@ _SEMANTIC_FIELD_LABELS = {
     "Relationship Note": "Quan hệ / ghi chú",
     "Register / Nuance": "Sắc thái / mức độ",
     "Related Terms": "Từ liên quan",
+    "Phrase Type": "Loại cụm",
+    "Pattern / Slots": "Khung / khe thay thế",
+    "Constraint": "Ràng buộc / lỗi dễ mắc",
+    "Source Word": "Từ vựng liên kết",
 }
 
 

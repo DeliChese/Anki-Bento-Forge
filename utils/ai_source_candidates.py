@@ -55,13 +55,16 @@ def build_candidate_prompt(language: str, lane: str, *, english_ui: bool) -> str
     """Return a compact strict schema prompt; SOURCE is supplied separately."""
     language = normalize_language(language)
     lane = str(lane or "").strip().casefold()
-    if lane not in {"vocab", "grammar"}:
+    if lane not in {"vocab", "grammar", "collocation"}:
         raise ValueError("unsupported candidate lane")
     target = {
         "japanese": "Japanese", "chinese": "Chinese",
         "korean": "Korean", "english": "English",
     }[language]
-    kind_label = "vocabulary" if lane == "vocab" else "grammar"
+    kind_label = {
+        "vocab": "vocabulary", "grammar": "grammar",
+        "collocation": "collocation/chunk/idiom",
+    }[lane]
     schema = (
         '{"candidates":[{"kind":"' + lane + '","surface":"exact text copied from SOURCE",'
         '"target":"dictionary form or pattern","meaning_hint":"short contextual meaning",'
@@ -91,7 +94,7 @@ def validate_source_candidates(
     """Validate provenance and shape without semantic repair or source guessing."""
     language = normalize_language(language)
     lane = str(lane or "").strip().casefold()
-    if lane not in {"vocab", "grammar"}:
+    if lane not in {"vocab", "grammar", "collocation"}:
         raise ValueError("unsupported candidate lane")
     source = _source_form(source_text)
     if not source:
@@ -219,7 +222,7 @@ def build_selected_candidate_instruction(
     if not candidates:
         raise ValueError("at least one source candidate must be selected")
     lane = str(manifest.get("lane") or "").casefold()
-    if lane not in {"vocab", "grammar"}:
+    if lane not in {"vocab", "grammar", "collocation"}:
         raise ValueError("unsupported candidate lane")
     payload = [{
         "candidate_id": item["candidate_id"],

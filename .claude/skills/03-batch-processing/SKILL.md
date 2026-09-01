@@ -5,21 +5,24 @@ description: Xử lý danh sách từ vựng LỚN qua AI — utils/batch_proces
 
 # 🚀 SKILL-03: BATCH PROCESSING (`utils/batch_processor.py`)
 
-> Chiến lược: SMART CHUNKING theo Quality V2 → TWO-PASS AI (Pass1 enrich vocab, Pass2 organize decks) → RATE LIMITING → CACHE từng batch (14 ngày).
+> Chiến lược hiện hành: SUPERVISED INVENTORY → người dùng lọc/chọn production run → SMART CHUNKING Quality V2 → RATE LIMITING → CACHE từng request (14 ngày). Deck organizer là API riêng cho Blueprint, không còn thuộc Batch dialog.
 
 ## HẰNG SỐ (đầu file, dòng 73-80)
 
 | Hằng | Giá trị | Dòng |
 |------|---------|------|
-| `DEFAULT_BATCH_SIZE` | 10 | 73 |
-| `MAX_WORDS_PER_REQUEST` | 30 | 74 |
-| `MIN_DELAY_BETWEEN_BATCHES` | 1.5s | 75 |
-| `CACHE_TTL` | 14 ngày | 80 |
+| `DEFAULT_BATCH_SIZE` | 10 | 75 |
+| `MAX_WORDS_PER_REQUEST` | 30 | 76 |
+| `MIN_DELAY_BETWEEN_BATCHES` | 1.5s | 77 |
+| `CACHE_TTL` | 14 ngày | 82 |
 
 ## API CÔNG KHAI
 
 ```python
 parse_word_list(raw_text, lang="japanese") -> list[{front, meaning, level, topic}]
+build_supervised_inventory(raw_text, lang, grammar=False) -> list[{id, identity, front, meaning, level, topic, source_path}]
+filter_supervised_inventory(inventory, topic="", level="", completed_ids=()) -> list[dict]
+recommended_supervised_run_size(available_count, lang, grammar=False) -> int
 smart_group_words(words, batch_size=10) -> list[list]           # nhóm theo level/topic, sort
 process_large_word_list(raw_text, lang, custom_instruction="", existing_words=None,
                         batch_size=10, progress_callback=None, should_abort=None, grammar=False) -> list[dict]
@@ -27,10 +30,21 @@ organize_decks_with_ai(vocab_list, lang, progress_callback=None, should_abort=No
                        source_sections=None, custom_instruction="") -> dict{suggestion, decks:[{parent, sub_decks}]}
 create_decks_from_organization(organization, vocab_list, lang, progress_callback=None) -> dict{deck_name: deck_id}
 estimate_batch_cost(word_count, lang, batch_size=10) -> dict    # ước tính USD + thời gian
-# internal: _fallback_deck_organization:1251
+# internal: _fallback_deck_organization:1596
 ```
 
-## DATA FLOW (`process_large_word_list` — dòng 715)
+## SUPERVISED FLOW (`ui/batch_dialog.py`)
+
+```
+1. Nhận snapshot có chủ đích từ Forge Workshop hoặc text paste.
+2. `build_supervised_inventory` đọc heading/cột khai báo, không gọi AI.
+3. Lọc topic + level, đề xuất production run 32–48 mục tùy ngôn ngữ.
+4. Chỉ run đã duyệt được serialize sang JSON và chuyển cho `process_large_word_list`.
+5. Kết quả hợp lệ cập nhật số còn lại; checkpoint chỉ lưu checksum + opaque item ID.
+6. Topic/level do source cung cấp thắng output AI; Preview/Import hiện hữu vẫn là gate cuối.
+```
+
+## DATA FLOW (`process_large_word_list` — dòng 1054)
 
 ```
 1. parse_word_list → words
@@ -46,13 +60,13 @@ estimate_batch_cost(word_count, lang, batch_size=10) -> dict    # ước tính U
 5. Trả all_vocab
 ```
 
-## DECK ORGANIZATION (Pass 2, dòng 1063)
+## DECK ORGANIZATION (Blueprint API riêng, dòng 1402)
 
 - `organize_decks_with_ai`: gửi `word_summaries` (front|meaning|level|topic|SOURCE path) — sampling nếu >500 từ, `MAX_WORDS_FOR_ORG=500`.
 - `source_sections` là outline bounded, không gửi content lặp; H1–H3 là deck candidate, H4–H6 mặc định chỉ làm context.
 - Prompt system: `_DECK_ORGANIZER_SYSTEM_PROMPT` (1000). Output JSON: `{suggestion, decks:[{parent, sub_decks:[{name, description, word_count, words}]}]}`.
 - **Fallback quan trọng**: mọi lỗi → `_fallback_deck_organization` (1257) nhóm theo topic/source heading→level. KHÔNG được để crash.
-- `create_decks_from_organization` (1359): tạo parent/sub bằng `collection.decks.id(name)`; import `aqt` bên trong try khi caller không truyền collection.
+- `create_decks_from_organization` (1698): tạo parent/sub bằng `collection.decks.id(name)`; import `aqt` bên trong try khi caller không truyền collection.
 
 ## TRAPS
 

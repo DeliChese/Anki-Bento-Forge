@@ -16,6 +16,7 @@ _FENCE_START_RE = re.compile(r"^\s*```(?:json)?\s*(?:\r?\n)?", re.IGNORECASE)
 _FENCE_END_RE = re.compile(r"(?:\r?\n)?\s*```\s*$")
 _KNOWN_LIST_WRAPPERS = frozenset({
     "candidates", "cards", "items", "results", "vocabulary", "vocab", "grammar",
+    "collocations", "chunks", "idioms",
 })
 _IDENTITY_KEYS = frozenset({"front", "simplified", "pattern"})
 

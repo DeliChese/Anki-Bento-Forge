@@ -215,13 +215,13 @@ def _artifact(value: Any) -> Optional[dict]:
             "session_id": _clean_text(value.get("session_id"), 100),
             "created_at": _clean_text(value.get("created_at"), 64) or _now(),
             "language": language or "",
-            "kind": kind if kind in {"vocab", "grammar"} else "",
+            "kind": kind if kind in {"vocab", "grammar", "collocation"} else "",
             "schema_version": schema_version,
             "compatibility": ARTIFACT_COMPATIBILITY_STALE,
             "cards": redact_sensitive(value["cards"]),
             "source_message_id": _clean_text(value.get("source_message_id"), 100),
         }
-    if kind not in {"vocab", "grammar"} or language is None:
+    if kind not in {"vocab", "grammar", "collocation"} or language is None:
         return None
     cards = [redact_sensitive(dict(card)) for card in value["cards"] if isinstance(card, dict)]
     if not cards:

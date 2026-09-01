@@ -6,11 +6,11 @@ import re
 from dataclasses import dataclass
 from typing import Any, Mapping, Sequence
 
-from Language import LANG_CONFIG, LANG_GRAMMAR_CONFIG
+from Language import LANG_CONFIG, LANG_GRAMMAR_CONFIG, LANG_COLLOCATION_CONFIG
 from .language_identity import normalize_language
 
 
-AI_OUTPUT_SCHEMA_VERSION = 5
+AI_OUTPUT_SCHEMA_VERSION = 6
 
 _LEVEL_KEYS = {
     "japanese": frozenset({"jlptlevel"}),
@@ -61,7 +61,8 @@ def _visible(value: Any) -> bool:
 
 
 def _identity(card: Mapping[str, Any], kind: str) -> str:
-    keys = ("pattern", "front") if kind == "grammar" else ("front", "simplified")
+    keys = (("pattern", "front") if kind == "grammar" else
+            ("chunk", "front") if kind == "collocation" else ("front", "simplified"))
     for key in keys:
         if _visible(card.get(key)):
             return str(card[key]).strip()
@@ -103,7 +104,9 @@ def _script_contradiction(value: Any, lang: str, *, example: bool) -> bool:
 
 
 def _content_language_issue(card: Mapping[str, Any], lang: str, kind: str) -> str | None:
-    identity_keys = ("pattern",) if kind == "grammar" else ("front", "simplified", "traditional")
+    identity_keys = (("pattern",) if kind == "grammar" else
+                     ("chunk", "front") if kind == "collocation" else
+                     ("front", "simplified", "traditional"))
     for key in identity_keys:
         if _visible(card.get(key)) and _script_contradiction(card[key], lang, example=False):
             return "content_language_mismatch"
@@ -146,6 +149,11 @@ def _validate_one(
             if any(_visible(card.get(key)) for key in ("usage_pattern", "usage_note", "collocation")):
                 return "vocab_in_grammar_flow"
             return "missing_grammar_function"
+    elif kind == "collocation":
+        if str(card.get("phrase_type") or "").strip() not in {
+            "collocation", "chunk", "phrasal_verb", "idiom", "fixed_expression",
+        }:
+            return "invalid_phrase_type"
     elif _visible(card.get("pattern")) and not any(
         _visible(card.get(key)) for key in ("front", "simplified")
     ):
@@ -164,7 +172,7 @@ def _validate_one(
             return "missing_primary_example"
         # New vocabulary cards deliberately provide four useful production
         # contexts. Grammar cards retain their established minimum of one.
-        if kind == "vocab":
+        if kind in {"vocab", "collocation"}:
             for index in range(2, 5):
                 if not _visible(card.get(f"example_{index}")):
                     return f"missing_example_{index}"
@@ -176,11 +184,15 @@ def validate_ai_cards(
 ) -> CardValidationReport:
     """Validate cards without coercing fields or inventing missing content."""
     lang = normalize_language(lang)
-    if lang not in LANG_CONFIG or kind not in {"vocab", "grammar"}:
+    if lang not in LANG_CONFIG or kind not in {"vocab", "grammar", "collocation"}:
         raise ValueError("unsupported language or card kind")
     # Accessing the language registry here makes it the authoritative schema
     # identity boundary, including officially supported historical aliases.
-    config = (LANG_GRAMMAR_CONFIG if kind == "grammar" else LANG_CONFIG)[lang]
+    registry = {
+        "vocab": LANG_CONFIG, "grammar": LANG_GRAMMAR_CONFIG,
+        "collocation": LANG_COLLOCATION_CONFIG,
+    }[kind]
+    config = registry[lang]
     expected_level = config.get("level_json_key")
     if expected_level not in _LEVEL_KEYS[lang]:
         raise ValueError("language config has an inconsistent level_json_key")

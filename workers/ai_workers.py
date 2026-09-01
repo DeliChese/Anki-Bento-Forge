@@ -65,13 +65,14 @@ class AiExtractThread(QThread):
     error = pyqtSignal(str)
 
     def __init__(self, text, lang, custom_instruction="", existing_words=None, grammar=False,
-                 cancel_event=None, learning_mode="language"):
+                 cancel_event=None, learning_mode="language", card_kind=None):
         super().__init__()
         self.text = text
         self.lang = lang
         self.custom_instruction = custom_instruction
         self.existing_words = existing_words or []
         self.grammar = grammar
+        self.card_kind = card_kind or ("grammar" if grammar else "vocab")
         self.learning_mode = learning_mode
         self.cancel_event = cancel_event or threading.Event()
 
@@ -82,7 +83,8 @@ class AiExtractThread(QThread):
             if self.existing_words:
                 label = (
                     t("item_label_knowledge") if self.learning_mode == "knowledge" else
-                    (t("item_label_grammar_lower") if self.grammar else t("item_label_vocab_lower"))
+                    (t("item_label_collocation_lower") if self.card_kind == "collocation" else
+                     t("item_label_grammar_lower") if self.grammar else t("item_label_vocab_lower"))
                 )
                 self.progress.emit(t("status_deck_avoid", count=len(self.existing_words), label=label))
 
@@ -108,7 +110,10 @@ class AiExtractThread(QThread):
                 )
                 empty_msg = t("empty_grammar")
             else:
-                self.progress.emit(t("worker_progress_vocab"))
+                self.progress.emit(t(
+                    "worker_progress_collocation" if self.card_kind == "collocation"
+                    else "worker_progress_vocab"
+                ))
                 result_list = extract_vocabulary_long_text(
                     self.text,
                     self.lang,
@@ -116,8 +121,11 @@ class AiExtractThread(QThread):
                     existing_words=self.existing_words,
                     progress_callback=lambda msg: self.progress.emit(msg),
                     should_abort=self.cancel_event.is_set,
+                    kind=self.card_kind,
                 )
-                empty_msg = t("empty_vocab")
+                empty_msg = t(
+                    "empty_collocation" if self.card_kind == "collocation" else "empty_vocab"
+                )
 
             if self.cancel_event.is_set():
                 return

@@ -27,7 +27,7 @@ from utils.prompt_config import (
 )
 from utils.logger import get_logger
 from utils.i18n import t
-from mode import LANG_TEMPLATES, LANG_GRAMMAR_TEMPLATES
+from mode import LANG_TEMPLATES, LANG_GRAMMAR_TEMPLATES, LANG_COLLOCATION_TEMPLATES
 from mode.card_render import build_qfmt as _build_qfmt, build_afmt as _build_afmt
 
 logger = get_logger()
@@ -41,8 +41,9 @@ _LANG_LABEL_KEYS = {
 _KIND_LABEL_KEYS = {
     "vocab": "prompt_kind_vocab",
     "grammar": "prompt_kind_grammar",
+    "collocation": "prompt_kind_collocation",
 }
-_KINDS = ("vocab", "grammar")
+_KINDS = ("vocab", "grammar", "collocation")
 _LANGS = ("japanese", "chinese", "korean", "english")
 # Vị trí hiển thị field tuỳ chỉnh trên thẻ (Mức 2)
 _SIDE_LABEL_KEYS = [
@@ -385,7 +386,7 @@ class PromptEditorDialog(QDialog):
         self._sync_all_prompt_edits()
         self._collect_fm_table()
 
-        entries = {"vocab": {}, "grammar": {}}
+        entries = {kind: {} for kind in _KINDS}
         for kind, lang_map in self._edits.items():
             for lang, e in lang_map.items():
                 if e["json_template"].strip() or e["system_prompt"].strip():
@@ -394,13 +395,13 @@ class PromptEditorDialog(QDialog):
                         "system_prompt": e["system_prompt"],
                     }
 
-        fm = {"vocab": {}, "grammar": {}}
+        fm = {kind: {} for kind in _KINDS}
         for kind, lang_map in self._fm_edits.items():
             for lang, m in lang_map.items():
                 if m:
                     fm[kind][lang] = m
 
-        card_show = {"vocab": {}, "grammar": {}}
+        card_show = {kind: {} for kind in _KINDS}
         for kind, lang_map in self._fm_show_edits.items():
             for lang, show in lang_map.items():
                 if show:
@@ -434,13 +435,14 @@ class PromptEditorDialog(QDialog):
         updated_models = 0
         try:
             from aqt import mw
-            from Language import LANG_CONFIG, LANG_GRAMMAR_CONFIG
+            from Language import LANG_CONFIG, LANG_GRAMMAR_CONFIG, LANG_COLLOCATION_CONFIG
             if mw is None or getattr(mw, "col", None) is None:
                 return 0, 0
             mm = mw.col.models
             pairs = (
                 ("vocab", LANG_CONFIG, LANG_TEMPLATES),
                 ("grammar", LANG_GRAMMAR_CONFIG, LANG_GRAMMAR_TEMPLATES),
+                ("collocation", LANG_COLLOCATION_CONFIG, LANG_COLLOCATION_TEMPLATES),
             )
             for kind, lang_cfgs, tmpl_map in pairs:
                 for lang, base in lang_cfgs.items():

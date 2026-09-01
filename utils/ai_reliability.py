@@ -24,7 +24,8 @@ def canonical_identity(value: Any) -> str:
 
 
 def card_identity(card: Mapping[str, Any], kind: str) -> str:
-    keys = ("pattern", "front") if kind == "grammar" else ("front", "simplified")
+    keys = (("pattern", "front") if kind == "grammar" else
+            ("chunk", "front") if kind == "collocation" else ("front", "simplified"))
     for key in keys:
         identity = canonical_identity(card.get(key))
         if identity:

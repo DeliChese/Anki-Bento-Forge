@@ -20,6 +20,7 @@ description: Lõi AI của add-on — utils/ai_extractor.py (~1.489 dòng). Conf
 | Prompt compatibility | 550-604 | re-export 32 symbol cũ; `get_json_template`:599, `get_grammar_json_template`:604 |
 | Prompt defaults owner | `utils/ai_prompt_defaults.py:12-528` | schema/prompt VI+EN cho vocab/grammar; dữ liệu thuần, không dependency runtime |
 | File extraction compatibility | 627-642 | re-export từ `utils/document_extractors.py` |
+| AI inventory scanner owner | `utils/ai_inventory_scanner.py` | source-anchored text/XLSX/CSV rows, AI keep/skip/review, validation, cache và supervised inventory; không phụ thuộc Qt/Anki |
 | Vocab extract | 700-850 | `extract_vocabulary_with_ai`:700; parser được inject qua compatibility alias |
 | Response parser owner | `utils/ai_response_parser.py:9-64` | code fence/list/dict/comment/embedded/fallback/error; chỉ phụ thuộc `json_parser` |
 | Chat | 869-1230 | `query_anki_context`:869, `_build_anki_context_text`:955, `chat_with_ai`:1013; `card_kind` snapshot vocab/grammar, Study Library request context chỉ thuộc Reviewer |
@@ -41,6 +42,9 @@ chat_with_ai(user_message, lang="japanese", conversation_history=None, progress_
 query_anki_context(user_message, lang="japanese") -> dict   # context Anki thông minh
 extract_text_from_file(filepath) -> str    # trích text file đính kèm
 extract_text_from_files(filepaths) -> list[(name, text)]
+inventory_source_from_text(text, name="pasted-source") -> dict
+inventory_source_from_file(filepath) -> dict
+scan_inventory_with_ai(source, lang, grammar=False, custom_instruction="", ...) -> dict
 get_json_template(lang) / get_grammar_json_template(lang) -> str
 init_import_history(force_rescan=False) / add_to_import_history(vocab_list, lang, deck_name="", source="manual")
 get_history_summary_text(lang=None, max_words_for_ai=50) -> str

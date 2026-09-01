@@ -11,6 +11,8 @@ Chiến lược:
 5. PROGRESS: Callback chi tiết từng bước
 """
 
+import csv
+import io
 import json
 import os
 import re
@@ -19,7 +21,7 @@ import hashlib
 import urllib.request
 import urllib.error
 from dataclasses import dataclass, replace
-from typing import Optional, Callable, List, Dict
+from typing import Optional, Callable, List, Dict, Iterable, Mapping
 
 from .logger import get_logger
 from .i18n import get_language, t
@@ -56,7 +58,7 @@ from .prompt_config import (
     get_system_prompt, get_json_template, get_signature,
 )
 from .language_identity import normalize_language
-from .deck_blueprint import normalize_deck_blueprint, outline_for_prompt
+from .deck_blueprint import normalize_deck_blueprint, outline_for_prompt, parse_structured_source
 
 logger = get_logger()
 
@@ -78,6 +80,25 @@ MIN_ADAPTIVE_BATCH_SIZE = 1
 _LEGACY_CACHE_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "ai_cache")
 CACHE_DIR = get_user_data_path("cache")
 CACHE_TTL = 14 * 24 * 3600       # Cache 14 ngày
+SUPERVISED_PROGRESS_PATH = get_user_data_path("supervised_batch_progress.json")
+SUPERVISED_PROGRESS_SCHEMA = 1
+
+_SUPERVISED_HEADER_ALIASES = {
+    "front": {
+        "front", "word", "vocab", "vocabulary", "term", "surface",
+        "simplified", "pattern", "từ", "từ vựng", "tu", "tu vung",
+    },
+    "meaning": {
+        "meaning", "translation", "definition", "nghĩa", "nghia",
+    },
+    "level": {
+        "level", "jlpt", "hsk", "topik", "cefr", "cấp độ", "cap do",
+        "jlptlevel", "hsk_level", "topik_level", "cefr_level",
+    },
+    "topic": {
+        "topic", "category", "theme", "unit", "lesson", "chủ đề", "chu de",
+    },
+}
 
 
 def recommended_quality_v2_batch_size(
@@ -226,6 +247,324 @@ def parse_word_list(raw_text: str, lang: str = "japanese") -> List[Dict[str, str
     
     logger.info("Parsed %d words from raw text", len(result))
     return result
+
+
+# ═══════════════════════════════════════════════════════════
+#  SUPERVISED LARGE-SCALE PRODUCTION INVENTORY
+# ═══════════════════════════════════════════════════════════
+
+def supervised_source_id(raw_text: str, lang: str, *, grammar: bool = False) -> str:
+    """Return a content-only identifier; source text is never persisted."""
+    normalized = str(raw_text or "").replace("\r\n", "\n").replace("\r", "\n").strip()
+    kind = "grammar" if grammar else "vocab"
+    payload = f"{SUPERVISED_PROGRESS_SCHEMA}|{normalize_language(lang)}|{kind}|{normalized}"
+    return hashlib.sha256(payload.encode("utf-8")).hexdigest()
+
+
+def _supervised_header_name(value: object) -> str:
+    return re.sub(r"\s+", " ", str(value or "").strip().casefold())
+
+
+def _supervised_header_map(row: Iterable[object]) -> dict[str, int]:
+    mapped: dict[str, int] = {}
+    for index, value in enumerate(row):
+        name = _supervised_header_name(value)
+        for field, aliases in _SUPERVISED_HEADER_ALIASES.items():
+            if name in aliases and field not in mapped:
+                mapped[field] = index
+                break
+    return mapped if "front" in mapped and len(mapped) >= 2 else {}
+
+
+def _structured_rows(content: str) -> list[dict]:
+    """Parse a table only when it declares recognizable column headers."""
+    text = str(content or "").strip()
+    if not text:
+        return []
+    first_line = next((line for line in text.splitlines() if line.strip()), "")
+    delimiter = next((value for value in ("\t", "|", ",", ";") if value in first_line), "")
+    if not delimiter:
+        return []
+    try:
+        rows = list(csv.reader(io.StringIO(text), delimiter=delimiter))
+    except (csv.Error, UnicodeError):
+        return []
+    if not rows:
+        return []
+    header = _supervised_header_map(rows[0])
+    if not header:
+        return []
+
+    result = []
+    for row in rows[1:]:
+        if not row or all(not str(value).strip() for value in row):
+            continue
+        if all(re.fullmatch(r"\s*:?-{3,}:?\s*", str(value or "")) for value in row):
+            continue
+
+        def value(field: str) -> str:
+            index = header.get(field, -1)
+            return str(row[index]).strip() if 0 <= index < len(row) else ""
+
+        front = value("front")
+        if front:
+            result.append({
+                "front": front,
+                "meaning": value("meaning"),
+                "level": value("level"),
+                "topic": value("topic"),
+            })
+    return result
+
+
+def _supervised_source_sections(raw_text: str) -> list[dict]:
+    text = str(raw_text or "").replace("\r\n", "\n").replace("\r", "\n")
+    text = re.sub(
+        r"(?im)^=+\s*(?:📄\s*)?FILE:\s*(.*?)\s*=+\s*$",
+        lambda match: f"# {match.group(1).strip()}",
+        text,
+    )
+    text = re.sub(
+        r"(?im)^\s*(?:topic|chủ đề|chu de)\s*:\s*(.+?)\s*$",
+        lambda match: f"# {match.group(1).strip()}",
+        text,
+    )
+    text = re.sub(
+        r"(?m)^\s*\[(?!\s*[\{\"'])([^\]\n]{1,200})\]\s*$",
+        lambda match: f"# {match.group(1).strip()}",
+        text,
+    )
+    return parse_structured_source(text, unsectioned_title="")
+
+
+def build_supervised_inventory(
+    raw_text: str,
+    lang: str = "japanese",
+    *,
+    grammar: bool = False,
+) -> list[dict]:
+    """Build a stable, non-AI inventory from an annotated/structured source.
+
+    Explicit topic/level columns win.  Missing metadata inherits the nearest
+    source heading, so a shuffled list remains filterable without enriching all
+    entries first.
+    """
+    source_id = supervised_source_id(raw_text, lang, grammar=grammar)
+    kind = "grammar" if grammar else "vocab"
+    inventory: list[dict] = []
+    seen: set[str] = set()
+
+    for section in _supervised_source_sections(raw_text):
+        content = str(section.get("content") or "").strip()
+        if not content:
+            continue
+        entries = _structured_rows(content) or parse_word_list(content, lang)
+        path = [str(value).strip() for value in section.get("path", ()) if str(value).strip()]
+        inherited_level = next(
+            (_normalized_level(value) for value in reversed(path) if _LEVEL_RE.match(value)),
+            "",
+        )
+        inherited_topic = next(
+            (value for value in reversed(path) if not _LEVEL_RE.match(value)),
+            "",
+        )
+        for entry in entries:
+            front = str(entry.get("front") or "").strip()
+            if not front or re.fullmatch(r"[-=|\s]+", front):
+                continue
+            identity, _meaning = existing_entry_identity(entry, kind)
+            identity = identity or front.casefold()
+            if identity in seen:
+                continue
+            seen.add(identity)
+            level = str(entry.get("level") or inherited_level).strip()
+            if _LEVEL_RE.match(level):
+                level = _normalized_level(level)
+            topic = str(entry.get("topic") or inherited_topic).strip()
+            item_id = hashlib.sha256(
+                f"{source_id}|{kind}|{identity}".encode("utf-8")
+            ).hexdigest()[:24]
+            inventory.append({
+                "id": item_id,
+                "identity": identity,
+                "front": front,
+                "meaning": str(entry.get("meaning") or "").strip(),
+                "level": level,
+                "topic": topic,
+                "source_path": path,
+            })
+    return inventory
+
+
+def supervised_existing_ids(
+    inventory: Iterable[Mapping],
+    existing_entries: Iterable[object],
+    *,
+    grammar: bool = False,
+) -> set[str]:
+    """Map collection identities to inventory IDs without touching Anki."""
+    kind = "grammar" if grammar else "vocab"
+    existing = {
+        existing_entry_identity(value, kind)[0]
+        for value in existing_entries
+    }
+    existing.discard("")
+    return {
+        str(item.get("id") or "")
+        for item in inventory
+        if str(item.get("identity") or "") in existing
+    }
+
+
+def supervised_result_ids(
+    selected_items: Iterable[Mapping],
+    results: Iterable[Mapping],
+    *,
+    grammar: bool = False,
+) -> set[str]:
+    """Return only selected inventory IDs backed by a valid AI result."""
+    kind = "grammar" if grammar else "vocab"
+    identities = {
+        existing_entry_identity(result, kind)[0]
+        for result in results
+    }
+    identities.discard("")
+    return {
+        str(item.get("id") or "")
+        for item in selected_items
+        if str(item.get("identity") or "") in identities
+    }
+
+
+def apply_supervised_metadata(
+    results: Iterable[Mapping],
+    selected_items: Iterable[Mapping],
+    lang: str,
+    *,
+    grammar: bool = False,
+) -> list[dict]:
+    """Keep user/source topic and level authoritative after AI enrichment."""
+    kind = "grammar" if grammar else "vocab"
+    selected = {
+        str(item.get("identity") or ""): item
+        for item in selected_items
+        if str(item.get("identity") or "")
+    }
+    level_field = {
+        "japanese": "jlptlevel",
+        "chinese": "hsk_level",
+        "korean": "topik_level",
+        "english": "cefr_level",
+    }.get(normalize_language(lang), "level")
+    merged = []
+    for value in results:
+        result = dict(value)
+        identity = existing_entry_identity(result, kind)[0]
+        source = selected.get(identity)
+        if source:
+            topic = str(source.get("topic") or "").strip()
+            level = str(source.get("level") or "").strip()
+            if topic:
+                result["topic"] = topic
+            if level:
+                result[level_field] = level
+        merged.append(result)
+    return merged
+
+
+def filter_supervised_inventory(
+    inventory: Iterable[Mapping],
+    *,
+    topic: str = "",
+    level: str = "",
+    completed_ids: Iterable[str] = (),
+) -> list[dict]:
+    completed = {str(value) for value in completed_ids}
+    wanted_topic = str(topic or "").strip().casefold()
+    wanted_level = str(level or "").strip().casefold()
+    topic_unclassified = wanted_topic == "__unclassified__"
+    level_unclassified = wanted_level == "__unclassified__"
+    return [
+        dict(item)
+        for item in inventory
+        if str(item.get("id") or "") not in completed
+        and (
+            not wanted_topic
+            or (topic_unclassified and not str(item.get("topic") or "").strip())
+            or str(item.get("topic") or "").strip().casefold() == wanted_topic
+        )
+        and (
+            not wanted_level
+            or (level_unclassified and not str(item.get("level") or "").strip())
+            or str(item.get("level") or "").strip().casefold() == wanted_level
+        )
+    ]
+
+
+def recommended_supervised_run_size(
+    available_count: int,
+    lang: str,
+    *,
+    grammar: bool = False,
+    max_output_tokens: int = 8192,
+) -> int:
+    """Recommend a reviewable production run, distinct from one API request."""
+    available = max(0, int(available_count or 0))
+    if not available:
+        return 0
+    request_size = recommended_quality_v2_batch_size(
+        lang, grammar=grammar, max_output_tokens=max_output_tokens,
+    )
+    multiplier = 3 if grammar else 4
+    return min(available, max(request_size, min(50, request_size * multiplier)))
+
+
+def load_supervised_progress(source_id: str) -> set[str]:
+    payload = read_json(
+        SUPERVISED_PROGRESS_PATH,
+        {},
+        lambda value: isinstance(value, dict),
+    )
+    if payload.get("schema") != SUPERVISED_PROGRESS_SCHEMA:
+        return set()
+    source = payload.get("sources", {}).get(str(source_id or ""), {})
+    return {
+        str(value) for value in source.get("produced_ids", ())
+        if str(value).strip()
+    }
+
+
+def save_supervised_progress(source_id: str, produced_ids: Iterable[str]) -> None:
+    """Persist only opaque IDs/checksum; never persist source or vocabulary."""
+    source_id = str(source_id or "").strip()
+    if not source_id:
+        return
+    payload = read_json(
+        SUPERVISED_PROGRESS_PATH,
+        {},
+        lambda value: isinstance(value, dict),
+    )
+    if payload.get("schema") != SUPERVISED_PROGRESS_SCHEMA:
+        payload = {"schema": SUPERVISED_PROGRESS_SCHEMA, "sources": {}}
+    sources = payload.setdefault("sources", {})
+    previous = sources.get(source_id, {})
+    merged = {
+        str(value) for value in previous.get("produced_ids", ())
+        if str(value).strip()
+    }
+    merged.update(str(value) for value in produced_ids if str(value).strip())
+    sources[source_id] = {
+        "produced_ids": sorted(merged),
+        "updated_at": int(time.time()),
+    }
+    if len(sources) > 50:
+        keep = sorted(
+            sources,
+            key=lambda key: int(sources[key].get("updated_at") or 0),
+            reverse=True,
+        )[:50]
+        payload["sources"] = {key: sources[key] for key in keep}
+    atomic_write_json(SUPERVISED_PROGRESS_PATH, payload)
 
 
 # ═══════════════════════════════════════════════════════════

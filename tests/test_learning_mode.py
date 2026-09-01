@@ -14,7 +14,7 @@ from utils.i18n import t
 
 def test_learning_mode_registry_keeps_language_subtypes_under_language():
     assert set(LEARNING_MODE_REGISTRY) == {"language", "knowledge"}
-    assert LEARNING_MODE_REGISTRY["language"].kinds == ("vocab", "grammar")
+    assert LEARNING_MODE_REGISTRY["language"].kinds == ("vocab", "grammar", "collocation")
     assert LEARNING_MODE_REGISTRY["knowledge"].uses_language is False
 
 
