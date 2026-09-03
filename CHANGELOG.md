@@ -4,6 +4,10 @@
 
 ### 2026-09-03 — Version: `18.3.0` → `18.3.0`
 
+#### Fixed
+
+- **Factory AI extraction parameters** â€” synchronized `card_kind`, the card limit, and relevant history from Factory to the AI worker; creating cards no longer stops with `unexpected keyword argument 'card_kind'`.
+
 #### Changed
 
 - **Azure preview excluded from usage** — the Voice Preview button now sends `track_usage=False`: it still uses the selected live Azure voice, but never increments local request, character, failure, or cache counters.

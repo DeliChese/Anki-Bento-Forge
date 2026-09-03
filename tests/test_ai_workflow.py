@@ -95,6 +95,31 @@ def test_extract_worker_forwards_explicit_knowledge_mode():
     assert worker.kwargs["learning_mode"] == "knowledge"
 
 
+def test_extract_worker_forwards_factory_card_scope_and_history():
+    coordinator = AiWorkflowCoordinator()
+    coordinator.begin()
+    history = [{"front": "take off", "topic": "travel"}]
+
+    worker = coordinator.start_extract(
+        _Worker,
+        text="check in, board, take off",
+        lang="english",
+        custom_instruction="travel vocabulary",
+        existing_words=[],
+        grammar=False,
+        card_kind="collocation",
+        max_cards=20,
+        history_entries=history,
+        on_progress=lambda _message: None,
+        on_finished=lambda _result: None,
+        on_error=lambda _message: None,
+    )
+
+    assert worker.kwargs["card_kind"] == "collocation"
+    assert worker.kwargs["max_cards"] == 20
+    assert worker.kwargs["history_entries"] == history
+
+
 def test_chat_worker_uses_current_token_and_can_be_cleared():
     coordinator = AiWorkflowCoordinator()
     token = coordinator.begin()

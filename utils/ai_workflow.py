@@ -62,12 +62,15 @@ class AiWorkflowCoordinator:
         on_progress: ProgressCallback,
         on_finished: ExtractFinishedCallback,
         on_error: ErrorCallback,
+        card_kind: Optional[str] = None,
+        max_cards: Optional[int] = None,
+        history_entries: Optional[list] = None,
     ) -> Optional[Any]:
         """Build, wire, and start an extraction worker for the current token."""
         if self.is_cancelled():
             return None
 
-        worker = worker_factory(
+        worker_kwargs = dict(
             text=text,
             lang=lang,
             custom_instruction=custom_instruction,
@@ -76,6 +79,16 @@ class AiWorkflowCoordinator:
             learning_mode=learning_mode,
             cancel_event=self._cancel_event,
         )
+        # Keep the coordinator compatible with existing extraction workers while
+        # forwarding Factory's richer per-run context to AiExtractThread.
+        if card_kind is not None:
+            worker_kwargs["card_kind"] = card_kind
+        if max_cards is not None:
+            worker_kwargs["max_cards"] = max_cards
+        if history_entries is not None:
+            worker_kwargs["history_entries"] = history_entries
+
+        worker = worker_factory(**worker_kwargs)
         worker.progress.connect(on_progress)
         worker.finished.connect(on_finished)
         worker.error.connect(on_error)
