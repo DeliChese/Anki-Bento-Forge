@@ -10,6 +10,7 @@ Hỗ trợ:
 import asyncio
 import html
 import hashlib
+import json
 import os
 import re
 import threading
@@ -21,6 +22,8 @@ from contextlib import contextmanager
 from typing import Dict, Iterator, Optional
 
 from utils.logger import get_logger, log_event
+from utils.credentials import load_api_key, save_api_key
+from utils.user_data import atomic_write_json, get_user_data_path, read_json
 
 logger = get_logger()
 
@@ -47,6 +50,293 @@ _MAX_VOICEVOX_QUERY_CACHE_BYTES = 4 * 1024 * 1024
 _MAX_VOICEVOX_QUERY_BYTES = 512 * 1024
 _TEMP_FILE_MAX_AGE_SECONDS = 60 * 60
 _TEMP_CLEANUP_INTERVAL_SECONDS = 15 * 60
+_AZURE_TTS_CREDENTIAL_SCOPE = "azure-tts"
+_AZURE_TTS_CONFIG_NAME = "azure_tts.json"
+_AZURE_VOICE_CACHE_NAME = "azure_tts_voices.json"
+_AZURE_USAGE_LOG_NAME = "azure_tts_usage.json"
+_AZURE_TTS_TIMEOUT_SECONDS = 45
+# Prefer the higher bitrate MP3; Anki then stores the finished file locally.
+_AZURE_TTS_OUTPUT_FORMAT = "audio-24khz-96kbitrate-mono-mp3"
+_AZURE_TTS_MAX_AUDIO_BYTES = 8 * 1024 * 1024
+_AZURE_VOICE_LIST_TIMEOUT_SECONDS = 20
+_AZURE_VOICE_LIST_MAX_BYTES = 2 * 1024 * 1024
+_AZURE_VOICE_ID_RE = re.compile(r"[A-Za-z0-9-]{1,160}\Z")
+_AZURE_USAGE_MAX_DAYS = 400
+_AZURE_USAGE_MAX_BYTES = 256 * 1024
+_AZURE_LOCALES = {
+    "ja": ("ja-JP",),
+    "zh": ("zh-CN", "zh-TW", "zh-HK"),
+    "ko": ("ko-KR",),
+}
+_azure_usage_lock = threading.Lock()
+
+
+def _normalize_azure_region(region: str) -> str:
+    value = str(region or "").strip().lower()
+    if not re.fullmatch(r"[a-z0-9-]{2,64}", value):
+        return ""
+    return value
+
+
+def get_tts_config() -> dict:
+    """Read the non-secret TTS selection from profile-scoped data."""
+    raw = read_json(
+        get_user_data_path(_AZURE_TTS_CONFIG_NAME), {},
+        lambda value: isinstance(value, dict), max_bytes=16 * 1024,
+    )
+    provider = "azure" if raw.get("provider") == "azure" else "edge"
+    return {"provider": provider, "azure_region": _normalize_azure_region(raw.get("azure_region", ""))}
+
+
+def get_azure_tts_status() -> dict:
+    """Return UI-safe Azure configuration state without exposing the key."""
+    config = get_tts_config()
+    return {
+        "enabled": config["provider"] == "azure",
+        "region": config["azure_region"],
+        "key_saved": bool(load_api_key(_AZURE_TTS_CREDENTIAL_SCOPE)),
+    }
+
+
+def save_azure_tts_config(api_key: str, region: str, *, enabled: bool = True) -> bool:
+    """Save Azure region plus its key in the OS credential store only."""
+    normalized_region = _normalize_azure_region(region)
+    if not normalized_region:
+        return False
+    supplied_key = str(api_key or "").strip()
+    if supplied_key:
+        if not save_api_key(supplied_key, _AZURE_TTS_CREDENTIAL_SCOPE):
+            return False
+    elif not load_api_key(_AZURE_TTS_CREDENTIAL_SCOPE):
+        return False
+    atomic_write_json(get_user_data_path(_AZURE_TTS_CONFIG_NAME), {
+        "provider": "azure" if enabled else "edge",
+        "azure_region": normalized_region,
+    })
+    return True
+
+
+def use_edge_tts() -> None:
+    """Switch back to keyless Edge Neural without deleting Azure credentials."""
+    config = get_tts_config()
+    atomic_write_json(get_user_data_path(_AZURE_TTS_CONFIG_NAME), {
+        "provider": "edge", "azure_region": config["azure_region"],
+    })
+
+
+def _empty_azure_usage_day() -> dict:
+    return {
+        "requests": 0,
+        "characters": 0,
+        "successes": 0,
+        "successful_characters": 0,
+        "failures": 0,
+        "cache_hits": 0,
+    }
+
+
+def _normalise_azure_usage_day(value: object) -> dict:
+    source = value if isinstance(value, dict) else {}
+    result = _empty_azure_usage_day()
+    for key in result:
+        try:
+            result[key] = max(0, int(source.get(key, 0)))
+        except (TypeError, ValueError):
+            continue
+    return result
+
+
+def _read_azure_usage_days() -> dict:
+    raw = read_json(
+        get_user_data_path(_AZURE_USAGE_LOG_NAME), {},
+        lambda value: isinstance(value, dict), max_bytes=_AZURE_USAGE_MAX_BYTES,
+    )
+    source_days = raw.get("days", {})
+    if not isinstance(source_days, dict):
+        return {}
+    return {
+        day: _normalise_azure_usage_day(values)
+        for day, values in source_days.items()
+        if isinstance(day, str) and re.fullmatch(r"\d{4}-\d{2}-\d{2}", day)
+    }
+
+
+def _record_azure_tts_usage(characters: int = 0, *, success: Optional[bool] = None,
+                            cache_hit: bool = False) -> None:
+    """Persist local Azure request counters without retaining text or credentials."""
+    count = max(0, int(characters or 0))
+    day = time.strftime("%Y-%m-%d")
+    with _azure_usage_lock:
+        try:
+            days = _read_azure_usage_days()
+            entry = _normalise_azure_usage_day(days.get(day))
+            if cache_hit:
+                entry["cache_hits"] += 1
+            elif success is not None:
+                entry["requests"] += 1
+                entry["characters"] += count
+                if success:
+                    entry["successes"] += 1
+                    entry["successful_characters"] += count
+                else:
+                    entry["failures"] += 1
+            days[day] = entry
+            retained_days = dict(sorted(days.items())[-_AZURE_USAGE_MAX_DAYS:])
+            atomic_write_json(get_user_data_path(_AZURE_USAGE_LOG_NAME), {
+                "version": 1,
+                "days": retained_days,
+            })
+        except Exception as error:
+            # Usage accounting must never prevent a card from receiving audio.
+            logger.warning("Could not record local Azure Speech usage: %s", error)
+
+
+def get_azure_tts_usage_summary(*, max_days: int = 90) -> dict:
+    """Return UI-safe local estimates; Azure Portal remains billing authority."""
+    with _azure_usage_lock:
+        days = _read_azure_usage_days()
+    rows = []
+    for day, values in sorted(days.items(), reverse=True)[:max(1, min(int(max_days), _AZURE_USAGE_MAX_DAYS))]:
+        rows.append({"date": day, **_normalise_azure_usage_day(values)})
+
+    def totals(entries):
+        result = _empty_azure_usage_day()
+        for entry in entries:
+            for key in result:
+                result[key] += entry[key]
+        return result
+
+    month = time.strftime("%Y-%m")
+    return {
+        "month": month,
+        "month_total": totals(entry for entry in rows if entry["date"].startswith(month)),
+        "all_time_total": totals(_normalise_azure_usage_day(entry) for entry in days.values()),
+        "days": rows,
+    }
+
+
+def _normalize_azure_voice(record: object) -> Optional[dict]:
+    """Keep only the UI-safe fields needed from Azure's voice catalogue."""
+    if not isinstance(record, dict):
+        return None
+    voice_id = str(record.get("ShortName") or record.get("Name") or record.get("id") or "").strip()
+    locale = str(record.get("Locale") or record.get("locale") or "").strip()
+    display_name = str(record.get("DisplayName") or record.get("display_name") or voice_id).strip()
+    gender = str(record.get("Gender") or record.get("gender") or "").strip().lower()
+    voice_type = str(record.get("VoiceType") or "").strip().lower()
+    if (
+        not _AZURE_VOICE_ID_RE.fullmatch(voice_id)
+        or not re.fullmatch(r"[a-z]{2,3}-[A-Z]{2,4}", locale)
+        or not display_name
+        or len(display_name) > 120
+    ):
+        return None
+    # The endpoint normally returns Neural voices only.  Keep the suffix check
+    # for older responses which omit VoiceType.
+    if voice_type and voice_type != "neural":
+        return None
+    if not voice_type and not voice_id.endswith("Neural"):
+        return None
+    return {
+        "id": voice_id,
+        "display_name": display_name,
+        "locale": locale,
+        "gender": "female" if gender == "female" else "male" if gender == "male" else "unknown",
+    }
+
+
+def _voice_options_for_language(records: object, lang: str) -> list:
+    """Filter official Azure voices to the learning languages Bento Forge supports."""
+    wanted_locales = _AZURE_LOCALES.get(lang, ())
+    options = []
+    seen = set()
+    for record in records if isinstance(records, list) else ():
+        voice = _normalize_azure_voice(record)
+        if voice is None:
+            continue
+        locale = voice["locale"]
+        if lang == "en":
+            matches_language = locale.startswith("en-")
+        else:
+            matches_language = locale in wanted_locales
+        if not matches_language or voice["id"] in seen:
+            continue
+        seen.add(voice["id"])
+        gender_label = {"female": "Female", "male": "Male"}.get(voice["gender"], "Voice")
+        options.append({
+            "id": voice["id"],
+            "name": f"{voice['display_name']} ({locale} · {gender_label})",
+            "gender": voice["gender"],
+            "locale": locale,
+        })
+
+    preferred = {
+        "ja": ("ja-JP",),
+        "zh": ("zh-CN", "zh-TW", "zh-HK"),
+        "ko": ("ko-KR",),
+        "en": ("en-US", "en-GB"),
+    }.get(lang, ())
+    return sorted(
+        options,
+        key=lambda voice: (
+            voice["locale"] not in preferred,
+            preferred.index(voice["locale"]) if voice["locale"] in preferred else len(preferred),
+            voice["locale"], voice["name"].casefold(),
+        ),
+    )
+
+
+def get_cached_azure_voice_options(lang: str) -> list:
+    """Read the last verified Azure voice list without any network request."""
+    config = get_tts_config()
+    region = config.get("azure_region", "")
+    if not region:
+        return []
+    raw = read_json(
+        get_user_data_path(_AZURE_VOICE_CACHE_NAME), {},
+        lambda value: isinstance(value, dict), max_bytes=_AZURE_VOICE_LIST_MAX_BYTES,
+    )
+    if raw.get("region") != region:
+        return []
+    return _voice_options_for_language(raw.get("voices"), lang)
+
+
+def fetch_azure_voice_options(lang: str) -> list:
+    """Fetch and cache official Neural voices for the configured Azure region.
+
+    This is deliberately called by a worker, never by the Qt UI thread.
+    Credentials remain in the request header and are never written to the cache.
+    """
+    config = get_tts_config()
+    region = config.get("azure_region", "")
+    api_key = load_api_key(_AZURE_TTS_CREDENTIAL_SCOPE) or ""
+    if not region or not api_key:
+        raise RuntimeError("Azure Speech region or credential is unavailable")
+    request = urllib.request.Request(
+        f"https://{region}.tts.speech.microsoft.com/cognitiveservices/voices/list",
+        headers={
+            "Ocp-Apim-Subscription-Key": api_key,
+            "User-Agent": "BentoForge-Anki",
+        },
+        method="GET",
+    )
+    with urllib.request.urlopen(request, timeout=_AZURE_VOICE_LIST_TIMEOUT_SECONDS) as response:
+        payload = response.read(_AZURE_VOICE_LIST_MAX_BYTES + 1)
+    if len(payload) > _AZURE_VOICE_LIST_MAX_BYTES:
+        raise ValueError("Azure Speech voice list exceeds the safety limit")
+    try:
+        records = json.loads(payload.decode("utf-8"))
+    except (UnicodeDecodeError, json.JSONDecodeError) as error:
+        raise ValueError("Azure Speech returned an invalid voice list") from error
+    if not isinstance(records, list):
+        raise ValueError("Azure Speech returned an invalid voice list")
+    safe_records = [voice for item in records if (voice := _normalize_azure_voice(item))]
+    atomic_write_json(get_user_data_path(_AZURE_VOICE_CACHE_NAME), {
+        "region": region,
+        "saved_at": int(time.time()),
+        "voices": safe_records,
+    })
+    return _voice_options_for_language(safe_records, lang)
 
 
 def _check_library_available(name: str) -> bool:
@@ -336,8 +626,92 @@ def get_audio_edge_tts(
             return ""
         except Exception as error:
             _discard_file(temporary_path)
-            logger.warning("Edge TTS failed; trying gTTS fallback: %s", error)
-            return get_audio_gtts(text, lang, cancel_event=cancel_event)
+            logger.warning("Edge Neural TTS failed; audio skipped instead of using gTTS fallback: %s", error)
+            return ""
+
+    return ""
+
+
+def get_audio_azure_tts(
+    text: str,
+    voice: str,
+    lang: str = "ja",
+    rate: str = None,
+    cancel_event: Optional[threading.Event] = None,
+) -> Optional[str]:
+    """Create official Azure Neural audio with an atomic media publication."""
+    if not text or not text.strip() or (cancel_event is not None and cancel_event.is_set()):
+        return ""
+    config = get_tts_config()
+    region = config.get("azure_region", "")
+    api_key = load_api_key(_AZURE_TTS_CREDENTIAL_SCOPE) or ""
+    if not region or not api_key:
+        logger.warning("Azure Speech TTS is selected but its region or credential is unavailable")
+        return ""
+    text = _strip_html(text)
+    if not text:
+        return ""
+
+    rate_suffix = f"_{rate}" if rate else ""
+    digest = hashlib.md5(f"{region}_{voice}_{lang}_{text}{rate_suffix}".encode("utf-8")).hexdigest()
+    filename = f"anki_azure_{digest}.mp3"
+    try:
+        media_dir = _get_media_dir()
+    except Exception:
+        return ""
+    filepath = os.path.join(media_dir, filename)
+    _cleanup_temporary_audio_files(media_dir)
+    if os.path.exists(filepath):
+        _record_azure_tts_usage(cache_hit=True)
+        return f"[sound:{filename}]"
+
+    cache_key = f"azure:{filename}"
+    with _audio_generation_lock(cache_key):
+        if os.path.exists(filepath):
+            _record_azure_tts_usage(cache_hit=True)
+            return f"[sound:{filename}]"
+        temporary_path = _temporary_audio_path(filepath)
+        request_started = False
+        request_accounted = False
+        try:
+            if cancel_event is not None and cancel_event.is_set():
+                return ""
+            locale = {"ja": "ja-JP", "zh": "zh-CN", "ko": "ko-KR", "en": "en-US"}.get(lang, "en-US")
+            prosody = f'<prosody rate="{html.escape(rate, quote=True)}">{html.escape(text)}</prosody>' if rate else html.escape(text)
+            ssml = (
+                f'<speak version="1.0" xml:lang="{locale}">'
+                f'<voice name="{html.escape(voice, quote=True)}">{prosody}</voice></speak>'
+            ).encode("utf-8")
+            request = urllib.request.Request(
+                f"https://{region}.tts.speech.microsoft.com/cognitiveservices/v1",
+                data=ssml,
+                headers={
+                    "Ocp-Apim-Subscription-Key": api_key,
+                    "Content-Type": "application/ssml+xml",
+                    "X-Microsoft-OutputFormat": _AZURE_TTS_OUTPUT_FORMAT,
+                    "User-Agent": "BentoForge-Anki",
+                },
+                method="POST",
+            )
+            request_started = True
+            with urllib.request.urlopen(request, timeout=_AZURE_TTS_TIMEOUT_SECONDS) as response:
+                audio = response.read(_AZURE_TTS_MAX_AUDIO_BYTES + 1)
+            if len(audio) > _AZURE_TTS_MAX_AUDIO_BYTES:
+                raise ValueError("Azure Speech audio response exceeds the safety limit")
+            _record_azure_tts_usage(len(text), success=True)
+            request_accounted = True
+            if cancel_event is not None and cancel_event.is_set():
+                return ""
+            with open(temporary_path, "wb") as handle:
+                handle.write(audio)
+            if _commit_audio_file(temporary_path, filepath):
+                return f"[sound:{filename}]"
+        except Exception as error:
+            _discard_file(temporary_path)
+            if request_started and not request_accounted:
+                _record_azure_tts_usage(len(text), success=False)
+            logger.warning("Azure Speech TTS failed; audio skipped: %s", error)
+            return ""
 
     return ""
 

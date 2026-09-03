@@ -5,7 +5,6 @@ import json
 import pytest
 
 from utils import ai_extractor
-from utils import batch_processor
 from utils.ai_response_guard import enable_deepseek_json_output
 from utils.i18n import t
 
@@ -102,6 +101,7 @@ def test_grammar_reports_token_limit_before_parsing(monkeypatch):
     assert str(exc_info.value) == t("error_model_output_truncated")
 
 
+@pytest.mark.skip(reason="large Batch production was removed")
 def test_batch_rejects_reasoning_only_response(monkeypatch):
     monkeypatch.setattr(batch_processor, "get_api_config", lambda: dict(_DEEPSEEK_CONFIG))
     monkeypatch.setattr(batch_processor, "get_system_prompt", lambda *args: "system")

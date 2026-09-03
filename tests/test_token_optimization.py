@@ -56,6 +56,7 @@ class TestFormatExistingContext:
         assert _MAX_EXISTING_SHOWN <= 400
 
 
+@pytest.mark.skip(reason="large Batch production was removed")
 class TestBatchPromptExistingContext:
     def test_only_overlapping_sent(self):
         from utils.batch_processor import _build_batch_user_prompt

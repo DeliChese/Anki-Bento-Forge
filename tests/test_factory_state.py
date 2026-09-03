@@ -10,6 +10,7 @@ Test:
 import os
 import sys
 import types
+from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 _addon_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -31,6 +32,12 @@ class FakeTextEdit:
 
     def clear(self):
         self._text = ""
+
+    def blockSignals(self, _value):
+        return None
+
+    def setReadOnly(self, value):
+        self.read_only = value
 
 
 # ── Mock Anki (giống test_integration) ──────────────────────
@@ -100,6 +107,9 @@ audio_tts_mock = types.ModuleType("audio.tts")
 audio_tts_mock._install_edge_tts = lambda: False
 audio_tts_mock._install_gtts = lambda: False
 audio_tts_mock.get_audio_edge_tts = lambda *a, **k: ""
+audio_tts_mock.get_audio_azure_tts = lambda *a, **k: ""
+audio_tts_mock.get_cached_azure_voice_options = lambda *a, **k: []
+audio_tts_mock.get_tts_config = lambda: {"provider": "edge"}
 audio_tts_mock.get_audio_gtts = lambda *a, **k: ""
 sys.modules["audio.tts"] = audio_tts_mock
 audio_mock.tts = audio_tts_mock
@@ -131,6 +141,8 @@ def _make_factory(state_path):
     obj._ai_attached_files = []
     obj._ai_attached_paths = []
     obj.ai_text_input = FakeTextEdit()
+    obj.json_input = FakeTextEdit()
+    obj._json_locked = False
     obj.lbl_ai_files = MagicMock()
     factory_dialog._STATE_PATH = state_path
     obj._load_factory_state = addon.AnkiSmartFactory._load_factory_state.__get__(obj, addon.AnkiSmartFactory)
@@ -195,6 +207,66 @@ class TestFactoryState:
         f.ai_text_input.setPlainText("ABC")
         f._restore_current_flow()
         assert f.ai_text_input.toPlainText() == ""   # đã xóa
+
+    def test_locked_json_is_separated_by_card_kind_and_survives_restart(self, tmp_path):
+        path = str(tmp_path / "state.json")
+        f = _make_factory(path)
+        f.json_input.setPlainText('[{"front":"食べる"}]')
+        f._json_locked = True
+        f._save_current_flow()
+
+        f._is_grammar = True
+        f._json_locked = False
+        f.json_input.setPlainText('[{"pattern":"〜ながら"}]')
+        f._save_current_flow()
+
+        reopened = _make_factory(path)
+        reopened._is_grammar = False
+        reopened._restore_current_flow()
+        assert reopened.json_input.toPlainText() == '[{"front":"食べる"}]'
+        assert reopened._json_locked is True
+        assert reopened.json_input.read_only is True
+
+        reopened._is_grammar = True
+        reopened._restore_current_flow()
+        assert reopened.json_input.toPlainText() == '[{"pattern":"〜ながら"}]'
+        assert reopened._json_locked is False
+
+    def test_expired_state_keeps_only_locked_json(self, tmp_path):
+        from utils.factory_state import FactoryStateStore
+
+        store = FactoryStateStore(
+            legacy_path=str(tmp_path / "legacy.json"), path=str(tmp_path / "state.json"),
+            max_age_seconds=10,
+        )
+        state = {"language": {"japanese": {
+            "vocab": {"json": "locked", "json_locked": True},
+            "grammar": {"json": "draft", "json_locked": False},
+        }}}
+        with patch("utils.factory_state.time.time", return_value=100):
+            store.save(state)
+        with patch("utils.factory_state.time.time", return_value=111):
+            loaded = store.load()
+
+        assert set(loaded["language"]["japanese"]) == {"vocab"}
+        assert loaded["language"]["japanese"]["vocab"]["json"] == "locked"
+        assert loaded["language"]["japanese"]["vocab"]["json_locked"] is True
+
+    def test_locked_json_uses_the_large_artifact_limit(self, tmp_path):
+        from utils.factory_state import FactoryStateStore
+
+        store = FactoryStateStore(
+            legacy_path=str(tmp_path / "legacy.json"), path=str(tmp_path / "state.json"),
+            max_json_chars=10, max_locked_json_chars=100,
+        )
+        long_json = "x" * 80
+        clean = store.sanitize({"language": {"japanese": {
+            "vocab": {"json": long_json, "json_locked": True},
+            "grammar": {"json": long_json, "json_locked": False},
+        }}})
+        flows = clean["language"]["japanese"]
+        assert flows["vocab"]["json"] == long_json
+        assert flows["grammar"]["json"] == "x" * 10
 
     def test_files_persisted_per_flow(self, tmp_path):
         p = str(tmp_path / "state.json")
@@ -289,8 +361,8 @@ def test_enabled_knowledge_mode_hides_language_only_controls():
     obj.raw_data, obj.prepared_data = [], []
     for name in (
         "btn_learning_language", "btn_learning_knowledge", "lang_grp", "mode_grp", "voice_grp",
-        "filter_grp", "btn_ai_extract", "btn_ai_batch", "btn_sample", "btn_verify", "btn_rebuild",
-        "btn_diff_meaning", "btn_ai_chat", "json_input", "btn_import", "btn_cancel_order",
+        "filter_grp", "btn_ai_extract", "btn_sample", "btn_verify", "btn_rebuild",
+        "btn_diff_meaning", "json_input", "btn_import", "btn_cancel_order",
         "lbl_level", "cbo_level", "lbl_topic", "txt_topic", "lbl_audio",
         "chk_audio_vocab", "chk_audio_ex1", "chk_audio_ex2",
     ):
@@ -302,8 +374,7 @@ def test_enabled_knowledge_mode_hides_language_only_controls():
     assert obj.btn_learning_knowledge.checked is True
     assert obj.btn_learning_language.checked is False
     assert all(not getattr(obj, name).visible for name in (
-        "lang_grp", "mode_grp", "voice_grp", "btn_rebuild", "btn_diff_meaning", "btn_ai_chat",
-        "btn_ai_batch",
+        "lang_grp", "mode_grp", "voice_grp", "btn_rebuild", "btn_diff_meaning",
         "lbl_level", "cbo_level", "lbl_topic", "txt_topic", "lbl_audio",
         "chk_audio_vocab", "chk_audio_ex1", "chk_audio_ex2",
     ))
@@ -314,15 +385,11 @@ def test_enabled_knowledge_mode_hides_language_only_controls():
     assert obj.btn_import.enabled is False
 
 
-def test_knowledge_mode_cannot_invoke_language_batch_workflow():
-    obj = object.__new__(addon.AnkiSmartFactory)
-    obj._learning_mode = "knowledge"
-    calls = []
-    obj._ai_extract = lambda: calls.append("extract")
-
-    addon.AnkiSmartFactory._ai_batch_process(obj)
-
-    assert calls == []
+def test_factory_has_no_large_batch_control():
+    source = Path(factory_dialog.__file__).read_text(encoding="utf-8")
+    setup = source[source.index("def _setup_ui"):source.index("def _configure_accessibility")]
+    assert "btn_ai_batch" not in setup
+    assert "BatchWordListDialog" not in setup
 
 
 class TestComboMigration:

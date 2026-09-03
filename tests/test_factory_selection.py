@@ -93,6 +93,9 @@ audio_tts_mock = types.ModuleType("audio.tts")
 audio_tts_mock._install_edge_tts = lambda: False
 audio_tts_mock._install_gtts = lambda: False
 audio_tts_mock.get_audio_edge_tts = lambda *a, **k: ""
+audio_tts_mock.get_audio_azure_tts = lambda *a, **k: ""
+audio_tts_mock.get_cached_azure_voice_options = lambda *a, **k: []
+audio_tts_mock.get_tts_config = lambda: {"provider": "edge"}
 audio_tts_mock.get_audio_gtts = lambda *a, **k: ""
 sys.modules["audio.tts"] = audio_tts_mock
 audio_mock.tts = audio_tts_mock
@@ -223,21 +226,48 @@ class FakeLineEdit:
 
 class FakeComboBox:
     def __init__(self, items=None):
-        self.items = list(items or [])
+        self.items = [(item, item) for item in (items or [])]
         self._index = 0
 
     def addItems(self, items):
-        self.items = list(items)
+        self.items.extend((item, item) for item in items)
+
+    def addItem(self, text, data=None):
+        self.items.append((text, text if data is None else data))
+
+    def clear(self):
+        self.items = []
+        self._index = 0
 
     def currentText(self):
-        return self.items[self._index] if self.items else ""
+        return self.items[self._index][0] if self.items else ""
 
     def currentData(self):
-        return self.currentText()
+        return self.items[self._index][1] if self.items else ""
 
     def setCurrentIndex(self, i):
         if 0 <= i < len(self.items):
             self._index = i
+
+    def currentIndex(self):
+        return self._index
+
+    def setCurrentText(self, text):
+        for index, (label, _data) in enumerate(self.items):
+            if label == text:
+                self._index = index
+                return
+        self.addItem(text, text)
+        self._index = len(self.items) - 1
+
+    def findData(self, data):
+        for index, (_label, item_data) in enumerate(self.items):
+            if item_data == data:
+                return index
+        return -1
+
+    def setEditable(self, editable):
+        self.editable = editable
 
     def setToolTip(self, t):
         pass
@@ -390,6 +420,8 @@ def _make_factory():
     obj.txt_topic = FakeLineEdit()
     obj.cbo_level = FakeComboBox([""])
     obj.cbo_filter = FakeComboBox(["📂 Tất cả", "✨ Mới", "🔄 Cập nhật", "⚠️ Trùng mờ", "🔍 Nghĩa khác"])
+    obj.cbo_preview_level = FakeComboBox()
+    obj.cbo_preview_topic = FakeComboBox()
     obj.preview_list = FakeListWidget()
     obj.spin_start = FakeSpin()
     obj.spin_end = FakeSpin()
@@ -412,7 +444,7 @@ def _make_factory():
                "_cancel_order", "_save_current_flow", "_restore_current_flow",
                "_save_factory_state", "_load_factory_state", "_on_range_changed",
                "_load_history_to_factory", "_analyze_content", "_verify_batch_impl",
-               "_add_to_queue"):
+               "_add_to_queue", "_repopulate_preview_metadata_filters"):
         obj.__dict__[_m] = addon.AnkiSmartFactory.__dict__[_m].__get__(obj, addon.AnkiSmartFactory)
     return obj
 
@@ -420,13 +452,13 @@ def _make_factory():
 def _sample_cards():
     """Trả về prepared_data mẫu với đủ loại action."""
     return [
-        {"item": {"front": "食べる", "meaning": "ăn", "level": "N5"}, "action": "add",
+        {"item": {"front": "食べる", "meaning": "ăn", "level": "N5", "topic": "Ẩm thực"}, "action": "add",
          "nid": None, "update_fields": [], "conflict_info": None},
-        {"item": {"front": "飲む", "meaning": "uống", "level": "N5"}, "action": "update",
+        {"item": {"front": "飲む", "meaning": "uống", "level": "N5", "topic": "Ẩm thực"}, "action": "update",
          "nid": 11, "update_fields": ["Meaning"], "conflict_info": None},
-        {"item": {"front": "勉強", "meaning": "học", "level": "N3"}, "action": "add_partial",
+        {"item": {"front": "勉強", "meaning": "học", "level": "N3", "topic": "Giáo dục"}, "action": "add_partial",
          "nid": None, "update_fields": [], "conflict_info": None},
-        {"item": {"front": "走る", "meaning": "chạy", "level": "N4"}, "action": "dup_diff",
+        {"item": {"front": "走る", "meaning": "chạy", "level": "N4", "topic": "Vận động"}, "action": "dup_diff",
          "nid": None, "update_fields": [], "conflict_info": {"existing_meaning": "trốn"}},
     ]
 
@@ -499,6 +531,29 @@ class TestRebuildPreview:
         f.txt_search.setText("học")
         f._rebuild_preview()
         assert f._visible_indices == [2]
+
+    def test_filter_by_level_in_waiting_queue(self):
+        f = _make_factory()
+        f.prepared_data = _sample_cards()
+        f._rebuild_preview()
+        f.cbo_preview_level.setCurrentText("N5")
+        f._rebuild_preview()
+        assert f._visible_indices == [0, 1]
+
+    def test_filter_by_typed_topic_in_waiting_queue(self):
+        f = _make_factory()
+        f.prepared_data = _sample_cards()
+        f._rebuild_preview()
+        f.cbo_preview_topic.setCurrentText("giáo")
+        f._rebuild_preview()
+        assert f._visible_indices == [2]
+
+    def test_search_also_matches_level_and_topic(self):
+        f = _make_factory()
+        f.prepared_data = _sample_cards()
+        f.txt_search.setText("vận động")
+        f._rebuild_preview()
+        assert f._visible_indices == [3]
 
     def test_visible_renumbered_and_maps_to_index(self):
         f = _make_factory()

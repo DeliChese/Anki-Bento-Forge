@@ -7,17 +7,23 @@ from ..shared import _GRAMMAR_AI_JS
 
 
 def _usage_guide_block() -> str:
-    """Optional Usage Guide V1 content, visible on answer sides only."""
+    """Optional usage details in one coherent answer-side section."""
     return (
-        '{{#Usage Pattern}}<div class="es usage-guide"><div class="esl">Mẫu dùng</div>'
-        '<div class="ec"><div class="ev" style="font-style:normal;color:var(--text);white-space:pre-line;">'
-        '{{Usage Pattern}}</div></div></div>{{/Usage Pattern}}'
-        '{{#Usage Note}}<div class="es usage-guide"><div class="esl">Sắc thái & lưu ý dùng</div>'
-        '<div class="ec"><div class="ev" style="font-style:normal;color:var(--text);white-space:pre-line;">'
-        '{{Usage Note}}</div></div></div>{{/Usage Note}}'
-        '{{#Collocation}}<div class="es usage-guide"><div class="esl">Cụm đi kèm</div>'
-        '<div class="ec"><div class="ev" style="font-style:normal;color:var(--text);white-space:pre-line;">'
-        '{{Collocation}}</div></div></div>{{/Collocation}}'
+        '{{#Usage Pattern}}<div class="es usage-guide"><div class="esl">Cách dùng & ghi chú</div>'
+        '<div class="ec"><div class="en">Mẫu dùng</div><div class="ev" style="font-style:normal;color:var(--text);white-space:pre-line;">'
+        '{{Usage Pattern}}</div></div>'
+        '{{#Usage Note}}<div class="ec"><div class="en">Sắc thái & lưu ý</div><div class="ev" style="font-style:normal;color:var(--text);white-space:pre-line;">'
+        '{{Usage Note}}</div></div>{{/Usage Note}}'
+        '{{#Collocation}}<div class="ec"><div class="en">Cụm đi kèm</div><div class="ev" style="font-style:normal;color:var(--text);white-space:pre-line;">'
+        '{{Collocation}}</div></div>{{/Collocation}}</div>{{/Usage Pattern}}'
+        '{{^Usage Pattern}}{{#Usage Note}}<div class="es usage-guide"><div class="esl">Cách dùng & ghi chú</div>'
+        '<div class="ec"><div class="en">Sắc thái & lưu ý</div><div class="ev" style="font-style:normal;color:var(--text);white-space:pre-line;">'
+        '{{Usage Note}}</div></div>'
+        '{{#Collocation}}<div class="ec"><div class="en">Cụm đi kèm</div><div class="ev" style="font-style:normal;color:var(--text);white-space:pre-line;">'
+        '{{Collocation}}</div></div>{{/Collocation}}</div>{{/Usage Note}}{{/Usage Pattern}}'
+        '{{^Usage Pattern}}{{^Usage Note}}{{#Collocation}}<div class="es usage-guide"><div class="esl">Cách dùng & ghi chú</div>'
+        '<div class="ec"><div class="en">Cụm đi kèm</div><div class="ev" style="font-style:normal;color:var(--text);white-space:pre-line;">'
+        '{{Collocation}}</div></div></div>{{/Collocation}}{{/Usage Note}}{{/Usage Pattern}}'
     )
 
 

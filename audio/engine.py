@@ -6,7 +6,10 @@ Thread-safe voice selection and speed settings.
 import threading
 from typing import Optional
 
-from .tts import _install_edge_tts, _install_gtts, get_audio_edge_tts, get_audio_gtts
+from .tts import (
+    _install_edge_tts, get_audio_azure_tts, get_audio_edge_tts,
+    get_cached_azure_voice_options, get_tts_config,
+)
 
 
 VOICE_OPTIONS = {
@@ -61,7 +64,11 @@ _default_speed_lock = threading.Lock()
 
 
 def get_voice_options(lang: str) -> list:
-    """Trả về danh sách giọng có sẵn cho ngôn ngữ"""
+    """Return cached Azure Neural choices when Azure is active, otherwise Edge."""
+    if get_tts_config().get("provider") == "azure":
+        azure_voices = get_cached_azure_voice_options(lang)
+        if azure_voices:
+            return azure_voices
     return VOICE_OPTIONS.get(lang, [])
 
 
@@ -69,7 +76,7 @@ def get_selected_voice(lang: str) -> str:
     """Trả về voice ID đang được chọn (mặc định = giọng đầu tiên)"""
     with _selected_voice_lock:
         if lang not in _selected_voice:
-            opts = VOICE_OPTIONS.get(lang, [])
+            opts = get_voice_options(lang)
             return opts[0]["id"] if opts else ""
         return _selected_voice[lang]
 
@@ -140,7 +147,11 @@ def get_audio_multilang(
     rate: str = None,
     cancel_event: Optional[threading.Event] = None,
 ) -> Optional[str]:
-    """Generate audio without changing dependencies; cancellation reaches providers."""
+    """Generate high-quality Neural audio; cancellation reaches the provider.
+
+    gTTS is intentionally not substituted automatically: a transient Edge
+    error must not create lower-quality audio mixed into the same deck.
+    """
     if not text or not text.strip():
         return ""
 
@@ -148,16 +159,11 @@ def get_audio_multilang(
     if not chosen_voice:
         return ""
 
-    if _install_edge_tts():
-        result = get_audio_edge_tts(text, chosen_voice, lang, rate=rate, cancel_event=cancel_event)
-        if result:
-            return result
-
-    if _install_gtts():
-        # gTTS dùng lang_code ("ja" | "zh" | "ko")
-        return get_audio_gtts(text, lang, cancel_event=cancel_event)
-
-    return ""
+    if get_tts_config().get("provider") == "azure":
+        return get_audio_azure_tts(text, chosen_voice, lang, rate=rate, cancel_event=cancel_event) or ""
+    if not _install_edge_tts():
+        return ""
+    return get_audio_edge_tts(text, chosen_voice, lang, rate=rate, cancel_event=cancel_event) or ""
 
 
 def speed_to_edge_rate(speed: float) -> str:

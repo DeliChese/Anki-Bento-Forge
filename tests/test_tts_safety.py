@@ -86,3 +86,104 @@ def test_cleanup_only_removes_stale_bento_temporary_files(tmp_path):
     assert not stale_temp.exists()
     assert card_media.exists()
     assert unrelated.exists()
+
+
+def test_azure_settings_keep_key_out_of_profile_json(tmp_path):
+    tts = _load_tts_module()
+    keys = {}
+    tts.get_user_data_path = lambda name: str(tmp_path / name)
+    tts.save_api_key = lambda key, scope: keys.setdefault(scope, key) == key
+    tts.load_api_key = lambda scope: keys.get(scope, "")
+
+    assert tts.save_azure_tts_config("secret-key", "SoutheastAsia") is True
+    saved = (tmp_path / "azure_tts.json").read_text(encoding="utf-8")
+    assert "secret-key" not in saved
+    assert tts.get_azure_tts_status() == {
+        "enabled": True, "region": "southeastasia", "key_saved": True,
+    }
+
+
+def test_azure_tts_posts_escaped_ssml_and_publishes_atomically(tmp_path):
+    tts = _load_tts_module()
+    requested = {}
+
+    class Response:
+        def __enter__(self): return self
+        def __exit__(self, *_args): return False
+        def read(self, _size=-1): return b"azure-mp3"
+
+    def urlopen(request, timeout):
+        requested["request"] = request
+        requested["timeout"] = timeout
+        return Response()
+
+    tts.get_tts_config = lambda: {"provider": "azure", "azure_region": "southeastasia"}
+    tts.load_api_key = lambda _scope: "secret-key"
+    tts._get_media_dir = lambda: str(tmp_path)
+    tts.urllib.request.urlopen = urlopen
+
+    tag = tts.get_audio_azure_tts("a < b & c", "en-US-JennyNeural", "en", rate="+0%")
+    assert tag.startswith("[sound:anki_azure_")
+    assert (tmp_path / tag[7:-1]).read_bytes() == b"azure-mp3"
+    assert b"a &lt; b &amp; c" in requested["request"].data
+    assert requested["request"].full_url.startswith("https://southeastasia.tts.speech.microsoft.com/")
+    assert requested["request"].get_header("X-microsoft-outputformat") == tts._AZURE_TTS_OUTPUT_FORMAT
+    assert requested["timeout"] == tts._AZURE_TTS_TIMEOUT_SECONDS
+
+
+def test_azure_voice_catalogue_filters_neural_voices_and_caches_without_key(tmp_path):
+    tts = _load_tts_module()
+    requested = {}
+
+    class Response:
+        def __enter__(self): return self
+        def __exit__(self, *_args): return False
+        def read(self, _size=-1):
+            return (
+                b'[{"ShortName":"ja-JP-NanamiNeural","DisplayName":"Nanami",'
+                b'"Locale":"ja-JP","Gender":"Female","VoiceType":"Neural"},'
+                b'{"ShortName":"ja-JP-OldStandard","DisplayName":"Old",'
+                b'"Locale":"ja-JP","Gender":"Male","VoiceType":"Standard"},'
+                b'{"ShortName":"en-US-JennyNeural","DisplayName":"Jenny",'
+                b'"Locale":"en-US","Gender":"Female","VoiceType":"Neural"}]'
+            )
+
+    def urlopen(request, timeout):
+        requested["request"] = request
+        requested["timeout"] = timeout
+        return Response()
+
+    tts.get_user_data_path = lambda name: str(tmp_path / name)
+    tts.get_tts_config = lambda: {"provider": "azure", "azure_region": "southeastasia"}
+    tts.load_api_key = lambda _scope: "secret-key"
+    tts.urllib.request.urlopen = urlopen
+
+    assert tts.fetch_azure_voice_options("ja") == [{
+        "id": "ja-JP-NanamiNeural", "name": "Nanami (ja-JP · Female)",
+        "gender": "female", "locale": "ja-JP",
+    }]
+    assert tts.get_cached_azure_voice_options("ja")[0]["id"] == "ja-JP-NanamiNeural"
+    cache = (tmp_path / "azure_tts_voices.json").read_text(encoding="utf-8")
+    assert "secret-key" not in cache
+    assert requested["request"].full_url.endswith("/cognitiveservices/voices/list")
+    assert requested["request"].get_header("Ocp-apim-subscription-key") == "secret-key"
+    assert requested["timeout"] == tts._AZURE_VOICE_LIST_TIMEOUT_SECONDS
+
+
+def test_azure_usage_log_is_local_aggregate_only(tmp_path):
+    tts = _load_tts_module()
+    tts.get_user_data_path = lambda name: str(tmp_path / name)
+    tts.time.strftime = lambda pattern: "2026-09-03" if pattern == "%Y-%m-%d" else "2026-09"
+
+    tts._record_azure_tts_usage(12, success=True)
+    tts._record_azure_tts_usage(5, success=False)
+    tts._record_azure_tts_usage(cache_hit=True)
+
+    summary = tts.get_azure_tts_usage_summary()
+    assert summary["month_total"] == {
+        "requests": 2, "characters": 17, "successes": 1,
+        "successful_characters": 12, "failures": 1, "cache_hits": 1,
+    }
+    saved = (tmp_path / "azure_tts_usage.json").read_text(encoding="utf-8")
+    assert "secret" not in saved
+    assert "spoken text" not in saved

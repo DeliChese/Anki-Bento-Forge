@@ -9,6 +9,7 @@ API:
     get_deck_tree() -> list[dict]          # cây deck parent/sub + card count
     create_deck(name) -> int               # tạo deck (hỗ trợ Parent::Sub)
     rename_deck(old_name, new_name) -> bool
+    move_decks(names, destination=None) -> list[dict]
     delete_deck(name) -> bool
     get_deck_card_count(name) -> int
     refresh_anki() -> None                 # gọi mw.reset() để UI ngoài cập nhật
@@ -96,6 +97,71 @@ def rename_deck(old_name: str, new_name: str) -> bool:
     except Exception as e:
         logger.warning("Lỗi đổi tên deck %s → %s: %s", old_name, new_name, e)
         return False
+
+
+def get_deck_names() -> list[str]:
+    """Return real deck names only (never synthetic tree-parent nodes)."""
+    try:
+        from aqt import mw
+        if mw is None or mw.col is None:
+            return []
+        return sorted(str(name) for name in mw.col.decks.all_names() if str(name).strip())
+    except Exception as error:
+        logger.warning("Could not list deck names: %s", error)
+        return []
+
+
+def move_decks(names, destination: str | None = None) -> list[dict]:
+    """Move selected deck roots under ``destination`` or make them roots.
+
+    Anki represents hierarchy in deck names.  Renaming a selected root moves
+    its complete sub-tree without deleting cards or changing their SRS state.
+    The full plan is validated before the first rename to prevent cycles and
+    accidental name collisions.
+    """
+    try:
+        from aqt import mw
+        if mw is None or mw.col is None:
+            return []
+        decks = mw.col.decks
+        existing = set(str(name) for name in decks.all_names())
+        roots = collapse_selected_deck_names(names)
+        target_parent = str(destination or "").strip()
+        if not roots or (target_parent and target_parent not in existing):
+            return []
+        if any(root not in existing for root in roots):
+            return []
+        if any(
+            target_parent == root or target_parent.startswith(f"{root}::")
+            for root in roots
+        ):
+            return []
+
+        planned = []
+        for root in roots:
+            leaf = root.rsplit("::", 1)[-1]
+            new_name = f"{target_parent}::{leaf}" if target_parent else leaf
+            if new_name == root:
+                continue
+            planned.append({"old": root, "new": new_name})
+        if not planned:
+            return []
+
+        planned_names = [item["new"] for item in planned]
+        movable_names = {item["old"] for item in planned}
+        if len(planned_names) != len(set(planned_names)):
+            return []
+        if any(name in existing and name not in movable_names for name in planned_names):
+            return []
+
+        for item in planned:
+            deck = decks.get(decks.id(item["old"]))
+            decks.rename(deck, item["new"])
+        logger.info("Moved %s deck roots to %s", len(planned), target_parent or "root")
+        return planned
+    except Exception as error:
+        logger.warning("Could not move deck roots: %s", error)
+        return []
 
 
 def delete_deck(name: str) -> bool:

@@ -14,7 +14,8 @@ logger = get_logger()
 class FactoryStateStore:
     def __init__(self, *, legacy_path, path, max_age_seconds=7 * 24 * 3600,
                  max_text_chars=12_000, max_json_chars=24_000, max_items=100,
-                 max_flow_bytes=192 * 1024):
+                 max_flow_bytes=192 * 1024, max_locked_json_chars=1_000_000,
+                 max_state_bytes=16 * 1024 * 1024):
         self.legacy_path = legacy_path
         self.path = path
         self.max_age_seconds = max_age_seconds
@@ -22,14 +23,19 @@ class FactoryStateStore:
         self.max_json_chars = max_json_chars
         self.max_items = max_items
         self.max_flow_bytes = max_flow_bytes
+        self.max_locked_json_chars = max_locked_json_chars
+        self.max_state_bytes = max_state_bytes
 
     def load(self):
         try:
             migrate_legacy_json(self.legacy_path, self.path, lambda value: isinstance(value, dict))
-            data = read_json(self.path, {}, lambda value: isinstance(value, dict), max_bytes=512 * 1024)
+            data = read_json(self.path, {}, lambda value: isinstance(value, dict), max_bytes=self.max_state_bytes)
+            clean = self.sanitize(data)
             if data.get("_saved_at", 0) and time.time() - float(data["_saved_at"]) > self.max_age_seconds:
-                return {}
-            return self.sanitize(data)
+                # Regular drafts expire; explicitly locked JSON is a durable
+                # artifact and remains available after a restart.
+                return self._locked_json_state(clean)
+            return clean
         except Exception as error:
             logger.warning("Could not load factory state: %s", error)
             return {}
@@ -61,6 +67,27 @@ class FactoryStateStore:
             used += size
         return result
 
+    @staticmethod
+    def _locked_json_state(state):
+        """Keep only explicitly locked flows once normal draft retention ends."""
+        kept = {}
+        for product, namespaces in state.items():
+            if product not in {"language", "knowledge"} or not isinstance(namespaces, dict):
+                continue
+            product_kept = {}
+            for namespace, modes in namespaces.items():
+                if not isinstance(modes, dict):
+                    continue
+                mode_kept = {
+                    name: flow for name, flow in modes.items()
+                    if isinstance(flow, dict) and flow.get("json_locked")
+                }
+                if mode_kept:
+                    product_kept[namespace] = mode_kept
+            if product_kept:
+                kept[product] = product_kept
+        return kept
+
     def sanitize(self, state):
         if not isinstance(state, dict):
             return {}
@@ -70,9 +97,16 @@ class FactoryStateStore:
             if not isinstance(flow, dict):
                 return None
             text, json_text, files = flow.get("text", ""), flow.get("json", ""), flow.get("files", [])
+            json_locked = bool(flow.get("json_locked", False))
+            try:
+                card_count = int(flow.get("card_count", 10))
+            except (TypeError, ValueError):
+                card_count = 10
             return {
                 "text": text[:self.max_text_chars] if isinstance(text, str) else "",
-                "json": json_text[:self.max_json_chars] if isinstance(json_text, str) else "",
+                "json": json_text[:(self.max_locked_json_chars if json_locked else self.max_json_chars)] if isinstance(json_text, str) else "",
+                "json_locked": json_locked,
+                "card_count": max(5, min(20, card_count)),
                 "files": [path[:512] for path in files[:5] if isinstance(path, str)],
                 "raw": self._bounded_items(flow.get("raw", []), self.max_flow_bytes // 2),
                 "cards": self._bounded_items(flow.get("cards", []), self.max_flow_bytes // 2),

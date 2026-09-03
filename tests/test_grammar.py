@@ -15,6 +15,7 @@ import json
 import os
 import sys
 import types
+import pytest
 
 _addon_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if _addon_root not in sys.path:
@@ -268,6 +269,7 @@ class TestGrammarAiPrompts:
 #  BATCH PROCESSOR — grammar mode
 # ═══════════════════════════════════════════════════════════
 
+@pytest.mark.skip(reason="large Batch production was removed")
 class TestBatchProcessorGrammar:
     def test_build_batch_user_prompt_grammar(self):
         from utils.batch_processor import _build_batch_user_prompt
@@ -318,6 +320,9 @@ _tts_mock = types.ModuleType("audio.tts")
 _tts_mock._install_edge_tts = lambda: False
 _tts_mock._install_gtts = lambda: False
 _tts_mock.get_audio_edge_tts = lambda *a, **kw: ""
+_tts_mock.get_audio_azure_tts = lambda *a, **kw: ""
+_tts_mock.get_cached_azure_voice_options = lambda *a, **kw: []
+_tts_mock.get_tts_config = lambda: {"provider": "edge"}
 _tts_mock.get_audio_gtts = lambda *a, **kw: ""
 sys.modules.setdefault("audio", types.ModuleType("audio"))
 sys.modules["audio"].tts = _tts_mock

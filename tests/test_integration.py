@@ -114,6 +114,9 @@ audio_tts_mock = types.ModuleType("audio.tts")
 audio_tts_mock._install_edge_tts = lambda: False
 audio_tts_mock._install_gtts = lambda: False
 audio_tts_mock.get_audio_edge_tts = lambda *a, **kw: ""
+audio_tts_mock.get_audio_azure_tts = lambda *a, **kw: ""
+audio_tts_mock.get_cached_azure_voice_options = lambda *a, **kw: []
+audio_tts_mock.get_tts_config = lambda: {"provider": "edge"}
 audio_tts_mock.get_audio_gtts = lambda *a, **kw: ""
 sys.modules["audio.tts"] = audio_tts_mock
 audio_mock.tts = audio_tts_mock
@@ -179,6 +182,48 @@ class TestAiExtractThread:
         thread = AiExtractThread(text="test", lang="chinese")
         assert thread.custom_instruction == ""
         assert thread.existing_words == []
+
+    def test_small_run_uses_one_direct_call_and_caps_preview_to_selected_target(self, monkeypatch):
+        from workers import ai_workers
+
+        calls = []
+        monkeypatch.setattr(
+            ai_workers,
+            "extract_vocabulary_with_ai",
+            lambda text, lang, instruction, **kwargs: (
+                calls.append((text, lang, instruction, kwargs))
+                or [{"front": str(index)} for index in range(25)]
+            ),
+        )
+        worker = ai_workers.AiExtractThread(text="one short source", lang="english")
+        finished = []
+        worker.finished.connect(finished.append)
+
+        worker.run()
+
+        assert len(calls) == 1
+        assert "tối đa 10 thẻ" in calls[0][2]
+        assert len(finished[0]) == 10
+
+    def test_large_source_is_rejected_before_any_ai_call(self, monkeypatch):
+        from workers import ai_workers
+
+        calls = []
+        monkeypatch.setattr(
+            ai_workers, "extract_vocabulary_with_ai",
+            lambda *args, **kwargs: calls.append((args, kwargs)),
+        )
+        worker = ai_workers.AiExtractThread(
+            text="x" * (ai_workers.SMALL_RUN_MAX_SOURCE_CHARS + 1),
+            lang="english",
+        )
+        errors = []
+        worker.error.connect(errors.append)
+
+        worker.run()
+
+        assert calls == []
+        assert errors and str(ai_workers.SMALL_RUN_MAX_SOURCE_CHARS) in errors[0]
 
 
 class TestPhaseOneCollectionOperations:
@@ -270,6 +315,20 @@ class TestSafeParseJsonIntegration:
 
 
 class TestVoiceOptions:
+    def test_audio_never_silently_falls_back_to_gtts(self, monkeypatch):
+        import audio.engine as engine
+
+        monkeypatch.setattr(engine, "_install_edge_tts", lambda: True)
+        monkeypatch.setattr(engine, "get_audio_edge_tts", lambda *args, **kwargs: "")
+        assert engine.get_audio_multilang("hello", "en") == ""
+
+    def test_audio_routes_to_official_azure_when_selected(self, monkeypatch):
+        import audio.engine as engine
+
+        monkeypatch.setattr(engine, "get_tts_config", lambda: {"provider": "azure"})
+        monkeypatch.setattr(engine, "get_audio_azure_tts", lambda *args, **kwargs: "[sound:azure.mp3]")
+        assert engine.get_audio_multilang("hello", "en") == "[sound:azure.mp3]"
+
     def test_japanese_has_nanami(self):
         from audio.engine import get_voice_options
         voices = get_voice_options("ja")

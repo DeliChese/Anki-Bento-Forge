@@ -2,6 +2,29 @@
 
 ## [Unreleased]
 
+### 2026-09-03 — Version: `18.3.0` → `18.3.0`
+
+#### Changed
+
+- **Azure usage history and bulk deck moves** — Azure Speech now keeps a bounded, profile-local daily aggregate of submitted characters, requests, outcomes, and cache hits (never spoken text or keys), visible from Voice source. Deck Center now moves checked deck roots into a selected destination or detaches them to top level after cycle/collision validation, retaining cards and scheduling.
+- **Azure Neural voice catalogue** — when Azure is selected, Factory refreshes the official regional Neural voice list in the background and caches it locally; Edge options remain visible only until that list is ready or as a network fallback.
+- **Azure Speech Neural chính thức** — Voice Source có lựa chọn Azure Speech: nhập Speech Key và Region (ví dụ `southeastasia`) trong Factory, key chỉ lưu ở Credential Manager hệ điều hành còn region/provider ở dữ liệu profile. Cả Preview lẫn Import dùng endpoint Azure Speech, xuất MP3 24 kHz/96 kbps vào Anki media; Edge Neural vẫn là lựa chọn không cần Key.
+- **Khóa JSON theo luồng học** — thêm nút Khóa/Mở khóa JSON riêng cho từng cặp ngôn ngữ × Từ vựng/Ngữ pháp/Collocation. JSON đã khóa ở chế độ chỉ đọc, chặn cả thay thế từ AI/file/lịch sử, tồn tại qua khi đóng Factory/Anki và giữ tối đa 1 MB mỗi luồng khóa; nháp không khóa vẫn hết hạn sau 7 ngày để dữ liệu hồ sơ không phình vô hạn.
+- **Audio không tự hạ chất lượng** — tạo âm thanh chỉ dùng Edge Neural; khi Edge lỗi hoặc chưa cài dependency, audio được bỏ qua và ghi lỗi rõ ràng thay vì âm thầm rơi xuống gTTS chất lượng thấp/mix giọng trong một deck.
+- **Bố cục thẻ học liền mạch** — Usage Pattern/Note/Collocation được gộp thành một khu "Cách dùng & ghi chú"; Examples 3–4 và field bổ sung nằm trong một khối "Bổ sung để ghi nhớ" cùng giao diện thẻ, không còn bị chèn rời phía ngoài.
+- **Lô chờ lên tàu lọc được dữ liệu lớn** — thêm lọc theo cấp độ thực tế và chủ đề có thể chọn/gõ, kết hợp với tìm kiếm và trạng thái thẻ; chỉ thay đổi danh sách hiển thị/chọn, không sửa JSON hay thứ tự import.
+- **Factory one-shot mở rộng 5–20 thẻ** — người học chọn số thẻ trong từng lượt (mặc định 10, tối đa 20); vẫn dùng một request, Preview trước Import và giới hạn nguồn 4.000 ký tự.
+- **Nguồn dán và lịch sử AI gọn hơn** — dữ liệu dán lộn xộn được chuẩn hoá/deduplicate cục bộ; chỉ các mục lịch sử cùng từ hoặc chủ đề mới được đưa vào đối chiếu ngắn để tránh lặp, còn nguồn và yêu cầu hiện tại luôn ưu tiên. Điều này giảm token context mà giữ kiểm tra nghĩa/chủ đề liên quan.
+
+### 2026-09-02 — Version: `18.3.0` → `18.3.0`
+
+#### 🗑️ Removed
+- **Gỡ toàn bộ dây chuyền sản xuất quy mô lớn** — xóa UI Batch/Sản xuất có giám sát, AI Inventory Scanner, topic-first catalog/checkpoint, worker Batch, AI Deck Blueprint và importer nhiều deck. Deck Manager cơ bản cùng dữ liệu deck/thẻ/SRS hiện hữu không bị thay đổi.
+
+#### 🔧 Changed
+- **Factory trở lại luồng học nhỏ trực tiếp** — người dùng dán tối đa 4.000 ký tự, thêm yêu cầu tùy chọn và gọi đúng một request AI tạo tối đa 5 thẻ. Không còn lượt AI quét kho trước, không chia chunk/batch; kết quả hợp lệ mở thẳng Preview để sửa/chọn rồi mới nạp JSON và import.
+- **Factory bỏ bảng Forge chat/artifact nhúng** — giao diện sản xuất chỉ còn nguồn, yêu cầu, nút tạo, Preview và Import. Study Coach trong Reviewer cùng thẻ/SRS cũ vẫn được giữ.
+
 ### 2026-09-01 — Version: `18.3.0` → `18.3.0`
 
 #### ✨ Added
@@ -11,6 +34,8 @@
 - **Fast path Excel không tốn token quét** — bảng có header rõ như `Nhóm / Từ / Pinyin / Nghĩa / HSK Level` được đọc cục bộ theo đúng cột; sheet lộ trình, thống kê và nguồn tham khảo được bỏ qua mà không gửi AI. Preview không còn hiện ID kỹ thuật `Sheet!R000001` hoặc `C1=…`; chuỗi preview cũ đã dán vẫn được nhận diện ngược thành ô bảng. Chế độ **Quét nhanh 1.5×** dùng nhiều dòng/request hơn và giao thức JSON mảng compact cho phần không cấu trúc.
 
 #### 🐛 Fixed
+- **Tạo thẻ từ Forge quay lại Preview ngay lập tức** — artifact thẻ hợp lệ từ ô “Tạo thẻ” nay tự đổ vào bảng JSON/Preview của Factory, không cần mở/copy từ chat. Khi AI trả JSON sai schema hoặc hỏng, raw response không còn bị in vào transcript; hệ thống chỉ hiện cảnh báo và không cho dữ liệu chưa kiểm chứng đi vào Preview.
+- **Đính kèm Excel không còn bắt cài openpyxl** — luồng kẹp tệp của Forge nay có cùng fallback XLSX chuẩn như Inventory Scanner, đọc workbook/sheet/shared strings bằng thư viện chuẩn khi không có openpyxl hoặc pandas. Tệp XLSX thông thường vì vậy không còn hiện hướng dẫn cài dependency.
 - **Quét kho không còn dừng vì JSON lệch chuẩn từ AI** — scanner tự sửa JSON compact có dấu phẩy thừa hoặc key `r`/`rows` thiếu dấu nháy; nếu mô hình chèn metadata phụ sai định dạng, hệ thống vẫn trích riêng danh sách dòng đã neo nguồn. Phản hồi API hoặc kết quả không thể phục hồi nay báo lỗi tiếng Việt có hướng dẫn, không lộ `JSONDecodeError` kỹ thuật. Scanner schema tăng lên `5` để không dùng lại cache cũ.
 - **Không còn nhận sắc thái thành cấp độ học** — `Mức độ / sắc thái`, tần suất và register không còn bị map thành HSK/JLPT/TOPIK/CEFR. Cấp độ được validate theo ngôn ngữ: tiếng Trung chỉ nhận `HSK1`–`HSK6`/`HSK7-9`; các giá trị như `A – cực thường dùng` không thể lọt vào bộ lọc. Dòng chưa có cấp độ chuẩn được AI enrichment với ngữ cảnh header; AI trả nhãn sai bị đưa sang Cần xem.
 

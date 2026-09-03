@@ -186,6 +186,7 @@ def test_history_query_search_summary_and_clear():
     japanese = history.get_import_history(lang="japanese")
     assert japanese["total_count"] == 1
     assert japanese["summary"]["japanese"]["levels"] == {"N5": 1}
+    assert japanese["words"][0]["topic"] == "food"
     assert history.search_import_history("xué", lang="chinese")[0]["front"] == "学习"
     assert "食べる = ăn [N5]" in history.get_history_summary_text("japanese")
 

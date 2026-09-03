@@ -35,7 +35,7 @@ _SEMANTIC_FIELD_LABELS = {
 
 
 def quality_v2_examples_block(cfg: dict) -> str:
-    """Render examples 3/4 directly on the answer side, without comparison UI."""
+    """Render examples 3/4 inside the shared supplemental study section."""
     fields = set(cfg.get("all_fields") or [])
     parts = []
     for index in (3, 4):
@@ -53,8 +53,7 @@ def quality_v2_examples_block(cfg: dict) -> str:
         )
         translation = f"Example{index} in Vietnamese"
         body = (
-            f'{{{{#{example}}}}}<div class="ec quality-v2-example" '
-            'style="margin-top:10px;text-align:left;">'
+            f'{{{{#{example}}}}}<div class="ec quality-v2-example">'
             f'<div class="en">VÍ DỤ {index}</div>'
             f'<div class="ej">{{{{{example}}}}}</div>'
         )
@@ -151,9 +150,20 @@ def build_qfmt(cfg: dict, tmpls, index_q: int = 0) -> str:
 
 
 def build_afmt(cfg: dict, tmpls, index_a: int = 1) -> str:
-    """afmt (mặt sau) = template gốc + khối field tuỳ chỉnh mặt sau."""
+    """afmt keeps supplemental material in one visual card section."""
     back = tmpls[index_a]() if callable(tmpls[index_a]) else tmpls[index_a]
     quality_block = quality_v2_examples_block(cfg)
     base_fields = base_template_fields(tmpls) | _QUALITY_V2_EXAMPLE_FIELDS
     block = extra_fields_block(cfg, base_fields, "back")
-    return back + ("\n" + quality_block if quality_block else "") + ("\n" + block if block else "")
+    supplemental = "\n".join(part for part in (quality_block, block) if part)
+    if not supplemental:
+        return back
+    # Legacy templates can close their root before renderer extensions.  A
+    # shared wrapper gives Examples 3/4 and custom notes one card rhythm.
+    return (
+        back
+        + '\n<div class="cw card-supplemental" style="margin-top:10px;text-align:left;">'
+        + '<div class="es"><div class="esl">Bổ sung để ghi nhớ</div>'
+        + supplemental
+        + '</div></div>'
+    )

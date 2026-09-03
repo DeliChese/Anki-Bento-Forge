@@ -104,8 +104,16 @@ _TRANSLATIONS = {
         "en": "🗑 Clear",
     },
     "ai_extract_btn": {
-        "vi": "🔥 Đúc nguyên liệu",
-        "en": "🔥 Forge material",
+        "vi": "✨ Tạo thẻ",
+        "en": "✨ Create cards",
+    },
+    "ai_extract_btn_count": {
+        "vi": "✨ Tạo tối đa {count} thẻ",
+        "en": "✨ Create up to {count} cards",
+    },
+    "ai_card_count_label": {
+        "vi": "Số thẻ:",
+        "en": "Cards:",
     },
     "knowledge_generate_btn": {
         "vi": "✨ GỬI & TẠO THẺ",
@@ -114,14 +122,6 @@ _TRANSLATIONS = {
     "knowledge_generate_tip": {
         "vi": "Gửi nguồn học và yêu cầu thêm cho AI để tạo thẻ Knowledge Basic/Cloze theo schema nghiêm ngặt.",
         "en": "Send the source and extra request to generate strict Knowledge Basic/Cloze cards.",
-    },
-    "ai_batch_btn": {
-        "vi": "📋 Sản xuất có giám sát",
-        "en": "📋 Supervised production",
-    },
-    "ai_chat_btn": {
-        "vi": "🧭 Nạp vào AI",
-        "en": "🧭 Load to AI",
     },
     "ai_stop_btn": {
         "vi": "⏹ Dừng",
@@ -160,6 +160,26 @@ _TRANSLATIONS = {
     "json_input_label": {
         "vi": "📝 Dán dữ liệu JSON (hỗ trợ array hoặc multiple objects):",
         "en": "📝 Paste JSON data (supports array or multiple objects):",
+    },
+    "json_lock_btn": {
+        "vi": "🔒 Khóa JSON",
+        "en": "🔒 Lock JSON",
+    },
+    "json_unlock_btn": {
+        "vi": "🔓 Mở khóa JSON",
+        "en": "🔓 Unlock JSON",
+    },
+    "json_lock_tip": {
+        "vi": "Khóa JSON riêng cho ngôn ngữ và chế độ hiện tại. Nội dung được lưu bền vững, kể cả sau khi thoát Anki.",
+        "en": "Lock JSON for the current language and card type. It is retained after closing Anki.",
+    },
+    "json_unlock_tip": {
+        "vi": "Mở khóa để sửa hoặc thay thế JSON của ngôn ngữ và chế độ hiện tại.",
+        "en": "Unlock to edit or replace JSON for the current language and card type.",
+    },
+    "json_locked_tip": {
+        "vi": "JSON đang bị khóa. Hãy mở khóa trước khi thay thế nội dung.",
+        "en": "JSON is locked. Unlock it before replacing the content.",
     },
 
     # ── Filter Section ──────────────────────────────────
@@ -231,8 +251,116 @@ _TRANSLATIONS = {
         "vi": "⏩ Tốc độ:",
         "en": "⏩ Speed:",
     },
+    "tts_settings_btn": {
+        "vi": "☁ Nguồn giọng",
+        "en": "☁ Voice source",
+    },
+    "tts_settings_tip": {
+        "vi": "Chọn Edge Neural hoặc cấu hình Azure Speech Neural bằng Key lưu an toàn trong hệ điều hành",
+        "en": "Choose Edge Neural or configure Azure Speech Neural with an OS-secured key",
+    },
+    "tts_settings_title": {
+        "vi": "Nguồn giọng Neural",
+        "en": "Neural voice source",
+    },
+    "tts_provider_label": {
+        "vi": "Nguồn:",
+        "en": "Provider:",
+    },
+    "tts_provider_edge": {
+        "vi": "Edge Neural (không cần Key)",
+        "en": "Edge Neural (no key)",
+    },
+    "tts_provider_azure": {
+        "vi": "Azure Speech Neural (API chính thức)",
+        "en": "Azure Speech Neural (official API)",
+    },
+    "tts_region_label": {
+        "vi": "Region Azure:",
+        "en": "Azure region:",
+    },
+    "tts_region_placeholder": {
+        "vi": "Ví dụ: southeastasia",
+        "en": "For example: southeastasia",
+    },
+    "tts_key_label": {
+        "vi": "Speech Key:",
+        "en": "Speech key:",
+    },
+    "tts_key_placeholder": {
+        "vi": "Dán Azure Speech Key",
+        "en": "Paste Azure Speech Key",
+    },
+    "tts_key_saved_placeholder": {
+        "vi": "Đã có Key lưu an toàn — để trống nếu không đổi",
+        "en": "A key is stored securely — leave blank to keep it",
+    },
+    "tts_key_saved_status": {
+        "vi": "✓ Speech Key đã lưu trong Credential Manager của hệ điều hành; không nằm trong file add-on.",
+        "en": "✓ Speech key is in the OS Credential Manager, not in an add-on file.",
+    },
+    "tts_key_missing_status": {
+        "vi": "Chưa có Speech Key. Dán Key để bật Azure Speech.",
+        "en": "No Speech key is stored. Paste one to enable Azure Speech.",
+    },
+    "tts_save_btn": {
+        "vi": "Lưu nguồn giọng",
+        "en": "Save voice source",
+    },
+    "tts_cancel_btn": {
+        "vi": "Hủy",
+        "en": "Cancel",
+    },
+    "tts_save_error": {
+        "vi": "Không thể lưu Azure Speech. Hãy kiểm tra Region, Speech Key và Credential Manager của hệ điều hành.",
+        "en": "Could not save Azure Speech. Check the region, Speech key, and OS Credential Manager.",
+    },
+    "tts_save_success": {
+        "vi": "Đã lưu nguồn giọng. Bấm Nghe thử để kiểm tra.",
+        "en": "Voice source saved. Use Preview to verify it.",
+    },
 
     # ── Preview List ────────────────────────────────────
+    "tts_usage_btn": {
+        "vi": "📊 Lịch sử Azure",
+        "en": "📊 Azure usage",
+    },
+    "tts_usage_tip": {
+        "vi": "Xem số ký tự và lượt gọi Azure Speech ghi tại máy này",
+        "en": "View local Azure Speech character and request estimates",
+    },
+    "tts_usage_title": {
+        "vi": "📊 Lịch sử dùng Azure Speech",
+        "en": "📊 Azure Speech usage history",
+    },
+    "tts_usage_notice": {
+        "vi": "Số liệu ước tính tại máy này: không lưu nội dung đọc hay Speech Key. Cache không tạo gọi API mới. Azure Portal là nguồn quyết toán chính thức.",
+        "en": "Local estimate only: no spoken text or Speech key is stored. Cache hits make no new API call. Azure Portal remains the billing authority.",
+    },
+    "tts_usage_month": {
+        "vi": "Tháng {month}: {requests} lượt gọi · {characters} ký tự gửi · thành công {successes} · lỗi {failures} · dùng cache {cache_hits}",
+        "en": "{month}: {requests} requests · {characters} submitted characters · {successes} succeeded · {failures} failed · {cache_hits} cache hits",
+    },
+    "tts_usage_all_time": {
+        "vi": "Tổng đã lưu: {requests} lượt gọi · {characters} ký tự gửi · thành công {successes} · lỗi {failures} · dùng cache {cache_hits}",
+        "en": "Saved total: {requests} requests · {characters} submitted characters · {successes} succeeded · {failures} failed · {cache_hits} cache hits",
+    },
+    "tts_usage_daily_title": {
+        "vi": "Theo ngày (tối đa 90 ngày gần nhất):",
+        "en": "By day (up to the last 90 days):",
+    },
+    "tts_usage_day": {
+        "vi": "{date} — {requests} lượt · {characters} ký tự · OK {successes} · lỗi {failures} · cache {cache_hits}",
+        "en": "{date} — {requests} requests · {characters} characters · OK {successes} · failed {failures} · cache {cache_hits}",
+    },
+    "tts_usage_empty": {
+        "vi": "Chưa có lệnh Azure Speech nào được ghi trên máy này.",
+        "en": "No Azure Speech request has been recorded on this machine yet.",
+    },
+    "tts_usage_close": {
+        "vi": "Đóng",
+        "en": "Close",
+    },
     "preview_label": {
         "vi": "🚂 Lô Hàng Chờ Lên Tàu (✨ New | 🔄 Update | ⚠️ Trùng mờ):",
         "en": "🚂 Cargo Waiting for Train (✨ New | 🔄 Update | ⚠️ Partial match):",
@@ -423,6 +551,10 @@ _TRANSLATIONS = {
         "vi": "⚠️ Vui lòng dán văn bản vào ô trên trước.",
         "en": "⚠️ Please paste text in the box above first.",
     },
+    "small_run_source_too_large": {
+        "vi": "Nguồn hiện có {length} ký tự. Chế độ học tập trung chỉ nhận tối đa {limit} ký tự mỗi lượt. Hãy giữ lại một đoạn hoặc vài dòng bạn muốn học ngay rồi bấm tạo lại.",
+        "en": "The source has {length} characters. Focused learning accepts at most {limit} characters per run. Keep one passage or a few lines you want to study now, then create again.",
+    },
     "err_file_read": {
         "vi": "Lỗi đọc file: {error}",
         "en": "File read error: {error}",
@@ -464,6 +596,50 @@ _TRANSLATIONS = {
     "deck_rename": {
         "vi": "✏️ Đổi tên",
         "en": "✏️ Rename",
+    },
+    "deck_move_to": {
+        "vi": "↳ Chuyển vào...",
+        "en": "↳ Move into...",
+    },
+    "deck_move_to_tip": {
+        "vi": "Chuyển các deck đã tích vào một deck đích; toàn bộ sub deck đi cùng",
+        "en": "Move checked deck roots under a destination deck; their complete sub-trees move with them",
+    },
+    "deck_detach": {
+        "vi": "⇱ Tách ra gốc",
+        "en": "⇱ Make root",
+    },
+    "deck_detach_tip": {
+        "vi": "Tách các deck đã tích thành deck cha ở cây gốc",
+        "en": "Detach checked deck roots so they become top-level decks",
+    },
+    "deck_move_title": {
+        "vi": "Di chuyển deck",
+        "en": "Move decks",
+    },
+    "deck_move_root": {
+        "vi": "(Cây gốc — deck cha)",
+        "en": "(Top level — parent deck)",
+    },
+    "deck_move_destination_prompt": {
+        "vi": "Chuyển các deck đã chọn đến:",
+        "en": "Move selected decks to:",
+    },
+    "deck_move_confirm": {
+        "vi": "Chuyển deck đã chọn và toàn bộ sub deck vào '{destination}'? Thẻ và lịch học không bị thay đổi.",
+        "en": "Move the selected deck and its complete sub-tree into '{destination}'? Cards and scheduling stay unchanged.",
+    },
+    "deck_move_confirm_many": {
+        "vi": "Chuyển {count} deck đã chọn (kèm sub deck) vào '{destination}'? Thẻ và lịch học không bị thay đổi.",
+        "en": "Move {count} selected deck roots (with their sub-trees) into '{destination}'? Cards and scheduling stay unchanged.",
+    },
+    "deck_moved": {
+        "vi": "✅ Đã chuyển {count} deck đến {destination}",
+        "en": "✅ Moved {count} deck(s) to {destination}",
+    },
+    "deck_move_failed": {
+        "vi": "Không thể di chuyển: đích không hợp lệ, gây vòng lặp hoặc đã có deck trùng tên.",
+        "en": "Could not move: the destination is invalid, would create a cycle, or already has a deck with that name.",
     },
     "deck_delete": {
         "vi": "🗑 Xóa đã tích",
@@ -641,14 +817,6 @@ _TRANSLATIONS = {
         "vi": "Xem lại lịch sử từ vựng đã lưu (AI trích xuất / import) — xem được ngay cả sau khi đóng Factory.\nTích chọn các từ cần và đưa sang trạm Kiểm định & Import.",
         "en": "Review saved vocabulary history (AI extract / import) — viewable even after closing the Factory.\nSelect the required words and send them to Review & Import.",
     },
-    "btn_ai_batch_tip": {
-        "vi": "Lấy kho từ từ nguồn Forge Workshop, lọc chủ đề/cấp độ và chỉ sản xuất số lượng bạn duyệt.",
-        "en": "Use the Forge Workshop source, filter by topic/level, and produce only an approved amount.",
-    },
-    "btn_ai_chat_tip": {
-        "vi": "Đồng bộ nguồn, yêu cầu, router và cảnh báo trùng của deck vào trạm AI. AI chỉ chạy khi bạn bấm Gửi.",
-        "en": "Sync the source, brief, router, and deck duplicate advisories into the AI station. AI runs only when you press Send.",
-    },
     "btn_ai_stop_tip": {
         "vi": "Dừng yêu cầu AI đang chạy",
         "en": "Stop the running AI request",
@@ -733,6 +901,22 @@ _TRANSLATIONS = {
         "vi": "Lọc nhanh theo loại thẻ sau khi Kiểm Định",
         "en": "Quick filter by card type after Verify",
     },
+    "preview_filter_all_levels": {
+        "vi": "🎓 Mọi cấp độ",
+        "en": "🎓 All levels",
+    },
+    "preview_filter_all_topics": {
+        "vi": "🏷 Mọi chủ đề",
+        "en": "🏷 All topics",
+    },
+    "preview_filter_level_tip": {
+        "vi": "Lọc Lô chờ lên tàu theo cấp độ có trong danh sách",
+        "en": "Filter the waiting queue by a level present in the list",
+    },
+    "preview_filter_topic_tip": {
+        "vi": "Chọn hoặc gõ một phần chủ đề để lọc Lô chờ lên tàu",
+        "en": "Choose or type part of a topic to filter the waiting queue",
+    },
     "rng_from_label": {
         "vi": "🔢 Từ số:",
         "en": "🔢 From #:",
@@ -810,12 +994,12 @@ _TRANSLATIONS = {
         "en": "Could not migrate SRS: {error}",
     },
     "voice_tooltip": {
-        "vi": "🎤 Sử dụng Edge TTS Online (cần internet, fallback gTTS)",
-        "en": "🎤 Uses Edge TTS Online (needs internet, falls back to gTTS)",
+        "vi": "🎤 Dùng giọng Edge Neural chất lượng cao (cần internet; không tự hạ xuống gTTS)",
+        "en": "🎤 Uses high-quality Edge Neural voices (needs internet; never silently downgrades to gTTS)",
     },
     "ai_input_placeholder_vocab": {
-        "vi": "📥 Dán nguồn học liệu cần phân tích (Nhật, Trung, Hàn hoặc Anh). Dây chuyền AI dùng trực tiếp nội dung này.",
-        "en": "📥 Paste learning material to analyze (Japanese, Chinese, Korean, or English). The AI production line uses this source directly.",
+        "vi": "📥 Dán một đoạn nhỏ hoặc vài từ muốn học ngay. Mỗi lượt chỉ tạo tối đa 5 thẻ để dễ kiểm tra.",
+        "en": "📥 Paste one short passage or a few items to study now. Each run creates at most 5 cards for easy review.",
     },
     "ai_input_placeholder_grammar": {
         "vi": "📥 Dán nguồn học liệu cần phân tích. Router của dây chuyền có thể chọn Ngữ pháp tự động hoặc bạn khóa thủ công.",
@@ -2143,8 +2327,8 @@ _TRANSLATIONS = {
         "en": "Default audio playback speed for study cards\n(0.25× = slowest, 4.0× = fastest)",
     },
     "search_placeholder": {
-        "vi": "🔍 Tìm theo từ / nghĩa... (lọc trực tiếp)",
-        "en": "🔍 Search by word / meaning... (direct filter)",
+        "vi": "🔍 Tìm từ / nghĩa / cấp độ / chủ đề...",
+        "en": "🔍 Search word / meaning / level / topic...",
     },
     "sample_json_title": {
         "vi": "💡 Mẫu JSON — {label}",

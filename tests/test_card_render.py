@@ -144,6 +144,14 @@ class TestBuildQfmtAfmt:
         a = build_afmt(_cfg(), tmpls, 1)
         assert "English Meaning" in a
 
+    def test_supplemental_examples_and_fields_share_one_card_section(self):
+        cfg = _cfg(all_fields=["Front", "Meaning", "English Meaning", "Example3", "Example3 in Vietnamese"])
+        answer = build_afmt(cfg, _tmpls(), 1)
+        assert 'class="cw card-supplemental"' in answer
+        assert "Bổ sung để ghi nhớ" in answer
+        assert "{{#Example3}}" in answer
+        assert "English Meaning" in answer
+
     def test_default_vocab_usage_note_renders_on_back(self):
         """B6: field mặc định được renderer thêm vào mặt sau và rỗng thì tự ẩn."""
         from Language import LANG_CONFIG

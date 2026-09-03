@@ -163,18 +163,12 @@ def extract_optional_card_payload(
     try:
         result = process_ai_card_response(response, lang=lang, kind=kind)
     except AiOutputFailure as exc:
-        if exc.source_category in {"empty_response", "malformed_json"} and not exc.cards:
-            logger.debug(
-                "AI chat prose provider=%s model=%s lang=%s kind=%s",
-                response.provider, response.model, lang, kind,
-            )
-            return OptionalCardPayload((), response.text.strip())
         logger.warning(
             "AI chat card payload rejected category=%s provider=%s model=%s lang=%s kind=%s",
             exc.category, response.provider, response.model, lang, kind,
         )
         return OptionalCardPayload(
-            (), response.text.strip(), exc.category,
+            (), "", exc.category,
         )
 
     if not result.cards:
@@ -183,7 +177,7 @@ def extract_optional_card_payload(
             response.provider, response.model, lang, kind,
         )
         return OptionalCardPayload(
-            (), response.text.strip(), "empty_card_payload", result.recovery,
+            (), "", "empty_card_payload", result.recovery,
         )
     if result.invalid:
         categories = {issue.category for issue in result.invalid}
@@ -198,7 +192,7 @@ def extract_optional_card_payload(
             len(result.invalid),
         )
         return OptionalCardPayload(
-            (), response.text.strip(), category, result.recovery,
+            (), "", category, result.recovery,
         )
 
     cards = list(result.cards)

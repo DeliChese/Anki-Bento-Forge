@@ -7,6 +7,7 @@ import sys
 import os
 import json
 import types
+import pytest
 from unittest.mock import MagicMock, patch
 
 _addon_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -106,6 +107,32 @@ class TestAiExtractThread:
         )
         assert thread.custom_instruction == "only HSK3+"
         assert len(thread.existing_words) == 2
+
+    def test_card_target_is_clamped_to_focused_range(self):
+        from workers.ai_workers import AiExtractThread
+        assert AiExtractThread(text="x", lang="english", max_cards=1).max_cards == 5
+        assert AiExtractThread(text="x", lang="english", max_cards=99).max_cards == 20
+        assert AiExtractThread(text="x", lang="english", max_cards="bad").max_cards == 10
+
+
+class TestFocusedExtractionContext:
+    def test_messy_paste_is_deduplicated_without_losing_items(self):
+        from workers.ai_workers import normalize_extraction_source
+        source = "  1.  食べる — eat  \n• 食べる — eat\n\n2) 飲む — drink "
+        assert normalize_extraction_source(source) == "食べる — eat\n飲む — drink"
+
+    def test_history_context_only_includes_matching_topic_or_word(self):
+        from workers.ai_workers import build_relevant_history_context
+        context = build_relevant_history_context(
+            "Từ vựng chủ đề food: 食べる",
+            [
+                {"front": "食べる", "meaning": "ăn", "topic": "food"},
+                {"front": "学校", "meaning": "trường học", "topic": "education"},
+            ],
+        )
+        assert "食べる = ăn [food]" in context
+        assert "学校" not in context
+        assert "Nguồn và yêu cầu hiện tại luôn ưu tiên" in context
 
 
 class TestAiChatThread:
@@ -227,17 +254,20 @@ class TestErrorHandling:
         result = safe_parse_json("\x00\x01\x02\x03")
         assert result == []
 
+    @pytest.mark.skip(reason="large Batch production was removed")
     def test_parse_word_list_empty_meaning(self):
         from tests.test_batch_processor import parse_word_list
         result = parse_word_list("testword")
         assert len(result) == 1
         assert result[0]["meaning"] == ""
 
+    @pytest.mark.skip(reason="large Batch production was removed")
     def test_parse_word_list_mixed_delimiters(self):
         from tests.test_batch_processor import parse_word_list
         result = parse_word_list("word1 : meaning1\nword2,reading,meaning2")
         assert len(result) == 2
 
+    @pytest.mark.skip(reason="large Batch production was removed")
     def test_smart_group_words_single_item(self):
         from tests.test_batch_processor import smart_group_words
         words = [{"front": "only", "meaning": "", "level": ""}]
@@ -245,17 +275,20 @@ class TestErrorHandling:
         assert len(batches) == 1
         assert len(batches[0]) == 1
 
+    @pytest.mark.skip(reason="large Batch production was removed")
     def test_smart_group_words_exact_batch_size(self):
         from tests.test_batch_processor import smart_group_words
         words = [{"front": f"w{i}", "meaning": "", "level": ""} for i in range(80)]
         batches = smart_group_words(words, batch_size=80)
         assert len(batches) == 1
 
+    @pytest.mark.skip(reason="large Batch production was removed")
     def test_estimate_cost_zero_batch_size(self):
         from tests.test_batch_processor import estimate_batch_cost
         cost = estimate_batch_cost(1, "ja", batch_size=1)
         assert cost["estimated_batches"] == 1
 
+    @pytest.mark.skip(reason="large Batch production was removed")
     def test_fallback_deck_org_single_word(self):
         from tests.test_batch_processor import _fallback_deck_organization
         result = _fallback_deck_organization(
@@ -301,6 +334,7 @@ class TestI18nEdgeCases:
 # ═══════════════════════════════════════════════════════════
 
 class TestEndToEndFlows:
+    @pytest.mark.skip(reason="large Batch production was removed")
     def test_parse_group_cost_flow(self):
         from tests.test_batch_processor import parse_word_list, smart_group_words, estimate_batch_cost
 
@@ -314,6 +348,7 @@ class TestEndToEndFlows:
         cost = estimate_batch_cost(len(words), "japanese")
         assert cost["estimated_batches"] == 2
 
+    @pytest.mark.skip(reason="large Batch production was removed")
     def test_json_parse_to_group_flow(self):
         from tests.test_batch_processor import (
             parse_word_list, smart_group_words, _fallback_deck_organization,

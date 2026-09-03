@@ -4,7 +4,7 @@ import json
 
 import pytest
 
-from utils import ai_extractor, ai_study_prompts, batch_processor
+from utils import ai_extractor, ai_study_prompts
 from utils.ai_output_validation import validate_ai_cards
 from utils.ai_reliability import (
     AiCardResponse,
@@ -191,7 +191,16 @@ def test_chat_english_hsk_card_never_reaches_factory(monkeypatch):
     assert result["vocab_json"] is None
     assert result["card_error"] == "schema_mismatch"
     assert result["card_warning"]
+    assert result["reply"] == ""
     assert result["error"] is None
+
+
+def test_chat_card_mode_does_not_echo_malformed_json_as_chat_text(monkeypatch):
+    result = _chat_result(monkeypatch, content='{"front":')
+
+    assert result["card_json"] is None
+    assert result["card_error"] == "malformed_json"
+    assert result["reply"] == ""
 
 
 def test_chat_grammar_shape_is_rejected_in_vocab_flow(monkeypatch):
@@ -368,6 +377,7 @@ def _attempt(cards, *, invalid=(), duplicates=0):
     )
 
 
+@pytest.mark.skip(reason="large Batch production was removed")
 def test_partial_retry_requests_only_unresolved_candidates(monkeypatch):
     calls = []
 
@@ -388,6 +398,7 @@ def test_partial_retry_requests_only_unresolved_candidates(monkeypatch):
     assert calls == [[f"w{i}" for i in range(10)], ["w8", "w9"]]
 
 
+@pytest.mark.skip(reason="large Batch production was removed")
 def test_partial_retry_failure_is_bounded(monkeypatch):
     calls = []
 
@@ -406,6 +417,7 @@ def test_partial_retry_failure_is_bounded(monkeypatch):
     assert calls == [4, 2, 1, 1, 2, 1, 1]
 
 
+@pytest.mark.skip(reason="large Batch production was removed")
 def test_large_truncated_batch_adaptively_splits_until_complete(monkeypatch):
     calls = []
 
@@ -426,6 +438,7 @@ def test_large_truncated_batch_adaptively_splits_until_complete(monkeypatch):
     assert calls == [12, 6, 3, 3, 6, 3, 3]
 
 
+@pytest.mark.skip(reason="large Batch production was removed")
 def test_retry_merge_drops_duplicate_without_losing_missing_card(monkeypatch):
     calls = 0
 
@@ -445,6 +458,7 @@ def test_retry_merge_drops_duplicate_without_losing_missing_card(monkeypatch):
     assert result.unresolved == ()
 
 
+@pytest.mark.skip(reason="large Batch production was removed")
 def test_cancellation_is_checked_before_recovery_retry(monkeypatch):
     state = {"cancelled": False}
 
@@ -542,6 +556,7 @@ def test_text_recovery_cancellation_between_children_still_works(monkeypatch):
         )
 
 
+@pytest.mark.skip(reason="large Batch production was removed")
 def test_grammar_batch_merge_uses_pattern_identity(monkeypatch):
     monkeypatch.setattr(
         batch_processor, "get_api_config",
@@ -571,6 +586,7 @@ def test_grammar_batch_merge_uses_pattern_identity(monkeypatch):
     assert reports[0]["missing"] == 0
 
 
+@pytest.mark.skip(reason="large Batch production was removed")
 @pytest.mark.parametrize(
     ("lang", "grammar", "expected"),
     [
@@ -595,6 +611,7 @@ def test_reliability_benchmark_covers_5_10_20_30_cards():
     assert scenarios[-1]["output_tokens"] is None
 
 
+@pytest.mark.skip(reason="large Batch production was removed")
 def test_batch_cache_key_preserves_candidate_sense_and_order(monkeypatch):
     monkeypatch.setattr(batch_processor, "get_signature", lambda: "sig")
     base = [{"front": "light", "meaning": "not heavy", "level": "A2", "topic": "adjective"}]

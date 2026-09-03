@@ -1574,6 +1574,7 @@ class AiCompanionDock(QDockWidget):
                 context_snapshot=response_snapshot,
             )
         cards = result.get("card_json")
+        created_artifact = None
         if cards and self._policy.allows_card_mode and self._pending_card_mode:
             try:
                 artifact = create_card_artifact(
@@ -1582,6 +1583,7 @@ class AiCompanionDock(QDockWidget):
                     source_message_id=self._pending_user_message_id,
                 )
                 artifact = self._store.add_artifact(session["id"], artifact)
+                created_artifact = artifact
                 self._store.add_message(
                     session["id"], role="assistant",
                     content=t("study_artifact_ready", count=len(cards)),
@@ -1618,6 +1620,8 @@ class AiCompanionDock(QDockWidget):
         self._finish_request_ui()
         self._clear_pending_request(token)
         self._reload_sessions(selected_id)
+        if created_artifact is not None and self._integrated and self._workspace == "forge":
+            self.open_artifact_in_forge(created_artifact)
         if candidate_manifest:
             selected_ids = self._review_candidate_manifest(candidate_manifest)
             if selected_ids:
@@ -1949,10 +1953,10 @@ class AiCompanionDock(QDockWidget):
         layout.addWidget(close)
         dialog.exec()
 
-    def open_artifact_in_forge(self):
+    def open_artifact_in_forge(self, artifact=None):
         if not self._policy.allows_card_mode:
             return
-        artifact = self._selected_artifact()
+        artifact = artifact or self._selected_artifact()
         if not artifact:
             return
         if not artifact_is_compatible(artifact):
@@ -2084,7 +2088,7 @@ def show_integrated_forge(
         lane=lane,
         existing_entries=existing_entries,
     )
-    return factory.forge_panel
+    return factory
 
 
 def show_ai_companion(

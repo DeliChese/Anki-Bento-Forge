@@ -19,6 +19,9 @@ logger = get_logger()
 
 _DOCX_HEADING_STYLE_RE = re.compile(r"^heading\s*([1-6])$", re.IGNORECASE)
 _DOCX_NAMESPACE = "{http://schemas.openxmlformats.org/wordprocessingml/2006/main}"
+_XLSX_MAIN_NAMESPACE = "{http://schemas.openxmlformats.org/spreadsheetml/2006/main}"
+_XLSX_REL_NAMESPACE = "{http://schemas.openxmlformats.org/officeDocument/2006/relationships}"
+_XLSX_PACKAGE_REL_NAMESPACE = "{http://schemas.openxmlformats.org/package/2006/relationships}"
 
 _DOCUMENT_DEPENDENCIES = {
     "docx": "python-docx==1.1.2",
@@ -67,8 +70,9 @@ def extract_text_from_file(filepath: str) -> str:
     """Read text from a supported local document.
 
     Return ``""`` when the file is absent or an available parser cannot read
-    it. Raise :class:`MissingDocumentDependencyError` when DOCX/XLSX support is
-    unavailable so the UI can offer an actionable manual-install message.
+    it. Raise :class:`MissingDocumentDependencyError` when an optional format
+    has no available parser so the UI can offer an actionable manual-install
+    message. Ordinary XLSX packages have a standard-library fallback.
     """
     if not filepath or not os.path.exists(filepath):
         return ""
@@ -197,9 +201,81 @@ def _extract_sheet_text(filepath: str) -> str:
     except Exception as error:
         logger.warning("pandas đọc lỗi %s: %s", filepath, error)
 
+    if os.path.splitext(filepath)[1].lower() == ".xlsx":
+        fallback = _extract_xlsx_package_text(filepath)
+        if fallback:
+            return fallback
+
     if not openpyxl_available:
         raise MissingDocumentDependencyError("openpyxl")
     return ""
+
+
+def _extract_xlsx_package_text(filepath: str) -> str:
+    """Read a normal XLSX package without optional spreadsheet libraries."""
+    try:
+        with zipfile.ZipFile(filepath) as archive:
+            shared_strings = []
+            try:
+                shared_root = ElementTree.fromstring(archive.read("xl/sharedStrings.xml"))
+                for item in shared_root.iter(f"{_XLSX_MAIN_NAMESPACE}si"):
+                    shared_strings.append("".join(
+                        node.text or "" for node in item.iter(f"{_XLSX_MAIN_NAMESPACE}t")
+                    ))
+            except KeyError:
+                pass
+
+            workbook = ElementTree.fromstring(archive.read("xl/workbook.xml"))
+            relationships = ElementTree.fromstring(
+                archive.read("xl/_rels/workbook.xml.rels")
+            )
+            targets = {
+                relation.attrib.get("Id", ""): relation.attrib.get("Target", "")
+                for relation in relationships.iter(f"{_XLSX_PACKAGE_REL_NAMESPACE}Relationship")
+            }
+            parts = []
+            sheets = workbook.find(f"{_XLSX_MAIN_NAMESPACE}sheets")
+            for sheet in list(sheets) if sheets is not None else ():
+                title = sheet.attrib.get("name", "Sheet")
+                relationship_id = sheet.attrib.get(f"{_XLSX_REL_NAMESPACE}id", "")
+                target = targets.get(relationship_id, "")
+                if target.startswith("/"):
+                    sheet_path = target.lstrip("/")
+                elif target.startswith("xl/"):
+                    sheet_path = target
+                else:
+                    sheet_path = f"xl/{target.lstrip('/')}"
+                worksheet = ElementTree.fromstring(archive.read(sheet_path))
+                sheet_rows = []
+                for row in worksheet.iter(f"{_XLSX_MAIN_NAMESPACE}row"):
+                    cells = []
+                    for cell in row.findall(f"{_XLSX_MAIN_NAMESPACE}c"):
+                        cell_type = cell.attrib.get("t", "")
+                        if cell_type == "inlineStr":
+                            value = "".join(
+                                node.text or "" for node in cell.iter(f"{_XLSX_MAIN_NAMESPACE}t")
+                            )
+                        else:
+                            value_node = cell.find(f"{_XLSX_MAIN_NAMESPACE}v")
+                            value = value_node.text if value_node is not None else ""
+                            if cell_type == "s":
+                                try:
+                                    value = shared_strings[int(value)]
+                                except (TypeError, ValueError, IndexError):
+                                    value = ""
+                            elif cell_type == "b":
+                                value = "TRUE" if value == "1" else "FALSE"
+                        if str(value or "").strip():
+                            cells.append(str(value).strip())
+                    if cells:
+                        sheet_rows.append(" | ".join(cells))
+                if sheet_rows:
+                    parts.append(f"### Sheet: {title}")
+                    parts.extend(sheet_rows)
+            return "\n".join(parts)
+    except (OSError, KeyError, zipfile.BadZipFile, ElementTree.ParseError) as error:
+        logger.warning("XLSX standard-library fallback could not read %s: %s", filepath, error)
+        return ""
 
 
 def _extract_pdf_text(filepath: str) -> str:

@@ -107,6 +107,7 @@ def test_every_tracked_python_file_compiles():
     tracked_python = subprocess.run(
         ["git", "ls-files", "*.py"], cwd=ROOT, capture_output=True, check=True, text=True
     ).stdout.splitlines()
+    tracked_python = [path for path in tracked_python if (ROOT / path).is_file()]
     result = subprocess.run(
         [sys.executable, "-m", "py_compile", *tracked_python],
         cwd=ROOT,

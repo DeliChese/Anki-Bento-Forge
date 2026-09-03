@@ -3,31 +3,144 @@ AI Workers — Background threads for AI extract, AI chat, and audio preview.
 """
 
 import os
+import re
 import threading
+import unicodedata
 
 from aqt.qt import QThread, pyqtSignal
 
 from utils.logger import get_logger
 from utils.i18n import t
 from utils.ai_extractor import (
-    extract_vocabulary_long_text,
-    extract_grammar_long_text,
+    extract_vocabulary_with_ai,
+    extract_grammar_with_ai,
     chat_with_ai,
 )
 from utils.ai_candidate_extractor import extract_source_candidates_with_ai
-from utils.ai_inventory_scanner import (
-    apply_prepared_inventory,
-    inventory_source_from_text,
-    scan_inventory_with_ai,
-    topic_catalog_instruction,
-)
-from utils.knowledge_extractor import extract_knowledge_long_text
+from utils.knowledge_extractor import extract_knowledge_with_ai
 
 logger = get_logger()
 
+SMALL_RUN_MIN_CARDS = 5
+SMALL_RUN_DEFAULT_CARDS = 10
+SMALL_RUN_MAX_CARDS = 20
+SMALL_RUN_MAX_SOURCE_CHARS = 4_000
+
+
+def normalize_extraction_source(text):
+    """Make pasted lists compact without discarding their learning meaning."""
+    normalized_lines = []
+    seen = set()
+    for raw_line in unicodedata.normalize("NFKC", str(text or "")).splitlines():
+        line = re.sub(r"^\s*(?:[-*•▪◦]+|\d{1,3}\s*[.)、:-])\s*", "", raw_line)
+        line = " ".join(line.split())
+        if not line:
+            continue
+        key = line.casefold()
+        if key in seen:
+            continue
+        seen.add(key)
+        normalized_lines.append(line)
+    return "\n".join(normalized_lines)
+
+
+def clamp_small_run_card_count(value):
+    """Keep every caller, including legacy ones, inside the focused card range."""
+    try:
+        value = int(value)
+    except (TypeError, ValueError):
+        value = SMALL_RUN_DEFAULT_CARDS
+    return max(SMALL_RUN_MIN_CARDS, min(SMALL_RUN_MAX_CARDS, value))
+
+
+def build_relevant_history_context(source, history_entries, instruction="", max_items=12):
+    """Return only history that can clarify this source, within a small token budget."""
+    source_folded = f"{source}\n{instruction}".casefold()
+    if not source_folded.strip() or not history_entries:
+        return ""
+
+    scored = []
+    for entry in history_entries:
+        if not isinstance(entry, dict):
+            continue
+        front = str(entry.get("front", "")).strip()
+        meaning = str(entry.get("meaning", "")).strip()
+        topic = str(entry.get("topic", "")).strip()
+        if not front:
+            continue
+        score = 0
+        if len(front) > 1 and front.casefold() in source_folded:
+            score += 100
+        if len(topic) > 1 and topic.casefold() in source_folded:
+            score += 40
+        if meaning and len(meaning) > 2 and meaning.casefold() in source_folded:
+            score += 20
+        if score:
+            scored.append((score, front.casefold(), front, meaning, topic))
+
+    if not scored:
+        return ""
+    scored.sort(key=lambda item: (-item[0], item[1]))
+    selected = []
+    seen = set()
+    for _, key, front, meaning, topic in scored:
+        if key in seen:
+            continue
+        seen.add(key)
+        topic_text = f" [{topic}]" if topic else ""
+        selected.append(f"- {front} = {meaning}{topic_text}".rstrip())
+        if len(selected) >= max_items:
+            break
+    return "\n".join((
+        "ĐỐI CHIẾU LỊCH SỬ LIÊN QUAN (ngắn gọn, có thể đã cũ):",
+        *selected,
+        "Nguồn và yêu cầu hiện tại luôn ưu tiên; chỉ dùng lịch sử để tránh lặp "
+        "và giữ nghĩa/chủ đề nhất quán.",
+    ))
+
+
+def _small_run_instruction(custom_instruction, max_cards=SMALL_RUN_DEFAULT_CARDS,
+                           history_context=""):
+    """Keep one request focused enough to review and learn immediately."""
+    max_cards = clamp_small_run_card_count(max_cards)
+    limit = (
+        f"Chỉ tạo tối đa {max_cards} thẻ có giá trị học cao nhất. "
+        "Nếu nguồn là danh sách dán lộn xộn, hãy tách đúng từng mục, bỏ bản sao "
+        "và suy ra chủ đề từ ngữ cảnh gần nhất trước khi tạo thẻ. "
+        "Không tạo danh mục chủ đề, không mô tả quy trình và không trả thêm mục ngoài thẻ."
+    )
+    custom = str(custom_instruction or "").strip()
+    return "\n".join(part for part in (custom, history_context, limit) if part)
+
+
+class AzureVoiceRefreshThread(QThread):
+    """Fetch the Azure Neural catalogue away from the Qt UI thread."""
+
+    loaded = pyqtSignal(str, list)
+    error = pyqtSignal(str, str)
+
+    def __init__(self, lang):
+        super().__init__()
+        self.lang = lang
+        self._is_running = True
+
+    def run(self):
+        try:
+            from audio.tts import fetch_azure_voice_options
+            voices = fetch_azure_voice_options(self.lang)
+            if self._is_running:
+                self.loaded.emit(self.lang, voices)
+        except Exception as exc:
+            logger.warning("Could not refresh Azure Neural voices: %s", exc)
+            if self._is_running:
+                self.error.emit(self.lang, str(exc))
+
+    def stop(self):
+        self._is_running = False
+
 
 class PreviewThread(QThread):
-    """Thread preview giọng đọc Edge TTS."""
+    """Thread preview giọng đọc theo nguồn TTS đang chọn."""
 
     done = pyqtSignal(str)  # filepath hoặc ""
 
@@ -42,13 +155,12 @@ class PreviewThread(QThread):
 
     def run(self):
         try:
-            from audio.tts import get_audio_edge_tts, _install_edge_tts
-            from audio.engine import speed_to_edge_rate
-            if not _install_edge_tts():
-                self.done.emit("")
-                return
+            from audio.engine import get_audio_multilang, speed_to_edge_rate
             rate = speed_to_edge_rate(self.speed)
-            tag = get_audio_edge_tts(self.text, self.voice_id, self.lang, rate=rate, cancel_event=self.cancel_event)
+            tag = get_audio_multilang(
+                self.text, self.lang, voice=self.voice_id,
+                rate=rate, cancel_event=self.cancel_event,
+            )
             if tag:
                 filename = tag.replace("[sound:", "").replace("]", "")
                 filepath = os.path.join(self.media_dir, filename)
@@ -71,7 +183,8 @@ class AiExtractThread(QThread):
     error = pyqtSignal(str)
 
     def __init__(self, text, lang, custom_instruction="", existing_words=None, grammar=False,
-                 cancel_event=None, learning_mode="language", card_kind=None):
+                 cancel_event=None, learning_mode="language", card_kind=None,
+                 max_cards=SMALL_RUN_DEFAULT_CARDS, history_entries=None):
         super().__init__()
         self.text = text
         self.lang = lang
@@ -80,11 +193,21 @@ class AiExtractThread(QThread):
         self.grammar = grammar
         self.card_kind = card_kind or ("grammar" if grammar else "vocab")
         self.learning_mode = learning_mode
+        self.max_cards = clamp_small_run_card_count(max_cards)
+        self.history_entries = list(history_entries or [])
         self.cancel_event = cancel_event or threading.Event()
 
     def run(self):
         try:
             if self.cancel_event.is_set():
+                return
+            source = normalize_extraction_source(self.text)
+            if len(source) > SMALL_RUN_MAX_SOURCE_CHARS:
+                self.error.emit(t(
+                    "small_run_source_too_large",
+                    length=len(source),
+                    limit=SMALL_RUN_MAX_SOURCE_CHARS,
+                ))
                 return
             if self.existing_words:
                 label = (
@@ -94,41 +217,17 @@ class AiExtractThread(QThread):
                 )
                 self.progress.emit(t("status_deck_avoid", count=len(self.existing_words), label=label))
 
-            preflight = None
-            generation_instruction = self.custom_instruction
-            if self.learning_mode != "knowledge":
-                self.progress.emit(t("worker_progress_topic_inventory"))
-                preflight = scan_inventory_with_ai(
-                    inventory_source_from_text(self.text, name="Forge AI source"),
-                    self.lang,
-                    card_kind=self.card_kind,
-                    progress_callback=lambda msg: self.progress.emit(msg),
-                    should_abort=self.cancel_event.is_set,
-                    turbo=True,
-                )
-                if self.cancel_event.is_set():
-                    return
-                topic_instruction = topic_catalog_instruction(preflight.get("topic_catalog", ()))
-                generation_instruction = "\n".join(
-                    part for part in (self.custom_instruction.strip(), topic_instruction) if part
-                )
-                approved = sum(
-                    1 for item in preflight.get("inventory", ())
-                    if item.get("decision") == "keep" and item.get("topic")
-                )
-                self.progress.emit(t(
-                    "worker_progress_topic_inventory_done",
-                    topics=len(preflight.get("topic_catalog", ())),
-                    count=approved,
-                ))
-                if not approved:
-                    self.error.emit(t("empty_preproduction_inventory"))
-                    return
+            history_context = build_relevant_history_context(
+                source, self.history_entries, self.custom_instruction,
+            ) if self.learning_mode == "language" else ""
+            generation_instruction = _small_run_instruction(
+                self.custom_instruction, self.max_cards, history_context,
+            )
 
             if self.learning_mode == "knowledge":
                 self.progress.emit(t("worker_progress_knowledge"))
-                result_list = extract_knowledge_long_text(
-                    self.text,
+                result_list = extract_knowledge_with_ai(
+                    source,
                     generation_instruction,
                     existing_keys=self.existing_words,
                     progress_callback=lambda msg: self.progress.emit(msg),
@@ -137,8 +236,8 @@ class AiExtractThread(QThread):
                 empty_msg = t("empty_knowledge")
             elif self.grammar:
                 self.progress.emit(t("worker_progress_grammar"))
-                result_list = extract_grammar_long_text(
-                    self.text,
+                result_list = extract_grammar_with_ai(
+                    source,
                     self.lang,
                     generation_instruction,
                     existing_patterns=self.existing_words,
@@ -151,8 +250,8 @@ class AiExtractThread(QThread):
                     "worker_progress_collocation" if self.card_kind == "collocation"
                     else "worker_progress_vocab"
                 ))
-                result_list = extract_vocabulary_long_text(
-                    self.text,
+                result_list = extract_vocabulary_with_ai(
+                    source,
                     self.lang,
                     generation_instruction,
                     existing_words=self.existing_words,
@@ -166,18 +265,11 @@ class AiExtractThread(QThread):
 
             if self.cancel_event.is_set():
                 return
-            if preflight is not None:
-                result_list = apply_prepared_inventory(
-                    result_list,
-                    preflight.get("inventory", ()),
-                    preflight.get("topic_catalog", ()),
-                    card_kind=self.card_kind,
-                )
             if not result_list:
                 self.error.emit(empty_msg)
                 return
 
-            self.finished.emit(result_list)
+            self.finished.emit(result_list[:self.max_cards])
 
         except Exception as e:
             if not self.cancel_event.is_set():

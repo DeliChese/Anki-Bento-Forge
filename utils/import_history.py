@@ -421,6 +421,7 @@ def get_import_history(lang: str = None, limit: int = 2000) -> dict:
                 "front": w.get("front", ""),
                 "meaning": w.get("meaning", ""),
                 "level": w.get("level", ""),
+                "topic": w.get("topic", ""),
                 "deck": w.get("deck", ""),
                 "lang": l,
                 "imported_at": w.get("imported_at", 0),

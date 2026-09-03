@@ -18,7 +18,7 @@ from aqt.utils import tooltip
 
 from utils.deck_manager import (
     get_deck_tree, create_deck, rename_deck, delete_decks,
-    collapse_selected_deck_names, refresh_anki,
+    collapse_selected_deck_names, get_deck_names, move_decks, refresh_anki,
 )
 from utils.i18n import t
 
@@ -26,11 +26,8 @@ from utils.i18n import t
 class DeckManagerDialog(QDialog):
     """Dialog quản lý deck parent/sub với cập nhật tức thì."""
 
-    def __init__(self, parent=None, blueprint_source=None):
+    def __init__(self, parent=None):
         super().__init__(parent)
-        self._blueprint_source = (
-            dict(blueprint_source) if isinstance(blueprint_source, dict) else {}
-        )
         self.setWindowTitle(t("deck_manage_title"))
         self.setMinimumSize(520, 520)
         self.resize(620, 600)
@@ -46,19 +43,12 @@ class DeckManagerDialog(QDialog):
     def _setup_ui(self):
         vl = QVBoxLayout(self)
 
-        header = QHBoxLayout()
         header_copy = QLabel(
             f"<h3>{t('deck_manage_header')}</h3>"
             f"<p style='color:#555;font-size:11px;'>{t('deck_manage_desc')}</p>"
         )
         header_copy.setWordWrap(True)
-        header.addWidget(header_copy, 1)
-        self.btn_blueprint = QPushButton(t("deck_center_open_blueprint"))
-        self.btn_blueprint.setProperty("class", "info")
-        self.btn_blueprint.setToolTip(t("deck_center_open_blueprint_tip"))
-        self.btn_blueprint.clicked.connect(self._open_blueprint)
-        header.addWidget(self.btn_blueprint)
-        vl.addLayout(header)
+        vl.addWidget(header_copy)
 
         # Tree view
         self.tree = QTreeWidget()
@@ -100,6 +90,16 @@ class DeckManagerDialog(QDialog):
         self.btn_rename.setToolTip(t("deck_rename_prompt"))
         self.btn_rename.clicked.connect(self._rename)
         btn_row.addWidget(self.btn_rename)
+
+        self.btn_move_to = QPushButton(t("deck_move_to"))
+        self.btn_move_to.setToolTip(t("deck_move_to_tip"))
+        self.btn_move_to.clicked.connect(self._move_to)
+        btn_row.addWidget(self.btn_move_to)
+
+        self.btn_detach = QPushButton(t("deck_detach"))
+        self.btn_detach.setToolTip(t("deck_detach_tip"))
+        self.btn_detach.clicked.connect(self._detach_to_root)
+        btn_row.addWidget(self.btn_detach)
 
         self.btn_delete = QPushButton(t("deck_delete"))
         self.btn_delete.setToolTip(t("deck_delete_title"))
@@ -180,19 +180,6 @@ class DeckManagerDialog(QDialog):
             self.lbl_status.setText(t("deck_selected_count", count=count))
 
     # ── Actions ──────────────────────────────────────────
-    def _open_blueprint(self):
-        """Open the review-first AI planner from the single Deck Center entry."""
-        from ui.deck_blueprint_dialog import DeckBlueprintDialog
-
-        dialog = DeckBlueprintDialog(
-            self,
-            initial_source=self._blueprint_source.get("text", ""),
-            initial_language=self._blueprint_source.get("language", ""),
-            source_files=self._blueprint_source.get("files", ()),
-        )
-        dialog.exec()
-        self._reload_tree()
-
     def _add_parent(self):
         name, ok = QInputDialog.getText(
             self, t("deck_add_parent_title"), t("deck_add_parent_prompt")
@@ -244,6 +231,55 @@ class DeckManagerDialog(QDialog):
         else:
             QMessageBox.warning(self, t("deck_rename_title"), t("deck_rename_failed"))
 
+    def _move_roots(self):
+        checked_names = self._checked_deck_names()
+        roots = collapse_selected_deck_names(checked_names or [self._selected_deck_name()])
+        if not roots:
+            tooltip(t("deck_select_first"))
+        return roots
+
+    def _apply_move(self, roots, destination):
+        destination_label = destination or t("deck_move_root")
+        confirmation = t(
+            "deck_move_confirm_many" if len(roots) > 1 else "deck_move_confirm",
+            count=len(roots), destination=destination_label,
+        )
+        result = QMessageBox.question(
+            self, t("deck_move_title"), confirmation,
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+        )
+        if result != QMessageBox.StandardButton.Yes:
+            return
+        moved = move_decks(roots, destination or None)
+        if moved:
+            refresh_anki()
+            self._reload_tree()
+            tooltip(t("deck_moved", count=len(moved), destination=destination_label))
+        else:
+            QMessageBox.warning(self, t("deck_move_title"), t("deck_move_failed"))
+
+    def _move_to(self):
+        roots = self._move_roots()
+        if not roots:
+            return
+        destinations = [
+            name for name in get_deck_names()
+            if not any(name == root or name.startswith(f"{root}::") for root in roots)
+        ]
+        choices = [t("deck_move_root"), *destinations]
+        selected, accepted = QInputDialog.getItem(
+            self, t("deck_move_title"), t("deck_move_destination_prompt"), choices, 0, False,
+        )
+        if not accepted:
+            return
+        destination = "" if selected == choices[0] else selected
+        self._apply_move(roots, destination)
+
+    def _detach_to_root(self):
+        roots = self._move_roots()
+        if roots:
+            self._apply_move(roots, "")
+
     def _delete(self):
         checked_names = self._checked_deck_names()
         names = checked_names or [self._selected_deck_name()]
@@ -279,5 +315,7 @@ class DeckManagerDialog(QDialog):
         menu = QMenu(self)
         menu.addAction(t("deck_add_sub"), self._add_sub)
         menu.addAction(t("deck_rename"), self._rename)
+        menu.addAction(t("deck_move_to"), self._move_to)
+        menu.addAction(t("deck_detach"), self._detach_to_root)
         menu.addAction(t("deck_delete"), self._delete)
         menu.exec(self.tree.viewport().mapToGlobal(pos))

@@ -692,7 +692,7 @@ def test_companion_keeps_reviewer_coaching_only_and_forge_card_mode_one_shot():
     assert "color: inherit" in reviewer and "prefers-color-scheme: dark" in reviewer
     assert "def open_integrated_forge" in factory
     factory_chat = factory.split("def _ai_chat(self):", 1)[1].split("def _ai_chat_legacy", 1)[0]
-    assert "self.open_integrated_forge" in factory_chat
+    assert "self._ai_extract()" in factory_chat
     assert "show_ai_study_dialog" not in factory_chat
     assert "show_ai_companion" not in factory_chat
     assert "#f8f4ec" not in companion and "#fffdf9" not in companion
@@ -702,6 +702,8 @@ def test_companion_keeps_reviewer_coaching_only_and_forge_card_mode_one_shot():
     assert "chat_with_ai" not in artifact_loader
     assert "forge-artifact://review/" in companion
     assert "forge-artifact://open/" in companion
+    assert "self.open_artifact_in_forge(created_artifact)" in companion
+    assert "def open_artifact_in_forge(self, artifact=None)" in companion
     assert "self.transcript.setOpenLinks(False)" in companion
     assert "Qt.ScrollBarPolicy.ScrollBarAlwaysOff" in companion
     assert "QTextOption.WrapMode.WrapAtWordBoundaryOrAnywhere" in companion

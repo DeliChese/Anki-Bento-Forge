@@ -526,7 +526,7 @@ def test_station_ui_has_explicit_surface_ownership_and_bilingual_labels():
     theme = (root / "ui" / "theme.py").read_text(encoding="utf-8")
 
     assert 'workspace="reviewer"' in companion
-    assert 'workspace="forge"' in factory
+    assert 'workspace="forge"' not in factory
     assert "self.context_board" in companion
     assert "self.source_input" in companion
     assert "self.source_input.textChanged.connect(self._update_context_board)" in companion
@@ -540,7 +540,6 @@ def test_station_ui_has_explicit_surface_ownership_and_bilingual_labels():
     assert "440 if not self._integrated else 0" in companion
     assert "self.transcript.setMinimumHeight(150 if self._integrated else 180)" in companion
     assert "class AiStudySessionDialog" not in companion
-    assert "source_text=source_text" in factory
     assert 'self.cbo_mode.addItem(t("study_forge_mode_candidates"), "candidates")' in companion
     assert 'self.cbo_mode.addItem(t("study_forge_mode_artifact"), "artifact")' in companion
     assert 'self.cbo_mode.addItem(t("study_forge_mode_vocab"), "vocab")' not in companion
@@ -552,10 +551,9 @@ def test_station_ui_has_explicit_surface_ownership_and_bilingual_labels():
     assert "context_snapshot=response_snapshot" in companion
     assert "workspace=self._workspace" in companion
     assert "study_latest_turn_other_workspace" in companion
-    assert "existing_entries=list(existing_entries or ())" in factory
-    assert "integrated=True" in factory
-    assert "source_input=self.ai_text_input" in factory
-    assert "bentoForgeIntegratedProductionLine" in factory
+    assert "integrated=True" not in factory
+    assert "source_input=self.ai_text_input" not in factory
+    assert "bentoForgeIntegratedProductionLine" not in factory
     assert "forgeFactoryPipelineStrip" not in factory
     assert "forgeFactoryPipelineStrip" not in theme
     assert "forgeProductionWorkbench" in factory
@@ -567,7 +565,7 @@ def test_station_ui_has_explicit_surface_ownership_and_bilingual_labels():
     assert "forgeSourcePanel" in factory
     assert "forgeAiPanel" in factory
     assert "forgeArtifactPanel" in factory
-    assert "self.forge_panel.body.setVisible(True)" in factory
+    assert "self.forge_panel.body.setVisible(True)" not in factory
     assert "btn_top_ai_settings" not in factory
     assert "self.cbo_language = QComboBox()" in factory
     assert "self.main_columns = QHBoxLayout()" in factory
@@ -594,10 +592,10 @@ def test_station_ui_has_explicit_surface_ownership_and_bilingual_labels():
     assert "def _on_create_card_toggled" in companion
     assert 'return self._lane if self._lane in {"vocab", "grammar", "collocation"} else "vocab"' in companion
     assert "self.btn_ai_settings.setVisible(False)" in factory
-    assert "ai_bar.insertWidget(0, self.btn_ai_chat)" in factory
-    assert "self.btn_ai_chat.setVisible(False)" in factory
-    assert "ai_main.addLayout(instr_bar)" not in factory
-    assert "get_existing_vocab_from_deck" in factory[factory.index("def _ai_chat(self):"):factory.index("def _ai_chat_legacy(self):")]
+    assert "ai_bar.insertWidget(0, self.btn_ai_chat)" not in factory
+    assert "self.btn_ai_chat.setVisible(False)" not in factory
+    assert "ai_main.addLayout(instr_bar)" in factory
+    assert "self._ai_extract()" in factory[factory.index("def _ai_chat(self):"):factory.index("def _ai_chat_legacy(self):")]
     assert "query_anki_context" not in factory[factory.index("def _ai_chat(self):"):factory.index("def _ai_chat_legacy(self):")]
     factory_extract = factory[factory.index("def _ai_extract(self):"):factory.index("def _on_deck_scan_finished", factory.index("def _ai_extract(self):"))]
     assert "route_forge_lane" in factory_extract

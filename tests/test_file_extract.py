@@ -64,19 +64,40 @@ class TestExtractTextFromFile:
         assert error.value.requirement == "python-docx==1.1.2"
         assert error.value.install_command == "python -m pip install python-docx==1.1.2"
 
-    def test_xlsx_missing_dependency_is_actionable(self, monkeypatch, tmp_path):
+    def test_xlsx_package_fallback_works_without_openpyxl(self, monkeypatch, tmp_path):
         from utils import document_extractors
 
-        path = tmp_path / "missing.xlsx"
-        path.touch()
+        path = tmp_path / "fallback.xlsx"
+        with zipfile.ZipFile(path, "w") as archive:
+            archive.writestr(
+                "xl/workbook.xml",
+                '<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" '
+                'xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">'
+                '<sheets><sheet name="Vocabulary" sheetId="1" r:id="rId1"/></sheets></workbook>',
+            )
+            archive.writestr(
+                "xl/_rels/workbook.xml.rels",
+                '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
+                '<Relationship Id="rId1" Target="worksheets/sheet1.xml"/></Relationships>',
+            )
+            archive.writestr(
+                "xl/sharedStrings.xml",
+                '<sst xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">'
+                '<si><t>Nhóm</t></si><si><t>Từ</t></si><si><t>Du lịch</t></si><si><t>机场</t></si></sst>',
+            )
+            archive.writestr(
+                "xl/worksheets/sheet1.xml",
+                '<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetData>'
+                '<row r="1"><c r="A1" t="s"><v>0</v></c><c r="B1" t="s"><v>1</v></c></row>'
+                '<row r="2"><c r="A2" t="s"><v>2</v></c><c r="B2" t="s"><v>3</v></c></row>'
+                '</sheetData></worksheet>',
+            )
         monkeypatch.setattr(document_extractors, "_document_dependency_available", lambda name: False)
         monkeypatch.setitem(sys.modules, "pandas", None)
 
-        with pytest.raises(document_extractors.MissingDocumentDependencyError) as error:
-            document_extractors.extract_text_from_file(str(path))
-
-        assert error.value.requirement == "openpyxl==3.1.5"
-        assert error.value.install_command == "python -m pip install openpyxl==3.1.5"
+        text = document_extractors.extract_text_from_file(str(path))
+        assert "### Sheet: Vocabulary" in text
+        assert "Du lịch | 机场" in text
 
     def test_docx_existing_dependency_extracts_text(self, monkeypatch, tmp_path):
         from utils import document_extractors
