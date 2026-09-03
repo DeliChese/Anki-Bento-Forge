@@ -154,7 +154,7 @@ from utils.i18n import (
 from workers import AzureVoiceRefreshThread, ImportWorker, PreviewThread, AiExtractThread
 from workers.ai_workers import (
     SMALL_RUN_DEFAULT_CARDS, SMALL_RUN_MAX_CARDS, SMALL_RUN_MAX_SOURCE_CHARS,
-    SMALL_RUN_MIN_CARDS, normalize_extraction_source,
+    SMALL_RUN_MIN_CARDS, normalize_extraction_source, parse_explicit_vocabulary_items,
 )
 
 # Import UI dialogs (đã tách ra ui/)
@@ -3381,6 +3381,20 @@ class AnkiSmartFactory(QDialog):
             )
             if (routed_lane == "grammar") != bool(self._is_grammar):
                 self._select_mode(routed_lane == "grammar")
+
+        if (getattr(self, "_learning_mode", "language") == "language"
+                and self._current_card_kind() == "vocab"):
+            explicit_items = parse_explicit_vocabulary_items(text)
+            if len(explicit_items) > SMALL_RUN_MAX_CARDS:
+                showInfo(t(
+                    "small_run_explicit_vocab_too_many",
+                    count=len(explicit_items),
+                    limit=SMALL_RUN_MAX_CARDS,
+                ))
+                return
+            if len(explicit_items) > requested_cards:
+                requested_cards = len(explicit_items)
+                self.spn_ai_card_count.setValue(requested_cards)
 
         # Disable UI
         self.btn_ai_extract.setEnabled(False)

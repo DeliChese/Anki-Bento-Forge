@@ -205,6 +205,86 @@ class TestAiExtractThread:
         assert "tối đa 10 thẻ" in calls[0][2]
         assert len(finished[0]) == 10
 
+    def test_chinese_enumeration_is_recognized_as_all_fifteen_vocab_items(self):
+        from workers.ai_workers import parse_explicit_vocabulary_items
+
+        source = "我、你、您、他、她、它、我们、你们、他们、她们、大家、自己、别人、人家、谁"
+
+        assert parse_explicit_vocabulary_items(source) == [
+            "我", "你", "您", "他", "她", "它", "我们", "你们", "他们", "她们",
+            "大家", "自己", "别人", "人家", "谁",
+        ]
+
+    def test_explicit_vocab_list_auto_expands_target_and_preserves_source_order(self, monkeypatch):
+        from workers import ai_workers
+
+        source_items = "我、你、您、他、她、它、我们、你们、他们、她们、大家、自己、别人、人家、谁".split("、")
+        calls = []
+
+        def fake_extract(text, lang, instruction, **kwargs):
+            calls.append((text, instruction))
+            return [{"simplified": item, "meaning": item} for item in reversed(source_items)]
+
+        monkeypatch.setattr(ai_workers, "extract_vocabulary_with_ai", fake_extract)
+        worker = ai_workers.AiExtractThread(
+            text="、".join(source_items), lang="chinese", max_cards=5,
+        )
+        finished = []
+        errors = []
+        worker.finished.connect(finished.append)
+        worker.error.connect(errors.append)
+
+        worker.run()
+
+        assert errors == []
+        assert len(calls) == 1
+        assert calls[0][0].splitlines() == source_items
+        assert "ĐÚNG 15 thẻ" in calls[0][1]
+        assert [card["simplified"] for card in finished[0]] == source_items
+
+    def test_incomplete_explicit_vocab_result_is_rejected_instead_of_silently_previewed(
+        self, monkeypatch,
+    ):
+        from workers import ai_workers
+
+        monkeypatch.setattr(
+            ai_workers,
+            "extract_vocabulary_with_ai",
+            lambda *args, **kwargs: [{"simplified": "我", "meaning": "tôi"}],
+        )
+        worker = ai_workers.AiExtractThread(text="我、你、他", lang="chinese")
+        finished = []
+        errors = []
+        worker.finished.connect(finished.append)
+        worker.error.connect(errors.append)
+
+        worker.run()
+
+        assert finished == []
+        assert errors and "1/3" in errors[-1]
+        assert "你" in errors[-1] and "他" in errors[-1]
+
+    def test_explicit_vocab_over_twenty_is_rejected_before_ai_call(self, monkeypatch):
+        from workers import ai_workers
+
+        calls = []
+        monkeypatch.setattr(
+            ai_workers,
+            "extract_vocabulary_with_ai",
+            lambda *args, **kwargs: calls.append((args, kwargs)),
+        )
+        worker = ai_workers.AiExtractThread(
+            text="、".join(f"词{index}" for index in range(21)),
+            lang="chinese",
+        )
+        errors = []
+        worker.error.connect(errors.append)
+
+        worker.run()
+
+        assert calls == []
+        assert errors and "21" in errors[-1] and "20" in errors[-1]
+
     def test_large_source_is_rejected_before_any_ai_call(self, monkeypatch):
         from workers import ai_workers
 

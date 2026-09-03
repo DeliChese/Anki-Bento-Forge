@@ -555,6 +555,14 @@ _TRANSLATIONS = {
         "vi": "Nguồn hiện có {length} ký tự. Chế độ học tập trung chỉ nhận tối đa {limit} ký tự mỗi lượt. Hãy giữ lại một đoạn hoặc vài dòng bạn muốn học ngay rồi bấm tạo lại.",
         "en": "The source has {length} characters. Focused learning accepts at most {limit} characters per run. Keep one passage or a few lines you want to study now, then create again.",
     },
+    "small_run_explicit_vocab_too_many": {
+        "vi": "Danh sách có {count} mục từ vựng, vượt giới hạn {limit} thẻ của một lượt. Hãy chia danh sách thành các nhóm tối đa {limit} mục để không bị bỏ sót.",
+        "en": "The vocabulary list contains {count} items, above the {limit}-card per-run limit. Split it into groups of at most {limit} so no item is omitted.",
+    },
+    "small_run_explicit_vocab_incomplete": {
+        "vi": "AI chỉ trả đủ {received}/{requested} mục từ vựng bắt buộc. Còn thiếu: {missing}. Kết quả chưa được mở Preview để tránh mất từ âm thầm; hãy thử tạo lại.",
+        "en": "AI returned only {received}/{requested} required vocabulary items. Missing: {missing}. Preview was not opened to prevent silent omissions; please try again.",
+    },
     "err_file_read": {
         "vi": "Lỗi đọc file: {error}",
         "en": "File read error: {error}",

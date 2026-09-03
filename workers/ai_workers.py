@@ -17,6 +17,11 @@ from utils.ai_extractor import (
     chat_with_ai,
 )
 from utils.ai_candidate_extractor import extract_source_candidates_with_ai
+from utils.ai_reliability import (
+    canonical_identity,
+    existing_entry_identity,
+    reconcile_expected_candidates,
+)
 from utils.knowledge_extractor import extract_knowledge_with_ai
 
 logger = get_logger()
@@ -25,6 +30,10 @@ SMALL_RUN_MIN_CARDS = 5
 SMALL_RUN_DEFAULT_CARDS = 10
 SMALL_RUN_MAX_CARDS = 20
 SMALL_RUN_MAX_SOURCE_CHARS = 4_000
+
+_INLINE_VOCAB_SEPARATOR_RE = re.compile(r"\s*(?:、|,|;|\t)\s*")
+_VOCAB_MEANING_SEPARATOR_RE = re.compile(r"\s+(?:—|–|-)\s+|\s*(?:=>|=)\s*")
+_HEADING_RE = re.compile(r"^(?:#{1,6}\s+|<h[1-6]\b|h[1-6]\s*:)", re.IGNORECASE)
 
 
 def normalize_extraction_source(text):
@@ -42,6 +51,76 @@ def normalize_extraction_source(text):
         seen.add(key)
         normalized_lines.append(line)
     return "\n".join(normalized_lines)
+
+
+def _looks_like_compact_vocab_item(value):
+    """Conservatively distinguish a list item from a prose clause."""
+    value = str(value or "").strip()
+    if not value or len(value) > 80 or _HEADING_RE.match(value):
+        return False
+    if re.search(r"[.!?。！？]", value):
+        return False
+    surface = _VOCAB_MEANING_SEPARATOR_RE.split(value, maxsplit=1)[0].strip()
+    return bool(surface) and len(surface) <= 40 and len(surface.split()) <= 4
+
+
+def parse_explicit_vocabulary_items(text):
+    """Return ordered items only when the source is clearly a vocabulary list.
+
+    CJK enumeration punctuation such as ``、`` commonly keeps an entire pasted
+    list on one physical line. Detecting it locally gives the model one item per
+    line and lets the worker verify that no requested surface disappeared.
+    """
+    source = normalize_extraction_source(text)
+    if not source:
+        return []
+
+    physical_lines = source.splitlines()
+    expanded = []
+    split_inline = False
+    for line in physical_lines:
+        parts = _INLINE_VOCAB_SEPARATOR_RE.split(line)
+        parts = [part.strip() for part in parts if part.strip()]
+        if len(parts) >= 2 and all(_looks_like_compact_vocab_item(part) for part in parts):
+            expanded.extend(parts)
+            split_inline = True
+        else:
+            expanded.append(line)
+
+    is_compact_multiline = (
+        len(physical_lines) >= 2
+        and all(_looks_like_compact_vocab_item(line) for line in physical_lines)
+    )
+    if len(expanded) < 2 or not (split_inline or is_compact_multiline):
+        return []
+    if not all(_looks_like_compact_vocab_item(item) for item in expanded):
+        return []
+
+    result = []
+    seen = set()
+    for item in expanded:
+        key = canonical_identity(item)
+        if key and key not in seen:
+            seen.add(key)
+            result.append(item)
+    return result
+
+
+def _explicit_vocab_candidates(items, existing_words):
+    """Build exact source candidates, excluding surfaces already in the deck."""
+    existing_ids = {
+        existing_entry_identity(entry, "vocab")[0]
+        for entry in (existing_words or [])
+    }
+    candidates = []
+    for item in items:
+        surface, *meaning = _VOCAB_MEANING_SEPARATOR_RE.split(item, maxsplit=1)
+        candidate = {"front": surface.strip()}
+        if meaning:
+            candidate["meaning"] = meaning[0].strip()
+        if canonical_identity(candidate["front"]) not in existing_ids:
+            candidates.append(candidate)
+    return candidates
 
 
 def clamp_small_run_card_count(value):
@@ -100,15 +179,28 @@ def build_relevant_history_context(source, history_entries, instruction="", max_
 
 
 def _small_run_instruction(custom_instruction, max_cards=SMALL_RUN_DEFAULT_CARDS,
-                           history_context=""):
+                           history_context="", explicit_vocabulary_items=None):
     """Keep one request focused enough to review and learn immediately."""
     max_cards = clamp_small_run_card_count(max_cards)
-    limit = (
-        f"Chỉ tạo tối đa {max_cards} thẻ có giá trị học cao nhất. "
-        "Nếu nguồn là danh sách dán lộn xộn, hãy tách đúng từng mục, bỏ bản sao "
-        "và suy ra chủ đề từ ngữ cảnh gần nhất trước khi tạo thẻ. "
-        "Không tạo danh mục chủ đề, không mô tả quy trình và không trả thêm mục ngoài thẻ."
-    )
+    explicit_items = list(explicit_vocabulary_items or [])
+    if explicit_items:
+        required = "\n".join(
+            f"{index}. {item}" for index, item in enumerate(explicit_items, 1)
+        )
+        limit = (
+            f"Nguồn là danh sách từ vựng tường minh gồm {len(explicit_items)} mục bắt buộc. "
+            f"Hãy tạo ĐÚNG {len(explicit_items)} thẻ, mỗi mục một thẻ, đúng thứ tự; "
+            "không gộp, không chọn lọc và không bỏ sót mục nào.\n"
+            f"CÁC MỤC BẮT BUỘC:\n{required}\n"
+            "Không tạo danh mục chủ đề, không mô tả quy trình và không trả thêm mục ngoài thẻ."
+        )
+    else:
+        limit = (
+            f"Chỉ tạo tối đa {max_cards} thẻ có giá trị học cao nhất. "
+            "Nếu nguồn là danh sách dán lộn xộn, hãy tách đúng từng mục, bỏ bản sao "
+            "và suy ra chủ đề từ ngữ cảnh gần nhất trước khi tạo thẻ. "
+            "Không tạo danh mục chủ đề, không mô tả quy trình và không trả thêm mục ngoài thẻ."
+        )
     custom = str(custom_instruction or "").strip()
     return "\n".join(part for part in (custom, history_context, limit) if part)
 
@@ -209,6 +301,25 @@ class AiExtractThread(QThread):
                     limit=SMALL_RUN_MAX_SOURCE_CHARS,
                 ))
                 return
+            explicit_items = (
+                parse_explicit_vocabulary_items(source)
+                if (self.learning_mode == "language"
+                    and self.card_kind == "vocab" and not self.grammar)
+                else []
+            )
+            if len(explicit_items) > SMALL_RUN_MAX_CARDS:
+                self.error.emit(t(
+                    "small_run_explicit_vocab_too_many",
+                    count=len(explicit_items),
+                    limit=SMALL_RUN_MAX_CARDS,
+                ))
+                return
+            expected_candidates = _explicit_vocab_candidates(
+                explicit_items, self.existing_words,
+            )
+            effective_max_cards = max(self.max_cards, len(expected_candidates))
+            if explicit_items:
+                source = "\n".join(explicit_items)
             if self.existing_words:
                 label = (
                     t("item_label_knowledge") if self.learning_mode == "knowledge" else
@@ -221,7 +332,12 @@ class AiExtractThread(QThread):
                 source, self.history_entries, self.custom_instruction,
             ) if self.learning_mode == "language" else ""
             generation_instruction = _small_run_instruction(
-                self.custom_instruction, self.max_cards, history_context,
+                self.custom_instruction,
+                effective_max_cards,
+                history_context,
+                explicit_vocabulary_items=[
+                    candidate["front"] for candidate in expected_candidates
+                ],
             )
 
             if self.learning_mode == "knowledge":
@@ -269,7 +385,31 @@ class AiExtractThread(QThread):
                 self.error.emit(empty_msg)
                 return
 
-            self.finished.emit(result_list[:self.max_cards])
+            if expected_candidates:
+                completeness = reconcile_expected_candidates(
+                    expected_candidates, result_list, kind="vocab",
+                )
+                if completeness.missing:
+                    missing = ", ".join(
+                        str(candidate.get("front", ""))
+                        for candidate in completeness.unresolved[:8]
+                    )
+                    if completeness.missing > 8:
+                        missing += f" (+{completeness.missing - 8})"
+                    logger.warning(
+                        "Explicit vocabulary output incomplete requested=%d valid=%d missing=%d",
+                        completeness.requested, completeness.valid, completeness.missing,
+                    )
+                    self.error.emit(t(
+                        "small_run_explicit_vocab_incomplete",
+                        received=completeness.valid,
+                        requested=completeness.requested,
+                        missing=missing,
+                    ))
+                    return
+                result_list = list(completeness.cards)
+
+            self.finished.emit(result_list[:effective_max_cards])
 
         except Exception as e:
             if not self.cancel_event.is_set():

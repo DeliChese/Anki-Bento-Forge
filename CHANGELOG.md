@@ -6,6 +6,7 @@
 
 #### Fixed
 
+- **Danh sách từ vựng phân cách bằng `、`/dấu phẩy/dấu chấm phẩy** — Factory nhận diện từng mục của danh sách một dòng, tự nâng mục tiêu đến đủ số mục trong giới hạn 20 thẻ và giữ thứ tự nguồn. Phản hồi AI thiếu mục nay bị chặn với danh sách còn thiếu thay vì âm thầm mở Preview; prompt/cache tăng từ `41` lên `42`.
 - **Factory AI extraction parameters** â€” synchronized `card_kind`, the card limit, and relevant history from Factory to the AI worker; creating cards no longer stops with `unexpected keyword argument 'card_kind'`.
 
 #### Changed
