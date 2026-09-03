@@ -146,6 +146,7 @@ def get_audio_multilang(
     voice: str = None,
     rate: str = None,
     cancel_event: Optional[threading.Event] = None,
+    track_usage: bool = True,
 ) -> Optional[str]:
     """Generate high-quality Neural audio; cancellation reaches the provider.
 
@@ -160,7 +161,10 @@ def get_audio_multilang(
         return ""
 
     if get_tts_config().get("provider") == "azure":
-        return get_audio_azure_tts(text, chosen_voice, lang, rate=rate, cancel_event=cancel_event) or ""
+        return get_audio_azure_tts(
+            text, chosen_voice, lang, rate=rate, cancel_event=cancel_event,
+            track_usage=track_usage,
+        ) or ""
     if not _install_edge_tts():
         return ""
     return get_audio_edge_tts(text, chosen_voice, lang, rate=rate, cancel_event=cancel_event) or ""

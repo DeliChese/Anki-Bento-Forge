@@ -131,6 +131,27 @@ def test_azure_tts_posts_escaped_ssml_and_publishes_atomically(tmp_path):
     assert requested["timeout"] == tts._AZURE_TTS_TIMEOUT_SECONDS
 
 
+def test_azure_preview_does_not_change_local_usage_counter(tmp_path):
+    tts = _load_tts_module()
+
+    class Response:
+        def __enter__(self): return self
+        def __exit__(self, *_args): return False
+        def read(self, _size=-1): return b"azure-mp3"
+
+    recorded = []
+    tts.get_tts_config = lambda: {"provider": "azure", "azure_region": "southeastasia"}
+    tts.load_api_key = lambda _scope: "secret-key"
+    tts._get_media_dir = lambda: str(tmp_path)
+    tts.urllib.request.urlopen = lambda *_args, **_kwargs: Response()
+    tts._record_azure_tts_usage = lambda *args, **kwargs: recorded.append((args, kwargs))
+
+    assert tts.get_audio_azure_tts(
+        "preview only", "en-US-JennyNeural", "en", track_usage=False,
+    ).startswith("[sound:anki_azure_")
+    assert recorded == []
+
+
 def test_azure_voice_catalogue_filters_neural_voices_and_caches_without_key(tmp_path):
     tts = _load_tts_module()
     requested = {}

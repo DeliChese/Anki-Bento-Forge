@@ -638,6 +638,7 @@ def get_audio_azure_tts(
     lang: str = "ja",
     rate: str = None,
     cancel_event: Optional[threading.Event] = None,
+    track_usage: bool = True,
 ) -> Optional[str]:
     """Create official Azure Neural audio with an atomic media publication."""
     if not text or not text.strip() or (cancel_event is not None and cancel_event.is_set()):
@@ -662,13 +663,15 @@ def get_audio_azure_tts(
     filepath = os.path.join(media_dir, filename)
     _cleanup_temporary_audio_files(media_dir)
     if os.path.exists(filepath):
-        _record_azure_tts_usage(cache_hit=True)
+        if track_usage:
+            _record_azure_tts_usage(cache_hit=True)
         return f"[sound:{filename}]"
 
     cache_key = f"azure:{filename}"
     with _audio_generation_lock(cache_key):
         if os.path.exists(filepath):
-            _record_azure_tts_usage(cache_hit=True)
+            if track_usage:
+                _record_azure_tts_usage(cache_hit=True)
             return f"[sound:{filename}]"
         temporary_path = _temporary_audio_path(filepath)
         request_started = False
@@ -698,7 +701,8 @@ def get_audio_azure_tts(
                 audio = response.read(_AZURE_TTS_MAX_AUDIO_BYTES + 1)
             if len(audio) > _AZURE_TTS_MAX_AUDIO_BYTES:
                 raise ValueError("Azure Speech audio response exceeds the safety limit")
-            _record_azure_tts_usage(len(text), success=True)
+            if track_usage:
+                _record_azure_tts_usage(len(text), success=True)
             request_accounted = True
             if cancel_event is not None and cancel_event.is_set():
                 return ""
@@ -708,7 +712,7 @@ def get_audio_azure_tts(
                 return f"[sound:{filename}]"
         except Exception as error:
             _discard_file(temporary_path)
-            if request_started and not request_accounted:
+            if track_usage and request_started and not request_accounted:
                 _record_azure_tts_usage(len(text), success=False)
             logger.warning("Azure Speech TTS failed; audio skipped: %s", error)
             return ""

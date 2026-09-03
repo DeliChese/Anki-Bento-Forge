@@ -159,7 +159,7 @@ class PreviewThread(QThread):
             rate = speed_to_edge_rate(self.speed)
             tag = get_audio_multilang(
                 self.text, self.lang, voice=self.voice_id,
-                rate=rate, cancel_event=self.cancel_event,
+                rate=rate, cancel_event=self.cancel_event, track_usage=False,
             )
             if tag:
                 filename = tag.replace("[sound:", "").replace("]", "")

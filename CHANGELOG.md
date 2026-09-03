@@ -6,6 +6,7 @@
 
 #### Changed
 
+- **Azure preview excluded from usage** — the Voice Preview button now sends `track_usage=False`: it still uses the selected live Azure voice, but never increments local request, character, failure, or cache counters.
 - **Azure usage history and bulk deck moves** — Azure Speech now keeps a bounded, profile-local daily aggregate of submitted characters, requests, outcomes, and cache hits (never spoken text or keys), visible from Voice source. Deck Center now moves checked deck roots into a selected destination or detaches them to top level after cycle/collision validation, retaining cards and scheduling.
 - **Azure Neural voice catalogue** — when Azure is selected, Factory refreshes the official regional Neural voice list in the background and caches it locally; Edge options remain visible only until that list is ready or as a network fallback.
 - **Azure Speech Neural chính thức** — Voice Source có lựa chọn Azure Speech: nhập Speech Key và Region (ví dụ `southeastasia`) trong Factory, key chỉ lưu ở Credential Manager hệ điều hành còn region/provider ở dữ liệu profile. Cả Preview lẫn Import dùng endpoint Azure Speech, xuất MP3 24 kHz/96 kbps vào Anki media; Edge Neural vẫn là lựa chọn không cần Key.
