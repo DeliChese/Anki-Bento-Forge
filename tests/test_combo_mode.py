@@ -317,6 +317,7 @@ class TestReviewerHookCompatibility:
         assert "setTimeout(render, 80)" in script
         assert "setTimeout(render, 240)" in script
         assert "match(/([1-4])" in script
+        assert "bento-example-placeholder" not in script
 
     def test_production_drill_is_opt_in_local_and_hides_guidance(self):
         import hooks.reviewer as reviewer

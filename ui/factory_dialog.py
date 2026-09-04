@@ -4098,6 +4098,9 @@ class AnkiSmartFactory(QDialog):
         if getattr(self, "_learning_mode", "language") == "language":
             self.raw_data = list(items)
         self.lbl_raw.setText(t("filter_raw_count", count=len(self.raw_data)))
+        # Loading history is a recovery/import action, not merely a JSON view:
+        # validate it immediately so selected cards appear in the waiting queue.
+        self._verify_batch_impl()
         self.lbl_ai_status.setText(t("status_pulled_history", count=len(items)))
         self.lbl_ai_status.setStyleSheet("color:#27ae60;font-size:11px;font-weight:bold;")
         tooltip(t("tooltip_pulled_history", count=len(items)))

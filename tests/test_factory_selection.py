@@ -13,7 +13,7 @@ import os
 import sys
 import types
 import tempfile
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -869,12 +869,14 @@ class TestLoadHistoryToFactory:
             {"front": "食べる", "meaning": "ăn", "jlptlevel": "N5"},
             {"front": "飲む", "meaning": "uống", "jlptlevel": "N4"},
         ]
-        f._load_history_to_factory("japanese", items)
+        with patch.object(f, "_verify_batch_impl") as verify:
+            f._load_history_to_factory("japanese", items)
         assert len(f.raw_data) == 2
         assert f.raw_data[0]["front"] == "食べる"
         assert f.json_input.toPlainText() != ""
         assert "食べる" in f.json_input.toPlainText()
         assert "2" in f.lbl_raw.text()
+        verify.assert_called_once_with()
 
     def test_empty_items_noop(self):
         f = _make_factory()
@@ -888,9 +890,11 @@ class TestLoadHistoryToFactory:
         # Không gọi _on_lang_changed thật (cần full UI); giả lập để xác nhận đổi lang
         calls = []
         f._on_lang_changed = lambda: calls.append(f._current_lang)
-        f._load_history_to_factory("chinese", items)
+        with patch.object(f, "_verify_batch_impl") as verify:
+            f._load_history_to_factory("chinese", items)
         assert f._current_lang == "chinese"
         assert calls == ["chinese"]
+        verify.assert_called_once_with()
 
 
 class TestCancelOrder:

@@ -14,6 +14,7 @@
 
 #### Fixed
 
+- **Không nhân bản Ví dụ 3–4 khi Review** — action tái tạo chỉ gắn vào block ví dụ đã được template render; không còn tự tạo placeholder cho slot chưa thấy. Khi nạp mục từ Lịch sử AI, Factory nay xác minh ngay và đưa thẻ hợp lệ vào “Lô chờ lên tàu”, thay vì chỉ nạp JSON/tóm tắt.
 - **Review không còn bị che bởi thanh tốc độ lỗi** — bỏ thanh playback cũ vốn không điều khiển được audio player của Anki; action tái tạo ví dụ nay không bị chặn bởi lỗi đọc history và tự thử lại sau khi mặt sau render xong.
 - **Nút tái tạo Ví dụ hiển thị trong Anki 25** — hook Reviewer hiện nhận đúng `Card` do Anki 25 truyền vào rồi lấy Reviewer/webview đang hoạt động, nên action cho Ví dụ 1–4 được chèn ở mặt sau thẻ thay vì bị bỏ qua.
 - **Cài đặt AI hiện lại trong Factory** — nút `⚙️ Cài Đặt API` không còn bị ẩn bởi lệnh UI cũ, nên có thể mở trực tiếp để chọn model tạo lại ví dụ.

@@ -438,7 +438,6 @@ def _inject_example_regeneration(reviewer, snapshot):
                     color:inherit; font:inherit; font-size:10px; cursor:pointer;
                   }}
                   .bento-example-version-action:hover {{ border-color:currentColor; }}
-                  .bento-example-placeholder .ej {{ opacity:.58; font-style:italic; }}
                   .bento-example-reading {{ opacity:.76; font-size:.88em; margin-top:3px; }}
                   .ec > .en {{ display:flex; align-items:center; gap:8px; }}
                 `;
@@ -450,22 +449,12 @@ def _inject_example_regeneration(reviewer, snapshot):
                 const match = String(header.textContent || '').match(/([1-4])\\s*$/);
                 if (match) blocks[match[1]] = header.closest('.ec');
               }});
-              let section = Array.from(document.querySelectorAll('.es')).find(node => {{
-                const label = node.querySelector('.esl');
-                return label && /ví dụ|example/i.test(String(label.textContent || ''));
-              }});
-              section = section || (blocks['1'] && blocks['1'].parentElement);
               for (let slot = 1; slot <= 4; slot++) {{
                 const key = String(slot);
                 const state = data.slots[key] || {{current:0,total:0,reading:''}};
                 let block = blocks[key];
                 if (!block) {{
-                  if (!section) continue;
-                  block = document.createElement('div');
-                  block.className = 'ec bento-example-placeholder';
-                  block.innerHTML = `<div class="en">VÍ DỤ ${{slot}}</div><div class="ej"></div>`;
-                  block.querySelector('.ej').textContent = copy.empty;
-                  section.appendChild(block);
+                  continue;
                 }}
                 const header = block.querySelector('.en');
                 if (!header || header.querySelector('.bento-example-version-action')) continue;
