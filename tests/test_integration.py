@@ -380,8 +380,73 @@ class TestAiPreviewLifecycle:
 
         assert calls == ["attempt"]
 
+    def test_quality_refresh_ignores_synchronous_item_change_while_refreshing(self):
+        bind_preview_quality_refresh = self._load_preview_module()._bind_preview_quality_refresh
+
+        class FakeModel:
+            def __init__(self):
+                self.rowsRemoved = MockSignal()
+                self.modelReset = MockSignal()
+
+        class FakeTable:
+            def __init__(self):
+                self.itemChanged = MockSignal()
+                self._model = FakeModel()
+
+            def model(self):
+                return self._model
+
+        dialog = types.SimpleNamespace(finished=MockSignal())
+        table = FakeTable()
+        calls = []
+
+        def refresh(*_args):
+            calls.append("refresh")
+            # Qt can emit itemChanged while the quality refresh assigns tooltips.
+            table.itemChanged.emit()
+
+        bind_preview_quality_refresh(dialog, table, refresh)
+        assert calls == ["refresh"]
+
+        table.model().modelReset.emit()
+        assert calls == ["refresh", "refresh"]
+
 
 class TestPhaseOneCollectionOperations:
+    def test_prepare_audio_tasks_honors_example_3_and_4_switches(self):
+        from utils.import_operations import prepare_audio_tasks
+
+        cfg = {
+            "lang_code": "en",
+            "audio_fields": [
+                ("Vocab Audio", "Front"),
+                ("Example Audio", "Example"),
+                ("Example2 Audio", "Example2"),
+                ("Example3 Audio", "Example3"),
+                ("Example4 Audio", "Example4"),
+            ],
+            "json_field_map": {
+                "front": "Front", "example": "Example", "example_2": "Example2",
+                "example_3": "Example3", "example_4": "Example4",
+            },
+        }
+        batch = [{
+            "item": {
+                "front": "board", "example": "Board the train.",
+                "example_2": "Board early.", "example_3": "Board at noon.",
+                "example_4": "Board safely.",
+            },
+            "action": "add",
+            "audio_enabled": (True, False, False, True, False),
+        }]
+
+        tasks = prepare_audio_tasks(MagicMock(), batch, cfg)
+
+        assert [(task["key"], task["text"]) for task in tasks] == [
+            ("0:Vocab Audio", "board"),
+            ("0:Example3 Audio", "Board at noon."),
+        ]
+
     def test_apply_import_reports_audio_and_created_note(self, monkeypatch):
         from utils import import_operations
 

@@ -60,8 +60,14 @@ def prepare_audio_tasks(col, batch, cfg):
     for item_index, entry in enumerate(batch):
         item = entry["item"]
         note = col.get_note(entry["nid"]) if entry["action"] == "update" else None
+        audio_enabled = entry.get("audio_enabled")
         for audio_index, (audio_field, source_field) in enumerate(cfg["audio_fields"]):
-            enabled = entry.get("audio_enabled", (True, True, True))[min(audio_index, 2)]
+            # Older pending batches only have the first three choices; do not
+            # unexpectedly generate Examples 3/4 for those batches.
+            enabled = (
+                True if audio_enabled is None
+                else audio_index < len(audio_enabled) and bool(audio_enabled[audio_index])
+            )
             if not enabled:
                 continue
             if note is None:

@@ -57,6 +57,9 @@ def quality_v2_examples_block(cfg: dict) -> str:
             f'<div class="en">VÍ DỤ {index}</div>'
             f'<div class="ej">{{{{{example}}}}}</div>'
         )
+        audio = f"Example{index} Audio"
+        if audio in fields:
+            body += f'<div class="ea">{{{{{audio}}}}}</div>'
         if pronunciation:
             body += (
                 f'{{{{#{pronunciation}}}}}<div class="ep">{{{{{pronunciation}}}}}</div>'

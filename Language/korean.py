@@ -13,8 +13,8 @@ LANG_CONFIG = {
         "TOPIK Level", "Topic",
         "Example", "Example Fill", "Example Romanization", "Example in Vietnamese", "Vocab Audio", "Example Audio",
         "Example2", "Example2 Fill", "Example2 Romanization", "Example2 in Vietnamese", "Example2 Audio",
-        "Example3", "Example3 Romanization", "Example3 in Vietnamese",
-        "Example4", "Example4 Romanization", "Example4 in Vietnamese",
+        "Example3", "Example3 Romanization", "Example3 in Vietnamese", "Example3 Audio",
+        "Example4", "Example4 Romanization", "Example4 in Vietnamese", "Example4 Audio",
         "Image", "SRS Independent",
     ],
     "json_field_map": {
@@ -61,6 +61,8 @@ LANG_CONFIG = {
         ("Vocab Audio", "Front"),
         ("Example Audio", "Example"),
         ("Example2 Audio", "Example2"),
+        ("Example3 Audio", "Example3"),
+        ("Example4 Audio", "Example4"),
     ],
     "template_names": (
         "1. Nhận diện / Combo", "2. Sản xuất", "3. Chính tả",
@@ -87,8 +89,8 @@ GRAMMAR_CONFIG = {
         "Usage", "Explanation",
         "Example", "Example Romanization", "Example in Vietnamese", "Example Audio",
         "Example2", "Example2 Romanization", "Example2 in Vietnamese", "Example2 Audio",
-        "Example3", "Example3 Romanization", "Example3 in Vietnamese",
-        "Example4", "Example4 Romanization", "Example4 in Vietnamese",
+        "Example3", "Example3 Romanization", "Example3 in Vietnamese", "Example3 Audio",
+        "Example4", "Example4 Romanization", "Example4 in Vietnamese", "Example4 Audio",
         "Image",
     ],
     "json_field_map": {
@@ -127,6 +129,8 @@ GRAMMAR_CONFIG = {
     "audio_fields": [
         ("Example Audio", "Example"),
         ("Example2 Audio", "Example2"),
+        ("Example3 Audio", "Example3"),
+        ("Example4 Audio", "Example4"),
     ],
     "template_names": ("1. Cấu trúc → Nghĩa", "2. Nghĩa → Cấu trúc"),
     # Dùng cho report "nghĩa khác" trong UI

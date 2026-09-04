@@ -917,7 +917,14 @@ class AnkiSmartFactory(QDialog):
         self.chk_audio_ex1.setChecked(True)
         self.chk_audio_ex2 = QCheckBox(t("filter_audio_ex2"))
         self.chk_audio_ex2.setChecked(True)
-        for c in (self.chk_audio_vocab, self.chk_audio_ex1, self.chk_audio_ex2):
+        self.chk_audio_ex3 = QCheckBox(t("filter_audio_ex3"))
+        self.chk_audio_ex3.setChecked(True)
+        self.chk_audio_ex4 = QCheckBox(t("filter_audio_ex4"))
+        self.chk_audio_ex4.setChecked(True)
+        for c in (
+            self.chk_audio_vocab, self.chk_audio_ex1, self.chk_audio_ex2,
+            self.chk_audio_ex3, self.chk_audio_ex4,
+        ):
             audio_box.addWidget(c)
         self.lbl_audio = QLabel(t("filter_audio_label"))
         gl.addWidget(self.lbl_audio, 3, 0)
@@ -1450,6 +1457,8 @@ class AnkiSmartFactory(QDialog):
             self.chk_audio_vocab.setText(t("filter_audio_vocab"))
             self.chk_audio_ex1.setText(t("filter_audio_ex1"))
             self.chk_audio_ex2.setText(t("filter_audio_ex2"))
+            self.chk_audio_ex3.setText(t("filter_audio_ex3"))
+            self.chk_audio_ex4.setText(t("filter_audio_ex4"))
             self.btn_verify.setText(t("btn_verify"))
             self.btn_verify.setToolTip(t("btn_verify_tip"))
             self.btn_rebuild.setText(t("btn_rebuild"))
@@ -1475,6 +1484,8 @@ class AnkiSmartFactory(QDialog):
             self.chk_audio_vocab.setToolTip(t("voice_tooltip"))
             self.chk_audio_ex1.setToolTip(t("voice_tooltip"))
             self.chk_audio_ex2.setToolTip(t("voice_tooltip"))
+            self.chk_audio_ex3.setToolTip(t("voice_tooltip"))
+            self.chk_audio_ex4.setToolTip(t("voice_tooltip"))
             if self._learning_mode == "language":
                 self._sync_srs_layout_combo()
 
@@ -1672,6 +1683,7 @@ class AnkiSmartFactory(QDialog):
         for widget in (
             self.lbl_level, self.cbo_level, self.lbl_topic, self.txt_topic,
             self.lbl_audio, self.chk_audio_vocab, self.chk_audio_ex1, self.chk_audio_ex2,
+            self.chk_audio_ex3, self.chk_audio_ex4,
             self.btn_rebuild, self.btn_diff_meaning,
         ):
             widget.setVisible(is_language)
@@ -1772,6 +1784,8 @@ class AnkiSmartFactory(QDialog):
         self.chk_audio_vocab.setToolTip(tooltip_text)
         self.chk_audio_ex1.setToolTip(tooltip_text)
         self.chk_audio_ex2.setToolTip(tooltip_text)
+        self.chk_audio_ex3.setToolTip(tooltip_text)
+        self.chk_audio_ex4.setToolTip(tooltip_text)
 
         self.raw_data = []
         self.prepared_data = []
@@ -2895,7 +2909,9 @@ class AnkiSmartFactory(QDialog):
         audio_options = (
             self.chk_audio_vocab.isChecked(),
             self.chk_audio_ex1.isChecked(),
-            self.chk_audio_ex2.isChecked()
+            self.chk_audio_ex2.isChecked(),
+            self.chk_audio_ex3.isChecked(),
+            self.chk_audio_ex4.isChecked(),
         )
 
         self.btn_import.setEnabled(False)
@@ -2909,7 +2925,7 @@ class AnkiSmartFactory(QDialog):
         self.btn_learning_knowledge.setEnabled(False)
         for entry in batch:
             entry["audio_enabled"] = (
-                audio_options if self._import_learning_mode == "language" else (False, False, False)
+                audio_options if self._import_learning_mode == "language" else (False,) * 5
             )
         if self._import_learning_mode == "knowledge":
             self._commit_import(batch, cfg, deck_id, {})

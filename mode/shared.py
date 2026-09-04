@@ -425,6 +425,48 @@ _COMBO_MODE_JS = r"""
 })();
 """
 
+
+# ═══════════════════════════════════════════════════════════
+#  EXAMPLE READING VISIBILITY — learner-controlled Review aid
+# ═══════════════════════════════════════════════════════════
+_EXAMPLE_READING_TOGGLE_JS = r"""
+<script>
+(function(){
+  if(document.querySelector('.reading-toggle'))return;
+  var storageKey='ai_factory_example_readings_hidden';
+  var hidden=false;
+  try{hidden=localStorage.getItem(storageKey)==='1';}catch(e){}
+  var roots=document.querySelectorAll('.cw,.fqw');
+  var host=null;
+  for(var i=0;i<roots.length;i++){
+    if(roots[i].querySelector('.pinyin,.furi,.ep')){host=roots[i];break;}
+  }
+  if(!host)return;
+  var control=document.createElement('div');
+  control.className='reading-toggle';
+  var button=document.createElement('button');
+  button.type='button';
+  button.className='reading-toggle-btn';
+  control.appendChild(button);
+  var heading=host.querySelector('.ch');
+  if(heading&&heading.parentNode)heading.parentNode.insertBefore(control,heading.nextSibling);
+  else host.insertBefore(control,host.firstChild);
+  function apply(){
+    document.body.classList.toggle('example-readings-hidden',hidden);
+    button.textContent=hidden?'Hiện cách đọc':'Ẩn cách đọc';
+    button.setAttribute('aria-pressed',hidden?'true':'false');
+    button.title=hidden?'Hiện lại Pinyin, IPA, Furigana và Romanization':'Ẩn Pinyin, IPA, Furigana và Romanization';
+  }
+  button.addEventListener('click',function(){
+    hidden=!hidden;
+    try{localStorage.setItem(storageKey,hidden?'1':'0');}catch(e){}
+    apply();
+  });
+  apply();
+})();
+</script>
+"""
+
 # ═══════════════════════════════════════════════════════════
 #  GRAMMAR AI PRACTICE — luyện dịch ngữ pháp bằng AI
 #  (Card gửi pycmd('ai_grammar_sentence:<base64>') → Python gọi AI →

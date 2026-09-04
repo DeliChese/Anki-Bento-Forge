@@ -6,9 +6,12 @@
 
 #### Fixed
 
+- **AI Preview quality summary no longer recurses** — tooltip updates can synchronously emit `itemChanged` in Qt; refreshes now ignore re-entrant signals while preserving later edits.
+- **Ẩn/hiện cách đọc khi Review** — thẻ Vocabulary, Grammar và Collocation nay có nút “Ẩn cách đọc” khi có Pinyin, IPA, Furigana hoặc Romanization. Việc ẩn chỉ là hiển thị cục bộ, giữ giữa các thẻ; dữ liệu và audio vẫn được tạo/lưu nguyên vẹn, bấm lại sẽ hiện ngay.
 - **Preview không còn gọi widget Qt đã bị hủy** — callback tóm tắt chất lượng được giới hạn theo vòng đời dialog, ngắt khỏi `itemChanged`/`rowsRemoved`/`modelReset` khi Preview kết thúc và tự vô hiệu hóa nếu QObject đã bước vào teardown; đóng Preview không còn phát sinh `QTableWidget has been deleted`.
 - **Danh sách từ vựng phân cách bằng `、`/dấu phẩy/dấu chấm phẩy** — Factory nhận diện từng mục của danh sách một dòng, tự nâng mục tiêu đến đủ số mục trong giới hạn 20 thẻ và giữ thứ tự nguồn. Phản hồi AI thiếu mục nay bị chặn với danh sách còn thiếu thay vì âm thầm mở Preview; prompt/cache tăng từ `41` lên `42`.
 - **Factory AI extraction parameters** â€” synchronized `card_kind`, the card limit, and relevant history from Factory to the AI worker; creating cards no longer stops with `unexpected keyword argument 'card_kind'`.
+- **Audio Examples 3–4** — Factory now provides separate on/off choices for Examples 3 and 4. When enabled, their audio is generated, saved to additive note fields, and rendered with each supplemental example; disabled choices create no TTS request for that example.
 
 #### Changed
 

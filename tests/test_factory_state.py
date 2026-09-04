@@ -364,7 +364,7 @@ def test_enabled_knowledge_mode_hides_language_only_controls():
         "filter_grp", "btn_ai_extract", "btn_sample", "btn_verify", "btn_rebuild",
         "btn_diff_meaning", "json_input", "btn_import", "btn_cancel_order",
         "lbl_level", "cbo_level", "lbl_topic", "txt_topic", "lbl_audio",
-        "chk_audio_vocab", "chk_audio_ex1", "chk_audio_ex2",
+        "chk_audio_vocab", "chk_audio_ex1", "chk_audio_ex2", "chk_audio_ex3", "chk_audio_ex4",
     ):
         setattr(obj, name, Control())
 
@@ -376,7 +376,7 @@ def test_enabled_knowledge_mode_hides_language_only_controls():
     assert all(not getattr(obj, name).visible for name in (
         "lang_grp", "mode_grp", "voice_grp", "btn_rebuild", "btn_diff_meaning",
         "lbl_level", "cbo_level", "lbl_topic", "txt_topic", "lbl_audio",
-        "chk_audio_vocab", "chk_audio_ex1", "chk_audio_ex2",
+        "chk_audio_vocab", "chk_audio_ex1", "chk_audio_ex2", "chk_audio_ex3", "chk_audio_ex4",
     ))
     assert all(getattr(obj, name).visible for name in (
         "filter_grp", "btn_ai_extract", "btn_sample", "btn_verify",

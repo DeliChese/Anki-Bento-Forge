@@ -30,6 +30,7 @@ def _bind_preview_quality_refresh(dlg, table, callback):
         model.modelReset,
     )
     active = True
+    refreshing = False
 
     def disconnect_quality_refresh(*_args):
         nonlocal active
@@ -44,14 +45,18 @@ def _bind_preview_quality_refresh(dlg, table, callback):
                 pass
 
     def guarded_refresh(*args):
-        if not active:
+        nonlocal refreshing
+        if not active or refreshing:
             return
+        refreshing = True
         try:
             callback(*args)
         except RuntimeError as error:
             if "has been deleted" not in str(error):
                 raise
             disconnect_quality_refresh()
+        finally:
+            refreshing = False
 
     dlg.finished.connect(disconnect_quality_refresh)
     for signal in source_signals:

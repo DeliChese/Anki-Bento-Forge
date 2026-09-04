@@ -215,6 +215,14 @@ _TRANSLATIONS = {
         "vi": "🎵 Ví dụ 1",
         "en": "🎵 Example 1",
     },
+    "filter_audio_ex3": {
+        "vi": "🎵 Ví dụ 3",
+        "en": "🎵 Example 3",
+    },
+    "filter_audio_ex4": {
+        "vi": "🎵 Ví dụ 4",
+        "en": "🎵 Example 4",
+    },
     "filter_audio_ex2": {
         "vi": "🎵 Ví dụ 2",
         "en": "🎵 Example 2",

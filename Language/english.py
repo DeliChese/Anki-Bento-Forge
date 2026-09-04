@@ -13,7 +13,8 @@ LANG_CONFIG = {
         "Front", "Pronunciation", "Meaning", "Usage Pattern", "Usage Note", "Collocation", "Semantic Group", "Relationship Note", "Register / Nuance", "Related Terms", "CEFR Level", "Topic",
         "Example", "Example Fill", "Example in Vietnamese", "Vocab Audio", "Example Audio",
         "Example2", "Example2 Fill", "Example2 in Vietnamese", "Example2 Audio",
-        "Example3", "Example3 in Vietnamese", "Example4", "Example4 in Vietnamese",
+        "Example3", "Example3 in Vietnamese", "Example3 Audio",
+        "Example4", "Example4 in Vietnamese", "Example4 Audio",
         "Image", "SRS Independent",
     ],
     "json_field_map": {
@@ -55,6 +56,8 @@ LANG_CONFIG = {
         ("Vocab Audio", "Front"),
         ("Example Audio", "Example"),
         ("Example2 Audio", "Example2"),
+        ("Example3 Audio", "Example3"),
+        ("Example4 Audio", "Example4"),
     ],
     "template_names": (
         "1. Nhận diện / Combo", "2. Sản xuất", "3. Chính tả",
@@ -79,7 +82,8 @@ GRAMMAR_CONFIG = {
         "Usage", "Explanation",
         "Example", "Example in Vietnamese", "Example Audio",
         "Example2", "Example2 in Vietnamese", "Example2 Audio", "Image",
-        "Example3", "Example3 in Vietnamese", "Example4", "Example4 in Vietnamese",
+        "Example3", "Example3 in Vietnamese", "Example3 Audio",
+        "Example4", "Example4 in Vietnamese", "Example4 Audio",
     ],
     "json_field_map": {
         "pattern": "Pattern",
@@ -111,7 +115,12 @@ GRAMMAR_CONFIG = {
     "level_label": "🎓 CEFR:",
     "level_choices": ["Tất cả", "A1", "A2", "B1", "B2", "C1", "C2"],
     "front_field": "Pattern",
-    "audio_fields": [("Example Audio", "Example"), ("Example2 Audio", "Example2")],
+    "audio_fields": [
+        ("Example Audio", "Example"),
+        ("Example2 Audio", "Example2"),
+        ("Example3 Audio", "Example3"),
+        ("Example4 Audio", "Example4"),
+    ],
     "template_names": ("1. Cấu trúc → Nghĩa", "2. Nghĩa → Cấu trúc"),
     "furi_label": "IPA",
     "furi_json_key": "pronunciation",

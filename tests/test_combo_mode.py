@@ -137,6 +137,25 @@ class TestComboJs:
         assert "if(independent) m='qa'" in _COMBO_MODE_JS
         assert "if(independent) return" in _COMBO_MODE_JS
 
+    def test_reading_toggle_is_added_to_every_review_template_without_new_fields(self):
+        from mode import LANG_COLLOCATION_TEMPLATES, LANG_GRAMMAR_TEMPLATES, LANG_TEMPLATES
+        from mode.shared import _EXAMPLE_READING_TOGGLE_JS
+
+        assert "ai_factory_example_readings_hidden" in _EXAMPLE_READING_TOGGLE_JS
+        assert "Ẩn cách đọc" in _EXAMPLE_READING_TOGGLE_JS
+        for registry in (LANG_TEMPLATES, LANG_GRAMMAR_TEMPLATES, LANG_COLLOCATION_TEMPLATES):
+            for templates in registry.values():
+                assert all("ai_factory_example_readings_hidden" in template() for template in templates)
+
+    def test_independent_templates_keep_toggle_inside_srs_conditional(self):
+        from mode import LANG_TEMPLATES
+
+        for templates in LANG_TEMPLATES.values():
+            for template in templates[2:]:
+                html = template()
+                assert html.startswith("{{#SRS Independent}}")
+                assert html.rfind("ai_factory_example_readings_hidden") < html.rfind("{{/SRS Independent}}")
+
 
 class TestComboConfig:
     def test_template_names_and_opt_in_field(self):

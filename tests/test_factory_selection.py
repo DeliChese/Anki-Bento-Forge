@@ -478,6 +478,8 @@ def test_on_lang_changed_syncs_speed_with_current_language(monkeypatch):
     f.chk_audio_vocab = MagicMock()
     f.chk_audio_ex1 = MagicMock()
     f.chk_audio_ex2 = MagicMock()
+    f.chk_audio_ex3 = MagicMock()
+    f.chk_audio_ex4 = MagicMock()
     f.preview_list = MagicMock()
     f.btn_import = MagicMock()
     f.json_input = MagicMock()

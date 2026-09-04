@@ -74,6 +74,8 @@ def test_all_language_schemas_support_example_3_and_4_with_vocab_samples():
                     assert schema[f"example_{index}_vn"] == ""
                 assert cfg["json_field_map"][f"example_{index}"] == f"Example{index}"
                 assert f"Example{index}" in cfg["all_fields"]
+                assert f"Example{index} Audio" in cfg["all_fields"]
+                assert (f"Example{index} Audio", f"Example{index}") in cfg["audio_fields"]
             if language == "chinese":
                 assert all(f"example_{index}_pinyin" in schema for index in (3, 4))
             if language == "korean":
@@ -141,6 +143,7 @@ def test_example_3_and_4_render_directly_on_answers_without_comparison_labels():
         assert "{{Example3}}" not in front and "{{Example4}}" not in front
         assert "{{#Example3}}" in back and "{{#Example4}}" in back
         assert back.count("quality-v2-example") == 2
+        assert "{{Example3 Audio}}" in back and "{{Example4 Audio}}" in back
         assert "<details" not in back
         assert "Đối chiếu" not in back
         assert "VÍ DỤ 3" in back and "VÍ DỤ 4" in back
