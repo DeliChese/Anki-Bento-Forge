@@ -8,6 +8,7 @@ import re
 
 from anki.notes import Note
 
+from .variant_scope import routing_tags
 from .knowledge_model import ensure_knowledge_model, knowledge_note_payload
 
 
@@ -47,6 +48,15 @@ def _mapped_value(item, cfg, field_name, fallback=""):
         if mapped_field == field_name and json_key in item:
             return str(item[json_key]).strip()
     return fallback
+
+
+def _apply_variant_tag(note, item):
+    """Persist intentional topic identity without changing the note schema."""
+    tags = routing_tags(item)
+    if not tags:
+        return
+    existing = list(getattr(note, "tags", []) or [])
+    note.tags = list(dict.fromkeys([*existing, *tags]))
 
 
 def prepare_audio_tasks(col, batch, cfg):
@@ -113,6 +123,7 @@ def apply_import(
                 for field_name, value in (cfg.get("note_defaults") or {}).items():
                     if field_name in cfg["all_fields"] and value:
                         note[field_name] = str(value)
+                _apply_variant_tag(note, item)
                 col.add_note(note, deck_id)
                 if getattr(note, "id", 0):
                     report["added_note_ids"].append(int(note.id))

@@ -69,10 +69,13 @@ def _identity(card: Mapping[str, Any], kind: str) -> str:
     return ""
 
 
-def _dedupe_key(card: Mapping[str, Any], kind: str) -> tuple[str, str]:
+def _dedupe_key(card: Mapping[str, Any], kind: str, *, preserve_variant_key: bool = False) -> tuple[str, ...]:
     identity = re.sub(r"[\W_]+", "", _identity(card, kind).casefold())
     meaning = re.sub(r"[\W_]+", "", str(card.get("meaning") or "").casefold())
-    return identity, meaning
+    if not preserve_variant_key:
+        return identity, meaning
+    variant = re.sub(r"[\W_]+", "", str(card.get("_bf_variant") or "").casefold())
+    return identity, meaning, variant
 
 
 def _script_counts(value: Any) -> tuple[int, int, int, int]:
@@ -181,6 +184,7 @@ def _validate_one(
 
 def validate_ai_cards(
     cards: Sequence[Any], *, lang: str, kind: str, require_example: bool = False,
+    preserve_variant_key: bool = False,
 ) -> CardValidationReport:
     """Validate cards without coercing fields or inventing missing content."""
     lang = normalize_language(lang)
@@ -209,7 +213,7 @@ def validate_ai_cards(
             invalid.append(CardValidationIssue(index, category))
             continue
         copied = dict(card)
-        key = _dedupe_key(copied, kind)
+        key = _dedupe_key(copied, kind, preserve_variant_key=preserve_variant_key)
         if key in seen:
             duplicate_count += 1
             continue

@@ -124,6 +124,10 @@ from utils.import_history import (
 )
 from utils.import_safety import rollback_added_notes, summarize_import_batch
 from utils.anki_ops import run_collection, run_query
+from utils.variant_scope import (
+    VariantScopeError, note_matches_variant, preserves_scoped_variants,
+    variant_key_for,
+)
 from utils.import_operations import apply_import, prepare_audio_tasks
 from utils.import_operations import apply_knowledge_import, rollback_knowledge_import
 from utils.anki_adapter import AnkiCollectionAdapter
@@ -2375,11 +2379,18 @@ class AnkiSmartFactory(QDialog):
         self.preview_list.clear()
         self.prepared_data = []
 
+        try:
+            preserve_variants = preserves_scoped_variants(self.raw_data)
+        except VariantScopeError:
+            showInfo(t("variant_scope_invalid"))
+            return
+
         validation = validate_ai_cards(
             self.raw_data,
             lang=self._current_lang,
             kind=self._current_card_kind(),
             require_example="example" in (cfg.get("json_field_map") or {}),
+            preserve_variant_key=preserve_variants,
         )
         self._factory_validation_report = validation
         validated_items = list(validation.valid_cards)
@@ -2439,9 +2450,9 @@ class AnkiSmartFactory(QDialog):
         batch_meanings = {}
         batch_identities = set()
 
-        def remember_candidate(front_key, meaning_key, item, front, meaning):
-            batch_identities.add((front_key, meaning_key))
-            batch_fronts.setdefault(front_key, {
+        def remember_candidate(front_key, meaning_key, scoped_variant, item, front, meaning):
+            batch_identities.add((front_key, meaning_key, scoped_variant))
+            batch_fronts.setdefault((front_key, scoped_variant), {
                 "item": item, "front": front, "meaning": meaning,
             })
             front_displays.setdefault(front_key, front)
@@ -2467,6 +2478,11 @@ class AnkiSmartFactory(QDialog):
             meaning = str(item.get('meaning', '')).strip()
             front_key = normalize_for_comparison(front)
             meaning_key = normalize_for_comparison(meaning)
+            try:
+                scoped_variant = variant_key_for(item)
+            except VariantScopeError:
+                cnt["skip"] += 1
+                continue
 
             if not front_key:
                 continue
@@ -2480,21 +2496,24 @@ class AnkiSmartFactory(QDialog):
 
             # Never permit a later raw item to bypass verification merely
             # because the first duplicate has not been written to Anki yet.
-            if (front_key, meaning_key) in batch_identities:
+            if (front_key, meaning_key, scoped_variant) in batch_identities:
                 cnt["dup"] += 1
                 continue
-            previous = batch_fronts.get(front_key)
+            previous = batch_fronts.get((front_key, scoped_variant))
             if previous:
                 if normalize_for_comparison(previous["meaning"]) == meaning_key:
                     cnt["dup"] += 1
                     continue
                 action = "dup_diff"
                 cnt["dup_diff"] += 1
-                remember_candidate(front_key, meaning_key, item, front, meaning)
+                remember_candidate(front_key, meaning_key, scoped_variant, item, front, meaning)
                 self._add_to_queue(item, action, None, [], cnt, batch_conflict(previous))
                 continue
 
-            exact_notes = front_to_notes.get(front_key, [])
+            exact_notes = [
+                note for note in front_to_notes.get(front_key, [])
+                if note_matches_variant(note, scoped_variant)
+            ]
             if exact_notes:
                 old = exact_notes[0]
                 exact_ids = [old.id]
@@ -2535,13 +2554,13 @@ class AnkiSmartFactory(QDialog):
                     else:
                         cnt["dup"] += 1
                         continue
-                remember_candidate(front_key, meaning_key, item, front, meaning)
+                remember_candidate(front_key, meaning_key, scoped_variant, item, front, meaning)
                 self._add_to_queue(item, action, target_nid, updatable, cnt, conflict_info)
                 continue
 
             # A near match is never merged automatically.  It stays in the
             # queue with an explicit warning so the learner retains control.
-            near_match = find_near_duplicate(front, front_displays.values())
+            near_match = None if front_to_notes.get(front_key) else find_near_duplicate(front, front_displays.values())
             if near_match:
                 near_front, similarity = near_match
                 action = "add_partial"
@@ -2551,7 +2570,7 @@ class AnkiSmartFactory(QDialog):
                     "similarity": similarity,
                 }
 
-            if meaning_key and action == "add":
+            if meaning_key and action == "add" and not scoped_variant:
                 same_mean = meaning_to_notes.get(meaning_key) or batch_meanings.get(meaning_key)
                 if same_mean:
                     action = "add_partial"
@@ -2559,7 +2578,7 @@ class AnkiSmartFactory(QDialog):
 
             if action in ("add", "add_partial"):
                 cnt["new"] += 1
-            remember_candidate(front_key, meaning_key, item, front, meaning)
+            remember_candidate(front_key, meaning_key, scoped_variant, item, front, meaning)
             self._add_to_queue(item, action, target_nid, updatable, cnt, conflict_info)
 
         self.btn_diff_meaning.setEnabled(cnt["dup_diff"] > 0)
@@ -2890,11 +2909,18 @@ class AnkiSmartFactory(QDialog):
             return
 
         if getattr(self, "_learning_mode", "language") == "language":
+            selected_items = [entry.get("item") for entry in batch]
+            try:
+                preserve_variants = preserves_scoped_variants(selected_items)
+            except VariantScopeError:
+                showInfo(t("variant_scope_invalid"))
+                return
             final_validation = validate_ai_cards(
-                [entry.get("item") for entry in batch],
+                selected_items,
                 lang=self._current_lang,
                 kind=self._current_card_kind(),
                 require_example="example" in (self._cfg().get("json_field_map") or {}),
+                preserve_variant_key=preserve_variants,
             )
             if final_validation.invalid or len(final_validation.valid_cards) != len(batch):
                 categories = ", ".join(sorted({

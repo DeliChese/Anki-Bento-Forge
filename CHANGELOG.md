@@ -6,6 +6,8 @@
 
 #### Added
 
+- **Biến thể từ vựng theo chủ đề** — JSON import tùy chọn `_bf_variant` để giữ cùng một từ/nghĩa ở các chủ đề học khác nhau. Chỉ các phạm vi khác nhau mới được phép cùng tồn tại; phạm vi được lưu thành tag do Bento Forge sở hữu, còn JSON không có trường này giữ nguyên kiểm tra trùng cũ.
+
 - **Nâng cấp thẻ cũ theo chuẩn chất lượng mới nhất** — Reviewer hiện chỉ hiện nút `Nâng cấp thẻ` cho Language note chưa đạt revision nội dung hiện hành. AI lập proposal đúng một mục tiêu, người học xem diff và chọn từng field trước khi ghi; audio cho nội dung mới/thiếu được tạo lại theo lựa chọn. Ghi note qua thao tác Undo của Anki, không đổi SRS, và proposal trễ hoặc đổi mặt chữ bị chặn.
 - **Contract Note Type LTS V18.3** — version add-on nay tách khỏi tên Note Type; migration chỉ nhận model cũ trong allowlist, thêm field/template cần thiết và giữ nguyên field/template tự tạo, card, media cùng SRS. Việc thêm marker cho model nhiều card cũ yêu cầu xác nhận và checkpoint Anki; flow thường không còn prune template dư.
 

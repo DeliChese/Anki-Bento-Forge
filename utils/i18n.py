@@ -2890,6 +2890,10 @@ _TRANSLATIONS = {
         "vi": "â›” ÄÃ£ cháº·n {count} má»¥c lá»—i xÃ¡c Ä‘á»‹nh: {categories}.",
         "en": "â›” Blocked {count} deterministic validation failures: {categories}.",
     },
+    "variant_scope_invalid": {
+        "vi": "âš ï¸ Pháº¡m vi chá»§ Ä‘á» khÃ´ng há»£p lá»‡.",
+        "en": "âš ï¸ The topic scope is invalid.",
+    },
     "study_request_edit_blocked": {
         "vi": "YÃªu cáº§u nÃ y Ä‘ang xá»­ lÃ½; hÃ£y dá»«ng yÃªu cáº§u trÆ°á»›c khi sá»­a hoáº·c xÃ³a.",
         "en": "This request is in progress; stop it before editing or deleting its source turn.",
