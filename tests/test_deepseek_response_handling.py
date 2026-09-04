@@ -49,6 +49,29 @@ def test_vocab_uses_final_content_not_reasoning_content(monkeypatch):
     assert cards == [{"front": "taberu", "meaning": "eat"}]
 
 
+def test_direct_card_generation_marks_learner_request_as_not_source_material(monkeypatch):
+    payloads = []
+    monkeypatch.setattr(ai_extractor, "get_api_config", lambda: dict(_DEEPSEEK_CONFIG))
+    monkeypatch.setattr(ai_extractor, "_ui_lang_en", lambda: True)
+    monkeypatch.setattr(ai_extractor, "_ai_cache_get", lambda *args, **kwargs: None)
+    monkeypatch.setattr(ai_extractor, "_ai_cache_set", lambda *args, **kwargs: None)
+    monkeypatch.setattr(
+        ai_extractor,
+        "_http_post_json",
+        lambda _url, payload, *_args, **_kwargs: (
+            payloads.append(payload)
+            or json.dumps(_response('{"items":[{"front":"taberu","meaning":"eat"}]}'))
+        ),
+    )
+
+    cards = ai_extractor.extract_vocabulary_with_ai(
+        "Tạo từ vựng nhà hàng", "japanese", generation_request=True,
+    )
+
+    assert cards == [{"front": "taberu", "meaning": "eat"}]
+    assert "not source material" in payloads[0]["messages"][-1]["content"]
+
+
 def test_json_mode_is_enabled_only_for_direct_deepseek_requests():
     payload = {}
     enable_deepseek_json_output(payload, _DEEPSEEK_CONFIG)

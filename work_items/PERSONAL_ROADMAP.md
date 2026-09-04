@@ -5,7 +5,7 @@ Output:
 
 > Status: active
 > Authority: canonical backlog and current product decisions
-> Last verified: 2026-08-26
+> Last verified: 2026-09-04
 > Read when: choosing, scoping or closing work
 
 > **Quyết định sản phẩm:** 2026-08-16 — Bento Forge được duy trì như add-on cá nhân. Không có mục tiêu cạnh tranh thị trường, mở rộng đại trà hay xây cộng đồng.
@@ -16,7 +16,7 @@ Output:
 
 | Việc | Trạng thái | Điều cần biết ngay |
 | --- | --- | --- |
-| P0-01 — baseline test | 🟢 Local xanh | Hai vòng isolated suite gần nhất đều xanh `805 passed` sau Production Drill cục bộ trong Reviewer. Vẫn cần giữ gate này xanh trước merge/release. |
+| P0-01 — baseline test | 🟢 Local xanh | Compile Python xanh; hai vòng isolated suite gần nhất đều `777 passed, 28 skipped` sau Reviewer Example Versions. Vẫn cần giữ gate này xanh trước merge/release. |
 | P0-02 — smoke profile | 🔴 Partial smoke, blocked | Anki 26.5/profile backup: Factory, combo/Usage Guide, Study Coach context và role split pass; Reviewer không inject `Hỏi AI`/`Tự đặt câu` trên card `看`. Sửa hook rồi mới tiếp tục mutation/mục 42/restart smoke. |
 | P0-04 — release artifact | ✅ Đã kiểm chứng local | Builder allowlist runtime, gồm đủ `workers/`, loại cache/state local; artifact clean-profile compile xanh, SHA-256 và CycloneDX SBOM khớp. Cài/mở trên profile sạch vẫn thuộc P0-02 owner smoke. |
 | P0-05 — AI Output Reliability | 🟡 Local implementation xanh | Batch/Card Mode vocab+grammar dùng chung parser/schema gate; AI config/history dùng profile path động. Chủ dự án báo card output ổn định; còn smoke restart/profile backup và manual large-batch metrics trước khi publish 18.1. |
@@ -27,6 +27,7 @@ Output:
 | P1-05 — Usage Guide V1 | ✅ Đã kiểm chứng | Benchmark model thật đạt `19/20` (`95%`), `$0.002035`, `1.69 giây/card`; smoke collection thật Anki 26.5 xanh đủ bốn ngôn ngữ. |
 | P1-06 — Confusion Guard | 🟡 Local implementation xanh | Exact curated same-deck pairs + advisory preview đã có positive/negative fixtures bốn ngôn ngữ; còn smoke trên profile backup trước khi đánh dấu verified. |
 | P2-03 — Production Drill | 🔴 GUI smoke fail | Local regression `805 passed` ×2 nhưng Anki 26.5 không hiện `Tự đặt câu` trên card `看` có Usage Pattern/Collocation; cần sửa hook injection và re-smoke trước khi coi là usable. |
+| Reviewer Example Versions | 🟡 Local implementation xanh | Ví dụ 1–4 có model AI riêng tùy chọn cùng Provider/API Key, tạo/chỉnh theo độ khó/độ dài, giữ lịch sử đến khi xóa chủ động, lưu/tái sử dụng audio và không khóa Reviewer. Tiến độ import tính đúng audio + note; còn GUI smoke trên profile backup. |
 | Knowledge beta | 🧊 Dormant | Ẩn UI, không nằm trong release plan. |
 
 **Cách đọc trạng thái:** `🔴` cần xử lý · `🟢` local gate xanh/đủ điều kiện mở · `🟡` đang làm/chờ kiểm chứng · `✅` đã kiểm chứng · `⏳` cần thao tác của chủ dự án · `⚪` chưa mở · `🧊` đóng băng.
@@ -84,6 +85,7 @@ Nếu không thỏa điều kiện nào, ghi vào backlog `Để sau`, không tr
 | P2-01 | Đơn giản hóa/ẩn các flow không dùng để giảm nhiễu UI và chi phí bảo trì | P2 — chỉ khi gây ma sát | 🟡 Trung bình | `gpt-5.6-terra` / `medium` | 1–4 giờ | Flow còn lại không regression; quyết định được ghi vào nhật ký |
 | P2-02 | Bổ sung hoặc nâng một ngôn ngữ khác khi chính chủ dự án dùng đều | P2 — theo nhu cầu | 🟠 Khó | `gpt-5.6-sol` / `high` | 8–20 giờ | Corpus riêng, TTS, template và smoke test cho đúng ngôn ngữ đó |
 | P2-03 | **Production Drill — Nhật/Trung/Hàn/Anh**: nút luyện sản sinh tùy chọn trong Reviewer, dùng Usage Pattern/Collocation của thẻ để người học tự đặt câu; gợi ý/câu mẫu chỉ lộ sau thao tác chủ động, không AI hoặc tạo card/lịch mới | P2 — local implementation xanh, chờ GUI smoke | 🟠 Khó | `gpt-5.6-terra` / `high` | 6–10 giờ | Regression isolated xanh; còn smoke 4 ngôn ngữ trên profile backup, xác nhận nhập CJK/focus/reveal và không làm lộ đáp án trước khi người học chọn xem |
+| P2-05 | **Reviewer Example Versions — Ví dụ 1–4**: tạo/chỉnh một câu trong popup, tùy chọn độ khó/độ dài, lịch sử phiên bản và stored-media audio tái sử dụng | P2 — local implementation xanh, chờ GUI smoke | 🟠 Khó | `gpt-5.6-terra` / `high` | 6–10 giờ | Không mất câu/audio cũ; xóa chỉ khi xác nhận; AI/TTS không khóa Reviewer; tiến độ import theo audio + note; isolated suite xanh ×2 và GUI smoke profile backup trước release |
 | P2-04 | **Review Health — read-only**: báo cáo thẻ khó/leech, nhóm lỗi và đề xuất hành động (sửa Usage Guide, suspend, học lại); tuyệt đối không tự đổi lịch SRS | P2 — khi review lặp lại cho thấy vấn đề | 🟡 Trung bình | `gpt-5.6-terra` / `high` | 5–9 giờ | Đọc collection qua Anki operation an toàn; số liệu đối chiếu được Anki Browser; không mutation nếu không có xác nhận rõ ràng |
 
 ## Backlog đóng băng

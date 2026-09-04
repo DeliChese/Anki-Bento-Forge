@@ -83,7 +83,9 @@ def prepare_audio_tasks(col, batch, cfg):
     return tasks
 
 
-def apply_import(col, batch, cfg, deck_id, audio_tags, is_cancelled):
+def apply_import(
+    col, batch, cfg, deck_id, audio_tags, is_cancelled, progress_callback=None,
+):
     """Apply one import batch inside an undo-aware ``CollectionOp``."""
     report = {"added": 0, "added_note_ids": [], "updated": 0, "audio_gen": 0,
               "audio_failed": 0, "errors": 0, "cancelled": False}
@@ -128,12 +130,17 @@ def apply_import(col, batch, cfg, deck_id, audio_tags, is_cancelled):
         except Exception as exc:
             report["errors"] += 1
             errors.append(f"• {display}: {exc}")
+        finally:
+            if progress_callback is not None:
+                progress_callback(item_index + 1, len(batch))
     if errors:
         report["errors_detail"] = errors[:10]
     return report
 
 
-def apply_knowledge_import(col, batch, deck_id, is_cancelled):
+def apply_knowledge_import(
+    col, batch, deck_id, is_cancelled, progress_callback=None,
+):
     """Apply a strict Knowledge batch inside one undo-aware CollectionOp."""
     model = ensure_knowledge_model(col.models).model
     report = {
@@ -142,7 +149,7 @@ def apply_knowledge_import(col, batch, deck_id, is_cancelled):
         "errors": 0, "cancelled": False, "updated_before": [],
     }
     errors = []
-    for entry in batch:
+    for item_index, entry in enumerate(batch):
         if is_cancelled():
             report["cancelled"] = True
             break
@@ -173,6 +180,9 @@ def apply_knowledge_import(col, batch, deck_id, is_cancelled):
         except Exception as exc:
             report["errors"] += 1
             errors.append(f"• {display}: {exc}")
+        finally:
+            if progress_callback is not None:
+                progress_callback(item_index + 1, len(batch))
     if report["cancelled"] and (report["added_note_ids"] or report["updated_before"]):
         report["cancel_rollback"] = rollback_knowledge_import(col, report)
         report["added"] = 0

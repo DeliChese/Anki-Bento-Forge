@@ -65,6 +65,7 @@ class AiWorkflowCoordinator:
         card_kind: Optional[str] = None,
         max_cards: Optional[int] = None,
         history_entries: Optional[list] = None,
+        generation_request: bool = False,
     ) -> Optional[Any]:
         """Build, wire, and start an extraction worker for the current token."""
         if self.is_cancelled():
@@ -87,6 +88,8 @@ class AiWorkflowCoordinator:
             worker_kwargs["max_cards"] = max_cards
         if history_entries is not None:
             worker_kwargs["history_entries"] = history_entries
+        if generation_request:
+            worker_kwargs["generation_request"] = True
 
         worker = worker_factory(**worker_kwargs)
         worker.progress.connect(on_progress)

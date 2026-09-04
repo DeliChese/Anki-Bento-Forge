@@ -120,6 +120,26 @@ def test_extract_worker_forwards_factory_card_scope_and_history():
     assert worker.kwargs["history_entries"] == history
 
 
+def test_extract_worker_forwards_direct_card_generation_request():
+    coordinator = AiWorkflowCoordinator()
+    coordinator.begin()
+
+    worker = coordinator.start_extract(
+        _Worker,
+        text="Create HSK 3 shopping cards",
+        lang="chinese",
+        custom_instruction="",
+        existing_words=[],
+        grammar=False,
+        generation_request=True,
+        on_progress=lambda _message: None,
+        on_finished=lambda _result: None,
+        on_error=lambda _message: None,
+    )
+
+    assert worker.kwargs["generation_request"] is True
+
+
 def test_chat_worker_uses_current_token_and_can_be_cleared():
     coordinator = AiWorkflowCoordinator()
     token = coordinator.begin()

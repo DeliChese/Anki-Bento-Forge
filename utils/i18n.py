@@ -111,6 +111,42 @@ _TRANSLATIONS = {
         "vi": "✨ Tạo tối đa {count} thẻ",
         "en": "✨ Create up to {count} cards",
     },
+    "ai_card_chat_btn": {
+        "vi": "💬 Chat tạo thẻ",
+        "en": "💬 Card-creation chat",
+    },
+    "ai_card_chat_tip": {
+        "vi": "Mô tả mục tiêu học để AI tạo thẻ trực tiếp, không cần dán tài liệu.",
+        "en": "Describe a learning goal and have AI create cards directly, without source material.",
+    },
+    "ai_card_chat_title": {
+        "vi": "💬 Chat tạo thẻ",
+        "en": "💬 Card-creation chat",
+    },
+    "ai_card_chat_intro": {
+        "vi": "Bạn muốn học gì? Hãy nói chủ đề, trình độ, loại từ hoặc dạng bài mong muốn. AI sẽ đề xuất thẻ để bạn duyệt trước khi lưu.",
+        "en": "What would you like to learn? Describe the topic, level, word type, or practice style. AI will propose cards for review before saving.",
+    },
+    "ai_card_chat_request_label": {
+        "vi": "Tin nhắn cho AI",
+        "en": "Message for AI",
+    },
+    "ai_card_chat_placeholder": {
+        "vi": "Ví dụ: Tạo thẻ từ vựng tiếng Trung HSK 3 chủ đề đi chợ, ưu tiên động từ và mẫu câu giao tiếp ngắn.",
+        "en": "Example: Create HSK 3 Chinese vocabulary cards about grocery shopping, prioritizing verbs and short conversational phrases.",
+    },
+    "ai_card_chat_note": {
+        "vi": "AI sẽ tạo tối đa {count} thẻ theo loại thẻ và ngôn ngữ đang chọn, đối chiếu deck để tránh trùng, rồi mở Xem trước.",
+        "en": "AI will create up to {count} cards for the selected language and card type, check the deck for duplicates, then open Preview.",
+    },
+    "ai_card_chat_submit": {
+        "vi": "✨ Tạo thẻ để xem trước",
+        "en": "✨ Create cards for preview",
+    },
+    "ai_card_chat_empty": {
+        "vi": "Hãy nhập mục tiêu hoặc yêu cầu tạo thẻ cho AI.",
+        "en": "Enter a learning goal or card-creation request for AI.",
+    },
     "ai_card_count_label": {
         "vi": "Số thẻ:",
         "en": "Cards:",
@@ -2452,6 +2488,30 @@ _TRANSLATIONS = {
         "vi": "🧠 Model:",
         "en": "🧠 Model:",
     },
+    "ai_set_review_example_model_label": {
+        "vi": "✨ Model tạo lại ví dụ:",
+        "en": "✨ Example regeneration model:",
+    },
+    "ai_set_review_example_provider_label": {
+        "vi": "✨ Provider tạo lại ví dụ:",
+        "en": "✨ Example regeneration provider:",
+    },
+    "ai_set_review_example_provider_inherit": {
+        "vi": "Dùng Provider AI chính",
+        "en": "Use the main AI provider",
+    },
+    "ai_set_review_example_provider_tip": {
+        "vi": "Chỉ dùng cho Ví dụ 1–4 trong Review. Provider được chọn dùng API Key đã lưu riêng của nó; mở tạm provider đó ở phía trên và Lưu một lần để nhập key.",
+        "en": "Only used for Examples 1–4 in Review. The chosen provider uses its own saved API key; select it above and save once to store that key.",
+    },
+    "ai_set_review_example_model_inherit": {
+        "vi": "Dùng model AI chính",
+        "en": "Use the main AI model",
+    },
+    "ai_set_review_example_model_tip": {
+        "vi": "Chỉ áp dụng khi tạo lại Ví dụ 1–4 trong lúc học. Dùng cùng Provider/API Key ở trên; có thể chọn hoặc gõ model tương thích.",
+        "en": "Only used when regenerating Examples 1–4 during review. It uses the Provider/API key above; choose or type a compatible model.",
+    },
     "ai_set_temp_label": {
         "vi": "🌡 Temperature (0-2):",
         "en": "🌡 Temperature (0-2):",
@@ -3939,6 +3999,52 @@ _TRANSLATIONS = {
     "study_create_card_collocation": {"vi": "Tạo thẻ · Cụm từ", "en": "Create card · Collocation"},
     "study_context_lane_collocation": {"vi": "Cụm từ / Thành ngữ", "en": "Collocations / Idioms"},
     "status_poured_collocation": {"vi": "✅ Đã đưa {count} thẻ cụm từ vào xưởng", "en": "✅ Poured {count} chunk cards into the Factory"},
+    "example_regen_action": {"vi": "✨ Tạo lại · {current}/{total}", "en": "✨ Regenerate · {current}/{total}"},
+    "example_regen_empty": {"vi": "Chưa có câu", "en": "No sentence yet"},
+    "example_regen_title": {"vi": "Ví dụ {slot} — phiên bản học", "en": "Example {slot} — study versions"},
+    "example_regen_desc": {
+        "vi": "Mỗi lần lưu sẽ tạo một phiên bản mới. Phiên bản cũ được giữ nguyên cho đến khi bạn chủ động xóa.",
+        "en": "Each save creates a new version. Older versions remain until you explicitly delete them.",
+    },
+    "example_regen_delete": {"vi": "🗑 Xóa phiên bản này", "en": "🗑 Delete this version"},
+    "example_regen_difficulty": {"vi": "Độ khó", "en": "Difficulty"},
+    "example_regen_length": {"vi": "Độ dài", "en": "Length"},
+    "example_difficulty_mixed": {"vi": "Đa dạng / tự nhiên", "en": "Varied / natural"},
+    "example_difficulty_beginner": {"vi": "Cơ bản", "en": "Beginner"},
+    "example_difficulty_intermediate": {"vi": "Trung cấp", "en": "Intermediate"},
+    "example_difficulty_advanced": {"vi": "Nâng cao", "en": "Advanced"},
+    "example_length_short": {"vi": "Ngắn", "en": "Short"},
+    "example_length_medium": {"vi": "Vừa", "en": "Medium"},
+    "example_length_long": {"vi": "Dài", "en": "Long"},
+    "example_regen_example": {"vi": "Câu ví dụ", "en": "Example sentence"},
+    "example_regen_reading": {"vi": "Cách đọc", "en": "Reading"},
+    "example_regen_translation": {"vi": "Nghĩa tiếng Việt", "en": "Vietnamese meaning"},
+    "example_regen_example_placeholder": {"vi": "Nhập hoặc chỉnh câu ví dụ…", "en": "Enter or edit the example…"},
+    "example_regen_reading_placeholder": {"vi": "Kana / Pinyin / Romanization / IPA…", "en": "Kana / Pinyin / Romanization / IPA…"},
+    "example_regen_translation_placeholder": {"vi": "Nhập bản dịch tiếng Việt…", "en": "Enter the Vietnamese translation…"},
+    "example_regen_audio": {"vi": "Tạo và lưu audio cho phiên bản mới", "en": "Generate and save audio for the new version"},
+    "example_regen_ai": {"vi": "Nhờ AI tạo câu", "en": "Ask AI to generate"},
+    "example_regen_save": {"vi": "Lưu phiên bản mới", "en": "Save new version"},
+    "example_regen_close": {"vi": "Đóng", "en": "Close"},
+    "example_regen_ai_confirm": {
+        "vi": "Gọi AI để tạo một câu mới theo độ khó và độ dài đã chọn? Thao tác này sử dụng token AI.",
+        "en": "Call AI for one new sentence using the selected difficulty and length? This uses AI tokens.",
+    },
+    "example_regen_delete_confirm": {
+        "vi": "Xóa vĩnh viễn phiên bản đang xem? Các phiên bản khác vẫn được giữ.",
+        "en": "Permanently delete the displayed version? Other versions will remain.",
+    },
+    "example_regen_ai_loading": {"vi": "AI đang tạo một câu mới…", "en": "AI is creating one new sentence…"},
+    "example_regen_ai_ready": {"vi": "Đã tạo xong — bạn có thể chỉnh sửa trước khi lưu.", "en": "Generated — you can edit it before saving."},
+    "example_regen_audio_loading": {"vi": "Đang tạo audio cho câu mới…", "en": "Generating audio for the new sentence…"},
+    "example_regen_saving": {"vi": "Đang lưu phiên bản…", "en": "Saving version…"},
+    "example_regen_saved": {"vi": "Đã lưu. Audio này sẽ được tái sử dụng.", "en": "Saved. This audio will be reused."},
+    "example_regen_text_required": {"vi": "Câu ví dụ không được để trống.", "en": "The example sentence cannot be empty."},
+    "example_regen_duplicate": {"vi": "Phiên bản này đã tồn tại; hãy chỉnh câu hoặc cách đọc trước khi lưu.", "en": "This version already exists; edit the sentence or reading before saving."},
+    "example_regen_history_corrupt": {"vi": "Lịch sử ví dụ đang hỏng nên chưa ghi đè để tránh mất dữ liệu.", "en": "Example history is malformed and was not overwritten, preventing data loss."},
+    "example_regen_error": {"vi": "Không thể xử lý ví dụ: {error}", "en": "Could not process the example: {error}"},
+    "example_regen_audio_failed": {"vi": "Không tạo được audio; câu chưa được lưu để bạn có thể thử lại.", "en": "Audio could not be generated; the sentence was not saved so you can retry."},
+    "status_saving_progress": {"vi": "💾 Đang lưu thẻ {current}/{total}", "en": "💾 Saving card {current}/{total}"},
     "msg_chat_poured_collocation": {"vi": "Đã đưa {count} thẻ cụm từ/thành ngữ vào xưởng.", "en": "Sent {count} collocation/idiom cards to the Factory."},
 }
 

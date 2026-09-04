@@ -206,6 +206,32 @@ class TestAiExtractThread:
         assert "tối đa 10 thẻ" in calls[0][2]
         assert len(finished[0]) == 10
 
+    def test_card_creation_chat_uses_direct_generation_mode_without_source_parsing(self, monkeypatch):
+        from workers import ai_workers
+
+        calls = []
+        monkeypatch.setattr(
+            ai_workers,
+            "extract_vocabulary_with_ai",
+            lambda text, lang, instruction, **kwargs: (
+                calls.append((text, lang, instruction, kwargs))
+                or [{"front": "mua", "meaning": "buy"}]
+            ),
+        )
+        worker = ai_workers.AiExtractThread(
+            text="Tạo thẻ HSK 3 chủ đề đi chợ", lang="chinese",
+            generation_request=True,
+        )
+        finished = []
+        worker.finished.connect(finished.append)
+
+        worker.run()
+
+        assert len(calls) == 1
+        assert calls[0][3]["generation_request"] is True
+        assert "KHÔNG KÈM TÀI LIỆU NGUỒN" in calls[0][2]
+        assert finished == [[{"front": "mua", "meaning": "buy"}]]
+
     def test_chinese_enumeration_is_recognized_as_all_fifteen_vocab_items(self):
         from workers.ai_workers import parse_explicit_vocabulary_items
 
@@ -475,13 +501,16 @@ class TestPhaseOneCollectionOperations:
             "json_field_map": {"front": "Front"}, "all_fields": ["Front", "Audio"],
             "model_name": "TestModel", "front_field": "Front", "detect_key": "front",
         }
+        progress = []
         report = import_operations.apply_import(
             FakeCollection(), [{"item": {"front": "test"}, "action": "add"}], cfg, 1,
             {"0:Audio": "[sound:test.mp3]"}, lambda: False,
+            lambda current, total: progress.append((current, total)),
         )
         assert report["added"] == 1
         assert report["added_note_ids"] == [987]
         assert report["audio_gen"] == 1
+        assert progress == [(1, 1)]
 
     def test_cancelled_import_does_not_mutate_collection(self, monkeypatch):
         from utils import import_operations

@@ -6,7 +6,6 @@ Cache thông minh: cache kết quả AI + cache danh sách từ vựng hiện c�
 Tự động quét deck Anki để tránh trùng lặp từ đã có.
 API keys are stored only in the OS credential store (keyring).
 """
-
 import json
 import os
 import re
@@ -48,6 +47,7 @@ from .ai_reliability import (
 from .ai_text_recovery import IncompleteExtractionError, recover_text_chunk as _recover_text_chunk
 from .ai_reliability import is_exact_existing_card
 from .ai_output_validation import cache_payload_is_compatible
+from .ai_card_request import build_card_request_message
 from .ai_prompt_defaults import KNOWLEDGE_PROMPT_VERSION
 from .ai_usage_history import record_usage as _record_usage
 from .ai_providers import detect_provider
@@ -92,7 +92,6 @@ try:
     _HAS_CRYPTO = True
 except ImportError:
     _HAS_CRYPTO = False
-
 
 def _get_machine_key() -> bytes:
     """Tạo key từ machine-specific info (username + hostname + salt)."""
@@ -352,8 +351,7 @@ def get_api_config() -> dict:
             _save_config(cfg)
     else:
         resolved_api_key = ""
-    # Keep the returned runtime value separate from the persisted dictionary.
-    # This protects against a future caller saving the resolved config by mistake.
+    # Keep the runtime key separate so callers cannot persist it by mistake.
     runtime_cfg = dict(cfg)
     runtime_cfg["api_key"] = resolved_api_key
     return runtime_cfg
@@ -363,7 +361,7 @@ def save_api_config(api_key: str, api_base: str, model: str, temperature: float 
                     max_chars: int = 45000, chunk_size: int = 8000,
                     reasoning_effort: str = "", session_max_input_chars: int = 90000,
                     session_max_tokens: int = 120000, session_max_cost_usd: float = 2.0,
-                    provider: str = "", make_default: bool = False):
+                    provider: str = "", make_default: bool = False, review_example_model: str | None = None, review_example_provider: str | None = None):
     # Sanitize input
     api_base = api_base.strip().rstrip("/")
     if api_base and not api_base.startswith(("http://", "https://")):
@@ -389,6 +387,8 @@ def save_api_config(api_key: str, api_base: str, model: str, temperature: float 
         key_storage = "none"
 
     previous = _load_config()
+    review_example_model = str((previous.get("review_example_model", "") if review_example_model is None else review_example_model) or "").strip()[:200]
+    review_example_provider = str((previous.get("review_example_provider", "") if review_example_provider is None else review_example_provider) or "").strip()[:80]
     default_provider = str(previous.get("default_provider") or "").strip()
     default_models = dict(previous.get("default_models") or {}) \
         if isinstance(previous.get("default_models"), dict) else {}
@@ -401,6 +401,8 @@ def save_api_config(api_key: str, api_base: str, model: str, temperature: float 
         "api_key_storage": key_storage,
         "api_base": api_base,
         "model": model,
+        "review_example_model": review_example_model,
+        "review_example_provider": review_example_provider,
         "provider": provider_id,
         "default_provider": default_provider,
         "default_models": default_models,
@@ -722,7 +724,7 @@ def extract_vocabulary_with_ai(
     force_refresh: bool = False,
     token_callback: Optional[Callable[[dict], None]] = None,
     should_abort: Optional[Callable[[], bool]] = None,
-    kind: str = "vocab",
+    kind: str = "vocab", generation_request: bool = False,
 ) -> list:
     """
     Gửi văn bản đến AI API để trích xuất từ vựng. Cache thông minh.
@@ -744,9 +746,10 @@ def extract_vocabulary_with_ai(
     if should_abort and should_abort():
         raise RuntimeError(t("error_cancelled_by_user"))
 
+    cache_instruction = f"[direct-card-generation]\n{custom_instruction}" if generation_request else custom_instruction
     # Cache
     if not force_refresh:
-        cached = _ai_cache_get(text, lang, custom_instruction, existing_hash, kind=kind)
+        cached = _ai_cache_get(text, lang, cache_instruction, existing_hash, kind=kind)
         if cached is not None and cache_payload_is_compatible(cached, lang=lang, kind=kind):
             if progress_callback:
                 progress_callback(t("status_cache_vocab", count=len(cached)))
@@ -770,14 +773,10 @@ def extract_vocabulary_with_ai(
 
     # User message: text + existing words context (đã lọc gọn để tiết kiệm token)
     is_collocation = kind == "collocation"
-    request = (
-        ("Extract high-value collocations, chunks, and idioms from the following text:"
-         if is_collocation else "Extract all vocabulary from the following text:")
-        if _ui_lang_en() else
-        ("Hãy trích xuất collocation, cụm từ và thành ngữ đáng học từ văn bản sau:"
-         if is_collocation else "Hãy trích xuất tất cả từ vựng từ văn bản sau:")
+    user_msg = build_card_request_message(
+        text, kind=kind, ui_language_is_english=_ui_lang_en(),
+        generation_request=generation_request,
     )
-    user_msg = f"{request}\n\n{text}"
 
     if existing_words and len(existing_words) > 0:
         label = (("CHUNKS" if _ui_lang_en() else "CỤM TỪ") if is_collocation
@@ -872,7 +871,7 @@ def extract_vocabulary_with_ai(
 
     # Lưu cache
     if vocab_list:
-        _ai_cache_set(text, lang, custom_instruction, existing_hash, vocab_list, kind=kind)
+        _ai_cache_set(text, lang, cache_instruction, existing_hash, vocab_list, kind=kind)
 
     return vocab_list
 
@@ -1370,7 +1369,7 @@ def extract_grammar_with_ai(
     progress_callback: Optional[Callable[[str], None]] = None,
     force_refresh: bool = False,
     token_callback: Optional[Callable[[dict], None]] = None,
-    should_abort: Optional[Callable[[], bool]] = None,
+    should_abort: Optional[Callable[[], bool]] = None, generation_request: bool = False,
 ) -> list:
     """
     Gửi văn bản đến AI API để trích xuất CẤU TRÚC NGỮ PHÁP (khác từ vựng).
@@ -1390,9 +1389,10 @@ def extract_grammar_with_ai(
     if should_abort and should_abort():
         raise RuntimeError(t("error_cancelled_by_user"))
 
+    cache_instruction = f"[direct-card-generation]\n{custom_instruction}" if generation_request else custom_instruction
     # Cache
     if not force_refresh:
-        cached = _ai_cache_get(text, lang, custom_instruction, existing_hash, kind="grammar")
+        cached = _ai_cache_get(text, lang, cache_instruction, existing_hash, kind="grammar")
         if cached is not None and cache_payload_is_compatible(cached, lang=lang, kind="grammar"):
             if progress_callback:
                 progress_callback(t("status_cache_grammar", count=len(cached)))
@@ -1415,9 +1415,10 @@ def extract_grammar_with_ai(
         progress_callback(t("status_calling_model", model=cfg["model"]))
 
     # User message: text + existing patterns context (đã lọc gọn để tiết kiệm token)
-    request = "Extract all grammar patterns from the following text:" if _ui_lang_en() \
-        else "Hãy trích xuất tất cả cấu trúc ngữ pháp từ văn bản sau:"
-    user_msg = f"{request}\n\n{text}"
+    user_msg = build_card_request_message(
+        text, kind="grammar", ui_language_is_english=_ui_lang_en(),
+        generation_request=generation_request,
+    )
 
     if existing_patterns and len(existing_patterns) > 0:
         label = "GRAMMAR PATTERNS" if _ui_lang_en() else "CẤU TRÚC NGỮ PHÁP"
@@ -1517,7 +1518,7 @@ def extract_grammar_with_ai(
 
     # Lưu cache
     if grammar_list:
-        _ai_cache_set(text, lang, custom_instruction, existing_hash, grammar_list, kind="grammar")
+        _ai_cache_set(text, lang, cache_instruction, existing_hash, grammar_list, kind="grammar")
 
     return grammar_list
 

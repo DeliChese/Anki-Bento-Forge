@@ -201,6 +201,7 @@ def _translated_language_label(lang, grammar=False):
 #  MAIN DIALOG
 # ═══════════════════════════════════════════════════════════
 class AnkiSmartFactory(QDialog):
+    import_commit_progress = pyqtSignal(int, int)
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -246,6 +247,7 @@ class AnkiSmartFactory(QDialog):
         self._analyze_timer.timeout.connect(self._analyze_content)
         self._ui_ready = False
         self._setup_ui()
+        self.import_commit_progress.connect(self._on_import_commit_progress)
         self._ui_ready = True
         stored_learning_mode = self._deck_learning_mode()
         # A dormant beta must not reopen merely because an older deck saved
@@ -739,10 +741,6 @@ class AnkiSmartFactory(QDialog):
         )
         self.btn_ai_settings.clicked.connect(self._show_ai_settings)
         ai_bar.addWidget(self.btn_ai_settings)
-        # Provider/model settings live in the unified Workshop header.  Keep
-        # the object for compatibility with running workflows, but remove the
-        # duplicate visible entry from the compact Factory gateway.
-        self.btn_ai_settings.setVisible(False)
 
         self.btn_ai_clear_text = QPushButton(t("ai_clear_text_btn"))
         self.btn_ai_clear_text.setStyleSheet(
@@ -760,6 +758,15 @@ class AnkiSmartFactory(QDialog):
         self.btn_ai_extract.clicked.connect(self._ai_extract)
         self.btn_ai_extract.setEnabled(True)
         ai_bar.addWidget(self.btn_ai_extract)
+
+        self.btn_ai_card_chat = QPushButton(t("ai_card_chat_btn"))
+        self.btn_ai_card_chat.setStyleSheet(
+            "padding:5px 10px;background:#16a085;color:white;"
+            "font-weight:bold;border-radius:6px;border:none;font-size:13px;"
+        )
+        self.btn_ai_card_chat.setToolTip(t("ai_card_chat_tip"))
+        self.btn_ai_card_chat.clicked.connect(self._open_card_creation_chat)
+        ai_bar.addWidget(self.btn_ai_card_chat)
 
         # Clear belongs after the production actions, not before the primary
         # Workshop entry.
@@ -1240,6 +1247,7 @@ class AnkiSmartFactory(QDialog):
             (self.ai_text_input, t("ai_input_accessible_name")),
             (self.ai_instruction, t("ai_instruction_label")),
             (self.btn_ai_extract, t("ai_extract_btn")),
+            (self.btn_ai_card_chat, t("ai_card_chat_btn")),
             (self.json_input, t("json_input_label")),
             (self.cbo_level, t("filter_level_label")),
             (self.txt_topic, t("filter_topic_label")),
@@ -1422,6 +1430,8 @@ class AnkiSmartFactory(QDialog):
             self.json_grp.setTitle(t("factory_artifact_panel_title"))
             self.btn_ai_settings.setText(t("ai_settings_btn"))
             self.btn_ai_clear_text.setText(t("ai_clear_text_btn"))
+            self.btn_ai_card_chat.setText(t("ai_card_chat_btn"))
+            self.btn_ai_card_chat.setToolTip(t("ai_card_chat_tip"))
             if self._learning_mode == "knowledge":
                 self.btn_ai_extract.setText(t("knowledge_generate_btn"))
                 self.btn_ai_extract.setToolTip(t("knowledge_generate_tip"))
@@ -1679,6 +1689,8 @@ class AnkiSmartFactory(QDialog):
             widget.setVisible(is_language)
         for widget in (self.btn_ai_extract, self.btn_sample, self.btn_verify):
             widget.setVisible(True)
+        if hasattr(self, "btn_ai_card_chat"):
+            self.btn_ai_card_chat.setVisible(is_language)
         self.filter_grp.setVisible(True)
         for widget in (
             self.lbl_level, self.cbo_level, self.lbl_topic, self.txt_topic,
@@ -2921,6 +2933,7 @@ class AnkiSmartFactory(QDialog):
         self.pbar.setVisible(True)
 
         self._import_cancel_event = threading.Event()
+        self._import_audio_task_count = 0
         self.btn_learning_language.setEnabled(False)
         self.btn_learning_knowledge.setEnabled(False)
         for entry in batch:
@@ -2941,6 +2954,9 @@ class AnkiSmartFactory(QDialog):
         """Run only network/TTS work outside Anki's collection executor."""
         if self._import_cancel_event is None or self._import_cancel_event.is_set():
             return
+        self._import_audio_task_count = len(audio_tasks)
+        self.pbar.setMaximum(len(audio_tasks) + len(batch))
+        self.pbar.setValue(0)
         if not audio_tasks:
             self._commit_import(batch, cfg, deck_id, {})
             return
@@ -2956,14 +2972,19 @@ class AnkiSmartFactory(QDialog):
     def _commit_import(self, batch, cfg, deck_id, audio_tags):
         if self._import_cancel_event is None or self._import_cancel_event.is_set():
             return
+        audio_count = int(getattr(self, "_import_audio_task_count", 0))
+        self.pbar.setMaximum(audio_count + len(batch))
+        self.pbar.setValue(audio_count)
         self.lbl_status.setText(t("status_saving_notes"))
+        progress = lambda current, total: self.import_commit_progress.emit(current, total)
         operation = (
             (lambda col: apply_knowledge_import(
-                col, batch, deck_id, self._import_cancel_event.is_set
+                col, batch, deck_id, self._import_cancel_event.is_set, progress
             ))
             if getattr(self, "_import_learning_mode", "language") == "knowledge"
             else (lambda col: apply_import(
-                col, batch, cfg, deck_id, audio_tags, self._import_cancel_event.is_set
+                col, batch, cfg, deck_id, audio_tags,
+                self._import_cancel_event.is_set, progress,
             ))
         )
         run_collection(
@@ -2976,12 +2997,19 @@ class AnkiSmartFactory(QDialog):
     def _on_import_progress(self, current, status_text):
         self.pbar.setValue(current)
         self.lbl_status.setText(status_text)
-        mw.app.processEvents()
+
+    def _on_import_commit_progress(self, current, total):
+        audio_count = int(getattr(self, "_import_audio_task_count", 0))
+        self.pbar.setValue(audio_count + current)
+        self.lbl_status.setText(t(
+            "status_saving_progress", current=current, total=total,
+        ))
 
     def _on_import_finished(self, report):
         if self._import_cancel_event is None or self._import_cancel_event.is_set():
             return
         mw.reset()
+        self.pbar.setValue(self.pbar.maximum())
         self.pbar.setVisible(False)
         self.btn_cancel.setVisible(False)
         self.btn_import.setEnabled(True)
@@ -3358,6 +3386,120 @@ class AnkiSmartFactory(QDialog):
             remaining_tokens=remaining_tokens, remaining_cost=remaining_cost,
         ), parent=self)
 
+    def _open_card_creation_chat(self):
+        """Collect a natural-language card request without requiring a source document."""
+        if getattr(self, "_learning_mode", "language") != "language":
+            return
+
+        dialog = QDialog(self)
+        dialog.setWindowTitle(t("ai_card_chat_title"))
+        dialog.setMinimumWidth(520)
+        layout = QVBoxLayout(dialog)
+        intro = QLabel(t("ai_card_chat_intro"))
+        intro.setWordWrap(True)
+        intro.setStyleSheet("color:rgba(234,240,246,0.82);font-size:12px;")
+        layout.addWidget(intro)
+
+        request_input = QPlainTextEdit(dialog)
+        request_input.setObjectName("forgeCardCreationChatInput")
+        request_input.setPlaceholderText(t("ai_card_chat_placeholder"))
+        request_input.setMinimumHeight(150)
+        request_input.setAccessibleName(t("ai_card_chat_request_label"))
+        layout.addWidget(QLabel(t("ai_card_chat_request_label")))
+        layout.addWidget(request_input)
+
+        note = QLabel(t("ai_card_chat_note", count=self._current_ai_card_count()))
+        note.setWordWrap(True)
+        note.setProperty("class", "dim")
+        layout.addWidget(note)
+
+        buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Cancel)
+        create_button = buttons.addButton(
+            t("ai_card_chat_submit"), QDialogButtonBox.ButtonRole.AcceptRole,
+        )
+        create_button.setDefault(True)
+        create_button.clicked.connect(dialog.accept)
+        buttons.rejected.connect(dialog.reject)
+        layout.addWidget(buttons)
+
+        request_input.setFocus()
+        if dialog.exec() != QDialog.DialogCode.Accepted:
+            return
+        request = request_input.toPlainText().strip()
+        if not request:
+            tooltip(t("ai_card_chat_empty"))
+            return
+        self._ai_generate_cards_from_chat(request)
+
+    def _ai_generate_cards_from_chat(self, request):
+        """Run the normal Preview-first workflow for a direct generation request."""
+        request = str(request or "").strip()
+        if not request:
+            tooltip(t("ai_card_chat_empty"))
+            return
+        if len(request) > SMALL_RUN_MAX_SOURCE_CHARS:
+            showInfo(t(
+                "small_run_source_too_large",
+                length=len(request),
+                limit=SMALL_RUN_MAX_SOURCE_CHARS,
+            ))
+            return
+
+        cfg_api = get_api_config()
+        if not self._ensure_ai_access(cfg_api):
+            return
+        self._warn_reasoner_model()
+
+        custom_instr = self._current_ai_instruction()
+        requested_cards = self._current_ai_card_count()
+        try:
+            history_entries = get_import_history(
+                lang=self._current_lang, limit=500,
+            ).get("words", [])
+        except Exception as error:
+            logger.warning("Không tải được lịch sử đối chiếu AI: %s", error)
+            history_entries = []
+
+        self.btn_ai_extract.setEnabled(False)
+        self.btn_ai_card_chat.setEnabled(False)
+        self.btn_ai_settings.setEnabled(False)
+        self.btn_ai_clear_text.setEnabled(False)
+        self.btn_learning_language.setEnabled(False)
+        self.btn_learning_knowledge.setEnabled(False)
+        self.lbl_ai_status.setText(t("status_scanning_deck"))
+        self.lbl_ai_status.setStyleSheet("color:#e67e22;font-size:11px;font-weight:bold;")
+        self.btn_ai_stop.setVisible(True)
+        mw.app.processEvents()
+
+        self._ai_pending_text = request
+        self._ai_pending_instr = custom_instr
+        self._ai_pending_card_count = requested_cards
+        self._ai_pending_history_entries = history_entries
+        self._ai_pending_generation_request = True
+        self._ai_workflow.begin()
+
+        cfg = self._cfg()
+        deck_name = self.deck_chooser.currentText()
+        if deck_name:
+            try:
+                deck_id = mw.col.decks.id(deck_name)
+                run_query(
+                    self,
+                    lambda col: get_existing_vocab_from_deck(
+                        cfg["model_name"], cfg["front_field"], collection=col, deck_id=deck_id,
+                    ),
+                    self._on_deck_scan_finished,
+                    self._on_deck_scan_error,
+                )
+                return
+            except Exception as error:
+                logger.warning("Lỗi khởi tạo deck scan cho chat tạo thẻ: %s", error)
+
+        self._start_ai_extract(
+            request, custom_instr, [], requested_cards, history_entries,
+            generation_request=True,
+        )
+
     def _ai_extract(self):
         """Quét deck → gọi AI với context tránh trùng → preview"""
         text = normalize_extraction_source(self.ai_text_input.toPlainText())
@@ -3428,6 +3570,7 @@ class AnkiSmartFactory(QDialog):
         self._ai_pending_instr = custom_instr
         self._ai_pending_card_count = requested_cards
         self._ai_pending_history_entries = history_entries
+        self._ai_pending_generation_request = False
         self._ai_workflow.begin()
 
         # Collection reads use Anki's serialized QueryOp; the following AI
@@ -3471,6 +3614,7 @@ class AnkiSmartFactory(QDialog):
             text, instr, existing_words,
             getattr(self, "_ai_pending_card_count", SMALL_RUN_DEFAULT_CARDS),
             getattr(self, "_ai_pending_history_entries", []),
+            generation_request=getattr(self, "_ai_pending_generation_request", False),
         )
 
     def _on_deck_scan_error(self, err_msg):
@@ -3481,10 +3625,12 @@ class AnkiSmartFactory(QDialog):
             text, instr, [],
             getattr(self, "_ai_pending_card_count", SMALL_RUN_DEFAULT_CARDS),
             getattr(self, "_ai_pending_history_entries", []),
+            generation_request=getattr(self, "_ai_pending_generation_request", False),
         )
 
     def _start_ai_extract(self, text, custom_instr, existing_words,
-                          max_cards=SMALL_RUN_DEFAULT_CARDS, history_entries=None):
+                          max_cards=SMALL_RUN_DEFAULT_CARDS, history_entries=None,
+                          generation_request=False):
         """Khởi động AI extract thread sau khi đã có existing_words"""
         if self._ai_workflow.is_cancelled():
             return
@@ -3509,6 +3655,7 @@ class AnkiSmartFactory(QDialog):
             learning_mode=getattr(self, "_learning_mode", "language"),
             max_cards=max_cards,
             history_entries=history_entries,
+            generation_request=generation_request,
             on_progress=self._on_ai_progress,
             on_finished=self._on_ai_finished,
             on_error=self._on_ai_error,
@@ -3548,6 +3695,7 @@ class AnkiSmartFactory(QDialog):
 
     def _enable_ai_buttons(self):
         self.btn_ai_extract.setEnabled(True)
+        self.btn_ai_card_chat.setEnabled(True)
         self.btn_ai_settings.setEnabled(True)
         self.btn_ai_clear_text.setEnabled(True)
         self.btn_mode_vocab.setEnabled(True)

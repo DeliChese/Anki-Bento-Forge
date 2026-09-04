@@ -11,11 +11,11 @@ LANG_CONFIG = {
     ],
     "all_fields": [
         "Front", "Pronunciation", "Meaning", "Usage Pattern", "Usage Note", "Collocation", "Semantic Group", "Relationship Note", "Register / Nuance", "Related Terms", "CEFR Level", "Topic",
-        "Example", "Example Fill", "Example in Vietnamese", "Vocab Audio", "Example Audio",
-        "Example2", "Example2 Fill", "Example2 in Vietnamese", "Example2 Audio",
-        "Example3", "Example3 in Vietnamese", "Example3 Audio",
-        "Example4", "Example4 in Vietnamese", "Example4 Audio",
-        "Image", "SRS Independent",
+        "Example", "Example Fill", "Example Pronunciation", "Example in Vietnamese", "Vocab Audio", "Example Audio",
+        "Example2", "Example2 Fill", "Example2 Pronunciation", "Example2 in Vietnamese", "Example2 Audio",
+        "Example3", "Example3 Pronunciation", "Example3 in Vietnamese", "Example3 Audio",
+        "Example4", "Example4 Pronunciation", "Example4 in Vietnamese", "Example4 Audio",
+        "Example Versions", "Image", "SRS Independent",
     ],
     "json_field_map": {
         "front": "Front",
@@ -80,10 +80,11 @@ GRAMMAR_CONFIG = {
     "all_fields": [
         "Pattern", "Pronunciation", "Meaning", "CEFR Level", "Topic",
         "Usage", "Explanation",
-        "Example", "Example in Vietnamese", "Example Audio",
-        "Example2", "Example2 in Vietnamese", "Example2 Audio", "Image",
-        "Example3", "Example3 in Vietnamese", "Example3 Audio",
-        "Example4", "Example4 in Vietnamese", "Example4 Audio",
+        "Example", "Example Pronunciation", "Example in Vietnamese", "Example Audio",
+        "Example2", "Example2 Pronunciation", "Example2 in Vietnamese", "Example2 Audio", "Image",
+        "Example3", "Example3 Pronunciation", "Example3 in Vietnamese", "Example3 Audio",
+        "Example4", "Example4 Pronunciation", "Example4 in Vietnamese", "Example4 Audio",
+        "Example Versions",
     ],
     "json_field_map": {
         "pattern": "Pattern",

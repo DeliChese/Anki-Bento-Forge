@@ -408,6 +408,28 @@ def show_ai_settings_dialog(parent):
     cbo_model.setMinimumHeight(32)
     cf.addRow(QLabel(f"<b>{t('ai_set_model_label')}</b>"), cbo_model)
 
+    cbo_review_example_provider = QComboBox()
+    cbo_review_example_provider.setMinimumHeight(32)
+    cbo_review_example_provider.setToolTip(t("ai_set_review_example_provider_tip"))
+    cbo_review_example_provider.addItem(
+        t("ai_set_review_example_provider_inherit"), "",
+    )
+    for provider in AI_PROVIDERS:
+        cbo_review_example_provider.addItem(provider["name"], provider["id"])
+    cf.addRow(
+        QLabel(f"<b>{t('ai_set_review_example_provider_label')}</b>"),
+        cbo_review_example_provider,
+    )
+
+    cbo_review_example_model = QComboBox()
+    cbo_review_example_model.setEditable(True)
+    cbo_review_example_model.setMinimumHeight(32)
+    cbo_review_example_model.setToolTip(t("ai_set_review_example_model_tip"))
+    cf.addRow(
+        QLabel(f"<b>{t('ai_set_review_example_model_label')}</b>"),
+        cbo_review_example_model,
+    )
+
     lv.addWidget(conn_grp)
     lv.addStretch(1)
 
@@ -530,8 +552,32 @@ def show_ai_settings_dialog(parent):
             return data.get("id", "")
         return data or ""
 
+    def _populate_review_example_models(keep_current_model=False):
+        current_model = cbo_review_example_model.currentText().strip()
+        review_provider_id = str(cbo_review_example_provider.currentData() or "")
+        main_provider_id = _provider_id_from_data(cbo_provider.currentData())
+        provider = get_provider(review_provider_id or main_provider_id)
+        cbo_review_example_model.blockSignals(True)
+        cbo_review_example_model.clear()
+        cbo_review_example_model.addItem(t("ai_set_review_example_model_inherit"), "")
+        if provider:
+            for model_name in provider["models"]:
+                cbo_review_example_model.addItem(model_name, model_name)
+        saved_model = str(cfg.get("review_example_model") or "").strip()
+        desired_model = current_model if keep_current_model and current_model else saved_model
+        if desired_model:
+            index = cbo_review_example_model.findText(desired_model)
+            if index >= 0:
+                cbo_review_example_model.setCurrentIndex(index)
+            else:
+                cbo_review_example_model.setEditText(desired_model)
+        else:
+            cbo_review_example_model.setCurrentIndex(0)
+        cbo_review_example_model.blockSignals(False)
+
     def _apply_provider(provider_id, keep_current_model=False):
         current_model = cbo_model.currentText().strip()
+        current_review_model = cbo_review_example_model.currentText().strip()
         prow = get_provider(provider_id) if provider_id != "__custom__" else None
 
         cbo_provider.set_glow_color((prow or {}).get("color", "#8d9aae"))
@@ -577,6 +623,10 @@ def show_ai_settings_dialog(parent):
             cbo_model.setEditText(current_model)
         cbo_model.blockSignals(False)
 
+        # An inherited reviewer provider follows the main provider's model list.
+        if not cbo_review_example_provider.currentData():
+            _populate_review_example_models(keep_current_model=keep_current_model)
+
         if prow:
             # Effort mặc định: chỉ có ý nghĩa với model OpenAI o-series → để auto
             pass
@@ -590,6 +640,13 @@ def show_ai_settings_dialog(parent):
             cbo_provider.start_glow(3500)
 
     cbo_provider.currentIndexChanged.connect(_on_provider_changed)
+
+    def _on_review_example_provider_changed(_index):
+        _populate_review_example_models(keep_current_model=False)
+
+    cbo_review_example_provider.currentIndexChanged.connect(
+        _on_review_example_provider_changed
+    )
 
     def _find_provider_index(provider_id):
         """Tìm index item combo theo provider id.
@@ -615,6 +672,11 @@ def show_ai_settings_dialog(parent):
     if idx < 0:
         idx = _find_provider_index("__custom__")
     cbo_provider.setCurrentIndex(idx)
+    review_provider_id = str(cfg.get("review_example_provider") or "")
+    review_provider_index = cbo_review_example_provider.findData(review_provider_id)
+    cbo_review_example_provider.setCurrentIndex(
+        review_provider_index if review_provider_index >= 0 else 0
+    )
     _apply_provider(target_id, keep_current_model=False)
     # Giữ model người dùng đang cấu hình (nếu nó có trong list provider)
     if (
@@ -667,7 +729,16 @@ def show_ai_settings_dialog(parent):
 
     def save_settings(*, make_default=False, close_dialog=True):
         provider_id = _provider_id_from_data(cbo_provider.currentData())
+        review_example_provider = str(cbo_review_example_provider.currentData() or "")
         selected_model = cbo_model.currentText().strip()
+        review_example_model = (
+            ""
+            if (
+                cbo_review_example_model.currentIndex() == 0
+                and cbo_review_example_model.currentData() == ""
+            )
+            else cbo_review_example_model.currentText().strip()
+        )
         saved = save_api_config(
             txt_key.text().strip(),
             txt_base.text().strip(),
@@ -681,6 +752,8 @@ def show_ai_settings_dialog(parent):
             spin_session_cost.value(),
             provider_id,
             make_default=make_default,
+            review_example_model=review_example_model,
+            review_example_provider=review_example_provider,
         )
         if make_default:
             preferred_models[provider_id or "__custom__"] = selected_model

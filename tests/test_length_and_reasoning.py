@@ -57,6 +57,61 @@ class TestApiConfigExtras:
             assert saved["chunk_size"] == 15000      # chunk bị cap 15k để tránh tràn output
             assert saved["reasoning_effort"] == ""
 
+    def test_reviewer_example_model_can_override_main_model(self):
+        from utils.review_example_ai import get_review_example_api_config
+        with patch("utils.review_example_ai.core.get_api_config", return_value={
+            "model": "main-model", "review_example_model": "example-model",
+        }):
+            cfg = get_review_example_api_config()
+        assert cfg["model"] == "example-model"
+
+    def test_reviewer_example_model_empty_inherits_main_model(self):
+        from utils.review_example_ai import get_review_example_api_config
+        with patch("utils.review_example_ai.core.get_api_config", return_value={
+            "model": "main-model", "review_example_model": "",
+        }):
+            cfg = get_review_example_api_config()
+        assert cfg["model"] == "main-model"
+
+    def test_reviewer_example_can_use_another_provider(self):
+        from utils.review_example_ai import get_review_example_api_config
+        with patch("utils.review_example_ai.core.get_api_config", return_value={
+            "provider": "deepseek", "api_base": "https://api.deepseek.com/v1",
+            "api_key": "main-key", "model": "main-model",
+            "review_example_provider": "openai", "review_example_model": "example-model",
+        }), patch(
+            "utils.review_example_ai.core.get_api_key_for_provider",
+            return_value="example-key",
+        ) as get_key:
+            cfg = get_review_example_api_config()
+        assert cfg["provider"] == "openai"
+        assert cfg["api_base"] == "https://api.openai.com/v1"
+        assert cfg["api_key"] == "example-key"
+        assert cfg["model"] == "example-model"
+        get_key.assert_called_once_with("openai", "https://api.openai.com/v1")
+
+    def test_save_persists_reviewer_example_model(self):
+        from utils.ai_extractor import save_api_config
+        with patch("utils.ai_extractor._load_config", return_value={}), patch(
+            "utils.ai_extractor._save_config"
+        ) as save, patch("utils.ai_extractor.save_api_key", return_value=True):
+            save_api_config(
+                "k", "https://x/v1", "main-model",
+                review_example_model="example-model",
+            )
+        assert save.call_args.args[0]["review_example_model"] == "example-model"
+
+    def test_save_persists_reviewer_example_provider(self):
+        from utils.ai_extractor import save_api_config
+        with patch("utils.ai_extractor._load_config", return_value={}), patch(
+            "utils.ai_extractor._save_config"
+        ) as save, patch("utils.ai_extractor.save_api_key", return_value=True):
+            save_api_config(
+                "k", "https://x/v1", "main-model",
+                review_example_provider="openai",
+            )
+        assert save.call_args.args[0]["review_example_provider"] == "openai"
+
 
 class TestReasoningEffort:
     def test_adds_when_set(self):

@@ -134,6 +134,13 @@ def _on_js_message(handled, message, context):
             from hooks.reviewer import open_companion_from_reviewer
             open_companion_from_reviewer(context)
             return (True, None)
+        if message and message.startswith("bento_example:open:"):
+            slot = int(message.rsplit(":", 1)[1])
+            if slot not in (1, 2, 3, 4):
+                return handled
+            from hooks.reviewer import open_example_regenerator_from_reviewer
+            open_example_regenerator_from_reviewer(context, slot)
+            return (True, None)
     except Exception as e:
         logger.warning("Lỗi xử lý webview message: %s", e)
     return handled

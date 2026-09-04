@@ -205,6 +205,19 @@ def _small_run_instruction(custom_instruction, max_cards=SMALL_RUN_DEFAULT_CARDS
     return "\n".join(part for part in (custom, history_context, limit) if part)
 
 
+def _small_run_generation_instruction(custom_instruction, max_cards=SMALL_RUN_DEFAULT_CARDS,
+                                      history_context=""):
+    """Constrain direct card-generation requests that have no source material."""
+    max_cards = clamp_small_run_card_count(max_cards)
+    limit = (
+        "YÊU CẦU NÀY KHÔNG KÈM TÀI LIỆU NGUỒN. Hãy trực tiếp đề xuất tối đa "
+        f"{max_cards} thẻ phù hợp nhất với mục tiêu người học; không nói rằng thẻ được "
+        "trích xuất từ tài liệu và không mô tả quy trình. Chỉ trả dữ liệu thẻ theo JSON schema."
+    )
+    custom = str(custom_instruction or "").strip()
+    return "\n".join(part for part in (custom, history_context, limit) if part)
+
+
 class AzureVoiceRefreshThread(QThread):
     """Fetch the Azure Neural catalogue away from the Qt UI thread."""
 
@@ -276,7 +289,8 @@ class AiExtractThread(QThread):
 
     def __init__(self, text, lang, custom_instruction="", existing_words=None, grammar=False,
                  cancel_event=None, learning_mode="language", card_kind=None,
-                 max_cards=SMALL_RUN_DEFAULT_CARDS, history_entries=None):
+                 max_cards=SMALL_RUN_DEFAULT_CARDS, history_entries=None,
+                 generation_request=False):
         super().__init__()
         self.text = text
         self.lang = lang
@@ -287,6 +301,7 @@ class AiExtractThread(QThread):
         self.learning_mode = learning_mode
         self.max_cards = clamp_small_run_card_count(max_cards)
         self.history_entries = list(history_entries or [])
+        self.generation_request = bool(generation_request)
         self.cancel_event = cancel_event or threading.Event()
 
     def run(self):
@@ -304,7 +319,8 @@ class AiExtractThread(QThread):
             explicit_items = (
                 parse_explicit_vocabulary_items(source)
                 if (self.learning_mode == "language"
-                    and self.card_kind == "vocab" and not self.grammar)
+                    and self.card_kind == "vocab" and not self.grammar
+                    and not self.generation_request)
                 else []
             )
             if len(explicit_items) > SMALL_RUN_MAX_CARDS:
@@ -331,14 +347,19 @@ class AiExtractThread(QThread):
             history_context = build_relevant_history_context(
                 source, self.history_entries, self.custom_instruction,
             ) if self.learning_mode == "language" else ""
-            generation_instruction = _small_run_instruction(
-                self.custom_instruction,
-                effective_max_cards,
-                history_context,
-                explicit_vocabulary_items=[
-                    candidate["front"] for candidate in expected_candidates
-                ],
-            )
+            if self.generation_request:
+                generation_instruction = _small_run_generation_instruction(
+                    self.custom_instruction, effective_max_cards, history_context,
+                )
+            else:
+                generation_instruction = _small_run_instruction(
+                    self.custom_instruction,
+                    effective_max_cards,
+                    history_context,
+                    explicit_vocabulary_items=[
+                        candidate["front"] for candidate in expected_candidates
+                    ],
+                )
 
             if self.learning_mode == "knowledge":
                 self.progress.emit(t("worker_progress_knowledge"))
@@ -359,6 +380,7 @@ class AiExtractThread(QThread):
                     existing_patterns=self.existing_words,
                     progress_callback=lambda msg: self.progress.emit(msg),
                     should_abort=self.cancel_event.is_set,
+                    generation_request=self.generation_request,
                 )
                 empty_msg = t("empty_grammar")
             else:
@@ -374,6 +396,7 @@ class AiExtractThread(QThread):
                     progress_callback=lambda msg: self.progress.emit(msg),
                     should_abort=self.cancel_event.is_set,
                     kind=self.card_kind,
+                    generation_request=self.generation_request,
                 )
                 empty_msg = t(
                     "empty_collocation" if self.card_kind == "collocation" else "empty_vocab"

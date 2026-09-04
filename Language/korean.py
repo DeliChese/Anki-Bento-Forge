@@ -15,7 +15,7 @@ LANG_CONFIG = {
         "Example2", "Example2 Fill", "Example2 Romanization", "Example2 in Vietnamese", "Example2 Audio",
         "Example3", "Example3 Romanization", "Example3 in Vietnamese", "Example3 Audio",
         "Example4", "Example4 Romanization", "Example4 in Vietnamese", "Example4 Audio",
-        "Image", "SRS Independent",
+        "Example Versions", "Image", "SRS Independent",
     ],
     "json_field_map": {
         "front":                "Front",
@@ -91,7 +91,7 @@ GRAMMAR_CONFIG = {
         "Example2", "Example2 Romanization", "Example2 in Vietnamese", "Example2 Audio",
         "Example3", "Example3 Romanization", "Example3 in Vietnamese", "Example3 Audio",
         "Example4", "Example4 Romanization", "Example4 in Vietnamese", "Example4 Audio",
-        "Image",
+        "Example Versions", "Image",
     ],
     "json_field_map": {
         "pattern":                "Pattern",

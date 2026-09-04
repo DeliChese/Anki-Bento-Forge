@@ -17,6 +17,26 @@ from utils.i18n import t
 logger = get_logger()
 _REGISTERED_HOOKS = set()
 
+
+def _resolve_reviewer(hook_arg):
+    """Return the Reviewer for both legacy and current Anki hook signatures."""
+    if callable(getattr(getattr(hook_arg, "web", None), "eval", None)):
+        return hook_arg
+    try:
+        from aqt import mw
+        reviewer = getattr(mw, "reviewer", None)
+        if not callable(getattr(getattr(reviewer, "web", None), "eval", None)):
+            return None
+        hook_card_id = getattr(hook_arg, "id", None)
+        active_card_id = getattr(getattr(reviewer, "card", None), "id", None)
+        if isinstance(hook_card_id, int) and isinstance(active_card_id, int):
+            if hook_card_id != active_card_id:
+                return None
+        return reviewer
+    except Exception as error:
+        logger.debug("Reviewer hook context unavailable: %s", error)
+        return None
+
 _AI_CONTEXT_FIELDS = {
     "front": "front", "simplified": "simplified", "traditional": "traditional",
     "word": "front", "vocabulary": "front", "term": "front", "expression": "front",
@@ -34,15 +54,23 @@ _AI_CONTEXT_FIELDS = {
     "level": "level", "topic": "topic",
     "example pinyin": "example_pinyin",
     "example romanization": "example_romanization",
+    "example reading": "example_reading",
+    "example pronunciation": "example_pronunciation",
     "example in vietnamese": "example_vn", "example2": "example2",
     "example2 pinyin": "example2_pinyin",
     "example2 romanization": "example2_romanization",
+    "example2 reading": "example2_reading",
+    "example2 pronunciation": "example2_pronunciation",
     "example2 in vietnamese": "example2_vn", "example3": "example3",
     "example3 pinyin": "example3_pinyin",
     "example3 romanization": "example3_romanization",
+    "example3 reading": "example3_reading",
+    "example3 pronunciation": "example3_pronunciation",
     "example3 in vietnamese": "example3_vn", "example4": "example4",
     "example4 pinyin": "example4_pinyin",
     "example4 romanization": "example4_romanization",
+    "example4 reading": "example4_reading",
+    "example4 pronunciation": "example4_pronunciation",
     "example4 in vietnamese": "example4_vn", "question": "question",
     "answer": "answer", "concept": "concept",
 }
@@ -303,6 +331,7 @@ def get_current_card_snapshot(reviewer, side=None):
             "note_type": model_name,
             "side": side or getattr(reviewer, "_bento_forge_side", "question"),
             "card_id": getattr(card, "id", ""),
+            "note_id": getattr(note, "id", "") if note is not None else "",
             "study_mode": get_study_mode(getattr(card, "did", None)),
         }
         try:
@@ -328,7 +357,11 @@ def get_current_card_snapshot(reviewer, side=None):
             )
             if current_target:
                 snapshot["current_target"] = current_target
-            snapshot["card_kind"] = "grammar" if is_grammar else "vocabulary"
+            snapshot["card_kind"] = (
+                "grammar" if is_grammar
+                else "collocation" if "collocation" in model_name.casefold()
+                else "vocabulary"
+            )
         return snapshot
     except Exception as error:
         log_event(
@@ -357,6 +390,125 @@ def open_companion_from_reviewer(context):
         language=str((snapshot or {}).get("language") or ""),
     )
 
+
+def _example_review_payload(reviewer, snapshot):
+    if not snapshot or not snapshot.get("language"):
+        return None
+    try:
+        from utils.example_note_ops import read_example_state
+        note = reviewer.card.note()
+        slots = {}
+        for slot in range(1, 5):
+            state = read_example_state(note, snapshot["language"], slot)
+            record = (
+                state["versions"][state["active"]]
+                if 0 <= state["active"] < len(state["versions"]) else {}
+            )
+            slots[str(slot)] = {
+                "current": state["active"] + 1 if state["active"] >= 0 else 0,
+                "total": len(state["versions"]),
+                "reading": str(record.get("reading") or ""),
+            }
+        return {"slots": slots}
+    except Exception as error:
+        logger.debug("Example regeneration payload unavailable: %s", error)
+        return None
+
+
+def _inject_example_regeneration(reviewer, snapshot):
+    """Add one opt-in version action to each Example 1–4 block."""
+    payload = _example_review_payload(reviewer, snapshot)
+    if payload is None:
+        return False
+    copy = {
+        "action": t("example_regen_action", current="{current}", total="{total}"),
+        "empty": t("example_regen_empty"),
+    }
+    try:
+        reviewer.web.eval(f"""
+            (() => {{
+              const data = {json.dumps(payload, ensure_ascii=False)};
+              const copy = {json.dumps(copy, ensure_ascii=False)};
+              if (!document.getElementById('bento-example-version-style')) {{
+                const style = document.createElement('style');
+                style.id = 'bento-example-version-style';
+                style.textContent = `
+                  .bento-example-version-action {{
+                    margin-left:auto; border:1px solid rgba(53,111,164,.42);
+                    border-radius:8px; padding:3px 7px; background:rgba(53,111,164,.10);
+                    color:inherit; font:inherit; font-size:10px; cursor:pointer;
+                  }}
+                  .bento-example-version-action:hover {{ border-color:currentColor; }}
+                  .bento-example-placeholder .ej {{ opacity:.58; font-style:italic; }}
+                  .bento-example-reading {{ opacity:.76; font-size:.88em; margin-top:3px; }}
+                  .ec > .en {{ display:flex; align-items:center; gap:8px; }}
+                `;
+                document.head.appendChild(style);
+              }}
+              const headers = Array.from(document.querySelectorAll('.ec > .en'));
+              const blocks = {{}};
+              headers.forEach(header => {{
+                const match = String(header.textContent || '').match(/(?:VÍ DỤ|EXAMPLE)\\s*([1-4])/i);
+                if (match) blocks[match[1]] = header.closest('.ec');
+              }});
+              let section = Array.from(document.querySelectorAll('.es')).find(node => {{
+                const label = node.querySelector('.esl');
+                return label && /ví dụ|example/i.test(String(label.textContent || ''));
+              }});
+              if (!section) return;
+              for (let slot = 1; slot <= 4; slot++) {{
+                const key = String(slot);
+                const state = data.slots[key] || {{current:0,total:0,reading:''}};
+                let block = blocks[key];
+                if (!block) {{
+                  block = document.createElement('div');
+                  block.className = 'ec bento-example-placeholder';
+                  block.innerHTML = `<div class="en">VÍ DỤ ${{slot}}</div><div class="ej"></div>`;
+                  block.querySelector('.ej').textContent = copy.empty;
+                  section.appendChild(block);
+                }}
+                const header = block.querySelector('.en');
+                if (!header || header.querySelector('.bento-example-version-action')) continue;
+                if (state.reading && !block.querySelector('.ep,.bento-example-reading')) {{
+                  const reading = document.createElement('div');
+                  reading.className = 'bento-example-reading';
+                  reading.textContent = state.reading;
+                  const sentence = block.querySelector('.ej');
+                  if (sentence) sentence.insertAdjacentElement('afterend', reading);
+                }}
+                const button = document.createElement('button');
+                button.type = 'button';
+                button.className = 'bento-example-version-action';
+                button.textContent = copy.action
+                  .replace('{{current}}', String(state.current || 0))
+                  .replace('{{total}}', String(state.total || 0));
+                button.onclick = event => {{
+                  event.preventDefault(); event.stopPropagation();
+                  pycmd(`bento_example:open:${{slot}}`);
+                }};
+                header.appendChild(button);
+              }}
+            }})();
+        """)
+        return True
+    except Exception as error:
+        logger.debug("Example regeneration injection unavailable: %s", error)
+        return False
+
+
+def open_example_regenerator_from_reviewer(context, slot):
+    reviewer = _resolve_reviewer(getattr(context, "reviewer", None) or context)
+    if reviewer is None:
+        return None
+    snapshot = get_current_card_snapshot(reviewer, side="answer")
+    if not snapshot or not snapshot.get("note_id"):
+        return None
+    from utils.example_note_ops import read_example_state
+    from ui.example_regenerator import show_example_regenerator
+    note = reviewer.card.note()
+    state = read_example_state(note, snapshot["language"], int(slot))
+    return show_example_regenerator(reviewer, snapshot, int(slot), state)
+
 # Import an toàn module overview_mode (tránh circular import ở mức module load)
 try:
     from hooks.overview_mode import get_study_mode
@@ -368,6 +520,9 @@ except Exception:
 def _on_reviewer_question(reviewer):
     """Inject Letter Gap JS khi hiện mặt trước thẻ + sync mode combo."""
     try:
+        reviewer = _resolve_reviewer(reviewer)
+        if reviewer is None:
+            return
         reviewer._bento_forge_side = "question"
         card = reviewer.card
         if card is None:
@@ -397,14 +552,19 @@ def _on_reviewer_question(reviewer):
 
 def _on_reviewer_answer(reviewer):
     """Inject Speed Control JS khi hiện mặt sau thẻ."""
+    reviewer = _resolve_reviewer(reviewer)
+    if reviewer is None:
+        return
     _inject_ai_action(reviewer)
     # Bước 1: Xác định tốc độ mặc định
     default_spd = 1.0
+    snapshot = None
     try:
         reviewer._bento_forge_side = "answer"
         card = reviewer.card
         if card is not None:
-            _refresh_companion_context(get_current_card_snapshot(reviewer, side="answer"))
+            snapshot = get_current_card_snapshot(reviewer, side="answer")
+            _refresh_companion_context(snapshot)
             note = card.note()
             if note is not None:
                 model = note.model()
@@ -420,6 +580,7 @@ def _on_reviewer_answer(reviewer):
         reviewer.web.eval(f"window._ankiDefaultSpeed={default_spd};" + _SPEED_CTRL_JS)
     except Exception:
         pass
+    _inject_example_regeneration(reviewer, snapshot)
 
 
 def _register_gui_hook(name, callback):

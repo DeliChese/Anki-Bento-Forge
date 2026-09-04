@@ -2,6 +2,26 @@
 
 ## [Unreleased]
 
+### 2026-09-04 — Version: `18.3.0` → `18.3.0`
+
+#### Added
+
+- **Provider riêng cho tái tạo ví dụ** — Cài đặt AI nay cho chọn Provider độc lập cho Ví dụ 1–4; tạo thẻ vẫn dùng Provider chính, còn tái tạo ví dụ dùng Base URL/API Key đã lưu của Provider được chọn và model riêng nếu có.
+- **Chat tạo thẻ trong Forge Workshop** — nút chat mới nhận mục tiêu học bằng ngôn ngữ tự nhiên để tạo Vocabulary, Grammar hoặc Collocation mà không cần dán tài liệu. Luồng vẫn đối chiếu deck tránh trùng, chạy nền và luôn đi qua AI Preview trước Import.
+- **Model riêng cho tạo lại ví dụ** — Cài đặt AI có mục “Model tạo lại ví dụ”; chọn một model khác (hoặc gõ model tương thích) cho Ví dụ 1–4 trong khi vẫn dùng Provider/API Key đang chọn. Để “Dùng model AI chính” giữ nguyên hành vi cũ.
+- **Tạo lại Ví dụ 1–4 ngay khi học** — mặt sau thẻ Language có action riêng cho từng ví dụ. Cửa sổ không modal cho phép tự sửa hoặc xác nhận gọi AI tạo đúng một câu, cách đọc và nghĩa tiếng Việt theo độ khó/độ dài được chọn độc lập.
+- **Lịch sử phiên bản ví dụ không phá dữ liệu cũ** — mỗi lần lưu nối thêm một phiên bản và hiển thị vị trí/tổng số; người học có thể chuyển qua lại hoặc chủ động xóa từng phiên bản. Câu gốc, bản dịch, cách đọc và thẻ audio cũ được giữ trong field lịch sử profile-local của note.
+
+#### Fixed
+
+- **Nút tái tạo Ví dụ hiển thị trong Anki 25** — hook Reviewer hiện nhận đúng `Card` do Anki 25 truyền vào rồi lấy Reviewer/webview đang hoạt động, nên action cho Ví dụ 1–4 được chèn ở mặt sau thẻ thay vì bị bỏ qua.
+- **Cài đặt AI hiện lại trong Factory** — nút `⚙️ Cài Đặt API` không còn bị ẩn bởi lệnh UI cũ, nên có thể mở trực tiếp để chọn model tạo lại ví dụ.
+- **Chat tạo thẻ truyền đủ trạng thái qua worker** — coordinator AI nay chuyển cờ tạo trực tiếp đến `AiExtractThread`; tạo thẻ không cần tài liệu không còn dừng ở lỗi `unexpected keyword argument 'generation_request'`.
+- **Audio phiên bản được lưu và tái sử dụng** — câu mới tạo audio ở tác vụ nền rồi lưu sound tag cùng phiên bản; quay lại câu cũ hoặc lưu lại cùng nội dung không gọi Speech lần nữa. Lỗi TTS không lưu âm thầm một phiên bản thiếu audio.
+- **Reviewer không bị khóa khi AI/TTS chạy** — chỉ các điều khiển trong popup tạm vô hiệu hóa và có trạng thái loading cục bộ; màn hình học không dùng busy cursor hay vòng `processEvents()` cưỡng bức.
+- **Tiến độ Import bám đúng công việc thực** — thanh tiến độ tính tổng từng tác vụ audio cộng từng note được ghi, chuyển rõ từ pha tạo audio sang lưu thẻ và chỉ hoàn tất khi cả hai pha đã xong.
+- **Prompt tạo ví dụ tiết kiệm token** — request riêng chỉ gửi từ/cấu trúc đích, nghĩa, lựa chọn độ khó/độ dài và tối đa tám câu cần tránh; đầu ra JSON một câu được giới hạn và vẫn đi qua budget/cost log hiện hữu.
+
 ### 2026-09-03 — Version: `18.3.0` → `18.3.0`
 
 #### Fixed

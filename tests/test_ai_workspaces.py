@@ -591,7 +591,8 @@ def test_station_ui_has_explicit_surface_ownership_and_bilingual_labels():
     assert "self.chk_create_card = QCheckBox()" in companion
     assert "def _on_create_card_toggled" in companion
     assert 'return self._lane if self._lane in {"vocab", "grammar", "collocation"} else "vocab"' in companion
-    assert "self.btn_ai_settings.setVisible(False)" in factory
+    assert "self.btn_ai_settings.clicked.connect(self._show_ai_settings)" in factory
+    assert "self.btn_ai_settings.setVisible(False)" not in factory
     assert "ai_bar.insertWidget(0, self.btn_ai_chat)" not in factory
     assert "self.btn_ai_chat.setVisible(False)" not in factory
     assert "ai_main.addLayout(instr_bar)" in factory

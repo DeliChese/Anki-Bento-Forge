@@ -228,6 +228,20 @@ class TestOverviewModeSelector:
             assert _on_js_message((False, None), "bento_forge_ai:open", context) == (True, None)
             open_ai.assert_called_once_with(context)
 
+    def test_on_js_message_opens_requested_example_slot(self):
+        from unittest.mock import patch
+        from hooks.overview_mode import _on_js_message
+        with patch("hooks.reviewer.open_example_regenerator_from_reviewer") as open_example:
+            context = MagicMock()
+            assert _on_js_message(
+                (False, None), "bento_example:open:3", context,
+            ) == (True, None)
+            open_example.assert_called_once_with(context, 3)
+
+        assert _on_js_message(
+            (False, None), "bento_example:open:9", context,
+        ) == (False, None)
+
     def test_mode_and_srs_layout_are_stable_per_deck(self):
         from unittest.mock import patch
         from hooks.overview_mode import (
@@ -267,6 +281,26 @@ class TestOverviewModeSelector:
 
 
 class TestReviewerHookCompatibility:
+    def test_native_card_hook_resolves_active_reviewer_for_example_actions(self):
+        from unittest.mock import patch
+        import hooks.reviewer as reviewer
+
+        review = MagicMock()
+        review.card.id = 9
+        hook_card = types.SimpleNamespace(id=9)
+        snapshot = {"language": "english", "note_id": 42}
+        with patch("aqt.mw", MagicMock(reviewer=review)), patch.object(
+            reviewer, "_inject_ai_action"
+        ) as inject_ai, patch.object(
+            reviewer, "get_current_card_snapshot", return_value=snapshot
+        ), patch.object(
+            reviewer, "_inject_example_regeneration"
+        ) as inject_examples:
+            reviewer._on_reviewer_answer(hook_card)
+
+        inject_ai.assert_called_once_with(review)
+        inject_examples.assert_called_once_with(review, snapshot)
+
     def test_production_drill_is_opt_in_local_and_hides_guidance(self):
         import hooks.reviewer as reviewer
 
