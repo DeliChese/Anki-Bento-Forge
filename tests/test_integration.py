@@ -3,6 +3,7 @@ Integration tests — Mock Anki để test các luồng chính.
 """
 
 import json
+import importlib.util
 import sys
 import os
 import types
@@ -304,6 +305,80 @@ class TestAiExtractThread:
 
         assert calls == []
         assert errors and str(ai_workers.SMALL_RUN_MAX_SOURCE_CHARS) in errors[0]
+
+
+class TestAiPreviewLifecycle:
+    @staticmethod
+    def _load_preview_module():
+        path = os.path.join(_addon_root, "ui", "ai_preview.py")
+        spec = importlib.util.spec_from_file_location("ai_preview_lifecycle_test", path)
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        return module
+
+    def test_quality_refresh_disconnects_before_table_teardown(self):
+        bind_preview_quality_refresh = self._load_preview_module()._bind_preview_quality_refresh
+
+        class FakeModel:
+            def __init__(self):
+                self.rowsRemoved = MockSignal()
+                self.modelReset = MockSignal()
+
+        class FakeTable:
+            def __init__(self):
+                self.itemChanged = MockSignal()
+                self._model = FakeModel()
+
+            def model(self):
+                return self._model
+
+        dialog = types.SimpleNamespace(finished=MockSignal())
+        table = FakeTable()
+        refreshes = []
+
+        bind_preview_quality_refresh(
+            dialog, table, lambda *_args: refreshes.append("refresh"),
+        )
+        assert refreshes == ["refresh"]
+
+        table.itemChanged.emit()
+        assert refreshes == ["refresh", "refresh"]
+
+        dialog.finished.emit(0)
+        table.itemChanged.emit()
+        table.model().rowsRemoved.emit()
+        table.model().modelReset.emit()
+
+        assert refreshes == ["refresh", "refresh"]
+
+    def test_deleted_qobject_runtime_error_deactivates_late_refresh(self):
+        bind_preview_quality_refresh = self._load_preview_module()._bind_preview_quality_refresh
+
+        class FakeModel:
+            def __init__(self):
+                self.rowsRemoved = MockSignal()
+                self.modelReset = MockSignal()
+
+        class FakeTable:
+            def __init__(self):
+                self.itemChanged = MockSignal()
+                self._model = FakeModel()
+
+            def model(self):
+                return self._model
+
+        dialog = types.SimpleNamespace(finished=MockSignal())
+        table = FakeTable()
+        calls = []
+
+        def deleted_widget_callback(*_args):
+            calls.append("attempt")
+            raise RuntimeError("wrapped C/C++ object of type QTableWidget has been deleted")
+
+        bind_preview_quality_refresh(dialog, table, deleted_widget_callback)
+        table.model().modelReset.emit()
+
+        assert calls == ["attempt"]
 
 
 class TestPhaseOneCollectionOperations:

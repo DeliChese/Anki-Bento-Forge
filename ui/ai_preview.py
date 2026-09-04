@@ -21,6 +21,45 @@ from utils.i18n import t
 logger = get_logger()
 
 
+def _bind_preview_quality_refresh(dlg, table, callback):
+    """Keep table quality signals inside the lifetime of their preview dialog."""
+    model = table.model()
+    source_signals = (
+        table.itemChanged,
+        model.rowsRemoved,
+        model.modelReset,
+    )
+    active = True
+
+    def disconnect_quality_refresh(*_args):
+        nonlocal active
+        if not active:
+            return
+        active = False
+        for signal in source_signals:
+            try:
+                signal.disconnect(guarded_refresh)
+            except (TypeError, RuntimeError):
+                # The sender may already be in QObject teardown.
+                pass
+
+    def guarded_refresh(*args):
+        if not active:
+            return
+        try:
+            callback(*args)
+        except RuntimeError as error:
+            if "has been deleted" not in str(error):
+                raise
+            disconnect_quality_refresh()
+
+    dlg.finished.connect(disconnect_quality_refresh)
+    for signal in source_signals:
+        signal.connect(guarded_refresh)
+    guarded_refresh()
+    return disconnect_quality_refresh
+
+
 def show_ai_preview_dialog(parent, vocab_list, lang, ai_text_input, ai_instruction,
                            lbl_ai_status, get_existing_words_fn,
                            on_finalize_callback, grammar=False, learning_mode="language",
@@ -186,10 +225,7 @@ def show_ai_preview_dialog(parent, vocab_list, lang, ai_text_input, ai_instructi
                 existing_terms=existing_terms, card_kind=card_kind,
             )
 
-    refresh_quality_summary()
-    table.itemChanged.connect(refresh_quality_summary)
-    table.model().rowsRemoved.connect(refresh_quality_summary)
-    table.model().modelReset.connect(refresh_quality_summary)
+    _bind_preview_quality_refresh(dlg, table, refresh_quality_summary)
 
     # Action buttons
     action_bar = QHBoxLayout()
