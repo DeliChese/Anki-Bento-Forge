@@ -12,8 +12,8 @@ description: Quy trình nâng cấp version, bảo trì, release — checklist t
 ### Checklist bắt buộc
 
 - [ ] **`manifest.json`**: `"version": "16.0.0"` → `"17.0.0"`
-- [ ] **`Language/japanese.py`** + **`Language/chinese.py`**: `model_name` `...V16.0...` → `...V17.0...` (cả `LANG_CONFIG` và `GRAMMAR_CONFIG`), thêm model cũ vào `old_model_names`
-- [ ] **`audio/engine.py:_MODEL_LANG_MAP`** (dòng 81): thêm mapping model cũ→lang (nếu model mới có format khác)
+- [ ] **Language Note Type LTS**: KHÔNG đổi `model_name` theo version add-on thông thường. Giữ schema anchor `V18.3`; chỉ tạo epoch mới khi schema thật sự phá vỡ và có migration/rollback riêng.
+- [ ] **`audio/engine.py:_MODEL_LANG_MAP`**: chỉ thêm mapping khi có schema epoch/model lịch sử mới; không thêm theo mỗi version app.
 - [ ] **`utils/i18n.py`**: chuỗi `V16.0` trong title → `V17.0` nếu có
 - [ ] **`__init__.py`**: window title (dòng 68) + chuỗi hiển thị version
 - [ ] **`README.md`** badge version + nội dung
@@ -22,8 +22,9 @@ description: Quy trình nâng cấp version, bảo trì, release — checklist t
 
 ### Migration Note Type
 
-- `_get_or_migrate_model` (`__init__.py:1236`): nếu model cũ trong `old_model_names` → đổi tên/giữ dữ liệu. Giữ nguyên logic này.
+- `utils/model_lifecycle.py`: model cũ chỉ được nhận từ allowlist `old_model_names`; migration additive, giữ field/template lạ và không prune card/template trong flow thường.
 - Model names phải ĐỒNG BỘ giữa `Language/*.py` và `audio/engine.py:_MODEL_LANG_MAP`.
+- Chuẩn nội dung dùng `utils/card_upgrade.py:CURRENT_QUALITY_VERSION`; bump revision này khi chất lượng card thay đổi, không bump tên Note Type.
 
 ## 2. BẢO TRÌ ĐỊNH KỲ
 

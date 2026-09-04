@@ -57,6 +57,7 @@ def _cfg():
     return {
         "model_name": "Bento Test", "old_model_names": ["Bento Old"],
         "all_fields": ["Front", "Meaning"], "template_names": ["Card"],
+        "legacy_template_aliases": {"Legacy Bento": "Card"},
     }
 
 
@@ -83,7 +84,7 @@ def test_model_lifecycle_creates_complete_model_without_ui_or_anki_import():
     assert manager.added == [result.model]
 
 
-def test_model_lifecycle_migrates_fields_and_reduces_extra_templates():
+def test_model_lifecycle_adds_fields_and_preserves_unknown_templates():
     existing = {
         "name": "Bento Test", "id": 10, "flds": [{"name": "Front"}],
         "tmpls": [{"name": "Old", "qfmt": "", "afmt": ""}, {"name": "Extra", "qfmt": "", "afmt": ""}],
@@ -95,10 +96,37 @@ def test_model_lifecycle_migrates_fields_and_reduces_extra_templates():
 
     assert result.existed is True and result.had_extra_templates is True
     assert {field["name"] for field in existing["flds"]} == {"Front", "Meaning", "Extra"}
-    assert len(existing["tmpls"]) == 1
-    assert existing["tmpls"][0]["name"] == "Card"
+    assert len(existing["tmpls"]) == 3
+    assert existing["tmpls"][0]["name"] == "Old"
+    assert existing["tmpls"][1]["name"] == "Extra"
+    assert existing["tmpls"][2]["name"] == "Card"
+    assert result.preserved_extra_templates == 2
     assert existing["css"] == ".card{color:red}"
     assert manager.saved == [existing]
+
+
+def test_approved_legacy_model_reuses_bento_template_but_keeps_user_extra():
+    existing = {
+        "name": "Bento Old", "id": 10, "flds": [{"name": "Front"}],
+        "tmpls": [
+            {"name": "My Custom Card", "qfmt": "mine", "afmt": "mine"},
+            {"name": "Legacy Bento", "qfmt": "old", "afmt": "old"},
+        ],
+        "css": "old",
+    }
+    manager = FakeModelManager(existing)
+    result = ensure_model(
+        manager, _cfg(), _templates(), ".card{color:red}", _qfmt, _afmt,
+        rename_primary_template=True, prune_extra_templates=True,
+    )
+
+    assert result.migrated_from == "Bento Old"
+    assert existing["name"] == "Bento Test"
+    assert existing["tmpls"][0] == {
+        "name": "My Custom Card", "qfmt": "mine", "afmt": "mine",
+    }
+    assert existing["tmpls"][1]["name"] == "Card"
+    assert len(existing["tmpls"]) == 2
 
 
 def test_template_field_parser_excludes_anki_special_fields():

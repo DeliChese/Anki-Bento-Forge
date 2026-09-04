@@ -63,6 +63,9 @@ LANG_CONFIG = {
         "1. Nhận diện / Combo", "2. Sản xuất", "3. Chính tả",
         "4. Phát âm IPA", "5. Nhớ mặt chữ",
     ),
+    "legacy_template_aliases": {
+        "1. Tổng hợp (5 chế độ)": "1. Nhận diện / Combo",
+    },
     "furi_label": "IPA",
     "furi_json_key": "pronunciation",
     "level_json_key": "cefr_level",

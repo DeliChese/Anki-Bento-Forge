@@ -7,6 +7,7 @@
 #### Added
 
 - **Nâng cấp thẻ cũ theo chuẩn chất lượng mới nhất** — Reviewer hiện chỉ hiện nút `Nâng cấp thẻ` cho Language note chưa đạt revision nội dung hiện hành. AI lập proposal đúng một mục tiêu, người học xem diff và chọn từng field trước khi ghi; audio cho nội dung mới/thiếu được tạo lại theo lựa chọn. Ghi note qua thao tác Undo của Anki, không đổi SRS, và proposal trễ hoặc đổi mặt chữ bị chặn.
+- **Contract Note Type LTS V18.3** — version add-on nay tách khỏi tên Note Type; migration chỉ nhận model cũ trong allowlist, thêm field/template cần thiết và giữ nguyên field/template tự tạo, card, media cùng SRS. Việc thêm marker cho model nhiều card cũ yêu cầu xác nhận và checkpoint Anki; flow thường không còn prune template dư.
 
 - **Provider riêng cho tái tạo ví dụ** — Cài đặt AI nay cho chọn Provider độc lập cho Ví dụ 1–4; tạo thẻ vẫn dùng Provider chính, còn tái tạo ví dụ dùng Base URL/API Key đã lưu của Provider được chọn và model riêng nếu có.
 - **Chat tạo thẻ trong Forge Workshop** — nút chat mới nhận mục tiêu học bằng ngôn ngữ tự nhiên để tạo Vocabulary, Grammar hoặc Collocation mà không cần dán tài liệu. Luồng vẫn đối chiếu deck tránh trùng, chạy nền và luôn đi qua AI Preview trước Import.

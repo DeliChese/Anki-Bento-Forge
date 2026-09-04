@@ -15,9 +15,10 @@
 
 | Item | Status | Next action |
 |---|---|---|
-| P0-01 baseline | local gate xanh | Compile Python xanh; isolated suite gần nhất `780 passed, 28 skipped`. Giữ gate này xanh trước merge/release. |
+| P0-01 baseline | local gate xanh | Compile Python xanh; hai isolated suite gần nhất đều `793 passed, 28 skipped`. Giữ gate này xanh trước merge/release. |
 | P0-02 smoke profile | partial smoke, blocked | Anki 26.5/profile `ChinD` backup: Factory, combo/Usage Guide, Study Coach context và role split pass; Reviewer không inject `Hỏi AI`/`Tự đặt câu` trên card `看`. Không rating/mutation; sửa hook trước khi tiếp tục. |
 | P0-04 release artifact | cần dựng lại | Runtime Batch/Inventory/Blueprint đã bị gỡ nên artifact cũ không còn đại diện current tree; cần rebuild trước release. |
+| LTS Card Contract | local implementation xanh, chờ GUI smoke | Language Note Type khóa tại schema V18.3; migration allowlist/additive, ownership template theo tên/alias lịch sử, không tự prune dữ liệu lạ. Chuẩn nội dung dùng revision riêng và Reviewer upgrade opt-in. Còn smoke V14–V18 trên profile backup trước release. |
 | P0-05 AI Output Reliability | local implementation xanh | Luồng nhỏ dùng một request trực tiếp, validate → Preview → Import; danh sách vocab tường minh có kiểm tra đủ mục và giữ thứ tự. Còn smoke restart/profile backup trước publish. |
 | P1-07 AI Study Sessions | menu/context smoke pass, card action blocked | Study Coach mở từ menu, nhận đúng `REVIEWER · QA · Mặt câu hỏi · Thẻ chính: 看`, quick actions/library hiện đủ và ngoài Reviewer fail-closed; `Hỏi AI` trên card vắng mặt. Còn fix/restart/concurrency/mục 42 và CI. |
 | V18.2 Contextual AI Workspaces | Factory đã thu gọn | Reviewer vẫn sở hữu Study Coach; Factory không còn nhúng Forge chat/artifact station. Production chỉ còn nguồn nhỏ + yêu cầu tùy chọn + một nút tạo 5–20 thẻ → Preview → Import. |
@@ -31,6 +32,8 @@
 | Reviewer Example Versions | local implementation xanh, chờ GUI smoke | Ví dụ 1–4 có model AI riêng tùy chọn theo Provider/API Key hiện dùng, tạo/chỉnh theo độ khó và độ dài, lịch sử phiên bản + audio lưu theo note, tác vụ AI/TTS không modal và tiến độ import tính cả audio lẫn ghi note. Hai isolated suites `777 passed, 28 skipped`; cần smoke trên profile backup trước release. |
 
 ## Evidence and boundaries
+
+- LTS Card Contract giữ version add-on độc lập với schema Note Type V18.3. Template Bento được cập nhật theo tên hoặc alias lịch sử; template/field/card/media/SRS ngoài ownership được giữ nguyên. Legacy multi-card migration yêu cầu xác nhận + checkpoint. Verification 2026-09-04: targeted `111 passed, 1 skipped`; compile Python xanh; full isolated `793 passed, 28 skipped` ×2. Chưa thay thế GUI smoke V14–V18 trên profile backup.
 
 - Factory production hiện là một lượt trực tiếp, tối đa 4.000 ký tự nguồn và 5–20 thẻ; không gọi Inventory Scanner, không chunk/batch và luôn đi qua AI Preview trước JSON/import. Danh sách từ vựng tường minh dùng xuống dòng, `、`, dấu phẩy hoặc chấm phẩy được tách cục bộ, tự nâng mục tiêu để bao phủ đủ mục trong giới hạn 20 và fail-closed nếu AI trả thiếu. Callback chất lượng của Preview được ngắt khi dialog kết thúc để không chạm vào QObject đã bị Qt hủy, đồng thời bỏ qua `itemChanged` tái nhập phát ra khi chính callback cập nhật tooltip. Review có nút cục bộ ẩn/hiện Pinyin, IPA, Furigana và Romanization mà không đổi dữ liệu thẻ hay SRS. Verification 2026-09-03: Preview lifecycle targeted `3 passed`; full isolated `760 passed, 28 skipped` (toàn bộ skip là regression cũ của Batch đã retired).
 

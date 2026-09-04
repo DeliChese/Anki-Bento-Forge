@@ -189,7 +189,7 @@ def test_usage_guide_model_migration_is_idempotent_and_keeps_template_count():
         model = {
             "name": cfg["model_name"],
             "flds": [{"name": "Front"}, {"name": "Meaning"}],
-            "tmpls": [{"name": "Legacy", "qfmt": "", "afmt": ""}],
+            "tmpls": [{"name": cfg["template_names"][0], "qfmt": "", "afmt": ""}],
             "css": "",
         }
         manager = _ModelManager(model)

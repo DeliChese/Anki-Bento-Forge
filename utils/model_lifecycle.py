@@ -13,6 +13,7 @@ from typing import Callable, Iterable
 
 
 _SPECIAL_TEMPLATE_FIELDS = {"FrontSide", "Tags", "Deck", "Subdeck", "Card", "Type"}
+LTS_NOTE_TYPE_SCHEMA = "18.3"
 
 
 @dataclass(frozen=True)
@@ -20,6 +21,8 @@ class ModelLifecycleResult:
     model: object
     existed: bool
     had_extra_templates: bool
+    migrated_from: str = ""
+    preserved_extra_templates: int = 0
 
 
 def collect_template_fields(templates: Iterable[Callable[[], str]]) -> set:
@@ -53,6 +56,20 @@ def get_or_migrate_model(model_manager, cfg):
     return None
 
 
+def _model_before_migration(model_manager, cfg):
+    """Return the model and its approved legacy source without broad matching."""
+    model = model_manager.by_name(cfg["model_name"])
+    if model:
+        return model, ""
+    for old_name in cfg.get("old_model_names", []):
+        model = model_manager.by_name(old_name)
+        if model:
+            model["name"] = cfg["model_name"]
+            model_manager.save(model)
+            return model, old_name
+    return None, ""
+
+
 def _ensure_fields(model_manager, model, names):
     existing = {field["name"] for field in model["flds"]}
     for name in names:
@@ -70,14 +87,17 @@ def ensure_model(
     build_afmt: Callable,
     *,
     rename_primary_template: bool,
-    prune_extra_templates: bool = True,
+    prune_extra_templates: bool = False,
+    allow_destructive_template_prune: bool = False,
 ) -> ModelLifecycleResult:
-    """Create or update a model while preserving existing field data.
+    """Create or update a model under the LTS additive-migration contract.
 
-    Extra card templates are removed only after the remaining template is
-    fully populated.  Card deletion itself stays at the Anki adapter boundary.
+    Fields are only added. Known Bento templates receive the current layout;
+    unknown/user-created templates are never overwritten or removed by normal
+    startup/import. Destructive pruning requires an explicit opt-in parameter
+    kept only for controlled maintenance tools.
     """
-    model = get_or_migrate_model(model_manager, cfg)
+    model, migrated_from = _model_before_migration(model_manager, cfg)
     existed = model is not None
     template_count = len(templates) // 2
     if not model:
@@ -97,19 +117,39 @@ def ensure_model(
     _ensure_fields(model_manager, model, collect_template_fields(templates))
     model["css"] = css
     had_extra = len(model["tmpls"]) > template_count
+    original_templates = list(model["tmpls"])
+    target_names = list(cfg.get("template_names") or [])
+    legacy_aliases = dict(cfg.get("legacy_template_aliases") or {})
     for index in range(template_count):
-        if index < len(model["tmpls"]):
-            template = model["tmpls"][index]
-        else:
-            template = model_manager.new_template(cfg["template_names"][index])
+        target_name = target_names[index]
+        template = next(
+            (item for item in model["tmpls"] if item.get("name") == target_name),
+            None,
+        )
+        # Legacy ownership is name-based as well: position alone must never
+        # authorize overwriting a user-created template.
+        if template is None:
+            template = next(
+                (
+                    item for item in original_templates
+                    if legacy_aliases.get(item.get("name")) == target_name
+                ),
+                None,
+            )
+        if template is None:
+            template = model_manager.new_template(target_name)
             model_manager.add_template(model, template)
-        template["name"] = cfg["template_names"][index]
+        template["name"] = target_name
         template["qfmt"] = build_qfmt(cfg, templates, index * 2)
         template["afmt"] = build_afmt(cfg, templates, index * 2 + 1)
-    if had_extra and rename_primary_template and cfg.get("template_names"):
-        model["tmpls"][0]["name"] = cfg["template_names"][0]
-    if prune_extra_templates:
+    if prune_extra_templates and allow_destructive_template_prune:
         while len(model["tmpls"]) > template_count:
             model_manager.remove_template(model, model["tmpls"][-1])
     model_manager.save(model)
-    return ModelLifecycleResult(model=model, existed=True, had_extra_templates=had_extra)
+    return ModelLifecycleResult(
+        model=model,
+        existed=True,
+        had_extra_templates=had_extra,
+        migrated_from=migrated_from,
+        preserved_extra_templates=max(0, len(model["tmpls"]) - template_count),
+    )

@@ -5,6 +5,8 @@
 Opt-in Reviewer upgrade for one managed Language note: ask AI for exactly one
 current-schema candidate, preview field diffs, optionally regenerate matching
 audio, then write selected fields through one undo-aware collection operation.
+The surrounding Note Type lifecycle is frozen at schema anchor V18.3 and uses
+additive, allowlisted migration without automatic template pruning.
 
 ## Invariants
 
@@ -14,6 +16,8 @@ audio, then write selected fields through one undo-aware collection operation.
 - Do not claim the quality revision is current after a partial application.
 - Bump `CURRENT_QUALITY_VERSION` whenever a released Language content standard
   changes materially, so existing notes become eligible again.
+- Normal add-on releases never bump the Language model name. Unknown fields,
+  templates, cards, media, and SRS history remain outside Bento ownership.
 
 ## Acceptance
 

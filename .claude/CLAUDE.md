@@ -64,7 +64,7 @@ __init__.py (26 dòng)         ← compatibility facade (public re-export)
 
 - `vocab` = chế độ Từ vựng; `grammar` = chế độ Ngữ pháp (Note Type riêng).
 - `lang` = `"japanese"` | `"chinese"` | `"korean"` | `"english"`.
-- Model names: `"AnkiTool Japanese/Chinese/Korean/English [Grammar] V18.1 (Add-on)"`; V17.0 được giữ trong `old_model_names` để migration không mất note/SRS.
+- Model names LTS: `"AnkiTool Japanese/Chinese/Korean/English [Grammar] V18.3 (Add-on)"`; version add-on không kéo theo đổi tên Note Type. Các tên cũ được giữ trong `old_model_names` để migration không mất note/SRS.
 - Entry: `start_smart_factory()` (`ui/factory_dialog.py:2801`, re-export tại `__init__.py`), shortcut `Ctrl+Shift+I`. Menu Tools hiển thị **"🧪 Bento Forge"**.
 - Version, compatibility, test gate và trạng thái V18: xem `.claude/context/current-state.md` và `work_items/PERSONAL_ROADMAP.md`; không sao chép số liệu động vào file này.
 - **Combo mode**: mỗi từ = 1 card duy nhất, 5 chế độ (qa/vn/wb/pron/lg) chuyển đổi trong card qua `_COMBO_MODE_JS`; mode lưu `mw.col.conf["ai_factory_study_mode"]`; Overview patch qua `hooks/overview_mode.py`.

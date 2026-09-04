@@ -3153,10 +3153,10 @@ class AnkiSmartFactory(QDialog):
         self.pbar.setVisible(False)
         self.lbl_status.setText(t("status_stopping"))
 
-    def _prepare_legacy_srs_model(self, cfg):
+    def _prepare_legacy_srs_model(self, cfg, *, confirmed=False):
         """Preserve old multi-card notes before installing conditional templates."""
         if self._current_card_kind() != "vocab":
-            return
+            return True
         mm = mw.col.models
         model = mm.by_name(cfg["model_name"])
         if model is None:
@@ -3165,7 +3165,9 @@ class AnkiSmartFactory(QDialog):
                 if model is not None:
                     break
         if not needs_legacy_srs_migration(model):
-            return
+            return True
+        if not confirmed and not askUser(t("srs_legacy_confirm"), parent=self):
+            return False
         mw.checkpoint(t("srs_legacy_checkpoint"))
         result = prepare_legacy_srs_model(mw.col, mm, model)
         logger.info(
@@ -3173,16 +3175,19 @@ class AnkiSmartFactory(QDialog):
             result.changed_notes,
             result.matched_notes,
         )
+        return True
 
     def _force_rebuild_model(self):
+        if not askUser(t("model_rebuild_lts_confirm"), parent=self):
+            return
         cfg = self._cfg()
         mm = mw.col.models
         templates, css = self._model_assets()
-        self._prepare_legacy_srs_model(cfg)
+        self._prepare_legacy_srs_model(cfg, confirmed=True)
         result = ensure_model(
             mm, cfg, templates, css, _build_qfmt, _build_afmt,
             rename_primary_template=False,
-            prune_extra_templates=self._current_card_kind() != "vocab",
+            prune_extra_templates=False,
         )
         message_key = "model_rebuilt" if result.existed else "model_created"
         showInfo(t(message_key, model=cfg['model_name']))
@@ -3198,11 +3203,12 @@ class AnkiSmartFactory(QDialog):
     def get_or_create_model(self):
         cfg = self._cfg()
         templates, css = self._model_assets()
-        self._prepare_legacy_srs_model(cfg)
+        if not self._prepare_legacy_srs_model(cfg):
+            raise RuntimeError(t("srs_legacy_cancelled"))
         result = ensure_model(
             mw.col.models, cfg, templates, css, _build_qfmt, _build_afmt,
             rename_primary_template=self._current_card_kind() == "vocab",
-            prune_extra_templates=self._current_card_kind() != "vocab",
+            prune_extra_templates=False,
         )
         return result.model
 

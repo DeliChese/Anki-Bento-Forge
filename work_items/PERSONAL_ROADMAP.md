@@ -16,9 +16,10 @@ Output:
 
 | Việc | Trạng thái | Điều cần biết ngay |
 | --- | --- | --- |
-| P0-01 — baseline test | 🟢 Local xanh | Compile Python xanh; hai vòng isolated suite gần nhất đều `777 passed, 28 skipped` sau Reviewer Example Versions. Vẫn cần giữ gate này xanh trước merge/release. |
+| P0-01 — baseline test | 🟢 Local xanh | Compile Python xanh; hai vòng isolated suite gần nhất đều `793 passed, 28 skipped` sau LTS Card Contract. Vẫn cần giữ gate này xanh trước merge/release. |
 | P0-02 — smoke profile | 🔴 Partial smoke, blocked | Anki 26.5/profile backup: Factory, combo/Usage Guide, Study Coach context và role split pass; Reviewer không inject `Hỏi AI`/`Tự đặt câu` trên card `看`. Sửa hook rồi mới tiếp tục mutation/mục 42/restart smoke. |
 | P0-04 — release artifact | ✅ Đã kiểm chứng local | Builder allowlist runtime, gồm đủ `workers/`, loại cache/state local; artifact clean-profile compile xanh, SHA-256 và CycloneDX SBOM khớp. Cài/mở trên profile sạch vẫn thuộc P0-02 owner smoke. |
+| LTS Card Contract | 🟡 Local implementation xanh | Note Type Language khóa ở schema V18.3; migration allowlist/additive, không tự prune template/card lạ; content quality dùng revision và Reviewer upgrade opt-in. Còn smoke V14–V18 trên profile backup trước release. |
 | P0-05 — AI Output Reliability | 🟡 Local implementation xanh | Batch/Card Mode vocab+grammar dùng chung parser/schema gate; AI config/history dùng profile path động. Chủ dự án báo card output ổn định; còn smoke restart/profile backup và manual large-batch metrics trước khi publish 18.1. |
 | P1-07 — AI Study Sessions | 🟡 Menu/context smoke pass, action blocked | Companion mở từ menu trong Reviewer, nhận đúng card `看`, quick actions/library hiện đủ và ngoài Reviewer fail-closed; action `Hỏi AI` trên card không được inject, còn restart/concurrency/mục 42 và CI. |
 | V18.2 — Contextual AI Workspaces | 🟡 Local implementation xanh | Reviewer giữ AI Study Sessions/learning loop; Factory dùng workbench Blueprint responsive `Source | AI/Artifact | Review/Import`, composer thật gồm input + checkbox Tạo thẻ theo Vocab/Grammar + Gửi và fallback xếp Review xuống dưới ở cửa sổ hẹp. Không còn router/bước xử lý lộ ra, standalone Forge dialog hoặc banner quy trình đánh số; model memory vẫn tách theo workspace. Còn GUI smoke Anki/profile restart và CI. |

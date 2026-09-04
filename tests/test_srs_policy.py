@@ -41,7 +41,8 @@ def test_legacy_multi_card_migration_preserves_cards_and_marks_notes():
     result = prepare_legacy_srs_model(collection, manager, model)
     assert result.changed_notes == 2
     assert all(note[SRS_FIELD] == "1" for note in notes.values())
-    assert all(note.flush_count == 1 for note in notes.values())
+    assert collection.update_note.call_count == 2
+    assert all(note.flush_count == 0 for note in notes.values())
     assert not hasattr(collection, "remCards") or not collection.remCards.called
 
 

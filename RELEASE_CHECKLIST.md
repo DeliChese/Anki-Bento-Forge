@@ -29,6 +29,7 @@ Version trong `manifest.json` có thể là release candidate cục bộ; không
 - [x] Chạy `scripts/build_addon.ps1`; lưu `.ankiaddon`, `.sha256` và `bento-forge.sbom.json` cùng release evidence.
   - [x] Local 2026-08-26: artifact `18.3.0` có 104 entries, 101 Python files và đủ 5 worker files; clean-profile compile xanh, cache/sensitive state bằng 0, SHA-256 `87049cae063403e84cae70b11009980146f96c3d61de75915d8a9b78ca5efbff` khớp và SBOM liệt kê `edge-tts,gtts`.
 - [ ] Cài artifact vào profile sạch và kiểm tra Tools menu mở Bento Forge.
+- [ ] LTS regression: mở một note V14/V15/V16/V17/V18 trên profile backup; xác nhận field/template tự tạo và lịch SRS còn nguyên, Note Type nhận layout mới, thẻ cũ hiện nâng cấp chất lượng, thẻ mới không hiện nút sai.
 
 ## Knowledge beta (không phải release gate)
 

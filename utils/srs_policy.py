@@ -66,7 +66,11 @@ def prepare_legacy_srs_model(collection, model_manager, model) -> SrsMigrationRe
         note = collection.get_note(note_id)
         if not str(note[SRS_FIELD] or "").strip():
             note[SRS_FIELD] = "1"
-            note.flush()
+            update_note = getattr(collection, "update_note", None)
+            if callable(update_note):
+                update_note(note)
+            else:
+                note.flush()
             changed += 1
     return SrsMigrationResult(matched_notes=len(note_ids), changed_notes=changed)
 

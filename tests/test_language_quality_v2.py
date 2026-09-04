@@ -192,7 +192,7 @@ def test_example_field_migration_is_additive_idempotent_and_keeps_card_count():
         model = {
             "name": cfg["model_name"],
             "flds": [{"name": "Front"}, {"name": "Meaning"}],
-            "tmpls": [{"name": "Legacy", "qfmt": "", "afmt": ""}],
+            "tmpls": [{"name": cfg["template_names"][0], "qfmt": "", "afmt": ""}],
             "css": "",
         }
         manager = _ModelManager(model)
@@ -211,7 +211,7 @@ def test_example_field_migration_is_additive_idempotent_and_keeps_card_count():
         model = {
             "name": cfg["model_name"],
             "flds": [{"name": "Pattern"}, {"name": "Meaning"}],
-            "tmpls": [{"name": "Legacy", "qfmt": "", "afmt": ""}],
+            "tmpls": [{"name": cfg["template_names"][0], "qfmt": "", "afmt": ""}],
             "css": "",
         }
         manager = _ModelManager(model)
@@ -219,7 +219,7 @@ def test_example_field_migration_is_additive_idempotent_and_keeps_card_count():
             ensure_model(
                 manager, cfg, LANG_GRAMMAR_TEMPLATES[language], ".card{}",
                 build_qfmt, build_afmt,
-                rename_primary_template=False, prune_extra_templates=True,
+                rename_primary_template=False, prune_extra_templates=False,
             )
         names = [field["name"] for field in model["flds"]]
         assert len(names) == len(set(names))

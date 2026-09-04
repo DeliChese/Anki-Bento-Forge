@@ -50,6 +50,19 @@ def test_effective_language_config_marks_new_notes_at_current_quality_revision()
     assert cfg["note_defaults"][QUALITY_FIELD] == CURRENT_QUALITY_VERSION
 
 
+def test_language_note_type_names_are_frozen_to_lts_schema_anchor():
+    from Language import LANG_COLLOCATION_CONFIG, LANG_CONFIG, LANG_GRAMMAR_CONFIG
+    from utils.model_lifecycle import LTS_NOTE_TYPE_SCHEMA
+
+    for registry in (LANG_CONFIG, LANG_GRAMMAR_CONFIG, LANG_COLLOCATION_CONFIG):
+        for cfg in registry.values():
+            assert f"V{LTS_NOTE_TYPE_SCHEMA} (Add-on)" in cfg["model_name"]
+    for cfg in LANG_CONFIG.values():
+        assert cfg["legacy_template_aliases"]["1. Tổng hợp (5 chế độ)"] == (
+            cfg["template_names"][0]
+        )
+
+
 class _Note(dict):
     def __init__(self):
         super().__init__({"Front": "affect", "Meaning": "ảnh hưởng"})

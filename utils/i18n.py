@@ -1029,6 +1029,18 @@ _TRANSLATIONS = {
         "vi": "Bento Forge: bảo toàn lịch SRS card cũ",
         "en": "Bento Forge: preserve legacy SRS cards",
     },
+    "srs_legacy_confirm": {
+        "vi": "Note Type cũ cần thêm marker tương thích để giữ nguyên các card và lịch SRS hiện có trước khi nhận giao diện mới. Tiếp tục? Anki sẽ tạo checkpoint để có thể Undo.",
+        "en": "This legacy Note Type needs a compatibility marker to preserve its cards and SRS history before receiving the new layout. Continue? Anki will create an Undo checkpoint.",
+    },
+    "srs_legacy_cancelled": {
+        "vi": "Đã hủy cập nhật Note Type cũ; chưa có dữ liệu nào bị thay đổi.",
+        "en": "Legacy Note Type update cancelled; no data was changed.",
+    },
+    "model_rebuild_lts_confirm": {
+        "vi": "Cập nhật các field và template do Bento Forge quản lý lên contract LTS hiện hành? Field/template tự tạo sẽ được giữ nguyên và Anki sẽ tạo checkpoint nếu cần migrate SRS cũ.",
+        "en": "Update Bento Forge-managed fields and templates to the current LTS contract? User-created fields/templates are preserved, and Anki creates a checkpoint if legacy SRS migration is needed.",
+    },
     "srs_migrate_done": {
         "vi": "✅ Đã chuyển {count} note. Card Nhận diện cũ giữ nguyên lịch sử; 4 lịch kỹ năng mới đã được tạo. Có thể dùng Undo của Anki ngay nếu cần.",
         "en": "✅ Migrated {count} notes. Existing Recognition history was preserved and four new skill schedules were created. Use Anki Undo immediately if needed.",

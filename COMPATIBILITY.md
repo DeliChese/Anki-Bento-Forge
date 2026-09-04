@@ -16,6 +16,14 @@ in `RELEASE_CHECKLIST.md`.
 
 ## Compatibility design
 
+### LTS Note Type contract
+
+- Add-on release versions and Language Note Type schema versions are independent. Normal feature releases keep the `V18.3` Note Type names; a new name is allowed only for an intentional schema epoch with an explicit migration plan.
+- Runtime migration is additive: Bento Forge may add required fields and refresh templates it owns, but it does not remove fields, unknown templates, cards, media, or SRS history.
+- Historical model discovery is allowlist-only through `old_model_names`; broad/fuzzy model matching is not permitted.
+- Content quality uses `Bento Quality Version`, separate from the Note Type name. New notes receive the current revision; old revisions expose the opt-in Reviewer upgrade with diff, audio choice, identity re-check, and Anki Undo.
+- Legacy multi-card SRS compatibility may touch notes only after the user confirms and an Anki checkpoint is created.
+
 - `Collection.update_note()` is preferred on current Anki so updates remain in
   the surrounding undo-aware operation; `Note.flush()` is retained only as a
   compatibility fallback for legacy runtimes.
