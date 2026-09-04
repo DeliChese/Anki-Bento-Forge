@@ -300,6 +300,23 @@ class TestReviewerHookCompatibility:
 
         inject_ai.assert_called_once_with(review)
         inject_examples.assert_called_once_with(review, snapshot)
+        review.web.eval.assert_not_called()
+
+    def test_example_actions_retry_after_answer_render_and_survive_missing_history(self):
+        from unittest.mock import patch
+        import hooks.reviewer as reviewer
+
+        review = MagicMock()
+        with patch.object(reviewer, "_example_review_payload", return_value=None):
+            assert reviewer._inject_example_regeneration(
+                review, {"language": "japanese"},
+            ) is True
+
+        script = review.web.eval.call_args.args[0]
+        assert "const render = ()" in script
+        assert "setTimeout(render, 80)" in script
+        assert "setTimeout(render, 240)" in script
+        assert "match(/([1-4])" in script
 
     def test_production_drill_is_opt_in_local_and_hides_guidance(self):
         import hooks.reviewer as reviewer

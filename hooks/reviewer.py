@@ -9,8 +9,8 @@ try:
 except Exception:
     gui_hooks = None
 
-from audio.engine import detect_lang_from_model, get_default_speed
-from mode import _SPEED_CTRL_JS, _LG_JS_BODY
+from audio.engine import detect_lang_from_model
+from mode import _LG_JS_BODY
 from utils.logger import get_logger, log_event
 from utils.i18n import t
 
@@ -417,9 +417,7 @@ def _example_review_payload(reviewer, snapshot):
 
 def _inject_example_regeneration(reviewer, snapshot):
     """Add one opt-in version action to each Example 1–4 block."""
-    payload = _example_review_payload(reviewer, snapshot)
-    if payload is None:
-        return False
+    payload = _example_review_payload(reviewer, snapshot) or {"slots": {}}
     copy = {
         "action": t("example_regen_action", current="{current}", total="{total}"),
         "empty": t("example_regen_empty"),
@@ -427,6 +425,7 @@ def _inject_example_regeneration(reviewer, snapshot):
     try:
         reviewer.web.eval(f"""
             (() => {{
+              const render = () => {{
               const data = {json.dumps(payload, ensure_ascii=False)};
               const copy = {json.dumps(copy, ensure_ascii=False)};
               if (!document.getElementById('bento-example-version-style')) {{
@@ -448,19 +447,20 @@ def _inject_example_regeneration(reviewer, snapshot):
               const headers = Array.from(document.querySelectorAll('.ec > .en'));
               const blocks = {{}};
               headers.forEach(header => {{
-                const match = String(header.textContent || '').match(/(?:VÍ DỤ|EXAMPLE)\\s*([1-4])/i);
+                const match = String(header.textContent || '').match(/([1-4])\\s*$/);
                 if (match) blocks[match[1]] = header.closest('.ec');
               }});
               let section = Array.from(document.querySelectorAll('.es')).find(node => {{
                 const label = node.querySelector('.esl');
                 return label && /ví dụ|example/i.test(String(label.textContent || ''));
               }});
-              if (!section) return;
+              section = section || (blocks['1'] && blocks['1'].parentElement);
               for (let slot = 1; slot <= 4; slot++) {{
                 const key = String(slot);
                 const state = data.slots[key] || {{current:0,total:0,reading:''}};
                 let block = blocks[key];
                 if (!block) {{
+                  if (!section) continue;
                   block = document.createElement('div');
                   block.className = 'ec bento-example-placeholder';
                   block.innerHTML = `<div class="en">VÍ DỤ ${{slot}}</div><div class="ej"></div>`;
@@ -488,6 +488,10 @@ def _inject_example_regeneration(reviewer, snapshot):
                 }};
                 header.appendChild(button);
               }}
+              }};
+              render();
+              setTimeout(render, 80);
+              setTimeout(render, 240);
             }})();
         """)
         return True
@@ -556,8 +560,6 @@ def _on_reviewer_answer(reviewer):
     if reviewer is None:
         return
     _inject_ai_action(reviewer)
-    # Bước 1: Xác định tốc độ mặc định
-    default_spd = 1.0
     snapshot = None
     try:
         reviewer._bento_forge_side = "answer"
@@ -565,19 +567,6 @@ def _on_reviewer_answer(reviewer):
         if card is not None:
             snapshot = get_current_card_snapshot(reviewer, side="answer")
             _refresh_companion_context(snapshot)
-            note = card.note()
-            if note is not None:
-                model = note.model()
-                if model is not None:
-                    lang = detect_lang_from_model(model['name'])
-                    if lang:
-                        default_spd = get_default_speed(lang)
-    except Exception:
-        pass
-
-    # Bước 2: Inject JS tốc độ
-    try:
-        reviewer.web.eval(f"window._ankiDefaultSpeed={default_spd};" + _SPEED_CTRL_JS)
     except Exception:
         pass
     _inject_example_regeneration(reviewer, snapshot)
