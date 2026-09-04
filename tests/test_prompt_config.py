@@ -285,7 +285,8 @@ class TestFieldMap:
         # Không có override → giữ nguyên
         eff = pc.apply_field_map_to_cfg(cfg, "japanese", "vocab")
         assert eff["json_field_map"]["front"] == "Front"
-        assert eff["all_fields"] == ["Front", "Meaning"]
+        assert eff["all_fields"] == ["Front", "Meaning", "Bento Quality Version"]
+        assert eff["note_defaults"]["Bento Quality Version"] == "1"
         # Có override thêm field mới → all_fields mở rộng
         pc.save_config({}, field_map={
             "vocab": {"japanese": {"english_meaning": "English Meaning"}},

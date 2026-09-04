@@ -13,6 +13,7 @@ from audio.engine import detect_lang_from_model
 from mode import _LG_JS_BODY
 from utils.logger import get_logger, log_event
 from utils.i18n import t
+from utils.card_upgrade import upgrade_is_available
 
 logger = get_logger()
 _REGISTERED_HOOKS = set()
@@ -40,6 +41,7 @@ def _resolve_reviewer(hook_arg):
 _AI_CONTEXT_FIELDS = {
     "front": "front", "simplified": "simplified", "traditional": "traditional",
     "word": "front", "vocabulary": "front", "term": "front", "expression": "front",
+    "chunk": "front", "phrase": "front",
     "target": "front", "target word": "front", "vocabulary word": "front",
     "expression text": "front",
     "hanzi": "front", "kanji": "front", "hangul": "front",
@@ -73,6 +75,9 @@ _AI_CONTEXT_FIELDS = {
     "example4 pronunciation": "example4_pronunciation",
     "example4 in vietnamese": "example4_vn", "question": "question",
     "answer": "answer", "concept": "concept",
+    "semantic group": "semantic_group", "relationship note": "relationship_note",
+    "register / nuance": "register_nuance", "related terms": "related_terms",
+    "bento quality version": "quality_version",
 }
 
 _TARGET_FIELD_KEYS = (
@@ -340,10 +345,13 @@ def get_current_card_snapshot(reviewer, side=None):
         except Exception:
             pass
         if note is not None:
+            field_values = {}
             items = note.items() if callable(getattr(note, "items", None)) else []
             for field_name, value in items:
                 clean_value = str(value or "").strip()
                 key = _AI_CONTEXT_FIELDS.get(str(field_name).strip().casefold())
+                if key or str(field_name).endswith(" Audio") or str(field_name) == "Bento Quality Version":
+                    field_values[str(field_name)] = clean_value[:4_000]
                 if key and clean_value:
                     snapshot[key] = clean_value[:4_000]
             is_grammar = "grammar" in model_name.casefold() or bool(snapshot.get("pattern"))
@@ -362,6 +370,7 @@ def get_current_card_snapshot(reviewer, side=None):
                 else "collocation" if "collocation" in model_name.casefold()
                 else "vocabulary"
             )
+            snapshot["bento_field_values"] = field_values
         return snapshot
     except Exception as error:
         log_event(
@@ -502,6 +511,40 @@ def open_example_regenerator_from_reviewer(context, slot):
     state = read_example_state(note, snapshot["language"], int(slot))
     return show_example_regenerator(reviewer, snapshot, int(slot), state)
 
+
+def _inject_card_upgrade(reviewer, snapshot):
+    """Expose a card refresh only when the managed note is behind the quality contract."""
+    if not upgrade_is_available(snapshot):
+        return False
+    label = json.dumps(t("card_upgrade_action"), ensure_ascii=False)
+    try:
+        reviewer.web.eval(f"""
+            (() => {{
+              if (document.getElementById('bento-card-upgrade-action')) return;
+              const button = document.createElement('button');
+              button.id = 'bento-card-upgrade-action'; button.type = 'button';
+              button.textContent = {label}; button.setAttribute('aria-label', {label});
+              button.style.cssText = 'position:fixed;right:12px;top:86px;z-index:9999;border:1px solid rgba(53,111,164,.46);border-radius:10px;padding:5px 9px;background:rgba(53,111,164,.13);color:inherit;font:inherit;font-size:12px;cursor:pointer';
+              button.onclick = () => pycmd('bento_card_upgrade:open');
+              document.body.appendChild(button);
+            }})();
+        """)
+        return True
+    except Exception as error:
+        logger.debug("Card upgrade injection unavailable: %s", error)
+        return False
+
+
+def open_card_upgrade_from_reviewer(context):
+    reviewer = _resolve_reviewer(getattr(context, "reviewer", None) or context)
+    if reviewer is None:
+        return None
+    snapshot = get_current_card_snapshot(reviewer)
+    if not upgrade_is_available(snapshot):
+        return None
+    from ui.card_upgrade_dialog import show_card_upgrade_dialog
+    return show_card_upgrade_dialog(reviewer, snapshot)
+
 # Import an toàn module overview_mode (tránh circular import ở mức module load)
 try:
     from hooks.overview_mode import get_study_mode
@@ -525,6 +568,7 @@ def _on_reviewer_question(reviewer):
         q = card.q() or ""
         _inject_ai_action(reviewer)
         _inject_production_drill(reviewer, snapshot)
+        _inject_card_upgrade(reviewer, snapshot)
         # Card combo (1 từ = 1 card, 5 chế độ): đồng bộ mode từ config
         if 'id="combo-mode-bar"' in q and 'data-srs-layout="combo"' in q:
             mode = str((snapshot or {}).get("study_mode") or "qa")

@@ -141,6 +141,10 @@ def _on_js_message(handled, message, context):
             from hooks.reviewer import open_example_regenerator_from_reviewer
             open_example_regenerator_from_reviewer(context, slot)
             return (True, None)
+        if message == "bento_card_upgrade:open":
+            from hooks.reviewer import open_card_upgrade_from_reviewer
+            open_card_upgrade_from_reviewer(context)
+            return (True, None)
     except Exception as e:
         logger.warning("Lỗi xử lý webview message: %s", e)
     return handled

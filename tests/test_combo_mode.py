@@ -428,6 +428,20 @@ class TestReviewerHookCompatibility:
         assert snapshot["meaning"] == "hoa quả"
         assert "private_field" not in snapshot
 
+    def test_reviewer_snapshot_maps_collocation_target_for_quality_upgrade(self):
+        import hooks.reviewer as reviewer
+
+        review = MagicMock()
+        note = MagicMock()
+        note.model.return_value = {"name": "AnkiTool English Collocation V18.3 (Add-on)"}
+        note.items.return_value = [("Chunk", "take responsibility"), ("Meaning", "chịu trách nhiệm")]
+        review.card.note.return_value = note
+
+        snapshot = reviewer.get_current_card_snapshot(review, side="question")
+
+        assert snapshot["card_kind"] == "collocation"
+        assert snapshot["current_target"] == "take responsibility"
+
     def test_reviewer_snapshot_maps_grammar_target_and_supporting_fields(self):
         import hooks.reviewer as reviewer
 

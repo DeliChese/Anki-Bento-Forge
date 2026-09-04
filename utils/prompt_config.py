@@ -447,6 +447,8 @@ def apply_field_map_to_cfg(cfg: dict, lang: str, kind: str = "vocab") -> dict:
     - card_show: vị trí hiển thị field tuỳ chỉnh trên thẻ (Mức 2).
     Đây là điểm bơm duy nhất → mọi nơi dùng self._cfg() đều tự có field mới.
     """
+    from .card_upgrade import CURRENT_QUALITY_VERSION, QUALITY_FIELD
+
     eff_map = get_field_map(lang, kind, cfg.get("json_field_map") or {})
     all_fields = list(cfg.get("all_fields") or [])
     seen = set(all_fields)
@@ -455,10 +457,15 @@ def apply_field_map_to_cfg(cfg: dict, lang: str, kind: str = "vocab") -> dict:
         if fn and fn not in seen:
             all_fields.append(fn)
             seen.add(fn)
+    if QUALITY_FIELD not in seen:
+        all_fields.append(QUALITY_FIELD)
     out = dict(cfg)
     out["json_field_map"] = eff_map
     out["all_fields"] = all_fields
     out["card_show"] = get_card_show(lang, kind)
+    note_defaults = dict(cfg.get("note_defaults") or {})
+    note_defaults[QUALITY_FIELD] = CURRENT_QUALITY_VERSION
+    out["note_defaults"] = note_defaults
     return out
 
 
