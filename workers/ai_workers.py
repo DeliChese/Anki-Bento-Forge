@@ -32,8 +32,37 @@ SMALL_RUN_MAX_CARDS = 20
 SMALL_RUN_MAX_SOURCE_CHARS = 4_000
 
 _INLINE_VOCAB_SEPARATOR_RE = re.compile(r"\s*(?:、|,|;|\t)\s*")
+_BULLET_LIST_PREFIX_RE = re.compile(r"^\s*[-*•▪◦·‣⁃]+\s*")
+_NUMBERED_LIST_PREFIX_RE = re.compile(
+    r"^\s*(?:(?:\(\s*\d{1,3}\s*\)|\[\s*\d{1,3}\s*\]|\d{1,3}\s*[.)、:：])\s*|"
+    r"\d{1,3}\s*[-–—]\s*)"
+)
+_INLINE_NUMBERED_ITEM_RE = re.compile(
+    r"(?:^|\s+)(?:(?:\(\s*\d{1,3}\s*\)|\[\s*\d{1,3}\s*\]|\d{1,3}\s*[.)、:：])\s*|"
+    r"\d{1,3}\s*[-–—]\s*)"
+)
 _VOCAB_MEANING_SEPARATOR_RE = re.compile(r"\s+(?:—|–|-)\s+|\s*(?:=>|=)\s*")
 _HEADING_RE = re.compile(r"^(?:#{1,6}\s+|<h[1-6]\b|h[1-6]\s*:)", re.IGNORECASE)
+
+
+def _strip_vocab_list_prefix(value):
+    """Remove one common list marker while retaining the actual vocabulary."""
+    value = _BULLET_LIST_PREFIX_RE.sub("", str(value or ""), count=1)
+    return _NUMBERED_LIST_PREFIX_RE.sub("", value, count=1)
+
+
+def _split_inline_numbered_items(value):
+    """Split ``1. word 2. word`` only when it is clearly a complete list."""
+    matches = list(_INLINE_NUMBERED_ITEM_RE.finditer(value))
+    if len(matches) < 2 or matches[0].start() != 0:
+        return [value]
+    items = []
+    for index, match in enumerate(matches):
+        end = matches[index + 1].start() if index + 1 < len(matches) else len(value)
+        item = value[match.end():end].strip()
+        if item:
+            items.append(item)
+    return items
 
 
 def normalize_extraction_source(text):
@@ -41,15 +70,15 @@ def normalize_extraction_source(text):
     normalized_lines = []
     seen = set()
     for raw_line in unicodedata.normalize("NFKC", str(text or "")).splitlines():
-        line = re.sub(r"^\s*(?:[-*•▪◦]+|\d{1,3}\s*[.)、:-])\s*", "", raw_line)
-        line = " ".join(line.split())
-        if not line:
-            continue
-        key = line.casefold()
-        if key in seen:
-            continue
-        seen.add(key)
-        normalized_lines.append(line)
+        for item in _split_inline_numbered_items(raw_line):
+            line = " ".join(_strip_vocab_list_prefix(item).split())
+            if not line:
+                continue
+            key = line.casefold()
+            if key in seen:
+                continue
+            seen.add(key)
+            normalized_lines.append(line)
     return "\n".join(normalized_lines)
 
 

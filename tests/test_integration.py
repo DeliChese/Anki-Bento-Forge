@@ -242,6 +242,38 @@ class TestAiExtractThread:
             "大家", "自己", "别人", "人家", "谁",
         ]
 
+    def test_mixed_unnumbered_and_numbered_chinese_list_preserves_every_item(self):
+        from workers.ai_workers import parse_explicit_vocabulary_items
+
+        source = """我
+
+1. 你
+2. 您
+3. 他
+4. 她
+5. 它
+6. 我们
+7. 你们
+8. 他们
+9. 她们
+10. 大家
+11. 自己
+12. 别人
+13. 人家
+14. 谁"""
+
+        assert parse_explicit_vocabulary_items(source) == [
+            "我", "你", "您", "他", "她", "它", "我们", "你们", "他们", "她们",
+            "大家", "自己", "别人", "人家", "谁",
+        ]
+
+    def test_common_paste_markers_and_inline_numbering_are_recognized(self):
+        from workers.ai_workers import parse_explicit_vocabulary_items
+
+        source = "1. 我 2) 你 3、您\n• 他\n(4) 她\n5 — 它"
+
+        assert parse_explicit_vocabulary_items(source) == ["我", "你", "您", "他", "她", "它"]
+
     def test_explicit_vocab_list_auto_expands_target_and_preserves_source_order(self, monkeypatch):
         from workers import ai_workers
 
