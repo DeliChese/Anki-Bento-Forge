@@ -110,6 +110,10 @@ class FactoryStateStore:
                 "files": [path[:512] for path in files[:5] if isinstance(path, str)],
                 "topic_enabled": bool(flow.get("topic_enabled", False)),
                 "topic": flow.get("topic", "")[:80] if isinstance(flow.get("topic"), str) else "",
+                "topics": [
+                    value[:80] for value in flow.get("topics", [])[:20]
+                    if isinstance(value, str) and value.strip()
+                ] if isinstance(flow.get("topics"), list) else [],
                 "raw": self._bounded_items(flow.get("raw", []), self.max_flow_bytes // 2),
                 "cards": self._bounded_items(flow.get("cards", []), self.max_flow_bytes // 2),
             }

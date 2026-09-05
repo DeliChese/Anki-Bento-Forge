@@ -5,16 +5,28 @@ import pytest
 from utils.topic_catalog import TopicCatalogError, TopicCatalogStore, normalize_topics
 
 
-def test_catalogs_are_independent_per_language_and_persist(tmp_path):
+def test_catalog_is_shared_across_languages_and_persists(tmp_path):
     path = str(tmp_path / "topic_catalog.json")
     store = TopicCatalogStore(path)
 
     store.replace_topics("chinese", ["Ẩm thực", "Du lịch"])
-    store.replace_topics("japanese", ["Ẩm thực"])
 
     reopened = TopicCatalogStore(path)
     assert reopened.topics_for("chinese") == ["Ẩm thực", "Du lịch"]
-    assert reopened.topics_for("japanese") == ["Ẩm thực"]
+    assert reopened.topics_for("japanese") == ["Ẩm thực", "Du lịch"]
+
+
+def test_catalog_merges_legacy_language_specific_topics_without_data_loss(tmp_path):
+    path = tmp_path / "topic_catalog.json"
+    path.write_text(
+        '{"version": 1, "languages": {"japanese": ["Ẩm thực"], '
+        '"chinese": ["Du lịch", "ẩm thực"]}}',
+        encoding="utf-8",
+    )
+
+    store = TopicCatalogStore(str(path))
+
+    assert store.topics_for("korean") == ["Ẩm thực", "Du lịch"]
 
 
 def test_catalog_deduplicates_case_insensitively_without_losing_order():

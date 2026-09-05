@@ -29,7 +29,7 @@ if _addon_root not in sys.path:
 # Dữ liệu này phải ở profile Anki để update add-on không thể ghi đè dữ liệu người dùng.
 from utils.user_data import get_user_data_path
 from utils.factory_state import FactoryStateStore
-from utils.topic_catalog import TopicCatalogStore
+from utils.topic_catalog import TopicCatalogError, TopicCatalogStore, normalize_topics
 from utils.learning_mode import (
     DEFAULT_LEARNING_MODE,
     get_learning_mode,
@@ -247,6 +247,7 @@ class AnkiSmartFactory(QDialog):
         # Trạng thái lưu theo learning mode, ngôn ngữ và subtype.
         self._factory_state = self._load_factory_state()
         self._topic_catalog = TopicCatalogStore(_TOPIC_CATALOG_PATH)
+        self._ai_selected_topics = []
         # Debounce timer cho JSON parsing (tránh parse liên tục khi gõ)
         self._analyze_timer = QTimer(self)
         self._analyze_timer.setSingleShot(True)
@@ -460,6 +461,7 @@ class AnkiSmartFactory(QDialog):
             if hasattr(self, "chk_ai_topic"):
                 flow["topic_enabled"] = bool(self.chk_ai_topic.isChecked())
                 flow["topic"] = self._selected_ai_topic()
+                flow["topics"] = self._selected_ai_topics()
             # Lưu thẻ chờ xuất xưởng để KHÔNG bị mất khi đóng Factory
             flow["raw"] = [d for d in getattr(self, 'raw_data', []) if isinstance(d, dict)]
             flow["cards"] = [d for d in getattr(self, 'prepared_data', []) if isinstance(d, dict)]
@@ -480,7 +482,7 @@ class AnkiSmartFactory(QDialog):
             self._json_locked = bool(flow.get("json_locked", False))
             self.ai_text_input.setPlainText(flow.get("text", ""))
             if hasattr(self, "chk_ai_topic"):
-                self._repopulate_ai_topic_combo(flow.get("topic", ""))
+                self._repopulate_ai_topic_combo(flow.get("topics") or flow.get("topic", ""))
                 self.chk_ai_topic.setChecked(bool(flow.get("topic_enabled", False)))
                 self._sync_ai_topic_controls()
             saved_card_count = flow.get("card_count", SMALL_RUN_DEFAULT_CARDS)
@@ -884,17 +886,8 @@ class AnkiSmartFactory(QDialog):
         self.chk_ai_topic.toggled.connect(self._on_ai_topic_toggled)
         topic_bar.addWidget(self.chk_ai_topic)
         self.cbo_ai_topic = QComboBox()
-        self.cbo_ai_topic.setEditable(True)
-        self.cbo_ai_topic.setInsertPolicy(QComboBox.InsertPolicy.NoInsert)
         self.cbo_ai_topic.setMinimumWidth(210)
         self.cbo_ai_topic.setToolTip(t("topic_scope_choose_tip"))
-        topic_completer = QCompleter(self.cbo_ai_topic.model(), self)
-        topic_completer.setCaseSensitivity(Qt.CaseSensitivity.CaseInsensitive)
-        topic_completer.setFilterMode(Qt.MatchFlag.MatchContains)
-        topic_completer.setCompletionMode(QCompleter.CompletionMode.PopupCompletion)
-        self.cbo_ai_topic.setCompleter(topic_completer)
-        self.cbo_ai_topic.activated.connect(self._on_ai_topic_selected)
-        self.cbo_ai_topic.lineEdit().editingFinished.connect(self._resolve_ai_topic_search)
         topic_bar.addWidget(self.cbo_ai_topic, 1)
         self.btn_manage_ai_topics = QPushButton(t("topic_scope_manage"))
         self.btn_manage_ai_topics.setToolTip(t("topic_scope_manage_tip"))
@@ -1715,10 +1708,13 @@ class AnkiSmartFactory(QDialog):
         )
 
     def _selected_ai_topic(self):
-        if not hasattr(self, "cbo_ai_topic"):
-            return ""
-        value = self.cbo_ai_topic.currentData()
-        return str(value).strip() if value not in (None, "") else ""
+        return " · ".join(self._selected_ai_topics())
+
+    def _selected_ai_topics(self):
+        try:
+            return normalize_topics(getattr(self, "_ai_selected_topics", []))
+        except TopicCatalogError:
+            return []
 
     def _active_ai_topic_or_warn(self):
         if not self._topic_scope_requested():
@@ -1729,25 +1725,20 @@ class AnkiSmartFactory(QDialog):
         showInfo(t("topic_scope_select_required"))
         return None
 
-    def _repopulate_ai_topic_combo(self, selected=""):
+    def _repopulate_ai_topic_combo(self, selected=None):
         if not hasattr(self, "cbo_ai_topic"):
             return
-        topics = self._topic_catalog.topics_for(self._current_lang)
+        if selected is not None:
+            values = [selected] if isinstance(selected, str) else selected
+            try:
+                self._ai_selected_topics = normalize_topics(values or [])
+            except TopicCatalogError:
+                self._ai_selected_topics = []
         control = self.cbo_ai_topic
         control.blockSignals(True)
         control.clear()
-        control.addItem(t("topic_scope_choose"), "")
-        for topic in topics:
-            control.addItem(topic, topic)
-        wanted = str(selected or "").strip().casefold()
-        index = next(
-            (
-                position for position in range(1, control.count())
-                if str(control.itemData(position)).casefold() == wanted
-            ),
-            0,
-        )
-        control.setCurrentIndex(index)
+        scope = self._selected_ai_topic()
+        control.addItem(scope or t("topic_scope_choose"), scope)
         control.blockSignals(False)
 
     def _sync_ai_topic_controls(self):
@@ -1757,7 +1748,7 @@ class AnkiSmartFactory(QDialog):
         enabled = available and self.chk_ai_topic.isChecked()
         for widget in (self.chk_ai_topic, self.cbo_ai_topic, self.btn_manage_ai_topics):
             widget.setVisible(available)
-        self.cbo_ai_topic.setEnabled(enabled)
+        self.cbo_ai_topic.setEnabled(available)
         self.btn_manage_ai_topics.setEnabled(enabled)
 
     def _on_ai_topic_toggled(self, _checked):
@@ -1765,35 +1756,20 @@ class AnkiSmartFactory(QDialog):
         if getattr(self, "_ui_ready", False):
             self._save_current_flow()
 
-    def _on_ai_topic_selected(self, _index):
-        if getattr(self, "_ui_ready", False):
-            self._save_current_flow()
-
-    def _resolve_ai_topic_search(self):
-        if not hasattr(self, "cbo_ai_topic") or not self.cbo_ai_topic.isEnabled():
-            return
-        typed = self.cbo_ai_topic.currentText().strip().casefold()
-        for index in range(1, self.cbo_ai_topic.count()):
-            if str(self.cbo_ai_topic.itemData(index)).casefold() == typed:
-                self.cbo_ai_topic.setCurrentIndex(index)
-                self._on_ai_topic_selected(index)
-                return
-        self.cbo_ai_topic.setCurrentIndex(0)
-
     def _manage_ai_topics(self):
         if not self._topic_scope_requested():
             return
         from ui.topic_catalog_dialog import TopicCatalogDialog
 
-        selected = self._selected_ai_topic()
         dialog = TopicCatalogDialog(
             store=self._topic_catalog,
             language=self._current_lang,
             language_label=_translated_language_label(self._current_lang),
+            selected_topics=self._selected_ai_topics(),
             parent=self,
         )
-        dialog.exec()
-        self._repopulate_ai_topic_combo(selected)
+        if dialog.exec():
+            self._repopulate_ai_topic_combo(dialog.selected_topics)
         self._sync_ai_topic_controls()
         self._save_current_flow()
 

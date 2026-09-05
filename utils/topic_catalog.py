@@ -1,4 +1,4 @@
-"""Profile-local, language-specific topic catalog for focused AI creation."""
+"""Profile-local, cross-language topic catalog for focused AI creation."""
 
 from __future__ import annotations
 
@@ -46,34 +46,43 @@ def normalize_topics(values: Iterable[object]) -> list[str]:
 
 
 class TopicCatalogStore:
-    """Own the bounded on-disk catalog; UI controls never own file I/O."""
+    """Own the bounded shared catalog; UI controls never own file I/O."""
 
     def __init__(self, path: str):
         self.path = path
 
     def topics_for(self, language: str) -> list[str]:
-        language = self._language(language)
-        raw = read_json(
-            self.path, {}, lambda value: isinstance(value, dict),
-            max_bytes=_MAX_FILE_BYTES,
-        )
-        topics = raw.get("languages", {}).get(language, []) if isinstance(raw, dict) else []
-        try:
-            return normalize_topics(topics if isinstance(topics, list) else [])
-        except TopicCatalogError:
-            return []
+        self._language(language)
+        return self._topics_from_raw(self._read())
 
     def replace_topics(self, language: str, values: Iterable[object]) -> list[str]:
-        language = self._language(language)
+        self._language(language)
         topics = normalize_topics(values)
-        raw = read_json(
+        atomic_write_json(self.path, {"version": 2, "topics": topics})
+        return topics
+
+    def _read(self) -> dict:
+        return read_json(
             self.path, {}, lambda value: isinstance(value, dict),
             max_bytes=_MAX_FILE_BYTES,
         )
-        languages = dict(raw.get("languages", {})) if isinstance(raw, dict) else {}
-        languages[language] = topics
-        atomic_write_json(self.path, {"version": 1, "languages": languages})
-        return topics
+
+    @staticmethod
+    def _topics_from_raw(raw: dict) -> list[str]:
+        """Read V2 shared data and losslessly merge V1 language catalogs."""
+        try:
+            if isinstance(raw.get("topics"), list):
+                return normalize_topics(raw["topics"])
+            languages = raw.get("languages", {})
+            values = []
+            if isinstance(languages, dict):
+                for language in ("japanese", "chinese", "korean", "english"):
+                    entries = languages.get(language, [])
+                    if isinstance(entries, list):
+                        values.extend(entries)
+            return normalize_topics(values)
+        except TopicCatalogError:
+            return []
 
     @staticmethod
     def _language(value: str) -> str:

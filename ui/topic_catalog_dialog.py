@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from aqt.qt import (
     QDialog, QDialogButtonBox, QHBoxLayout, QLabel, QLineEdit, QListWidget,
-    QPushButton, QVBoxLayout,
+    QListWidgetItem, QPushButton, Qt, QVBoxLayout,
 )
 from aqt.utils import tooltip
 
@@ -16,10 +16,11 @@ class TopicCatalogDialog(QDialog):
     """Edit only the catalog for the language supplied by the Factory."""
 
     def __init__(self, *, store: TopicCatalogStore, language: str,
-                 language_label: str, parent=None):
+                 language_label: str, selected_topics=None, parent=None):
         super().__init__(parent)
         self._store = store
         self._language = language
+        self.selected_topics = normalize_topics(selected_topics or [])
         self.setWindowTitle(t("topic_catalog_title"))
         self.setMinimumSize(420, 330)
 
@@ -50,7 +51,9 @@ class TopicCatalogDialog(QDialog):
         actions.addStretch(1)
         layout.addLayout(actions)
 
-        buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Close)
+        buttons = QDialogButtonBox(
+            QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Close
+        )
         buttons.rejected.connect(self.reject)
         buttons.accepted.connect(self.accept)
         layout.addWidget(buttons)
@@ -59,11 +62,24 @@ class TopicCatalogDialog(QDialog):
     def _topics(self) -> list[str]:
         return [self.list_widget.item(index).text() for index in range(self.list_widget.count())]
 
-    def _reload(self, selected: str = "") -> None:
+    def _checked_topics(self) -> list[str]:
+        return [
+            self.list_widget.item(index).text()
+            for index in range(self.list_widget.count())
+            if self.list_widget.item(index).checkState() == Qt.CheckState.Checked
+        ]
+
+    def _reload(self, selected: str = "", checked_topics=None) -> None:
+        checked = {topic.casefold() for topic in (checked_topics or self.selected_topics)}
         self.list_widget.blockSignals(True)
         self.list_widget.clear()
         for topic in self._store.topics_for(self._language):
-            self.list_widget.addItem(topic)
+            item = QListWidgetItem(topic)
+            item.setFlags(item.flags() | Qt.ItemFlag.ItemIsUserCheckable)
+            item.setCheckState(
+                Qt.CheckState.Checked if topic.casefold() in checked else Qt.CheckState.Unchecked
+            )
+            self.list_widget.addItem(item)
         self.list_widget.blockSignals(False)
         wanted = selected.casefold()
         for index in range(self.list_widget.count()):
@@ -89,12 +105,13 @@ class TopicCatalogDialog(QDialog):
             return ""
 
     def _save(self, topics: list[str], selected: str = "") -> None:
+        checked_topics = self._checked_topics()
         try:
             self._store.replace_topics(self._language, topics)
         except TopicCatalogError as error:
             tooltip(t("topic_catalog_error", error=str(error)))
             return
-        self._reload(selected)
+        self._reload(selected, checked_topics)
 
     def _add_topic(self) -> None:
         topic = self._candidate()
@@ -128,6 +145,10 @@ class TopicCatalogDialog(QDialog):
         del topics[index]
         self.topic_input.clear()
         self._save(topics)
+
+    def accept(self) -> None:
+        self.selected_topics = normalize_topics(self._checked_topics())
+        super().accept()
 
 
 __all__ = ["TopicCatalogDialog"]

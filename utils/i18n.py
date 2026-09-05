@@ -188,28 +188,28 @@ _TRANSLATIONS = {
         "en": "🎯 Lock topic",
     },
     "topic_scope_tip": {
-        "vi": "Chỉ cho AI tạo/lọc từ vựng trong chủ đề bạn chọn; danh sách từ tường minh không được thêm từ ngoài nguồn.",
-        "en": "Restrict AI to the selected topic; explicit vocabulary lists may not gain words outside the source.",
+        "vi": "Chỉ cho AI tạo/lọc từ vựng trong các chủ đề bạn tích; danh sách từ tường minh không được thêm từ ngoài nguồn.",
+        "en": "Restrict AI to the topics you check; explicit vocabulary lists may not gain words outside the source.",
     },
     "topic_scope_choose": {
-        "vi": "Chọn hoặc tìm chủ đề…",
-        "en": "Choose or search a topic…",
+        "vi": "Chưa chọn chủ đề…",
+        "en": "No topics selected…",
     },
     "topic_scope_choose_tip": {
-        "vi": "Gõ để tìm không phân biệt hoa/thường; chỉ các chủ đề trong danh mục mới được chọn.",
-        "en": "Type to search case-insensitively; only catalog topics can be selected.",
+        "vi": "Các chủ đề đang được tích. Dùng Quản lý để thêm hoặc chọn nhiều chủ đề.",
+        "en": "The checked topics. Use Manage to add or choose multiple topics.",
     },
     "topic_scope_manage": {
         "vi": "Quản lý…",
         "en": "Manage…",
     },
     "topic_scope_manage_tip": {
-        "vi": "Thêm, sửa hoặc xóa danh mục chủ đề của ngôn ngữ đang chọn.",
-        "en": "Add, edit, or delete topics for the selected language.",
+        "vi": "Thêm, sửa, xóa hoặc tích các chủ đề dùng chung cho mọi ngôn ngữ.",
+        "en": "Add, edit, delete, or check topics shared by every language.",
     },
     "topic_scope_select_required": {
-        "vi": "Hãy chọn một chủ đề hợp lệ hoặc tắt Khóa chủ đề trước khi tạo thẻ.",
-        "en": "Choose a valid topic or turn off Lock topic before creating cards.",
+        "vi": "Hãy tích ít nhất một chủ đề hoặc tắt Khóa chủ đề trước khi tạo thẻ.",
+        "en": "Check at least one topic or turn off Lock topic before creating cards.",
     },
     "topic_scope_source_only": {
         "vi": "AI trả về từ ngoài danh sách nguồn đã khóa theo chủ đề; không tạo thẻ nào.",
@@ -220,12 +220,12 @@ _TRANSLATIONS = {
         "en": "🎯 Topic catalog",
     },
     "topic_catalog_language": {
-        "vi": "Danh mục riêng cho: {language}",
-        "en": "Catalog for: {language}",
+        "vi": "Danh mục dùng chung — đang chọn thẻ cho: {language}",
+        "en": "Shared catalog — selecting topics for: {language}",
     },
     "topic_catalog_list_label": {
-        "vi": "Chủ đề hiện có",
-        "en": "Current topics",
+        "vi": "Tích các chủ đề muốn dùng",
+        "en": "Check topics to use",
     },
     "topic_catalog_placeholder": {
         "vi": "Nhập tên chủ đề…",
@@ -248,8 +248,8 @@ _TRANSLATIONS = {
         "en": "The topic is empty, too long, or contains invalid characters.",
     },
     "topic_catalog_duplicate": {
-        "vi": "Chủ đề này đã có trong danh mục của ngôn ngữ đang chọn.",
-        "en": "This topic already exists in the selected language catalog.",
+        "vi": "Chủ đề này đã có trong danh mục dùng chung.",
+        "en": "This topic already exists in the shared catalog.",
     },
     "topic_catalog_error": {
         "vi": "Không thể lưu danh mục chủ đề: {error}",
