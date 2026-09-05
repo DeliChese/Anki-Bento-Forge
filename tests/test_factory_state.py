@@ -192,6 +192,24 @@ class TestFactoryState:
         f._restore_current_flow()
         assert f.ai_text_input.toPlainText() == "JA"
 
+    def test_topic_scope_selection_is_separated_by_language(self, tmp_path):
+        from utils.factory_state import FactoryStateStore
+
+        store = FactoryStateStore(
+            legacy_path=str(tmp_path / "legacy.json"), path=str(tmp_path / "state.json"),
+        )
+        state = {
+            "language": {
+                "japanese": {"vocab": {"topic_enabled": True, "topic": "Ẩm thực"}},
+                "chinese": {"vocab": {"topic_enabled": True, "topic": "Du lịch"}},
+            },
+        }
+
+        loaded = store.save(state)
+
+        assert loaded["language"]["japanese"]["vocab"]["topic"] == "Ẩm thực"
+        assert loaded["language"]["chinese"]["vocab"]["topic"] == "Du lịch"
+
     def test_clear_text_saves_empty(self, tmp_path):
         p = str(tmp_path / "state.json")
         f = _make_factory(p)

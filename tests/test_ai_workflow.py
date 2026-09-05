@@ -140,6 +140,26 @@ def test_extract_worker_forwards_direct_card_generation_request():
     assert worker.kwargs["generation_request"] is True
 
 
+def test_extract_worker_forwards_topic_scope():
+    coordinator = AiWorkflowCoordinator()
+    coordinator.begin()
+
+    worker = coordinator.start_extract(
+        _Worker,
+        text="苹果、香蕉",
+        lang="chinese",
+        custom_instruction="",
+        existing_words=[],
+        grammar=False,
+        topic_scope="Ẩm thực",
+        on_progress=lambda _message: None,
+        on_finished=lambda _result: None,
+        on_error=lambda _message: None,
+    )
+
+    assert worker.kwargs["topic_scope"] == "Ẩm thực"
+
+
 def test_chat_worker_uses_current_token_and_can_be_cleared():
     coordinator = AiWorkflowCoordinator()
     token = coordinator.begin()

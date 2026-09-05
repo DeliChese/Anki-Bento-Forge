@@ -291,6 +291,54 @@ class TestAiExtractThread:
         assert errors and "1/3" in errors[-1]
         assert "你" in errors[-1] and "他" in errors[-1]
 
+    def test_topic_scope_filters_an_explicit_list_without_allowing_new_words(self, monkeypatch):
+        from workers import ai_workers
+
+        calls = []
+
+        def fake_extract(text, lang, instruction, **kwargs):
+            calls.append((text, instruction))
+            return [
+                {"simplified": "苹果", "meaning": "táo"},
+                {"simplified": "香蕉", "meaning": "chuối"},
+            ]
+
+        monkeypatch.setattr(ai_workers, "extract_vocabulary_with_ai", fake_extract)
+        worker = ai_workers.AiExtractThread(
+            text="苹果、香蕉、学校", lang="chinese", max_cards=5,
+            topic_scope="Ẩm thực",
+        )
+        finished, errors = [], []
+        worker.finished.connect(finished.append)
+        worker.error.connect(errors.append)
+
+        worker.run()
+
+        assert errors == []
+        assert "CHỦ ĐỀ DO NGƯỜI HỌC KHÓA" in calls[0][1]
+        assert [card["simplified"] for card in finished[0]] == ["苹果", "香蕉"]
+        assert {card["topic"] for card in finished[0]} == {"Ẩm thực"}
+
+    def test_topic_scope_rejects_words_outside_an_explicit_list(self, monkeypatch):
+        from workers import ai_workers
+
+        monkeypatch.setattr(
+            ai_workers, "extract_vocabulary_with_ai",
+            lambda *args, **kwargs: [{"simplified": "苹果", "meaning": "táo"},
+                                      {"simplified": "医生", "meaning": "bác sĩ"}],
+        )
+        worker = ai_workers.AiExtractThread(
+            text="苹果、香蕉", lang="chinese", topic_scope="Ẩm thực",
+        )
+        finished, errors = [], []
+        worker.finished.connect(finished.append)
+        worker.error.connect(errors.append)
+
+        worker.run()
+
+        assert finished == []
+        assert errors
+
     def test_explicit_vocab_over_twenty_is_rejected_before_ai_call(self, monkeypatch):
         from workers import ai_workers
 

@@ -124,16 +124,16 @@ _TRANSLATIONS = {
         "en": "💬 Card-creation chat",
     },
     "ai_card_chat_intro": {
-        "vi": "Bạn muốn học gì? Hãy nói chủ đề, trình độ, loại từ hoặc dạng bài mong muốn. AI sẽ đề xuất thẻ để bạn duyệt trước khi lưu.",
-        "en": "What would you like to learn? Describe the topic, level, word type, or practice style. AI will propose cards for review before saving.",
+        "vi": "Bạn muốn học gì? Hãy nói trình độ, loại từ hoặc dạng bài mong muốn. Nếu đã Khóa chủ đề, AI tự áp dụng chủ đề đã chọn. AI sẽ đề xuất thẻ để bạn duyệt trước khi lưu.",
+        "en": "What would you like to learn? Describe the level, word type, or practice style. If Lock topic is on, AI applies the selected topic automatically. AI will propose cards for review before saving.",
     },
     "ai_card_chat_request_label": {
         "vi": "Tin nhắn cho AI",
         "en": "Message for AI",
     },
     "ai_card_chat_placeholder": {
-        "vi": "Ví dụ: Tạo thẻ từ vựng tiếng Trung HSK 3 chủ đề đi chợ, ưu tiên động từ và mẫu câu giao tiếp ngắn.",
-        "en": "Example: Create HSK 3 Chinese vocabulary cards about grocery shopping, prioritizing verbs and short conversational phrases.",
+        "vi": "Ví dụ: Tạo thẻ từ vựng tiếng Trung HSK 3, ưu tiên động từ và mẫu câu giao tiếp ngắn.",
+        "en": "Example: Create HSK 3 Chinese vocabulary cards, prioritizing verbs and short conversational phrases.",
     },
     "ai_card_chat_note": {
         "vi": "AI sẽ tạo tối đa {count} thẻ theo loại thẻ và ngôn ngữ đang chọn, đối chiếu deck để tránh trùng, rồi mở Xem trước.",
@@ -182,6 +182,78 @@ _TRANSLATIONS = {
     "ai_instruction_label": {
         "vi": "🎯 Yêu cầu đúc nhanh:",
         "en": "🎯 Quick-forge brief:",
+    },
+    "topic_scope_enable": {
+        "vi": "🎯 Khóa chủ đề",
+        "en": "🎯 Lock topic",
+    },
+    "topic_scope_tip": {
+        "vi": "Chỉ cho AI tạo/lọc từ vựng trong chủ đề bạn chọn; danh sách từ tường minh không được thêm từ ngoài nguồn.",
+        "en": "Restrict AI to the selected topic; explicit vocabulary lists may not gain words outside the source.",
+    },
+    "topic_scope_choose": {
+        "vi": "Chọn hoặc tìm chủ đề…",
+        "en": "Choose or search a topic…",
+    },
+    "topic_scope_choose_tip": {
+        "vi": "Gõ để tìm không phân biệt hoa/thường; chỉ các chủ đề trong danh mục mới được chọn.",
+        "en": "Type to search case-insensitively; only catalog topics can be selected.",
+    },
+    "topic_scope_manage": {
+        "vi": "Quản lý…",
+        "en": "Manage…",
+    },
+    "topic_scope_manage_tip": {
+        "vi": "Thêm, sửa hoặc xóa danh mục chủ đề của ngôn ngữ đang chọn.",
+        "en": "Add, edit, or delete topics for the selected language.",
+    },
+    "topic_scope_select_required": {
+        "vi": "Hãy chọn một chủ đề hợp lệ hoặc tắt Khóa chủ đề trước khi tạo thẻ.",
+        "en": "Choose a valid topic or turn off Lock topic before creating cards.",
+    },
+    "topic_scope_source_only": {
+        "vi": "AI trả về từ ngoài danh sách nguồn đã khóa theo chủ đề; không tạo thẻ nào.",
+        "en": "AI returned words outside the topic-locked source list; no cards were created.",
+    },
+    "topic_catalog_title": {
+        "vi": "🎯 Danh mục chủ đề",
+        "en": "🎯 Topic catalog",
+    },
+    "topic_catalog_language": {
+        "vi": "Danh mục riêng cho: {language}",
+        "en": "Catalog for: {language}",
+    },
+    "topic_catalog_list_label": {
+        "vi": "Chủ đề hiện có",
+        "en": "Current topics",
+    },
+    "topic_catalog_placeholder": {
+        "vi": "Nhập tên chủ đề…",
+        "en": "Enter a topic name…",
+    },
+    "topic_catalog_add": {
+        "vi": "Thêm",
+        "en": "Add",
+    },
+    "topic_catalog_update": {
+        "vi": "Cập nhật",
+        "en": "Update",
+    },
+    "topic_catalog_delete": {
+        "vi": "Xóa",
+        "en": "Delete",
+    },
+    "topic_catalog_invalid": {
+        "vi": "Tên chủ đề trống, quá dài hoặc chứa ký tự không hợp lệ.",
+        "en": "The topic is empty, too long, or contains invalid characters.",
+    },
+    "topic_catalog_duplicate": {
+        "vi": "Chủ đề này đã có trong danh mục của ngôn ngữ đang chọn.",
+        "en": "This topic already exists in the selected language catalog.",
+    },
+    "topic_catalog_error": {
+        "vi": "Không thể lưu danh mục chủ đề: {error}",
+        "en": "Could not save the topic catalog: {error}",
     },
     "knowledge_instruction_label": {
         "vi": "🎯 Yêu cầu thêm:",

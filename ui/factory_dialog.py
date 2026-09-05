@@ -29,6 +29,7 @@ if _addon_root not in sys.path:
 # Dữ liệu này phải ở profile Anki để update add-on không thể ghi đè dữ liệu người dùng.
 from utils.user_data import get_user_data_path
 from utils.factory_state import FactoryStateStore
+from utils.topic_catalog import TopicCatalogStore
 from utils.learning_mode import (
     DEFAULT_LEARNING_MODE,
     get_learning_mode,
@@ -39,6 +40,7 @@ from utils.learning_mode import (
 
 _LEGACY_STATE_PATH = os.path.join(_addon_root, "utils", "factory_state.json")
 _STATE_PATH = get_user_data_path("factory_state.json")
+_TOPIC_CATALOG_PATH = get_user_data_path("topic_catalog.json")
 _FACTORY_STATE_MAX_AGE_SECONDS = 7 * 24 * 3600
 _FACTORY_STATE_MAX_TEXT_CHARS = 12_000
 _FACTORY_STATE_MAX_JSON_CHARS = 24_000
@@ -244,6 +246,7 @@ class AnkiSmartFactory(QDialog):
         self._json_locked = False
         # Trạng thái lưu theo learning mode, ngôn ngữ và subtype.
         self._factory_state = self._load_factory_state()
+        self._topic_catalog = TopicCatalogStore(_TOPIC_CATALOG_PATH)
         # Debounce timer cho JSON parsing (tránh parse liên tục khi gõ)
         self._analyze_timer = QTimer(self)
         self._analyze_timer.setSingleShot(True)
@@ -454,6 +457,9 @@ class AnkiSmartFactory(QDialog):
             flow["text"] = self.ai_text_input.toPlainText()
             flow["card_count"] = self._current_ai_card_count()
             flow["files"] = list(getattr(self, '_ai_attached_paths', []))
+            if hasattr(self, "chk_ai_topic"):
+                flow["topic_enabled"] = bool(self.chk_ai_topic.isChecked())
+                flow["topic"] = self._selected_ai_topic()
             # Lưu thẻ chờ xuất xưởng để KHÔNG bị mất khi đóng Factory
             flow["raw"] = [d for d in getattr(self, 'raw_data', []) if isinstance(d, dict)]
             flow["cards"] = [d for d in getattr(self, 'prepared_data', []) if isinstance(d, dict)]
@@ -473,6 +479,10 @@ class AnkiSmartFactory(QDialog):
             flow = self._factory_state.get(learning_mode, {}).get(lang, {}).get(mode, {})
             self._json_locked = bool(flow.get("json_locked", False))
             self.ai_text_input.setPlainText(flow.get("text", ""))
+            if hasattr(self, "chk_ai_topic"):
+                self._repopulate_ai_topic_combo(flow.get("topic", ""))
+                self.chk_ai_topic.setChecked(bool(flow.get("topic_enabled", False)))
+                self._sync_ai_topic_controls()
             saved_card_count = flow.get("card_count", SMALL_RUN_DEFAULT_CARDS)
             if hasattr(self, "spn_ai_card_count"):
                 try:
@@ -867,6 +877,31 @@ class AnkiSmartFactory(QDialog):
         self.lbl_instruction.setVisible(True)
         self.ai_instruction.setVisible(True)
         ai_main.addLayout(instr_bar)
+
+        topic_bar = QHBoxLayout()
+        self.chk_ai_topic = QCheckBox(t("topic_scope_enable"))
+        self.chk_ai_topic.setToolTip(t("topic_scope_tip"))
+        self.chk_ai_topic.toggled.connect(self._on_ai_topic_toggled)
+        topic_bar.addWidget(self.chk_ai_topic)
+        self.cbo_ai_topic = QComboBox()
+        self.cbo_ai_topic.setEditable(True)
+        self.cbo_ai_topic.setInsertPolicy(QComboBox.InsertPolicy.NoInsert)
+        self.cbo_ai_topic.setMinimumWidth(210)
+        self.cbo_ai_topic.setToolTip(t("topic_scope_choose_tip"))
+        topic_completer = QCompleter(self.cbo_ai_topic.model(), self)
+        topic_completer.setCaseSensitivity(Qt.CaseSensitivity.CaseInsensitive)
+        topic_completer.setFilterMode(Qt.MatchFlag.MatchContains)
+        topic_completer.setCompletionMode(QCompleter.CompletionMode.PopupCompletion)
+        self.cbo_ai_topic.setCompleter(topic_completer)
+        self.cbo_ai_topic.activated.connect(self._on_ai_topic_selected)
+        self.cbo_ai_topic.lineEdit().editingFinished.connect(self._resolve_ai_topic_search)
+        topic_bar.addWidget(self.cbo_ai_topic, 1)
+        self.btn_manage_ai_topics = QPushButton(t("topic_scope_manage"))
+        self.btn_manage_ai_topics.setToolTip(t("topic_scope_manage_tip"))
+        self.btn_manage_ai_topics.clicked.connect(self._manage_ai_topics)
+        topic_bar.addWidget(self.btn_manage_ai_topics)
+        ai_main.addLayout(topic_bar)
+
         ai_main.addLayout(ai_bar)
         ai_main.addLayout(status_bar)
 
@@ -1436,6 +1471,12 @@ class AnkiSmartFactory(QDialog):
             self.btn_ai_clear_text.setText(t("ai_clear_text_btn"))
             self.btn_ai_card_chat.setText(t("ai_card_chat_btn"))
             self.btn_ai_card_chat.setToolTip(t("ai_card_chat_tip"))
+            self.chk_ai_topic.setText(t("topic_scope_enable"))
+            self.chk_ai_topic.setToolTip(t("topic_scope_tip"))
+            self.cbo_ai_topic.setToolTip(t("topic_scope_choose_tip"))
+            self.btn_manage_ai_topics.setText(t("topic_scope_manage"))
+            self.btn_manage_ai_topics.setToolTip(t("topic_scope_manage_tip"))
+            self._repopulate_ai_topic_combo(self._selected_ai_topic())
             if self._learning_mode == "knowledge":
                 self.btn_ai_extract.setText(t("knowledge_generate_btn"))
                 self.btn_ai_extract.setToolTip(t("knowledge_generate_tip"))
@@ -1660,6 +1701,102 @@ class AnkiSmartFactory(QDialog):
         instruction = getattr(self, "ai_instruction", None)
         return instruction.text().strip() if instruction is not None else ""
 
+    def _topic_scope_available(self):
+        return (
+            getattr(self, "_learning_mode", "language") == "language"
+            and self._current_card_kind() == "vocab"
+        )
+
+    def _topic_scope_requested(self):
+        return (
+            self._topic_scope_available()
+            and hasattr(self, "chk_ai_topic")
+            and self.chk_ai_topic.isChecked()
+        )
+
+    def _selected_ai_topic(self):
+        if not hasattr(self, "cbo_ai_topic"):
+            return ""
+        value = self.cbo_ai_topic.currentData()
+        return str(value).strip() if value not in (None, "") else ""
+
+    def _active_ai_topic_or_warn(self):
+        if not self._topic_scope_requested():
+            return ""
+        topic = self._selected_ai_topic()
+        if topic:
+            return topic
+        showInfo(t("topic_scope_select_required"))
+        return None
+
+    def _repopulate_ai_topic_combo(self, selected=""):
+        if not hasattr(self, "cbo_ai_topic"):
+            return
+        topics = self._topic_catalog.topics_for(self._current_lang)
+        control = self.cbo_ai_topic
+        control.blockSignals(True)
+        control.clear()
+        control.addItem(t("topic_scope_choose"), "")
+        for topic in topics:
+            control.addItem(topic, topic)
+        wanted = str(selected or "").strip().casefold()
+        index = next(
+            (
+                position for position in range(1, control.count())
+                if str(control.itemData(position)).casefold() == wanted
+            ),
+            0,
+        )
+        control.setCurrentIndex(index)
+        control.blockSignals(False)
+
+    def _sync_ai_topic_controls(self):
+        if not hasattr(self, "chk_ai_topic"):
+            return
+        available = self._topic_scope_available()
+        enabled = available and self.chk_ai_topic.isChecked()
+        for widget in (self.chk_ai_topic, self.cbo_ai_topic, self.btn_manage_ai_topics):
+            widget.setVisible(available)
+        self.cbo_ai_topic.setEnabled(enabled)
+        self.btn_manage_ai_topics.setEnabled(enabled)
+
+    def _on_ai_topic_toggled(self, _checked):
+        self._sync_ai_topic_controls()
+        if getattr(self, "_ui_ready", False):
+            self._save_current_flow()
+
+    def _on_ai_topic_selected(self, _index):
+        if getattr(self, "_ui_ready", False):
+            self._save_current_flow()
+
+    def _resolve_ai_topic_search(self):
+        if not hasattr(self, "cbo_ai_topic") or not self.cbo_ai_topic.isEnabled():
+            return
+        typed = self.cbo_ai_topic.currentText().strip().casefold()
+        for index in range(1, self.cbo_ai_topic.count()):
+            if str(self.cbo_ai_topic.itemData(index)).casefold() == typed:
+                self.cbo_ai_topic.setCurrentIndex(index)
+                self._on_ai_topic_selected(index)
+                return
+        self.cbo_ai_topic.setCurrentIndex(0)
+
+    def _manage_ai_topics(self):
+        if not self._topic_scope_requested():
+            return
+        from ui.topic_catalog_dialog import TopicCatalogDialog
+
+        selected = self._selected_ai_topic()
+        dialog = TopicCatalogDialog(
+            store=self._topic_catalog,
+            language=self._current_lang,
+            language_label=_translated_language_label(self._current_lang),
+            parent=self,
+        )
+        dialog.exec()
+        self._repopulate_ai_topic_combo(selected)
+        self._sync_ai_topic_controls()
+        self._save_current_flow()
+
     def _current_ai_card_count(self):
         """Return the learner-selected, bounded card target for one AI run."""
         control = getattr(self, "spn_ai_card_count", None)
@@ -1710,6 +1847,7 @@ class AnkiSmartFactory(QDialog):
             self.btn_import.setEnabled(bool(self.prepared_data))
         if hasattr(self, "btn_cancel_order"):
             self.btn_cancel_order.setEnabled(bool(self.prepared_data))
+        self._sync_ai_topic_controls()
 
     def _clear_mode_preview(self):
         """Clear only the displayed data before restoring the target mode draft."""
@@ -3476,6 +3614,9 @@ class AnkiSmartFactory(QDialog):
                 limit=SMALL_RUN_MAX_SOURCE_CHARS,
             ))
             return
+        topic_scope = self._active_ai_topic_or_warn()
+        if topic_scope is None:
+            return
 
         cfg_api = get_api_config()
         if not self._ensure_ai_access(cfg_api):
@@ -3508,6 +3649,7 @@ class AnkiSmartFactory(QDialog):
         self._ai_pending_card_count = requested_cards
         self._ai_pending_history_entries = history_entries
         self._ai_pending_generation_request = True
+        self._ai_pending_topic_scope = topic_scope
         self._ai_workflow.begin()
 
         cfg = self._cfg()
@@ -3529,7 +3671,7 @@ class AnkiSmartFactory(QDialog):
 
         self._start_ai_extract(
             request, custom_instr, [], requested_cards, history_entries,
-            generation_request=True,
+            generation_request=True, topic_scope=topic_scope,
         )
 
     def _ai_extract(self):
@@ -3544,6 +3686,9 @@ class AnkiSmartFactory(QDialog):
                 length=len(text),
                 limit=SMALL_RUN_MAX_SOURCE_CHARS,
             ))
+            return
+        topic_scope = self._active_ai_topic_or_warn()
+        if topic_scope is None:
             return
 
         cfg_api = get_api_config()
@@ -3575,7 +3720,7 @@ class AnkiSmartFactory(QDialog):
         if (getattr(self, "_learning_mode", "language") == "language"
                 and self._current_card_kind() == "vocab"):
             explicit_items = parse_explicit_vocabulary_items(text)
-            if len(explicit_items) > SMALL_RUN_MAX_CARDS:
+            if len(explicit_items) > SMALL_RUN_MAX_CARDS and not topic_scope:
                 showInfo(t(
                     "small_run_explicit_vocab_too_many",
                     count=len(explicit_items),
@@ -3603,6 +3748,7 @@ class AnkiSmartFactory(QDialog):
         self._ai_pending_card_count = requested_cards
         self._ai_pending_history_entries = history_entries
         self._ai_pending_generation_request = False
+        self._ai_pending_topic_scope = topic_scope
         self._ai_workflow.begin()
 
         # Collection reads use Anki's serialized QueryOp; the following AI
@@ -3632,6 +3778,7 @@ class AnkiSmartFactory(QDialog):
         # Fallback: nếu không scan được deck, gọi AI luôn
         self._start_ai_extract(
             text, custom_instr, [], requested_cards, history_entries,
+            topic_scope=topic_scope,
         )
 
     def _on_deck_scan_progress(self, msg):
@@ -3647,6 +3794,7 @@ class AnkiSmartFactory(QDialog):
             getattr(self, "_ai_pending_card_count", SMALL_RUN_DEFAULT_CARDS),
             getattr(self, "_ai_pending_history_entries", []),
             generation_request=getattr(self, "_ai_pending_generation_request", False),
+            topic_scope=getattr(self, "_ai_pending_topic_scope", ""),
         )
 
     def _on_deck_scan_error(self, err_msg):
@@ -3658,11 +3806,12 @@ class AnkiSmartFactory(QDialog):
             getattr(self, "_ai_pending_card_count", SMALL_RUN_DEFAULT_CARDS),
             getattr(self, "_ai_pending_history_entries", []),
             generation_request=getattr(self, "_ai_pending_generation_request", False),
+            topic_scope=getattr(self, "_ai_pending_topic_scope", ""),
         )
 
     def _start_ai_extract(self, text, custom_instr, existing_words,
                           max_cards=SMALL_RUN_DEFAULT_CARDS, history_entries=None,
-                          generation_request=False):
+                          generation_request=False, topic_scope=""):
         """Khởi động AI extract thread sau khi đã có existing_words"""
         if self._ai_workflow.is_cancelled():
             return
@@ -3688,6 +3837,7 @@ class AnkiSmartFactory(QDialog):
             max_cards=max_cards,
             history_entries=history_entries,
             generation_request=generation_request,
+            topic_scope=topic_scope,
             on_progress=self._on_ai_progress,
             on_finished=self._on_ai_finished,
             on_error=self._on_ai_error,

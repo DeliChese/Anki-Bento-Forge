@@ -178,8 +178,27 @@ def build_relevant_history_context(source, history_entries, instruction="", max_
     ))
 
 
+def _topic_scope_instruction(topic_scope: str, *, source_is_explicit: bool) -> str:
+    """Keep one learner-selected topic authoritative across the request."""
+    topic = str(topic_scope or "").strip()
+    if not topic:
+        return ""
+    source_rule = (
+        "Nguồn là danh sách từ tường minh: chỉ chọn mục có trong chính danh sách này; "
+        "không được tự thêm từ ngoài danh sách."
+        if source_is_explicit else
+        "Chỉ tạo thẻ liên quan trực tiếp đến chủ đề này; không mở rộng sang chủ đề khác."
+    )
+    return (
+        "CHỦ ĐỀ DO NGƯỜI HỌC KHÓA (bắt buộc): " + topic + "\n"
+        + source_rule + "\n"
+        + "Mỗi thẻ phải ghi trường topic đúng nguyên văn: " + topic
+    )
+
+
 def _small_run_instruction(custom_instruction, max_cards=SMALL_RUN_DEFAULT_CARDS,
-                           history_context="", explicit_vocabulary_items=None):
+                           history_context="", explicit_vocabulary_items=None,
+                           topic_scope="", source_is_explicit=False):
     """Keep one request focused enough to review and learn immediately."""
     max_cards = clamp_small_run_card_count(max_cards)
     explicit_items = list(explicit_vocabulary_items or [])
@@ -202,11 +221,15 @@ def _small_run_instruction(custom_instruction, max_cards=SMALL_RUN_DEFAULT_CARDS
             "Không tạo danh mục chủ đề, không mô tả quy trình và không trả thêm mục ngoài thẻ."
         )
     custom = str(custom_instruction or "").strip()
-    return "\n".join(part for part in (custom, history_context, limit) if part)
+    return "\n".join(part for part in (
+        custom, history_context,
+        _topic_scope_instruction(topic_scope, source_is_explicit=source_is_explicit),
+        limit,
+    ) if part)
 
 
 def _small_run_generation_instruction(custom_instruction, max_cards=SMALL_RUN_DEFAULT_CARDS,
-                                      history_context=""):
+                                      history_context="", topic_scope=""):
     """Constrain direct card-generation requests that have no source material."""
     max_cards = clamp_small_run_card_count(max_cards)
     limit = (
@@ -215,7 +238,10 @@ def _small_run_generation_instruction(custom_instruction, max_cards=SMALL_RUN_DE
         "trích xuất từ tài liệu và không mô tả quy trình. Chỉ trả dữ liệu thẻ theo JSON schema."
     )
     custom = str(custom_instruction or "").strip()
-    return "\n".join(part for part in (custom, history_context, limit) if part)
+    return "\n".join(part for part in (
+        custom, history_context,
+        _topic_scope_instruction(topic_scope, source_is_explicit=False), limit,
+    ) if part)
 
 
 class AzureVoiceRefreshThread(QThread):
@@ -290,7 +316,7 @@ class AiExtractThread(QThread):
     def __init__(self, text, lang, custom_instruction="", existing_words=None, grammar=False,
                  cancel_event=None, learning_mode="language", card_kind=None,
                  max_cards=SMALL_RUN_DEFAULT_CARDS, history_entries=None,
-                 generation_request=False):
+                 generation_request=False, topic_scope=""):
         super().__init__()
         self.text = text
         self.lang = lang
@@ -302,6 +328,7 @@ class AiExtractThread(QThread):
         self.max_cards = clamp_small_run_card_count(max_cards)
         self.history_entries = list(history_entries or [])
         self.generation_request = bool(generation_request)
+        self.topic_scope = str(topic_scope or "").strip()
         self.cancel_event = cancel_event or threading.Event()
 
     def run(self):
@@ -323,16 +350,18 @@ class AiExtractThread(QThread):
                     and not self.generation_request)
                 else []
             )
-            if len(explicit_items) > SMALL_RUN_MAX_CARDS:
+            topic_filters_explicit = bool(self.topic_scope and explicit_items)
+            if len(explicit_items) > SMALL_RUN_MAX_CARDS and not topic_filters_explicit:
                 self.error.emit(t(
                     "small_run_explicit_vocab_too_many",
                     count=len(explicit_items),
                     limit=SMALL_RUN_MAX_CARDS,
                 ))
                 return
-            expected_candidates = _explicit_vocab_candidates(
+            source_candidates = _explicit_vocab_candidates(
                 explicit_items, self.existing_words,
             )
+            expected_candidates = [] if topic_filters_explicit else source_candidates
             effective_max_cards = max(self.max_cards, len(expected_candidates))
             if explicit_items:
                 source = "\n".join(explicit_items)
@@ -350,6 +379,7 @@ class AiExtractThread(QThread):
             if self.generation_request:
                 generation_instruction = _small_run_generation_instruction(
                     self.custom_instruction, effective_max_cards, history_context,
+                    topic_scope=self.topic_scope,
                 )
             else:
                 generation_instruction = _small_run_instruction(
@@ -359,6 +389,8 @@ class AiExtractThread(QThread):
                     explicit_vocabulary_items=[
                         candidate["front"] for candidate in expected_candidates
                     ],
+                    topic_scope=self.topic_scope,
+                    source_is_explicit=bool(explicit_items),
                 )
 
             if self.learning_mode == "knowledge":
@@ -431,6 +463,20 @@ class AiExtractThread(QThread):
                     ))
                     return
                 result_list = list(completeness.cards)
+
+            if topic_filters_explicit:
+                scoped = reconcile_expected_candidates(
+                    source_candidates, result_list, kind="vocab",
+                )
+                if scoped.unexpected:
+                    self.error.emit(t("topic_scope_source_only"))
+                    return
+                result_list = list(scoped.cards)
+
+            if self.topic_scope:
+                for card in result_list:
+                    if isinstance(card, dict):
+                        card["topic"] = self.topic_scope
 
             self.finished.emit(result_list[:effective_max_cards])
 

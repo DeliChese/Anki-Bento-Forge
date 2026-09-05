@@ -2,9 +2,17 @@
 
 ## [Unreleased]
 
+### 2026-09-05 — Version: `18.3.0` → `18.3.0`
+
+#### Fixed
+
+- **Khóa chủ đề AI không còn làm Factory dừng sau khi quét deck** — coordinator nay nhận và chuyển `topic_scope` đến worker, nên luồng Preview tiếp tục chạy với chủ đề người học đã chọn.
+
 ### 2026-09-04 — Version: `18.3.0` → `18.3.0`
 
 #### Added
+
+- **Danh mục chủ đề AI theo từng ngôn ngữ** — Factory có công tắc Khóa chủ đề, dropdown tìm kiếm không phân biệt hoa/thường và popup thêm/sửa/xóa. Khi bật, AI tự nhận chủ đề đã chọn; với danh sách từ rõ ràng, thẻ ngoài danh sách bị chặn thay vì tự sinh thêm từ.
 
 - **Biến thể từ vựng theo chủ đề** — JSON import tùy chọn `_bf_variant` để giữ cùng một từ/nghĩa ở các chủ đề học khác nhau. Chỉ các phạm vi khác nhau mới được phép cùng tồn tại; phạm vi được lưu thành tag do Bento Forge sở hữu, còn JSON không có trường này giữ nguyên kiểm tra trùng cũ.
 

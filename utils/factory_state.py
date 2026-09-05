@@ -108,6 +108,8 @@ class FactoryStateStore:
                 "json_locked": json_locked,
                 "card_count": max(5, min(20, card_count)),
                 "files": [path[:512] for path in files[:5] if isinstance(path, str)],
+                "topic_enabled": bool(flow.get("topic_enabled", False)),
+                "topic": flow.get("topic", "")[:80] if isinstance(flow.get("topic"), str) else "",
                 "raw": self._bounded_items(flow.get("raw", []), self.max_flow_bytes // 2),
                 "cards": self._bounded_items(flow.get("cards", []), self.max_flow_bytes // 2),
             }
