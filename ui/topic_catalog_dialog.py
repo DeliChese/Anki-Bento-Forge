@@ -9,7 +9,9 @@ from aqt.qt import (
 from aqt.utils import tooltip
 
 from utils.i18n import t
-from utils.topic_catalog import TopicCatalogError, TopicCatalogStore, normalize_topic
+from utils.topic_catalog import (
+    TopicCatalogError, TopicCatalogStore, normalize_topic, normalize_topics,
+)
 
 
 class TopicCatalogDialog(QDialog):

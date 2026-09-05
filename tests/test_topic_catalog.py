@@ -1,8 +1,23 @@
 """Profile-local topic catalog contracts."""
 
+import ast
+from pathlib import Path
+
 import pytest
 
 from utils.topic_catalog import TopicCatalogError, TopicCatalogStore, normalize_topics
+
+
+def test_catalog_dialog_imports_the_selection_normalizer():
+    source = Path("ui/topic_catalog_dialog.py").read_text(encoding="utf-8")
+    imported_names = {
+        alias.name
+        for node in ast.walk(ast.parse(source))
+        if isinstance(node, ast.ImportFrom) and node.module == "utils.topic_catalog"
+        for alias in node.names
+    }
+
+    assert "normalize_topics" in imported_names
 
 
 def test_catalog_is_shared_across_languages_and_persists(tmp_path):

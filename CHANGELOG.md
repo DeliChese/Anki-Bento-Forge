@@ -6,6 +6,7 @@
 
 #### Fixed
 
+- **Mở Quản lý chủ đề không còn bị dừng bởi `NameError`** — dialog nay nhập đầy đủ bộ chuẩn hóa lựa chọn nhiều chủ đề.
 - **Danh mục chủ đề AI nay được giữ và dùng chung** — catalog cũ theo từng ngôn ngữ được hợp nhất không mất dữ liệu, nên chuyển Nhật/Trung/Hàn/Anh hay tắt/bật Khóa chủ đề không còn làm danh sách biến mất. Hộp Quản lý cho phép tích nhiều chủ đề; lựa chọn được nhớ riêng cho từng luồng tạo thẻ.
 - **Khóa chủ đề AI không còn làm Factory dừng sau khi quét deck** — coordinator nay nhận và chuyển `topic_scope` đến worker, nên luồng Preview tiếp tục chạy với chủ đề người học đã chọn.
 
