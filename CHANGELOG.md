@@ -10,6 +10,7 @@
 
 #### Fixed
 
+- **Nâng cấp thẻ tiếng Trung không còn loại nhầm phản hồi AI hợp lệ** — bộ kiểm tra định danh nay nhận đúng khóa `simplified`/`traditional` mà prompt tiếng Trung thực sự trả về, nhưng vẫn chỉ chấp nhận các trường định danh của đúng mục tiêu. Bước Áp dụng cũng ánh xạ `simplified` sang field Anki `Front`, nhờ đó đề xuất `Radical Mindmap` được hiển thị và lưu thay vì bị chặn trước khi tạo bảng.
 - **Nâng cấp thẻ mở và hiển thị kết quả AI ổn định** — cầu nối Reviewer nay giữ snapshot của đúng thẻ khi người dùng bấm, đưa hộp thoại lên trước và báo rõ nếu không thể mở. Hộp thoại có khu vực chờ kết quả luôn hiển thị; bảng dùng enum chuẩn PyQt6 nên đề xuất AI không còn mất khi dựng các ô chọn, đồng thời lỗi được hiện ngay trong hộp thoại và ghi log.
 - **Action Reviewer không còn bám nhầm thẻ đầu tiên** — Nâng cấp thẻ và Tự đặt câu được đồng bộ theo card ID, hủy lượt render trễ của thẻ cũ và thử lại sau khi Anki thay DOM. Thẻ đã đạt chuẩn chủ động xóa nút nâng cấp; Tự đặt câu có thể dùng câu ví dụ làm gợi ý khi Usage Pattern/Collocation còn trống.
 - **Hán tự chính trên mặt sau bấm được để mở sơ đồ bộ thủ** — trạng thái khởi tạo được giữ trên DOM node thay vì HTML attribute nên khi Anki sao chép mặt trước sang mặt sau, click/hover được gắn lại; hai lượt retry ngắn bảo vệ trường hợp webview render trễ.

@@ -17,6 +17,14 @@ QUALITY_FIELD = "Bento Quality Version"
 # Existing notes then become eligible for an explicit Reviewer upgrade again.
 CURRENT_QUALITY_VERSION = "1"
 _SUPPORTED_KINDS = frozenset({"vocab", "grammar", "collocation"})
+_CANDIDATE_IDENTITY_KEYS = {
+    "vocab": (
+        "front", "simplified", "traditional", "word", "vocabulary", "term",
+        "expression", "hanzi", "kanji", "hangul",
+    ),
+    "grammar": ("pattern", "front", "structure"),
+    "collocation": ("chunk", "front", "expression", "phrase"),
+}
 
 
 def normalized_kind(value: object) -> str:
@@ -84,14 +92,23 @@ def _identity(value: object) -> str:
     return "".join(char for char in text if not char.isspace())
 
 
+def detect_note_field(cfg: Mapping) -> str:
+    """Resolve the AI identity key to its real Anki note field name."""
+    detect_key = str(cfg.get("detect_key") or "front").strip()
+    field_map = dict(cfg.get("json_field_map") or {})
+    return str(field_map.get(detect_key) or cfg.get("front_field") or detect_key).strip()
+
+
 def select_upgrade_candidate(cards: Sequence[object], snapshot: Mapping) -> dict:
     """Accept only the single AI card that preserves this note's identity."""
     kind = normalized_kind(snapshot.get("card_kind"))
     target = _identity(snapshot.get("current_target"))
-    key = "pattern" if kind == "grammar" else "chunk" if kind == "collocation" else "front"
+    identity_keys = _CANDIDATE_IDENTITY_KEYS.get(kind, ("front",))
     matches = [
         dict(card) for card in cards
-        if isinstance(card, Mapping) and _identity(card.get(key) or card.get("front")) == target
+        if isinstance(card, Mapping)
+        and target
+        and any(_identity(card.get(key)) == target for key in identity_keys)
     ]
     if len(matches) != 1:
         raise ValueError("card_upgrade_identity_mismatch")
@@ -103,7 +120,7 @@ def proposed_field_changes(
 ) -> list[dict]:
     """Map candidate JSON to visible Note fields without deleting old data."""
     changes = []
-    detect_field = str(cfg.get("detect_key") or "front")
+    detect_field = detect_note_field(cfg)
     field_map = dict(cfg.get("json_field_map") or {})
     for json_key, field_name in field_map.items():
         field_name = str(field_name or "").strip()

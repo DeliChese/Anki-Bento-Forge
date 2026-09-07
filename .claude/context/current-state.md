@@ -15,7 +15,7 @@
 
 | Item | Status | Next action |
 |---|---|---|
-| P0-01 baseline | local gate xanh | Compile Python/JavaScript xanh; full isolated suite gần nhất `826 passed, 28 skipped`. Giữ gate này xanh trước merge/release. |
+| P0-01 baseline | local gate xanh | Compile Python/JavaScript xanh; full isolated suite gần nhất `829 passed, 28 skipped`. Giữ gate này xanh trước merge/release. |
 | P0-02 smoke profile | local fix, chờ re-smoke | Lỗi Reviewer action bám DOM/card đầu đã được sửa bằng card ID, cleanup và delayed retry; cần re-smoke Anki 26.5/profile `ChinD` backup trên nhiều thẻ/deck. Không rating/mutation trong lượt kiểm tra trước. |
 | P0-04 release artifact | cần dựng lại | Runtime Batch/Inventory/Blueprint đã bị gỡ nên artifact cũ không còn đại diện current tree; cần rebuild trước release. |
 | LTS Card Contract | local implementation xanh, chờ GUI smoke | Language Note Type khóa tại schema V18.3; migration allowlist/additive, ownership template theo tên/alias lịch sử, không tự prune dữ liệu lạ. Chuẩn nội dung dùng revision riêng và Reviewer upgrade opt-in. Còn smoke V14–V18 trên profile backup trước release. |
@@ -24,7 +24,7 @@
 | V18.2 Contextual AI Workspaces | surface đã thu gọn | Reviewer không còn Study Coach; Factory chỉ còn nguồn nhỏ + yêu cầu tùy chọn + một nút tạo 5–20 thẻ → Preview → Import. |
 | V18.3 Language Study Library | archived with Study Sessions | Dữ liệu/library backend cũ được giữ để không xóa dữ liệu profile, nhưng không còn surface người dùng sau khi Study Sessions bị retire. |
 | Chinese Radical Mindmap | local implementation xanh, chờ GUI smoke | AI schema `Radical Mindmap` chỉ còn glyph+tên bộ thủ (prompt/cache 44) để giảm output; click/hover Hán tự được gắn lại khi lật mặt, có 3 sơ đồ mỗi khung cùng kéo ngang. Note/SRS giữ nguyên; full isolated `826 passed, 28 skipped`. |
-| Reviewer Card Upgrade UI | local fix xanh, chờ GUI smoke | Nút đồng bộ theo card ID, xóa khỏi thẻ đã đạt chuẩn và không fallback sang snapshot cũ; dialog có khu vực kết quả rõ ràng, dùng `Qt.CheckState` chuẩn PyQt6. Khi Apply, template Bento của chính xác Note Type được đồng bộ trước khi ghi dữ liệu, giữ nguyên template tùy chỉnh và SRS. Full isolated `826 passed, 28 skipped`. |
+| Reviewer Card Upgrade UI | local fix xanh, chờ GUI smoke | Nút đồng bộ theo card ID; dialog có khu vực kết quả rõ ràng và dùng `Qt.CheckState` chuẩn PyQt6. Kiểm tra định danh nhận đúng khóa schema theo ngôn ngữ (`simplified` cho tiếng Trung), còn Apply ánh xạ khóa JSON sang field Anki thật và đồng bộ đúng Note Type trước khi ghi; template tùy chỉnh và SRS giữ nguyên. Targeted `16 passed`; full isolated `829 passed, 28 skipped`. |
 | Language Collocation subtype | local implementation xanh, chờ GUI smoke | Nhật/Trung/Hàn/Anh có lựa chọn Collocation/Thành ngữ chủ động, prompt/schema/candidate/artifact/history và Note Type riêng; hai hướng Nhận diện/Sản xuất, không migrate note/SRS vocab hoặc grammar. Batch danh sách thiếu ngữ cảnh bị chặn. Isolated `838 passed` ×2; còn smoke chọn mode → AI Preview → import → review trên profile backup. |
 | Supervised AI Inventory | retired 2026-09-01 | Đã xóa scanner, topic-first gate, checkpoint và UI sản xuất quy mô lớn. XLSX fallback chuẩn vẫn được giữ cho thao tác mở file nhỏ. |
 | P1-08 AI Deck Blueprint | retired 2026-09-01 | Đã xóa AI Blueprint/import nhiều deck; Deck Manager cơ bản tạo/đổi tên/xóa deck vẫn giữ nguyên. |

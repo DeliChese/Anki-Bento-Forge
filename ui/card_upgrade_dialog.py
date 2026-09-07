@@ -13,7 +13,7 @@ from Language import LANG_COLLOCATION_CONFIG, LANG_CONFIG, LANG_GRAMMAR_CONFIG
 from utils.anki_ops import run_collection
 from utils.card_upgrade import (
     CURRENT_QUALITY_VERSION, QUALITY_FIELD, apply_card_upgrade, build_upgrade_source,
-    normalized_kind, proposed_field_changes, upgrade_instruction,
+    detect_note_field, normalized_kind, proposed_field_changes, upgrade_instruction,
 )
 from utils.i18n import t
 from utils.logger import get_logger
@@ -58,7 +58,7 @@ def _apply_upgrade_with_current_template(
         prune_extra_templates=False,
     )
     return apply_card_upgrade(
-        col, note_id, expected_target, cfg["detect_key"], changes,
+        col, note_id, expected_target, detect_note_field(cfg), changes,
         audio_tags, mark_current,
     )
 

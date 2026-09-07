@@ -1,6 +1,7 @@
 from utils.card_upgrade import (
     CURRENT_QUALITY_VERSION, QUALITY_FIELD, apply_card_upgrade, build_upgrade_source,
-    proposed_field_changes, select_upgrade_candidate, upgrade_is_available,
+    detect_note_field, proposed_field_changes, select_upgrade_candidate,
+    upgrade_is_available,
 )
 
 
@@ -63,6 +64,40 @@ def test_upgrade_candidate_must_keep_current_identity():
         raise AssertionError("unexpected different target accepted")
 
 
+def test_chinese_upgrade_accepts_prompt_native_simplified_identity():
+    snapshot = _snapshot(
+        language="chinese", card_kind="vocabulary", current_target="谁",
+        note_type="AnkiTool Chinese V18.3 (Add-on)",
+    )
+    card = select_upgrade_candidate(
+        [{
+            "simplified": "谁",
+            "traditional": "誰",
+            "radical_mindmap": {
+                "characters": [{
+                    "character": "谁",
+                    "components": [{"glyph": "讠", "name": "bộ Ngôn"}],
+                }],
+            },
+        }],
+        snapshot,
+    )
+    assert card["simplified"] == "谁"
+    assert card["radical_mindmap"]["characters"][0]["character"] == "谁"
+
+
+def test_upgrade_rejects_card_when_only_non_identity_content_matches_target():
+    try:
+        select_upgrade_candidate(
+            [{"simplified": "哪", "meaning": "谁", "example": "谁来了？"}],
+            _snapshot(language="chinese", current_target="谁"),
+        )
+    except ValueError as error:
+        assert str(error) == "card_upgrade_identity_mismatch"
+    else:
+        raise AssertionError("unexpected non-identity field accepted")
+
+
 def test_proposal_never_deletes_and_keeps_identity_immutable():
     cfg = {"detect_key": "Front", "json_field_map": {"front": "Front", "meaning": "Meaning", "usage_note": "Usage Note"}}
     changes = proposed_field_changes({"Front": "affect", "Meaning": "ảnh hưởng"}, {"front": "affect", "meaning": "tác động", "usage_note": "Dùng với tân ngữ."}, cfg)
@@ -86,6 +121,26 @@ def test_proposal_serializes_structured_radical_data_as_json_text():
         "field": "Radical Mindmap",
         "current": "",
         "proposed": '{"characters":[{"character":"学"}]}',
+        "missing": True,
+    }]
+
+
+def test_chinese_detect_key_resolves_to_real_anki_front_field():
+    cfg = {
+        "detect_key": "simplified",
+        "front_field": "Front",
+        "json_field_map": {"simplified": "Front", "radical_mindmap": "Radical Mindmap"},
+    }
+    assert detect_note_field(cfg) == "Front"
+    assert proposed_field_changes(
+        {"Front": "谁", "Radical Mindmap": ""},
+        {"simplified": "谁", "radical_mindmap": {"characters": [{"character": "谁"}]}},
+        cfg,
+    ) == [{
+        "json_key": "radical_mindmap",
+        "field": "Radical Mindmap",
+        "current": "",
+        "proposed": '{"characters":[{"character":"谁"}]}',
         "missing": True,
     }]
 
