@@ -267,6 +267,37 @@ class TestAiExtractThread:
             "大家", "自己", "别人", "人家", "谁",
         ]
 
+    def test_unnumbered_newline_chinese_list_is_recognized(self):
+        from workers.ai_workers import parse_explicit_vocabulary_items
+
+        source = "\n".join(
+            ["我", "你", "您", "他", "她", "它", "我们", "你们", "他们", "她们",
+             "大家", "自己", "别人", "人家", "谁"]
+        )
+
+        assert parse_explicit_vocabulary_items(source) == [
+            "我", "你", "您", "他", "她", "它", "我们", "你们", "他们", "她们",
+            "大家", "自己", "别人", "人家", "谁",
+        ]
+
+    def test_space_separated_single_line_cjk_list_is_recognized(self):
+        from workers.ai_workers import parse_explicit_vocabulary_items
+
+        # Browsers/PDFs often collapse pasted newlines into spaces.
+        assert parse_explicit_vocabulary_items(
+            "我 你 您 他 她 它 我们 你们 他们 她们 大家 自己 别人 人家 谁"
+        ) == [
+            "我", "你", "您", "他", "她", "它", "我们", "你们", "他们", "她们",
+            "大家", "自己", "别人", "人家", "谁",
+        ]
+
+    def test_space_separated_english_prose_is_not_split_into_items(self):
+        from workers.ai_workers import parse_explicit_vocabulary_items
+
+        assert parse_explicit_vocabulary_items(
+            "run walk jump swim dive"
+        ) == []
+
     def test_common_paste_markers_and_inline_numbering_are_recognized(self):
         from workers.ai_workers import parse_explicit_vocabulary_items
 
@@ -322,6 +353,29 @@ class TestAiExtractThread:
         assert finished == []
         assert errors and "1/3" in errors[-1]
         assert "你" in errors[-1] and "他" in errors[-1]
+
+    def test_space_separated_list_that_ai_truncates_to_first_item_is_rejected(
+        self, monkeypatch,
+    ):
+        from workers import ai_workers
+
+        source = "我 你 您 他 她 它 我们 你们 他们 她们 大家 自己 别人 人家 谁"
+        monkeypatch.setattr(
+            ai_workers,
+            "extract_vocabulary_with_ai",
+            lambda *args, **kwargs: [{"simplified": "我", "meaning": "tôi"}],
+        )
+        worker = ai_workers.AiExtractThread(text=source, lang="chinese")
+        finished = []
+        errors = []
+        worker.finished.connect(finished.append)
+        worker.error.connect(errors.append)
+
+        worker.run()
+
+        assert finished == []
+        assert errors and "1/15" in errors[-1]
+        assert "你" in errors[-1] and "他们" in errors[-1]
 
     def test_topic_scope_filters_an_explicit_list_without_allowing_new_words(self, monkeypatch):
         from workers import ai_workers

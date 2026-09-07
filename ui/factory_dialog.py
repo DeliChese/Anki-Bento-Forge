@@ -39,8 +39,10 @@ from utils.learning_mode import (
 )
 
 _LEGACY_STATE_PATH = os.path.join(_addon_root, "utils", "factory_state.json")
-_STATE_PATH = get_user_data_path("factory_state.json")
-_TOPIC_CATALOG_PATH = get_user_data_path("topic_catalog.json")
+# These are optional test overrides. Runtime paths must be resolved only when
+# Factory opens: Anki can import add-ons before its profile manager is ready.
+_STATE_PATH = None
+_TOPIC_CATALOG_PATH = None
 _FACTORY_STATE_MAX_AGE_SECONDS = 7 * 24 * 3600
 _FACTORY_STATE_MAX_TEXT_CHARS = 12_000
 _FACTORY_STATE_MAX_JSON_CHARS = 24_000
@@ -83,7 +85,7 @@ def _factory_state_store():
     """Build the state use case from current paths (supports isolated tests)."""
     return FactoryStateStore(
         legacy_path=_LEGACY_STATE_PATH,
-        path=_STATE_PATH,
+        path=_STATE_PATH or get_user_data_path("factory_state.json"),
         max_age_seconds=_FACTORY_STATE_MAX_AGE_SECONDS,
         max_text_chars=_FACTORY_STATE_MAX_TEXT_CHARS,
         max_json_chars=_FACTORY_STATE_MAX_JSON_CHARS,
@@ -92,6 +94,11 @@ def _factory_state_store():
         max_locked_json_chars=_FACTORY_STATE_MAX_LOCKED_JSON_CHARS,
         max_state_bytes=_FACTORY_STATE_MAX_BYTES,
     )
+
+
+def _topic_catalog_path():
+    """Resolve the topic catalog under the active Anki profile on demand."""
+    return _TOPIC_CATALOG_PATH or get_user_data_path("topic_catalog.json")
 
 # ═══════════════════════════════════════════════════════════
 #  IMPORTS FROM MODULES (Bridge)
@@ -246,7 +253,7 @@ class AnkiSmartFactory(QDialog):
         self._json_locked = False
         # Trạng thái lưu theo learning mode, ngôn ngữ và subtype.
         self._factory_state = self._load_factory_state()
-        self._topic_catalog = TopicCatalogStore(_TOPIC_CATALOG_PATH)
+        self._topic_catalog = TopicCatalogStore(_topic_catalog_path())
         self._ai_selected_topics = []
         # Debounce timer cho JSON parsing (tránh parse liên tục khi gõ)
         self._analyze_timer = QTimer(self)

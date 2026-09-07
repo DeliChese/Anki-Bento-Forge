@@ -40,6 +40,17 @@ class FakeTextEdit:
         self.read_only = value
 
 
+class FakeCheckBox:
+    def __init__(self, checked=False):
+        self._checked = checked
+
+    def isChecked(self):
+        return self._checked
+
+    def setChecked(self, checked):
+        self._checked = bool(checked)
+
+
 # ── Mock Anki (giống test_integration) ──────────────────────
 class MockSignal:
     def __init__(self, *t): self._s = []
@@ -155,6 +166,16 @@ def _make_factory(state_path):
 
 
 class TestFactoryState:
+    def test_profile_paths_are_resolved_when_factory_opens(self, tmp_path, monkeypatch):
+        monkeypatch.setattr(factory_dialog, "_STATE_PATH", None)
+        monkeypatch.setattr(factory_dialog, "_TOPIC_CATALOG_PATH", None)
+        monkeypatch.setattr(
+            factory_dialog, "get_user_data_path", lambda name: str(tmp_path / name),
+        )
+
+        assert factory_dialog._factory_state_store().path == str(tmp_path / "factory_state.json")
+        assert factory_dialog._topic_catalog_path() == str(tmp_path / "topic_catalog.json")
+
     def test_roundtrip_text_per_flow(self, tmp_path):
         p = str(tmp_path / "state.json")
         f = _make_factory(p)
@@ -209,6 +230,25 @@ class TestFactoryState:
 
         assert loaded["language"]["japanese"]["vocab"]["topics"] == ["Ẩm thực", "Du lịch"]
         assert loaded["language"]["chinese"]["vocab"]["topics"] == ["Sức khỏe"]
+
+    def test_topic_lock_and_selection_survive_reopening_factory(self, tmp_path):
+        path = str(tmp_path / "state.json")
+        f = _make_factory(path)
+        f.chk_ai_topic = FakeCheckBox(True)
+        f.cbo_ai_topic = MagicMock()
+        f.btn_manage_ai_topics = MagicMock()
+        f._ai_selected_topics = ["Food", "Travel"]
+        f._save_current_flow()
+
+        reopened = _make_factory(path)
+        reopened.chk_ai_topic = FakeCheckBox()
+        reopened.cbo_ai_topic = MagicMock()
+        reopened.btn_manage_ai_topics = MagicMock()
+        reopened._ai_selected_topics = []
+        reopened._restore_current_flow()
+
+        assert reopened.chk_ai_topic.isChecked() is True
+        assert reopened._selected_ai_topics() == ["Food", "Travel"]
 
     def test_clear_text_saves_empty(self, tmp_path):
         p = str(tmp_path / "state.json")

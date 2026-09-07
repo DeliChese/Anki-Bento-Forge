@@ -43,6 +43,11 @@ _INLINE_NUMBERED_ITEM_RE = re.compile(
 )
 _VOCAB_MEANING_SEPARATOR_RE = re.compile(r"\s+(?:—|–|-)\s+|\s*(?:=>|=)\s*")
 _HEADING_RE = re.compile(r"^(?:#{1,6}\s+|<h[1-6]\b|h[1-6]\s*:)", re.IGNORECASE)
+# Han/Kana/Hangul scripts.  Space-separated tokens drawn from these scripts are
+# an unambiguous list signal, because CJK prose never spaces words apart.
+_CJK_SCRIPT_RE = re.compile(
+    r"[\u3040-\u30ff\u3400-\u4dbf\u4e00-\u9fff\uac00-\ud7af\uf900-\ufaff]"
+)
 
 
 def _strip_vocab_list_prefix(value):
@@ -63,6 +68,25 @@ def _split_inline_numbered_items(value):
         if item:
             items.append(item)
     return items
+
+
+def _split_inline_space_separated_cjk_items(value):
+    """Split ``我 你 您 他`` on a single physical line into list items.
+
+    Browsers and PDF viewers often collapse pasted newlines into spaces, so a
+    whole CJK list can arrive as one line.  Every fragment must look like a
+    compact vocabulary item and contain at least one Han/Kana/Hangul character;
+    that keeps English prose and meaning lines (``word — meaning``) intact.
+    """
+    parts = [part.strip() for part in str(value or "").split()]
+    if len(parts) < 2:
+        return None
+    if not all(
+        _CJK_SCRIPT_RE.search(part) and _looks_like_compact_vocab_item(part)
+        for part in parts
+    ):
+        return None
+    return parts
 
 
 def normalize_extraction_source(text):
@@ -114,7 +138,12 @@ def parse_explicit_vocabulary_items(text):
             expanded.extend(parts)
             split_inline = True
         else:
-            expanded.append(line)
+            space_parts = _split_inline_space_separated_cjk_items(line)
+            if space_parts is not None:
+                expanded.extend(space_parts)
+                split_inline = True
+            else:
+                expanded.append(line)
 
     is_compact_multiline = (
         len(physical_lines) >= 2

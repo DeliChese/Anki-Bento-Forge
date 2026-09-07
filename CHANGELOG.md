@@ -6,10 +6,12 @@
 
 #### Fixed
 
+- **Khóa chủ đề nay sống qua lần tắt/mở Anki** — Factory chỉ xác định nơi lưu trạng thái và danh mục chủ đề sau khi profile Anki đã sẵn sàng, thay vì dùng thư mục tạm của phiên nạp add-on.
 - **Dán danh sách từ không còn phụ thuộc AI đoán định dạng** — Factory nay nhận cả mục đầu không đánh số, đánh số `1.`/`1)`/`(1)`, gạch đầu dòng và nhiều mục đánh số trên cùng dòng; các mục được tách trước khi gọi API, giữ nguyên thứ tự và vẫn kiểm tra AI không bỏ sót từ nào.
 - **Mở Quản lý chủ đề không còn bị dừng bởi `NameError`** — dialog nay nhập đầy đủ bộ chuẩn hóa lựa chọn nhiều chủ đề.
 - **Danh mục chủ đề AI nay được giữ và dùng chung** — catalog cũ theo từng ngôn ngữ được hợp nhất không mất dữ liệu, nên chuyển Nhật/Trung/Hàn/Anh hay tắt/bật Khóa chủ đề không còn làm danh sách biến mất. Hộp Quản lý cho phép tích nhiều chủ đề; lựa chọn được nhớ riêng cho từng luồng tạo thẻ.
 - **Khóa chủ đề AI không còn làm Factory dừng sau khi quét deck** — coordinator nay nhận và chuyển `topic_scope` đến worker, nên luồng Preview tiếp tục chạy với chủ đề người học đã chọn.
+- **Danh sách từ 1 dòng tách bằng dấu cách cũng được tách cục bộ** — khi copy từ trình duyệt/PDF làm mất xuống dòng (ví dụ `我 你 您 他 她 它 …`), Factory vẫn nhận diện đủ từng mục, yêu cầu AI trả đủ thứ tự và chặn Preview nếu thiếu mục; văn bản tiếng Anh/văn xuôi không bị tách nhầm.
 
 ### 2026-09-04 — Version: `18.3.0` → `18.3.0`
 
