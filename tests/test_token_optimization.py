@@ -97,9 +97,9 @@ class TestSystemPromptCompactness:
             sp = _SYSTEM_PROMPTS[lang]
             assert "MẪU:" in sp
             assert "ĐẦU RA" in sp
-            # V2 carries four example bundles but stays below one
-            # compact 2.4k-character prompt budget per language.
-            assert len(sp) < 2400
+            # Chinese also carries the per-character radical mind-map schema.
+            budget = 2800 if lang == "chinese" else 2400
+            assert len(sp) < budget
 
     def test_english_vocab_prompt_keeps_examples_in_one_sense(self):
         from utils.ai_extractor import _SYSTEM_PROMPTS

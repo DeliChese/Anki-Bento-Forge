@@ -608,4 +608,4 @@ def test_station_ui_has_explicit_surface_ownership_and_bilingual_labels():
     assert "Nạp Quặng" not in t("ai_input_placeholder_vocab", lang="vi")
     assert "không tạo thẻ mới" in t("study_reviewer_subtitle", lang="vi")
     assert "no card creation" in t("study_reviewer_subtitle", lang="en")
-    assert "AI Study Sessions" in t("study_menu_action", lang="vi")
+    assert "register_companion_shortcut" not in factory

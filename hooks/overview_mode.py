@@ -16,6 +16,7 @@ except Exception:
     gui_hooks = None
 
 from utils.logger import get_logger
+from utils.i18n import t
 
 logger = get_logger()
 _REGISTERED_HOOKS = set()
@@ -130,10 +131,6 @@ def _on_js_message(handled, message, context):
             return (True, None)
         if message and message.startswith("ai_grammar_sentence:"):
             return _handle_grammar_sentence(message, context)
-        if message == "bento_forge_ai:open":
-            from hooks.reviewer import open_companion_from_reviewer
-            open_companion_from_reviewer(context)
-            return (True, None)
         if message and message.startswith("bento_example:open:"):
             slot = int(message.rsplit(":", 1)[1])
             if slot not in (1, 2, 3, 4):
@@ -143,7 +140,10 @@ def _on_js_message(handled, message, context):
             return (True, None)
         if message == "bento_card_upgrade:open":
             from hooks.reviewer import open_card_upgrade_from_reviewer
-            open_card_upgrade_from_reviewer(context)
+            dialog = open_card_upgrade_from_reviewer(context)
+            if dialog is None:
+                from aqt.utils import showInfo
+                showInfo(t("card_upgrade_open_error"))
             return (True, None)
     except Exception as e:
         logger.warning("Lỗi xử lý webview message: %s", e)

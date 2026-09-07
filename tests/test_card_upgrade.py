@@ -4,6 +4,23 @@ from utils.card_upgrade import (
 )
 
 
+def test_upgrade_dialog_has_visible_result_area_and_pyqt6_check_states():
+    from pathlib import Path
+
+    source = (Path(__file__).parents[1] / "ui" / "card_upgrade_dialog.py").read_text(
+        encoding="utf-8"
+    )
+    assert 't("card_upgrade_result_empty")' in source
+    assert "Qt.CheckState.Checked" in source
+    assert "name.setCheckState(2" not in source
+    assert "dialog.raise_()" in source
+    assert "dialog.activateWindow()" in source
+    assert "def _apply_upgrade_with_current_template(" in source
+    assert "ensure_model(" in source
+    assert 'sync_cfg["model_name"] = str(note_type' in source
+    assert "prune_extra_templates=False" in source
+
+
 def _snapshot(**extra):
     data = {
         "language": "english", "card_kind": "vocabulary", "note_type": "AnkiTool English V18.3 (Add-on)",
@@ -20,6 +37,19 @@ def test_upgrade_only_targets_outdated_managed_language_notes():
     )) is True
     assert upgrade_is_available(_snapshot(quality_version=CURRENT_QUALITY_VERSION)) is False
     assert upgrade_is_available(_snapshot(note_type="My English Notes")) is False
+
+
+def test_current_chinese_vocab_can_upgrade_when_radical_map_is_missing():
+    chinese = _snapshot(
+        language="chinese", current_target="学习", card_kind="vocabulary",
+        note_type="AnkiTool Chinese V18.3 (Add-on)",
+        quality_version=CURRENT_QUALITY_VERSION,
+    )
+    assert upgrade_is_available(chinese) is True
+    assert upgrade_is_available({
+        **chinese,
+        "radical_mindmap": '{"characters":[{"character":"学"}]}',
+    }) is False
 
 
 def test_upgrade_candidate_must_keep_current_identity():
@@ -39,6 +69,25 @@ def test_proposal_never_deletes_and_keeps_identity_immutable():
     assert [item["field"] for item in changes] == ["Meaning", "Usage Note"]
     assert changes[-1]["missing"] is True
     assert "MỤC TIÊU CẦN GIỮ NGUYÊN: affect" in build_upgrade_source(_snapshot(), {"Front": "affect"})
+
+
+def test_proposal_serializes_structured_radical_data_as_json_text():
+    cfg = {
+        "detect_key": "Front",
+        "json_field_map": {"front": "Front", "radical_mindmap": "Radical Mindmap"},
+    }
+    changes = proposed_field_changes(
+        {"Front": "学习", "Radical Mindmap": ""},
+        {"front": "学习", "radical_mindmap": {"characters": [{"character": "学"}]}},
+        cfg,
+    )
+    assert changes == [{
+        "json_key": "radical_mindmap",
+        "field": "Radical Mindmap",
+        "current": "",
+        "proposed": '{"characters":[{"character":"学"}]}',
+        "missing": True,
+    }]
 
 
 def test_effective_language_config_marks_new_notes_at_current_quality_revision():

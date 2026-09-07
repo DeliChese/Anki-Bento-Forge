@@ -220,13 +220,12 @@ class TestOverviewModeSelector:
         result = _on_js_message((False, None), "onigiri_study", None)
         assert result == (False, None)
 
-    def test_on_js_message_opens_ai_only_after_explicit_reviewer_action(self):
-        from unittest.mock import patch
+    def test_on_js_message_no_longer_exposes_ai_study_session(self):
         from hooks.overview_mode import _on_js_message
-        with patch("hooks.reviewer.open_companion_from_reviewer") as open_ai:
-            context = MagicMock()
-            assert _on_js_message((False, None), "bento_forge_ai:open", context) == (True, None)
-            open_ai.assert_called_once_with(context)
+        context = MagicMock()
+        assert _on_js_message(
+            (False, None), "bento_forge_ai:open", context,
+        ) == (False, None)
 
     def test_on_js_message_opens_requested_example_slot(self):
         from unittest.mock import patch
@@ -241,6 +240,20 @@ class TestOverviewModeSelector:
         assert _on_js_message(
             (False, None), "bento_example:open:9", context,
         ) == (False, None)
+
+    def test_on_js_message_opens_card_upgrade_dialog(self):
+        from unittest.mock import patch
+        from hooks.overview_mode import _on_js_message
+
+        context = MagicMock()
+        with patch(
+            "hooks.reviewer.open_card_upgrade_from_reviewer",
+            return_value=MagicMock(),
+        ) as open_upgrade:
+            assert _on_js_message(
+                (False, None), "bento_card_upgrade:open", context,
+            ) == (True, None)
+        open_upgrade.assert_called_once_with(context)
 
     def test_mode_and_srs_layout_are_stable_per_deck(self):
         from unittest.mock import patch
@@ -281,6 +294,50 @@ class TestOverviewModeSelector:
 
 
 class TestReviewerHookCompatibility:
+    def test_card_upgrade_injection_keeps_click_snapshot(self):
+        from unittest.mock import patch
+        import hooks.reviewer as reviewer
+
+        review = MagicMock()
+        snapshot = {"note_id": 42, "language": "english"}
+        with patch.object(reviewer, "upgrade_is_available", return_value=True):
+            assert reviewer._inject_card_upgrade(review, snapshot) is True
+
+        assert review._bento_card_upgrade_snapshot == snapshot
+        script = review.web.eval.call_args.args[0]
+        assert "bento_card_upgrade:open" in script
+        assert "button.dataset.cardKey = cardKey" in script
+        assert "setTimeout(render, 240)" in script
+
+    def test_current_card_removes_stale_upgrade_action(self):
+        from unittest.mock import patch
+        import hooks.reviewer as reviewer
+
+        review = MagicMock()
+        with patch.object(reviewer, "upgrade_is_available", return_value=False):
+            assert reviewer._inject_card_upgrade(
+                review, {"card_id": 7, "note_id": 42},
+            ) is False
+
+        assert review._bento_card_upgrade_snapshot is None
+        script = review.web.eval.call_args.args[0]
+        assert "const enabled = false" in script
+        assert "if (existing) existing.remove()" in script
+
+    def test_current_snapshot_never_falls_back_to_stale_upgrade_snapshot(self):
+        from unittest.mock import patch
+        import hooks.reviewer as reviewer
+
+        review = MagicMock()
+        review._bento_card_upgrade_snapshot = {"card_id": 9, "quality_version": ""}
+        current = {"card_id": 9, "quality_version": "1"}
+        with patch.object(reviewer, "_resolve_reviewer", return_value=review), patch.object(
+            reviewer, "get_current_card_snapshot", return_value=current,
+        ), patch.object(
+            reviewer, "upgrade_is_available", side_effect=lambda value: value is not current,
+        ):
+            assert reviewer.open_card_upgrade_from_reviewer(review) is None
+
     def test_native_card_hook_resolves_active_reviewer_for_example_actions(self):
         from unittest.mock import patch
         import hooks.reviewer as reviewer
@@ -290,17 +347,16 @@ class TestReviewerHookCompatibility:
         hook_card = types.SimpleNamespace(id=9)
         snapshot = {"language": "english", "note_id": 42}
         with patch("aqt.mw", MagicMock(reviewer=review)), patch.object(
-            reviewer, "_inject_ai_action"
-        ) as inject_ai, patch.object(
             reviewer, "get_current_card_snapshot", return_value=snapshot
         ), patch.object(
             reviewer, "_inject_example_regeneration"
         ) as inject_examples:
             reviewer._on_reviewer_answer(hook_card)
 
-        inject_ai.assert_called_once_with(review)
         inject_examples.assert_called_once_with(review, snapshot)
-        review.web.eval.assert_not_called()
+        cleanup = review.web.eval.call_args.args[0]
+        assert "bento-production-drill-action" in cleanup
+        assert "bento-card-upgrade-action" in cleanup
 
     def test_example_actions_retry_after_answer_render_and_survive_missing_history(self):
         from unittest.mock import patch
@@ -337,6 +393,9 @@ class TestReviewerHookCompatibility:
         assert "panel.hidden = true" in script
         assert "guide.hidden = true" in script
         assert "draft.focus()" in script
+        assert "action.dataset.cardKey" in script
+        assert "setTimeout(render, 80)" in script
+        assert "setTimeout(render, 240)" in script
         assert "affect + object" in script
         assert "directly affect" in script
         assert "pycmd(" not in script
@@ -354,6 +413,19 @@ class TestReviewerHookCompatibility:
             review, {"usage_pattern": "affect + object"},
         ) is False
         review.web.eval.assert_not_called()
+
+    def test_production_drill_can_use_example_when_usage_fields_are_missing(self):
+        import hooks.reviewer as reviewer
+
+        review = MagicMock()
+        assert reviewer._inject_production_drill(review, {
+            "card_id": 9,
+            "current_target": "看",
+            "example": "我看书。",
+        }) is True
+        script = review.web.eval.call_args.args[0]
+        assert "我看书。" in script
+        assert '"cardKey": "9"' in script
 
     def test_combo_uses_deck_default_but_independent_card_is_fixed(self):
         from unittest.mock import patch

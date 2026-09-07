@@ -2,6 +2,23 @@
 
 ## [Unreleased]
 
+### 2026-09-07 — Version: `18.3.0` → `18.3.0`
+
+#### Added
+
+- **Sơ đồ bộ thủ tương tác cho thẻ tiếng Trung** — AI tạo `Radical Mindmap` tối giản theo từng Hán tự; Reviewer cho bấm trực tiếp chữ hoặc nút `Hiện bộ thủ`, xem ba sơ đồ mỗi khung, kéo ngang khi từ dài và rê chuột/focus để học tên bộ thủ. Dữ liệu được lưu trên note và hiển thị offline; prompt/cache hiện ở revision `44`.
+
+#### Fixed
+
+- **Nâng cấp thẻ mở và hiển thị kết quả AI ổn định** — cầu nối Reviewer nay giữ snapshot của đúng thẻ khi người dùng bấm, đưa hộp thoại lên trước và báo rõ nếu không thể mở. Hộp thoại có khu vực chờ kết quả luôn hiển thị; bảng dùng enum chuẩn PyQt6 nên đề xuất AI không còn mất khi dựng các ô chọn, đồng thời lỗi được hiện ngay trong hộp thoại và ghi log.
+- **Action Reviewer không còn bám nhầm thẻ đầu tiên** — Nâng cấp thẻ và Tự đặt câu được đồng bộ theo card ID, hủy lượt render trễ của thẻ cũ và thử lại sau khi Anki thay DOM. Thẻ đã đạt chuẩn chủ động xóa nút nâng cấp; Tự đặt câu có thể dùng câu ví dụ làm gợi ý khi Usage Pattern/Collocation còn trống.
+- **Hán tự chính trên mặt sau bấm được để mở sơ đồ bộ thủ** — trạng thái khởi tạo được giữ trên DOM node thay vì HTML attribute nên khi Anki sao chép mặt trước sang mặt sau, click/hover được gắn lại; hai lượt retry ngắn bảo vệ trường hợp webview render trễ.
+- **Dữ liệu bộ thủ gọn để tránh AI cắt JSON** — mỗi thành phần mới chỉ yêu cầu ký tự và tên bộ thủ, bỏ pinyin/nghĩa/vai trò/từ nguyên khỏi đầu ra AI và tăng cache prompt lên `44`. Hán tự chính có gạch chân chấm, đổi màu, con trỏ tay và tooltip khi hover/focus; dữ liệu chi tiết cũ vẫn hiển thị tương thích. Khi Áp dụng nâng cấp, template Bento của đúng Note Type cũng được đồng bộ an toàn để sơ đồ xuất hiện ngay, không đụng template tùy chỉnh hay SRS.
+
+#### Removed
+
+- **Gỡ AI Study Sessions khỏi trải nghiệm sử dụng** — bỏ nút `Hỏi AI` trên thẻ, handler Reviewer, menu Tools và phím tắt `Ctrl+Shift+A`. Dữ liệu phiên cũ được giữ nguyên để không xóa dữ liệu người dùng; note và SRS không bị thay đổi.
+
 ### 2026-09-05 — Version: `18.3.0` → `18.3.0`
 
 #### Fixed

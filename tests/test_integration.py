@@ -632,12 +632,17 @@ class TestPhaseOneCollectionOperations:
         monkeypatch.setattr(import_operations, "Note", FakeNote)
         cfg = {
             "lang_code": "ja", "audio_fields": [("Audio", "Front")],
-            "json_field_map": {"front": "Front"}, "all_fields": ["Front", "Audio"],
+            "json_field_map": {"front": "Front", "radical_mindmap": "Radical Mindmap"},
+            "all_fields": ["Front", "Audio", "Radical Mindmap"],
             "model_name": "TestModel", "front_field": "Front", "detect_key": "front",
         }
         progress = []
+        collection = FakeCollection()
         report = import_operations.apply_import(
-            FakeCollection(), [{"item": {"front": "test"}, "action": "add"}], cfg, 1,
+            collection, [{"item": {
+                "front": "test",
+                "radical_mindmap": {"characters": [{"character": "学"}]},
+            }, "action": "add"}], cfg, 1,
             {"0:Audio": "[sound:test.mp3]"}, lambda: False,
             lambda current, total: progress.append((current, total)),
         )
@@ -645,6 +650,9 @@ class TestPhaseOneCollectionOperations:
         assert report["added_note_ids"] == [987]
         assert report["audio_gen"] == 1
         assert progress == [(1, 1)]
+        assert collection.added[0]["Radical Mindmap"] == (
+            '{"characters":[{"character":"学"}]}'
+        )
 
     def test_cancelled_import_does_not_mutate_collection(self, monkeypatch):
         from utils import import_operations

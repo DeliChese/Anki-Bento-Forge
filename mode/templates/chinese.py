@@ -3,11 +3,53 @@
 This module owns the language-specific Anki Mustache/HTML templates.
 """
 
-from ..shared import _WB_JS_BODY, WB_POOLS, _COMBO_MODE_JS
+from html import escape
+
+from ..shared import (
+    _COMBO_MODE_JS, _WB_JS_BODY, _ZH_RADICAL_MINDMAP_JS, WB_POOLS,
+)
 from .common import (
     _combo_answer_common_zh, _combo_data_block, _combo_mode_bar_chinese,
     _grammar_ai_panel, _srs_scope_banner,
 )
+from utils.i18n import t
+
+
+def _radical_mindmap_block():
+    """Optional offline radical diagram generated from the note field."""
+    copy = {
+        "show": t("radical_show"),
+        "hide": t("radical_hide"),
+        "title": t("radical_title"),
+        "close": t("radical_close"),
+        "count": t("radical_count_suffix"),
+        "meaning": t("radical_meaning_label"),
+        "role": t("radical_role_label"),
+        "character": t("radical_character_label"),
+        "empty": t("radical_empty"),
+        "component": t("radical_component"),
+        "hint": t("radical_component_hint"),
+    }
+    attrs = "".join(
+        f' data-copy-{key}="{escape(value, quote=True)}"'
+        for key, value in copy.items()
+    )
+    return (
+        '{{#Radical Mindmap}}'
+        '<div class="radical-mindmap"' + attrs + '>'
+        '<div class="radical-source">{{Radical Mindmap}}</div>'
+        '<button class="radical-toggle" type="button" aria-expanded="false">' + copy["show"] + '</button>'
+        '<section class="radical-panel" hidden tabindex="-1" aria-label="' + copy["title"] + '">'
+        '<div class="radical-panel-head"><span class="radical-panel-title">' + copy["title"] + '</span>'
+        '<span class="radical-counter"></span></div>'
+        '<button class="radical-close" type="button" aria-label="' + copy["close"] + '">×</button>'
+        '<div class="radical-track"></div>'
+        '</section></div>'
+        + _ZH_RADICAL_MINDMAP_JS
+        + '{{/Radical Mindmap}}'
+    )
+
+
 def tmpl_zh_q():
     return (
         '<div class="cw">'
@@ -16,7 +58,8 @@ def tmpl_zh_q():
         '{{#Traditional}}<div class="trad">Phồn thể: {{Traditional}}</div>{{/Traditional}}'
         '</div>'
         '<div class="az"><div class="typewrite">{{type:Meaning}}</div></div>'
-        '</div>'
+        + _radical_mindmap_block()
+        + '</div>'
     )
 
 
@@ -44,7 +87,9 @@ def tmpl_zh_a():
             '{{#Example2 Pinyin}}<div class="ep">{{Example2 Pinyin}}</div>{{/Example2 Pinyin}}'
             '<div class="ea">{{Example2 Audio}}</div>'
             '<div class="ev">{{Example2 in Vietnamese}}</div></div>{{/Example2}}'
-        '</div></div>'
+        '</div>'
+        + _radical_mindmap_block()
+        + '</div>'
     )
 
 
@@ -55,7 +100,9 @@ def tmpl_zh_vn_q():
         '<div class="fqm">{{Meaning}}</div>'
         '<div style="margin-top:24px;font-size:15px;color:var(--muted);">'
           '<div class="typewrite">{{type:Front}}</div>'
-        '</div></div>'
+        '</div>'
+        + _radical_mindmap_block()
+        + '</div>'
     )
 
 
@@ -85,7 +132,9 @@ def tmpl_zh_vn_a():
             '{{#Example2 Pinyin}}<div class="ep">{{Example2 Pinyin}}</div>{{/Example2 Pinyin}}'
             '<div class="ea">{{Example2 Audio}}</div>'
             '<div class="ev">{{Example2 in Vietnamese}}</div></div>{{/Example2}}'
-        '</div></div>'
+        '</div>'
+        + _radical_mindmap_block()
+        + '</div>'
     )
 
 
@@ -104,7 +153,9 @@ def tmpl_zh_wb_q():
         '<button class="wb-btn-check" onclick="wbCheck()">✓ Kiểm tra</button>'
         '</div>'
         '<div class="wb-result" id="wb-result"></div>'
-        '</div></div>'
+        '</div>'
+        + _radical_mindmap_block()
+        + '</div>'
         '<script>var _wbWord="{{Front}}",_wbPool=' + WB_POOLS["chinese"] + ';' + _WB_JS_BODY + '</script>'
     )
 
@@ -132,7 +183,9 @@ def tmpl_zh_wb_a():
         '{{#Example2 Pinyin}}<div class="ep">{{Example2 Pinyin}}</div>{{/Example2 Pinyin}}'
         '<div class="ea">{{Example2 Audio}}</div>'
         '<div class="ev">{{Example2 in Vietnamese}}</div></div>{{/Example2}}'
-        '</div></div>'
+        '</div>'
+        + _radical_mindmap_block()
+        + '</div>'
     )
 
 
@@ -148,7 +201,8 @@ def tmpl_zh_pron_q():
         '<div class="pron-lbl">Nhập Pinyin</div>'
         '<div class="az"><div class="typewrite">{{type:Pinyin}}</div></div>'
         '</div>'
-        '</div>'
+        + _radical_mindmap_block()
+        + '</div>'
     )
 
 
@@ -165,7 +219,8 @@ def tmpl_zh_pron_a():
         '{{#Sino-Vietnamese}}<span class="sv">{{Sino-Vietnamese}}</span>{{/Sino-Vietnamese}}'
         '<span class="au">{{Vocab Audio}}</span>'
         '</div>'
-        '</div>'
+        + _radical_mindmap_block()
+        + '</div>'
     )
 
 
@@ -182,7 +237,8 @@ def tmpl_zh_lg_q():
           '<div class="lg-clue">💡 Nghĩa: <b>{{Meaning}}</b></div>'
         '</div>'
         '<div class="az"><div class="typewrite">{{type:Front}}</div></div>'
-        '</div>'
+        + _radical_mindmap_block()
+        + '</div>'
     )
 
 
@@ -211,7 +267,9 @@ def tmpl_zh_lg_a():
             '{{#Example2 Pinyin}}<div class="ep">{{Example2 Pinyin}}</div>{{/Example2 Pinyin}}'
             '<div class="ea">{{Example2 Audio}}</div>'
             '<div class="ev">{{Example2 in Vietnamese}}</div></div>{{/Example2}}'
-        '</div></div>'
+        '</div>'
+        + _radical_mindmap_block()
+        + '</div>'
     )
 
 
@@ -365,6 +423,7 @@ def tmpl_zh_combo_q():
         '<div class="lg-clue">💡 Nghĩa: <b>{{Meaning}}</b></div>'
         '</div>'
         '</div>'
+        + _radical_mindmap_block()
         + '<script>var _wbWord="{{Front}}",_wbPool=' + WB_POOLS["chinese"] + ';' + _WB_JS_BODY + '</script>'
         + '<script>' + _COMBO_MODE_JS + '</script>'
         + '</div>'
@@ -415,6 +474,7 @@ def tmpl_zh_combo_a():
         '</div>'
         + _combo_answer_common_zh()
         + '</div>'
+        + _radical_mindmap_block()
         + '<script>' + _COMBO_MODE_JS + '</script>'
         + '</div>'
     )

@@ -2,7 +2,7 @@
 
 > Status: active  
 > Authority: supporting; roadmap remains the canonical backlog  
-> Last verified: 2026-09-04
+> Last verified: 2026-09-07
 > Read when: every agent session, immediately after `AGENTS.md`
 
 ## Operating contract
@@ -15,20 +15,22 @@
 
 | Item | Status | Next action |
 |---|---|---|
-| P0-01 baseline | local gate xanh | Compile Python xanh; hai isolated suite gần nhất đều `793 passed, 28 skipped`. Giữ gate này xanh trước merge/release. |
-| P0-02 smoke profile | partial smoke, blocked | Anki 26.5/profile `ChinD` backup: Factory, combo/Usage Guide, Study Coach context và role split pass; Reviewer không inject `Hỏi AI`/`Tự đặt câu` trên card `看`. Không rating/mutation; sửa hook trước khi tiếp tục. |
+| P0-01 baseline | local gate xanh | Compile Python/JavaScript xanh; full isolated suite gần nhất `826 passed, 28 skipped`. Giữ gate này xanh trước merge/release. |
+| P0-02 smoke profile | local fix, chờ re-smoke | Lỗi Reviewer action bám DOM/card đầu đã được sửa bằng card ID, cleanup và delayed retry; cần re-smoke Anki 26.5/profile `ChinD` backup trên nhiều thẻ/deck. Không rating/mutation trong lượt kiểm tra trước. |
 | P0-04 release artifact | cần dựng lại | Runtime Batch/Inventory/Blueprint đã bị gỡ nên artifact cũ không còn đại diện current tree; cần rebuild trước release. |
 | LTS Card Contract | local implementation xanh, chờ GUI smoke | Language Note Type khóa tại schema V18.3; migration allowlist/additive, ownership template theo tên/alias lịch sử, không tự prune dữ liệu lạ. Chuẩn nội dung dùng revision riêng và Reviewer upgrade opt-in. Còn smoke V14–V18 trên profile backup trước release. |
 | P0-05 AI Output Reliability | local implementation xanh | Luồng nhỏ dùng một request trực tiếp, validate → Preview → Import; danh sách vocab tường minh có kiểm tra đủ mục và giữ thứ tự. Còn smoke restart/profile backup trước publish. |
-| P1-07 AI Study Sessions | menu/context smoke pass, card action blocked | Study Coach mở từ menu, nhận đúng `REVIEWER · QA · Mặt câu hỏi · Thẻ chính: 看`, quick actions/library hiện đủ và ngoài Reviewer fail-closed; `Hỏi AI` trên card vắng mặt. Còn fix/restart/concurrency/mục 42 và CI. |
-| V18.2 Contextual AI Workspaces | Factory đã thu gọn | Reviewer vẫn sở hữu Study Coach; Factory không còn nhúng Forge chat/artifact station. Production chỉ còn nguồn nhỏ + yêu cầu tùy chọn + một nút tạo 5–20 thẻ → Preview → Import. |
-| V18.3 Language Study Library | guard sắc thái + UI local, chờ re-smoke | Scope mục 42 đúng; prompt/context đặt ý định người học lên trước, cấm suy diễn sắc thái/độ trang trọng giữa biến thể ngữ pháp khi excerpt không đối chiếu và coi history mâu thuẫn là obsolete. Chat dock ưu tiên transcript, toàn bộ chức năng học luôn hiện diện và có chỉ báo AI đang soạn. Isolated `805 passed` ×2. Chưa khép cho tới khi owner re-smoke mục 42 + UI trên thẻ vocabulary/grammar. |
+| P1-07 AI Study Sessions | retired 2026-09-07 | Đã gỡ action trên thẻ, menu và phím tắt; dữ liệu phiên cũ không bị xóa. |
+| V18.2 Contextual AI Workspaces | surface đã thu gọn | Reviewer không còn Study Coach; Factory chỉ còn nguồn nhỏ + yêu cầu tùy chọn + một nút tạo 5–20 thẻ → Preview → Import. |
+| V18.3 Language Study Library | archived with Study Sessions | Dữ liệu/library backend cũ được giữ để không xóa dữ liệu profile, nhưng không còn surface người dùng sau khi Study Sessions bị retire. |
+| Chinese Radical Mindmap | local implementation xanh, chờ GUI smoke | AI schema `Radical Mindmap` chỉ còn glyph+tên bộ thủ (prompt/cache 44) để giảm output; click/hover Hán tự được gắn lại khi lật mặt, có 3 sơ đồ mỗi khung cùng kéo ngang. Note/SRS giữ nguyên; full isolated `826 passed, 28 skipped`. |
+| Reviewer Card Upgrade UI | local fix xanh, chờ GUI smoke | Nút đồng bộ theo card ID, xóa khỏi thẻ đã đạt chuẩn và không fallback sang snapshot cũ; dialog có khu vực kết quả rõ ràng, dùng `Qt.CheckState` chuẩn PyQt6. Khi Apply, template Bento của chính xác Note Type được đồng bộ trước khi ghi dữ liệu, giữ nguyên template tùy chỉnh và SRS. Full isolated `826 passed, 28 skipped`. |
 | Language Collocation subtype | local implementation xanh, chờ GUI smoke | Nhật/Trung/Hàn/Anh có lựa chọn Collocation/Thành ngữ chủ động, prompt/schema/candidate/artifact/history và Note Type riêng; hai hướng Nhận diện/Sản xuất, không migrate note/SRS vocab hoặc grammar. Batch danh sách thiếu ngữ cảnh bị chặn. Isolated `838 passed` ×2; còn smoke chọn mode → AI Preview → import → review trên profile backup. |
 | Supervised AI Inventory | retired 2026-09-01 | Đã xóa scanner, topic-first gate, checkpoint và UI sản xuất quy mô lớn. XLSX fallback chuẩn vẫn được giữ cho thao tác mở file nhỏ. |
 | P1-08 AI Deck Blueprint | retired 2026-09-01 | Đã xóa AI Blueprint/import nhiều deck; Deck Manager cơ bản tạo/đổi tên/xóa deck vẫn giữ nguyên. |
 | P1-05 Usage Guide | đã kiểm chứng | Dùng benchmark/fixture hiện có làm regression gate. |
 | P1-06 Confusion Guard | local implementation xanh | Exact curated same-deck warning đã có fixtures bốn ngôn ngữ; chờ smoke profile backup, vẫn chỉ advisory và không tự sửa note/SRS. |
-| P2-03 Production Drill | GUI smoke fail | Anki 26.5 không hiện `Tự đặt câu` trên card `看` dù có Usage Pattern/Collocation; local suite vẫn `805 passed` ×2. Cần sửa hook injection rồi re-smoke bốn ngôn ngữ; không note/SRS mutation trong phiên phát hiện. |
+| P2-03 Production Drill | local lifecycle fix, chờ re-smoke | Action nay đồng bộ theo card ID, retry sau render và dùng được Example khi Usage Pattern/Collocation trống. Targeted `51 passed`, full isolated `826 passed, 28 skipped`; cần re-smoke nhiều thẻ/deck ở bốn ngôn ngữ. |
 | Reviewer Example Versions | local implementation xanh, chờ GUI smoke | Ví dụ 1–4 có model AI riêng tùy chọn theo Provider/API Key hiện dùng, tạo/chỉnh theo độ khó và độ dài, lịch sử phiên bản + audio lưu theo note, tác vụ AI/TTS không modal và tiến độ import tính cả audio lẫn ghi note. Hai isolated suites `777 passed, 28 skipped`; cần smoke trên profile backup trước release. |
 
 ## Evidence and boundaries
@@ -41,7 +43,10 @@
 
 - Reviewer Example Versions giữ câu gốc và mọi lần tạo lại trong field `Example Versions`, đồng thời materialize phiên bản đang chọn về các field Example/reading/translation/audio hiện hữu để template và sync Anki tiếp tục hoạt động. AI chỉ nhận context gọn của thẻ cùng tối đa tám ví dụ cần tránh; có thể dùng model riêng cùng Provider/API Key đang chọn; TTS lưu sound tag một lần và dùng lại. Verification 2026-09-04: compile Python xanh và full isolated `777 passed, 28 skipped` ×2; chưa thay thế GUI smoke trên profile backup.
 
-- Bằng chứng V18.3 hiện tại: transcript profile thật xác nhận manifest đúng mục `42. Thái tiến hành: 在, 正在, 正, 呢`; guard mới cấm biến việc liệt kê dạng thành quy tắc sắc thái tuyệt đối. Renderer có fixture heading/list/code/quote/bảng hẹp/rộng; dock có transcript ưu tiên, các chức năng học luôn hiện diện và typing indicator. Hai isolated suites `805 passed`. Đây là bằng chứng local, không thay thế re-smoke Anki thật đang mở. Chi tiết và điều kiện phát hành hiện hành ở [Personal Roadmap](../../work_items/PERSONAL_ROADMAP.md).
+- Bằng chứng V18.3 Study Sessions/Library trước khi retire nằm trong lịch sử tháng 8; backend và dữ liệu cũ được giữ nhưng không còn là gate phát hành UI. Chi tiết hiện hành ở [Personal Roadmap](../../work_items/PERSONAL_ROADMAP.md).
+- Bằng chứng Radical Mindmap 2026-09-07: schema song ngữ tối giản mỗi component còn glyph+name, structured field serialize JSON ổn định khi import/nâng cấp, toàn bộ 10 template Chinese Vocabulary tham chiếu field tùy chọn, JS qua `node --check`; targeted `65 passed, 3 skipped`, full isolated `826 passed, 28 skipped`. Còn GUI smoke trên profile backup.
+- Bằng chứng Card Upgrade UI 2026-09-07: cầu nối `pycmd` có test mở dialog, snapshot lúc inject được giữ làm fallback, bảng kết quả dùng enum PyQt6 và luôn có trạng thái chờ/thành công/lỗi; targeted `45 passed`, full isolated `823 passed, 28 skipped`. Còn GUI smoke một thẻ Language cũ trong Anki thật.
+- Bằng chứng Reviewer lifecycle fix 2026-09-07: Hán tự mặt sau dùng DOM-node state thay cho attribute bị clone; Upgrade/Production action có card ID, token hủy render cũ, cleanup khi lật mặt và retry 80/240 ms. Targeted `51 passed`, JavaScript qua `node --check`, full isolated `826 passed, 28 skipped`. Còn re-smoke nhiều thẻ/deck trên profile backup.
 - Bằng chứng P1-05: `19/20` (`95%`), `$0.002035`, `1.69 giây/card`; xem [benchmark](../../benchmarks/usage_guide_review_v1.json).
 - Trước mutation collection, cần backup/undo và smoke liên quan. Con người xác nhận mọi thao tác Anki thật.
 - Không coi số liệu trong tài liệu `historical` là trạng thái hiện tại nếu chúng mâu thuẫn roadmap/evidence mới hơn.

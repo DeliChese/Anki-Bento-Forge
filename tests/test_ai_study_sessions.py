@@ -685,11 +685,9 @@ def test_companion_keeps_reviewer_coaching_only_and_forge_card_mode_one_shot():
     assert "self._store.get_session(self._pending_session_id)" in companion
     assert "tools.addAction(action)" in companion
     assert "self.hide()" in companion and "web.setFocus()" in companion
-    assert "bento_forge_ai:open" in reviewer
-    assert "aria-label" in reviewer
-    assert "getElementById('bento-forge-ai-action')" in reviewer
-    assert "#fffaf0" not in reviewer and "#4d4338" not in reviewer and "#c9bca8" not in reviewer
-    assert "color: inherit" in reviewer and "prefers-color-scheme: dark" in reviewer
+    assert "bento_forge_ai:open" not in reviewer
+    assert "getElementById('bento-forge-ai-action')" not in reviewer
+    assert "register_companion_shortcut" not in factory
     assert "def open_integrated_forge" in factory
     factory_chat = factory.split("def _ai_chat(self):", 1)[1].split("def _ai_chat_legacy", 1)[0]
     assert "self._ai_extract()" in factory_chat

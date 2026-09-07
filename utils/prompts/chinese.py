@@ -13,6 +13,7 @@ _CHINESE_JSON_TEMPLATE = """{
   "traditional": "學習",
   "pinyin": "xuéxí",
   "meaning": "học tập",
+  "radical_mindmap": {"characters":[{"character":"学","components":[{"glyph":"子","name":"bộ Tử"}]},{"character":"习","components":[{"glyph":"习","name":"bộ Tập"}]}]},
   "usage_pattern": "在 + nơi chốn + 学习 + nội dung",
   "usage_note": "Không dùng 学习 để chỉ biết một người.",
   "collocation": "学习中文 — học tiếng Trung",
@@ -44,10 +45,11 @@ MẪU:
 {_CHINESE_JSON_TEMPLATE}
 
 LUẬT:
-1. Đủ 26 key; field tùy chọn không hữu ích = "". Ưu tiên 搭配, classifier có lexical value, result/directional complement, separable verb, register và word-class ambiguity; không tuyệt đối hóa kiểu “觉得 không dùng trang trọng” hay sinh 很 + tính từ chỉ để đủ collocation.
+1. Đủ 27 key; field tùy chọn không hữu ích = "". Ưu tiên 搭配, classifier có lexical value, result/directional complement, separable verb, register và word-class ambiguity; không tuyệt đối hóa kiểu “觉得 không dùng trang trọng” hay sinh 很 + tính từ chỉ để đủ collocation.
 2. Sinh đủ 4 ví dụ tự nhiên, 5–12 từ, cùng nghĩa ngữ cảnh và đúng cấp HSK; mỗi ví dụ dùng một khung ngữ pháp/mục đích câu khác nhau.
 3. KIỂM: giản/thể cùng từ; pinyin dấu thanh; bản dịch đúng câu; từ đích có trong ví dụ.
 4. Bỏ "TỪ ĐÃ CÓ", giữ thứ tự văn bản; không bịa nghĩa/cách dùng.
+5. radical_mindmap thật ngắn: đủ từng Hán tự (≤12); mỗi components chỉ có glyph và name tiếng Việt (tối đa 3 bộ/thành phần trực tiếp). Không trả pinyin, meaning, role hay giải thích từ nguyên.
 
 ĐẦU RA: CHỈ mảng JSON thuần; cuối có {{"_comment":"≤15 từ"}}.""" + VOCAB_QUALITY_V2_VI
 
@@ -57,6 +59,7 @@ _CHINESE_JSON_TEMPLATE_EN = """{
   "traditional": "學習",
   "pinyin": "xuéxí",
   "meaning": "to study",
+  "radical_mindmap": {"characters":[{"character":"学","components":[{"glyph":"子","name":"child radical"}]},{"character":"习","components":[{"glyph":"习","name":"practice radical"}]}]},
   "usage_pattern": "在 + place + 学习 + subject",
   "usage_note": "Do not use 学习 to mean know a person.",
   "collocation": "学习中文 — study Chinese",
@@ -88,10 +91,11 @@ TEMPLATE:
 {_CHINESE_JSON_TEMPLATE_EN}
 
 RULES:
-1. Fill all 26 keys; optional low-value fields = "". Prioritize 搭配, lexically useful classifiers, result/directional complements, separable verbs, register, and word-class ambiguity; do not generate 很 + adjective merely to fill collocations.
+1. Fill all 27 keys; optional low-value fields = "". Prioritize 搭配, lexically useful classifiers, result/directional complements, separable verbs, register, and word-class ambiguity; do not generate 很 + adjective merely to fill collocations.
 2. Write all 4 natural 5–12-word examples at the same HSK and contextual sense; each must use a different grammar frame or sentence purpose.
 3. CHECK matching simplified/traditional, tone-marked pinyin, exact translation, and target in each example.
 4. Skip "EXISTING WORDS", preserve text order, and never invent usage.
+5. Keep radical_mindmap compact: one item per Han character (≤12); every component has glyph and English name only (at most 3 direct radicals/components). Do not output pinyin, meaning, role, or etymology.
 
 OUTPUT: Plain JSON array only; end with {{"_comment":"≤15 words"}}.""" + VOCAB_QUALITY_V2_EN
 

@@ -4306,11 +4306,6 @@ def _register_tools_menu_action():
         action.setShortcut(QKeySequence("Ctrl+Shift+I"))
         qconnect(action.triggered, start_smart_factory)
         tools.addAction(action)
-        try:
-            from ui.ai_companion import register_companion_shortcut
-            register_companion_shortcut()
-        except Exception as exc:
-            logger.warning("AI companion shortcut unavailable: %s", exc.__class__.__name__)
         return True
     except Exception:
         return False

@@ -427,6 +427,145 @@ _COMBO_MODE_JS = r"""
 
 
 # ═══════════════════════════════════════════════════════════
+#  CHINESE RADICAL MIND MAP — offline reviewer visualization
+# ═══════════════════════════════════════════════════════════
+_ZH_RADICAL_MINDMAP_JS = r"""
+<script>
+(function(){
+  function init(){
+  var roots=document.querySelectorAll('.radical-mindmap');
+  for(var rootIndex=0;rootIndex<roots.length;rootIndex++){
+    (function(root){
+      if(root._bentoRadicalReady)return;
+      root._bentoRadicalReady=true;
+      var source=root.querySelector('.radical-source');
+      var raw=source?(source.textContent||'').trim():'';
+      if(!raw){root.style.display='none';return;}
+      var payload=null;
+      try{
+        payload=JSON.parse(raw);
+        if(typeof payload==='string')payload=JSON.parse(payload);
+      }catch(error){root.style.display='none';return;}
+      var characters=Array.isArray(payload)?payload:payload&&payload.characters;
+      if(!Array.isArray(characters)||!characters.length){root.style.display='none';return;}
+      characters=characters.filter(function(item){
+        return item&&typeof item==='object'&&String(item.character||'').trim();
+      });
+      if(!characters.length){root.style.display='none';return;}
+
+      var toggle=root.querySelector('.radical-toggle');
+      var panel=root.querySelector('.radical-panel');
+      var close=root.querySelector('.radical-close');
+      var track=root.querySelector('.radical-track');
+      var counter=root.querySelector('.radical-counter');
+      if(!toggle||!panel||!track)return;
+      track.textContent='';
+      function copy(key,fallback){return root.getAttribute('data-copy-'+key)||fallback;}
+      if(counter)counter.textContent=characters.length+' '+copy('count','characters');
+
+      function info(component){
+        return String(component.name||component.glyph||copy('component','Component'));
+      }
+      characters.forEach(function(item,index){
+        var card=document.createElement('article');
+        card.className='radical-map-card';
+        card.setAttribute('data-character',String(item.character));
+        card.setAttribute('tabindex','-1');
+        var rootNode=document.createElement('div');
+        rootNode.className='radical-root';
+        rootNode.textContent=String(item.character);
+        var label=document.createElement('div');
+        label.className='radical-root-label';
+        label.textContent=copy('character','Character')+' '+(index+1);
+        var branch=document.createElement('div');
+        branch.className='radical-branches';
+        var components=Array.isArray(item.components)?item.components:[];
+        if(!components.length){
+          var empty=document.createElement('div');
+          empty.className='radical-empty';
+          empty.textContent=copy('empty','Single-form character / no components');
+          branch.appendChild(empty);
+        }
+        components.forEach(function(component){
+          if(!component||typeof component!=='object')return;
+          var chip=document.createElement('button');
+          chip.type='button';
+          chip.className='radical-component';
+          var glyph=document.createElement('span');
+          glyph.className='radical-glyph';
+          glyph.textContent=String(component.glyph||component.name||'?');
+          var name=document.createElement('span');
+          name.className='radical-name';
+          name.textContent=String(component.name||component.glyph||copy('component','Component'));
+          var tip=document.createElement('span');
+          tip.className='radical-tip';
+          tip.textContent=info(component)||copy('component','Component');
+          chip.setAttribute('aria-label',tip.textContent.replace(/\n/g,', '));
+          chip.append(glyph,name,tip);
+          branch.appendChild(chip);
+        });
+        card.append(rootNode,label,branch);
+        track.appendChild(card);
+      });
+
+      function setOpen(open,character){
+        panel.hidden=!open;
+        toggle.setAttribute('aria-expanded',open?'true':'false');
+        toggle.textContent=open?copy('hide','🧩 Hide components'):copy('show','🧩 Show components');
+        if(open){
+          var target=null;
+          var maps=track.querySelectorAll('[data-character]');
+          for(var mapIndex=0;mapIndex<maps.length;mapIndex++){
+            if(maps[mapIndex].getAttribute('data-character')===String(character)){target=maps[mapIndex];break;}
+          }
+          if(target&&target.scrollIntoView)target.scrollIntoView({behavior:'smooth',block:'nearest',inline:'center'});
+        }
+      }
+      toggle.addEventListener('click',function(){setOpen(panel.hidden);});
+      if(close)close.addEventListener('click',function(){setOpen(false);toggle.focus();});
+      panel.addEventListener('keydown',function(event){
+        event.stopPropagation();
+        if(event.key==='Escape'){setOpen(false);toggle.focus();}
+      });
+
+      var known={};
+      characters.forEach(function(item){known[String(item.character)]=true;});
+      var hanzi=document.querySelectorAll('.hanzi');
+      for(var h=0;h<hanzi.length;h++){
+        if(hanzi[h]._bentoRadicalReady)continue;
+        var word=(hanzi[h].textContent||'').trim();
+        if(!word)continue;
+        hanzi[h]._bentoRadicalReady=true;
+        hanzi[h].textContent='';
+        Array.from(word).forEach(function(character){
+          if(!known[character]){
+            hanzi[h].appendChild(document.createTextNode(character));
+            return;
+          }
+          var button=document.createElement('button');
+          button.type='button';
+          button.className='radical-character';
+          button.textContent=character;
+          var tooltip=copy('hint','Open the component map for')+' '+character;
+          button.title=tooltip;
+          button.setAttribute('data-radical-tooltip',tooltip);
+          button.setAttribute('aria-label',tooltip);
+          button.addEventListener('click',function(){setOpen(true,character);});
+          hanzi[h].appendChild(button);
+        });
+      }
+    })(roots[rootIndex]);
+  }
+  }
+  init();
+  setTimeout(init,80);
+  setTimeout(init,240);
+})();
+</script>
+"""
+
+
+# ═══════════════════════════════════════════════════════════
 #  EXAMPLE READING VISIBILITY — learner-controlled Review aid
 # ═══════════════════════════════════════════════════════════
 _EXAMPLE_READING_TOGGLE_JS = r"""

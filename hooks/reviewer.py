@@ -49,6 +49,7 @@ _AI_CONTEXT_FIELDS = {
     "reading": "reading", "pronunciation": "pronunciation",
     "furigana": "furigana", "pinyin": "pinyin",
     "romanization": "romanization", "meaning": "meaning", "usage": "usage",
+    "radical mindmap": "radical_mindmap",
     "explanation": "explanation", "usage pattern": "usage_pattern",
     "usage note": "usage_note", "collocation": "collocation", "example": "example",
     "sino-vietnamese": "sino_vietnamese", "jlpt level": "level",
@@ -86,67 +87,6 @@ _TARGET_FIELD_KEYS = (
 )
 
 
-def _inject_ai_action(reviewer):
-    """Add one subtle opt-in action; it never opens or calls AI automatically."""
-    try:
-        import json
-        label = json.dumps(t("study_reviewer_action"), ensure_ascii=False)
-        reviewer.web.eval(f"""
-            (() => {{
-              if (document.getElementById('bento-forge-ai-action')) return;
-              if (!document.getElementById('bento-forge-ai-action-style')) {{
-                const style = document.createElement('style');
-                style.id = 'bento-forge-ai-action-style';
-                style.textContent = `
-                  #bento-forge-ai-action {{
-                    position: fixed;
-                    right: 12px;
-                    top: 10px;
-                    z-index: 9999;
-                    opacity: .74;
-                    border: 1px solid rgba(127, 127, 127, .42);
-                    border-radius: 10px;
-                    padding: 5px 9px;
-                    background: rgba(127, 127, 127, .14);
-                    color: inherit;
-                    box-shadow: 0 1px 4px rgba(0, 0, 0, .16);
-                    font: inherit;
-                    font-size: 12px;
-                    cursor: pointer;
-                    backdrop-filter: blur(5px);
-                    -webkit-backdrop-filter: blur(5px);
-                  }}
-                  #bento-forge-ai-action:hover,
-                  #bento-forge-ai-action:focus-visible {{
-                    opacity: 1;
-                    border-color: currentColor;
-                    outline: none;
-                  }}
-                  #bento-forge-ai-action:focus-visible {{
-                    box-shadow: 0 0 0 2px rgba(127, 127, 127, .34);
-                  }}
-                  @media (prefers-color-scheme: dark) {{
-                    #bento-forge-ai-action {{
-                      background: rgba(255, 255, 255, .10);
-                      border-color: rgba(255, 255, 255, .28);
-                    }}
-                  }}
-                `;
-                document.head.appendChild(style);
-              }}
-              const button = document.createElement('button');
-              button.id = 'bento-forge-ai-action';
-              button.type = 'button';
-              button.textContent = {label};
-              button.setAttribute('aria-label', {label});
-              button.onclick = () => pycmd('bento_forge_ai:open');
-              document.body.appendChild(button);
-            }})();
-        """)
-    except Exception:
-        pass
-
-
 def _production_drill_payload(snapshot):
     """Build a local-only production drill from explicit Usage Guide fields."""
     if not isinstance(snapshot, dict):
@@ -160,14 +100,17 @@ def _production_drill_payload(snapshot):
         value = str(snapshot.get(key) or "").strip()
         if value:
             guides.append({"label": t(label_key), "value": value[:1_000]})
-    if not target or not guides:
-        return None
     example = str(snapshot.get("example") or "").strip()
     if example:
         guides.append({"label": t("production_drill_example"), "value": example[:1_000]})
+    if not target or not guides:
+        return None
     return {
         "target": target[:240],
         "guides": guides,
+        "cardKey": str(
+            snapshot.get("card_id") or snapshot.get("note_id") or target
+        )[:240],
     }
 
 
@@ -191,9 +134,17 @@ def _inject_production_drill(reviewer, snapshot):
     try:
         reviewer.web.eval(f"""
             (() => {{
-              if (document.getElementById('bento-production-drill-action')) return;
               const data = {data_json};
               const copy = {strings_json};
+              const token = String(data.cardKey) + ':' + Date.now() + ':' + Math.random();
+              window._bentoProductionToken = token;
+              const render = () => {{
+              if (window._bentoProductionToken !== token) return;
+              const oldAction = document.getElementById('bento-production-drill-action');
+              const oldPanel = document.getElementById('bento-production-drill');
+              if (oldAction && oldPanel && oldAction.dataset.cardKey === String(data.cardKey)) return;
+              if (oldAction) oldAction.remove();
+              if (oldPanel) oldPanel.remove();
               if (!document.getElementById('bento-production-drill-style')) {{
                 const style = document.createElement('style');
                 style.id = 'bento-production-drill-style';
@@ -241,6 +192,7 @@ def _inject_production_drill(reviewer, snapshot):
               action.id = 'bento-production-drill-action';
               action.type = 'button';
               action.textContent = copy.action;
+              action.dataset.cardKey = String(data.cardKey);
               action.setAttribute('aria-expanded', 'false');
 
               const panel = document.createElement('section');
@@ -305,6 +257,10 @@ def _inject_production_drill(reviewer, snapshot):
                 event.stopPropagation();
                 if (event.key === 'Escape') setOpen(false);
               }});
+              }};
+              render();
+              setTimeout(render, 80);
+              setTimeout(render, 240);
             }})();
         """)
         return True
@@ -378,26 +334,6 @@ def get_current_card_snapshot(reviewer, side=None):
             error=error.__class__.__name__,
         )
         return None
-
-
-def _refresh_companion_context(snapshot):
-    """Refresh an existing dock without making Reviewer hooks depend on its UI."""
-    try:
-        from ui.ai_companion import refresh_ai_companion_context
-
-        refresh_ai_companion_context(snapshot)
-    except Exception as error:
-        logger.debug("AI companion context refresh unavailable: %s", error)
-
-
-def open_companion_from_reviewer(context):
-    reviewer = getattr(context, "reviewer", None) or context
-    snapshot = get_current_card_snapshot(reviewer)
-    from ui.ai_companion import show_ai_companion
-    return show_ai_companion(
-        snapshot=snapshot,
-        language=str((snapshot or {}).get("language") or ""),
-    )
 
 
 def _example_review_payload(reviewer, snapshot):
@@ -514,36 +450,90 @@ def open_example_regenerator_from_reviewer(context, slot):
 
 def _inject_card_upgrade(reviewer, snapshot):
     """Expose a card refresh only when the managed note is behind the quality contract."""
-    if not upgrade_is_available(snapshot):
-        return False
+    available = upgrade_is_available(snapshot)
+    reviewer._bento_card_upgrade_snapshot = dict(snapshot or {}) if available else None
     label = json.dumps(t("card_upgrade_action"), ensure_ascii=False)
+    card_key = json.dumps(
+        str((snapshot or {}).get("card_id") or (snapshot or {}).get("note_id") or ""),
+        ensure_ascii=False,
+    )
+    enabled = "true" if available else "false"
     try:
         reviewer.web.eval(f"""
             (() => {{
-              if (document.getElementById('bento-card-upgrade-action')) return;
+              const cardKey = {card_key};
+              const enabled = {enabled};
+              const token = cardKey + ':' + Date.now() + ':' + Math.random();
+              window._bentoUpgradeToken = token;
+              const render = () => {{
+              if (window._bentoUpgradeToken !== token) return;
+              const existing = document.getElementById('bento-card-upgrade-action');
+              if (!enabled) {{
+                if (existing) existing.remove();
+                return;
+              }}
+              if (existing && existing.dataset.cardKey === cardKey) return;
+              if (existing) existing.remove();
               const button = document.createElement('button');
               button.id = 'bento-card-upgrade-action'; button.type = 'button';
+              button.dataset.cardKey = cardKey;
               button.textContent = {label}; button.setAttribute('aria-label', {label});
               button.style.cssText = 'position:fixed;right:12px;top:86px;z-index:9999;border:1px solid rgba(53,111,164,.46);border-radius:10px;padding:5px 9px;background:rgba(53,111,164,.13);color:inherit;font:inherit;font-size:12px;cursor:pointer';
               button.onclick = () => pycmd('bento_card_upgrade:open');
               document.body.appendChild(button);
+              }};
+              render();
+              setTimeout(render, 80);
+              setTimeout(render, 240);
             }})();
         """)
-        return True
+        return available
     except Exception as error:
         logger.debug("Card upgrade injection unavailable: %s", error)
         return False
 
 
 def open_card_upgrade_from_reviewer(context):
-    reviewer = _resolve_reviewer(getattr(context, "reviewer", None) or context)
+    reviewer = _resolve_reviewer(context)
     if reviewer is None:
+        reviewer = _resolve_reviewer(getattr(context, "reviewer", None))
+    if reviewer is None:
+        logger.warning("CARD_UPGRADE_OPEN_FAILED: active Reviewer was not found")
         return None
     snapshot = get_current_card_snapshot(reviewer)
+    if snapshot is None:
+        cached = getattr(reviewer, "_bento_card_upgrade_snapshot", None)
+        active_card_id = getattr(getattr(reviewer, "card", None), "id", None)
+        if str((cached or {}).get("card_id") or "") == str(active_card_id or ""):
+            snapshot = cached
     if not upgrade_is_available(snapshot):
+        logger.warning("CARD_UPGRADE_OPEN_FAILED: eligible card snapshot was not found")
         return None
     from ui.card_upgrade_dialog import show_card_upgrade_dialog
     return show_card_upgrade_dialog(reviewer, snapshot)
+
+
+def _clear_reviewer_actions(reviewer):
+    """Cancel delayed renders and remove controls owned by the previous face/card."""
+    try:
+        reviewer.web.eval("""
+            (() => {
+              window._bentoProductionToken = 'cleared:' + Math.random();
+              window._bentoUpgradeToken = 'cleared:' + Math.random();
+              [
+                'bento-production-drill-action',
+                'bento-production-drill',
+                'bento-card-upgrade-action'
+              ].forEach((id) => {
+                const node = document.getElementById(id);
+                if (node) node.remove();
+              });
+            })();
+        """)
+        return True
+    except Exception as error:
+        logger.debug("Reviewer action cleanup unavailable: %s", error)
+        return False
 
 # Import an toàn module overview_mode (tránh circular import ở mức module load)
 try:
@@ -563,10 +553,9 @@ def _on_reviewer_question(reviewer):
         card = reviewer.card
         if card is None:
             return
+        _clear_reviewer_actions(reviewer)
         snapshot = get_current_card_snapshot(reviewer, side="question")
-        _refresh_companion_context(snapshot)
         q = card.q() or ""
-        _inject_ai_action(reviewer)
         _inject_production_drill(reviewer, snapshot)
         _inject_card_upgrade(reviewer, snapshot)
         # Card combo (1 từ = 1 card, 5 chế độ): đồng bộ mode từ config
@@ -583,8 +572,8 @@ def _on_reviewer_question(reviewer):
         # Letter Gap (cả card combo lẫn card cũ đều có lg-display)
         if 'id="lg-display"' in q:
             reviewer.web.eval(_LG_JS_BODY)
-    except Exception:
-        pass
+    except Exception as error:
+        logger.warning("REVIEWER_QUESTION_UI_FAILED: %s", error)
 
 
 def _on_reviewer_answer(reviewer):
@@ -592,16 +581,15 @@ def _on_reviewer_answer(reviewer):
     reviewer = _resolve_reviewer(reviewer)
     if reviewer is None:
         return
-    _inject_ai_action(reviewer)
+    _clear_reviewer_actions(reviewer)
     snapshot = None
     try:
         reviewer._bento_forge_side = "answer"
         card = reviewer.card
         if card is not None:
             snapshot = get_current_card_snapshot(reviewer, side="answer")
-            _refresh_companion_context(snapshot)
-    except Exception:
-        pass
+    except Exception as error:
+        logger.debug("Reviewer answer snapshot unavailable: %s", error)
     _inject_example_regeneration(reviewer, snapshot)
 
 

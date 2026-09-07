@@ -4,6 +4,7 @@ Network/audio work deliberately lives outside this module.  These helpers are
 called only by :class:`aqt.operations.QueryOp` and ``CollectionOp``.
 """
 
+import json
 import re
 
 from anki.notes import Note
@@ -43,10 +44,17 @@ def _fill_example_blanks(note, front_field):
             continue
 
 
+def _field_text(value):
+    """Serialize structured AI fields as stable JSON for Anki text fields."""
+    if isinstance(value, (dict, list)):
+        return json.dumps(value, ensure_ascii=False, separators=(",", ":"))
+    return str(value)
+
+
 def _mapped_value(item, cfg, field_name, fallback=""):
     for json_key, mapped_field in cfg["json_field_map"].items():
         if mapped_field == field_name and json_key in item:
-            return str(item[json_key]).strip()
+            return _field_text(item[json_key]).strip()
     return fallback
 
 
@@ -119,7 +127,7 @@ def apply_import(
                 note = Note(col, col.models.by_name(cfg["model_name"]))
                 for json_key, field_name in cfg["json_field_map"].items():
                     if json_key in item and field_name in cfg["all_fields"]:
-                        note[field_name] = str(item[json_key])
+                        note[field_name] = _field_text(item[json_key])
                 for field_name, value in (cfg.get("note_defaults") or {}).items():
                     if field_name in cfg["all_fields"] and value:
                         note[field_name] = str(value)

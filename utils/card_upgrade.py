@@ -7,6 +7,7 @@ provide the current note snapshot and an already-validated AI candidate.
 
 from __future__ import annotations
 
+import json
 import unicodedata
 from collections.abc import Mapping, Sequence
 
@@ -33,12 +34,19 @@ def upgrade_is_available(snapshot: Mapping | None) -> bool:
     """Only managed Language notes with an older quality revision can upgrade."""
     snapshot = snapshot or {}
     note_type = str(snapshot.get("note_type") or "").casefold()
+    language = str(snapshot.get("language") or "").strip()
+    kind = normalized_kind(snapshot.get("card_kind"))
+    missing_chinese_mindmap = bool(
+        language == "chinese"
+        and kind == "vocab"
+        and not str(snapshot.get("radical_mindmap") or "").strip()
+    )
     return bool(
-        normalized_kind(snapshot.get("card_kind"))
-        and str(snapshot.get("language") or "").strip()
+        kind
+        and language
         and ("ankitool " in note_type or "mẫu từ vựng tiếng nhật " in note_type)
         and "(add-on)" in note_type
-        and not quality_is_current(snapshot)
+        and (not quality_is_current(snapshot) or missing_chinese_mindmap)
     )
 
 
@@ -103,7 +111,12 @@ def proposed_field_changes(
             continue
         if field_name == detect_field:
             continue
-        proposed = str(candidate.get(json_key) or "").strip()
+        raw_proposed = candidate.get(json_key)
+        proposed = (
+            json.dumps(raw_proposed, ensure_ascii=False, separators=(",", ":"))
+            if isinstance(raw_proposed, (dict, list))
+            else str(raw_proposed or "").strip()
+        )
         if not proposed:
             continue
         current = str(current_fields.get(field_name) or "").strip()
