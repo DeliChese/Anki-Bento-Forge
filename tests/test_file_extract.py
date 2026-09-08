@@ -133,24 +133,6 @@ class TestExtractTextFromFile:
             "# Grammarbook\n## 02. 会 và 能\nNội dung"
         )
 
-    def test_study_docx_fallback_retains_word_heading_styles(self, monkeypatch, tmp_path):
-        from utils import document_extractors
-
-        path = tmp_path / "grammarbook.docx"
-        xml = (
-            '<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">'
-            '<w:body><w:p><w:pPr><w:pStyle w:val="Heading2"/></w:pPr>'
-            '<w:r><w:t>02. 会 và 能</w:t></w:r></w:p><w:p><w:r><w:t>Nội dung</w:t>'
-            '</w:r></w:p></w:body></w:document>'
-        )
-        with zipfile.ZipFile(path, "w") as archive:
-            archive.writestr("word/document.xml", xml)
-        monkeypatch.setattr(document_extractors, "_document_dependency_available", lambda name: False)
-
-        assert document_extractors.extract_study_text_from_file(str(path)) == (
-            "## 02. 会 và 能\nNội dung"
-        )
-
     def test_xlsx_existing_dependency_extracts_cells(self, monkeypatch, tmp_path):
         from utils import document_extractors
 

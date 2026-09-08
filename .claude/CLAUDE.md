@@ -40,7 +40,7 @@ __init__.py (26 dòng)         ← compatibility facade (public re-export)
 ├── mode/        LANG_TEMPLATES, LANG_CSS, LANG_GRAMMAR_*, card_render.py, shared.py (JS)
 ├── audio/       engine.py (router) + tts.py (Edge/gTTS/VoiceVox)
 ├── utils/       ai_extractor, ai_workspace, ai_prompt_defaults, ai_response_parser, ai_result_cache, import_history, prompt_config, deck_cache, json_parser, logger, i18n, deck_manager
-├── workers/     ImportWorker, PreviewThread, AiExtractThread, AiChatThread, DeckScanWorker, ExampleAiWorker, ExampleAudioWorker
+├── workers/     ImportWorker, PreviewThread, AiExtractThread, DeckScanWorker, ExampleAiWorker, ExampleAudioWorker
 ├── ui/          factory_dialog, ai_settings, ai_preview, bulk_card_upgrade_dialog, verify_dialog, history_dialog, prompt_editor, theme
 ├── hooks/       reviewer.py (register_hooks) + overview_mode.py (mode selector)
 └── tests/       regression suite; số liệu đã kiểm chứng nằm trong `context/current-state.md`

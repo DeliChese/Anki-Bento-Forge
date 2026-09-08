@@ -19,6 +19,6 @@
 
 Các bất biến chính: domain module không import `aqt`; UI dùng `t()`; log dùng `get_logger()`; state chia sẻ phải thread-safe; prompt thay đổi phải invalid cache version; thay đổi phát hành phải cập nhật changelog và kiểm chứng.
 
-Flow sản xuất hiện hành là một lượt nhỏ trong Factory, luôn qua Preview trước Import. Batch/Inventory/AI Deck Blueprint và bề mặt AI Study Sessions đã retire; một số backend tương thích vẫn được giữ để không xóa state profile cũ.
+Flow sản xuất hiện hành là một lượt nhỏ trong Factory, luôn qua Preview trước Import. Runtime không còn Batch/Inventory/AI Deck Blueprint hoặc subsystem AI Study Sessions; file dữ liệu profile do các flow cũ từng tạo không được tự động xóa.
 
 Để biết dependency, entry point, method và test cụ thể, đọc [skill project map](../.claude/skills/01-project-map/SKILL.md) rồi tìm symbol bằng `rg`.

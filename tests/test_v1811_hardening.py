@@ -1,14 +1,8 @@
-import copy
-
 import pytest
 
 from utils import ai_extractor
-from utils.ai_card_artifacts import create_card_artifact, artifact_to_factory_payload
-from utils.ai_context_manager import minimal_card_context
-from utils.ai_output_validation import AI_OUTPUT_SCHEMA_VERSION, validate_ai_cards
+from utils.ai_output_validation import validate_ai_cards
 from utils.ai_reliability import is_exact_existing_card
-from utils.ai_session_store import StudySessionStore
-from utils.ai_study_prompts import build_study_prompt
 from utils.ai_text_recovery import IncompleteExtractionError
 from utils.grammar_ai import _parse_grammar_json_strict
 from utils.language_identity import normalize_language
@@ -28,17 +22,15 @@ from utils.prompt_config import validate_json_template
 )
 def test_language_aliases_are_canonical(value, expected):
     assert normalize_language(value) == expected
-    assert expected.title() in build_study_prompt(value, None, english_ui=True)
+    assert expected.title() in ai_extractor._get_chat_system_prompt(value, None)
 
 
 @pytest.mark.parametrize("value", ["", "   ", None, "german", "unknown"])
-def test_invalid_language_never_becomes_japanese(tmp_path, value):
+def test_invalid_language_never_becomes_japanese(value):
     with pytest.raises(ValueError):
         normalize_language(value)
     with pytest.raises(ValueError):
-        build_study_prompt(value, None, english_ui=True)
-    with pytest.raises(ValueError):
-        StudySessionStore(str(tmp_path / "sessions.json")).create_session(language=value)
+        ai_extractor._get_chat_system_prompt(value, None)
 
 
 def _card(lang, kind="vocab", *, identity=None, example=None):
@@ -108,70 +100,6 @@ def test_english_grammar_notation_and_japanese_kanji_only_remain_valid():
     }
     assert validate_ai_cards([grammar], lang="english", kind="grammar").valid_cards
     assert validate_ai_cards([_card("japanese")], lang="japanese", kind="vocab").valid_cards
-
-
-def test_artifact_is_immutable_current_schema_and_rejects_stale_or_future():
-    source = _card("english")
-    original = copy.deepcopy(source)
-    artifact = create_card_artifact(
-        session_id="session-a", language="EN", kind="vocab",
-        cards=[source], source_message_id="msg-a",
-    )
-    assert source == original
-    assert artifact["language"] == "english"
-    assert artifact_to_factory_payload(artifact) == ("english", "vocab", [original])
-    for schema in (AI_OUTPUT_SCHEMA_VERSION - 1, AI_OUTPUT_SCHEMA_VERSION + 1):
-        stale = dict(artifact, schema_version=schema)
-        with pytest.raises(ValueError, match="unsupported"):
-            artifact_to_factory_payload(stale)
-
-
-def test_artifact_never_semantically_rewrites_kiku_example():
-    card = {
-        "front": "聞く", "meaning": "ask", "example": "質問を聞く",
-        "example_vn": "ask a question", "example_2": "先生に聞きました。",
-        "example_3": "友達に聞きませんでした。", "example_4": "誰に聞きますか。",
-    }
-    artifact = create_card_artifact(
-        session_id="session-a", language="japanese", kind="vocab",
-        cards=[card], source_message_id="msg-a",
-    )
-    assert artifact["cards"][0]["front"] == "聞く"
-    assert artifact["cards"][0]["example"] == "質問を聞く"
-
-
-def test_artifact_store_requires_live_source_message(tmp_path):
-    store = StudySessionStore(str(tmp_path / "sessions.json"))
-    session = store.create_session(language="english")
-    artifact = create_card_artifact(
-        session_id=session["id"], language="english", kind="vocab",
-        cards=[_card("english")], source_message_id="deleted-message",
-    )
-    with pytest.raises(ValueError, match="source message"):
-        store.add_artifact(session["id"], artifact)
-
-
-@pytest.mark.parametrize("lang", ["japanese", "chinese", "korean", "english"])
-@pytest.mark.parametrize(
-    ("mode", "present", "absent"),
-    [
-        ("qa", {"front"}, {"meaning"}),
-        ("vn", {"meaning"}, {"front", "pinyin", "romanization", "furigana"}),
-        ("wb", {"meaning"}, {"front", "pinyin", "romanization", "furigana"}),
-        ("pron", {"front", "meaning"}, {"pinyin", "romanization", "furigana"}),
-        ("lg", {"meaning", "pinyin", "romanization", "furigana"}, {"front"}),
-    ],
-)
-def test_reviewer_question_context_is_mode_aware(lang, mode, present, absent):
-    snapshot = {
-        "language": lang, "side": "question", "study_mode": mode,
-        "front": "TARGET", "meaning": "MEANING", "pinyin": "PINYIN",
-        "romanization": "ROMANIZATION", "furigana": "FURIGANA",
-    }
-    context = minimal_card_context(snapshot, include_answer=False)
-    assert present <= set(context)
-    assert not absent.intersection(context)
-    assert set(snapshot) <= set(minimal_card_context(snapshot, include_answer=True))
 
 
 def test_same_surface_distinct_sense_survives_existing_deck_filter():

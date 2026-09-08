@@ -6,7 +6,11 @@
 
 #### 🔧 Changed
 
-- **Tài liệu và metadata nay phản ánh đúng surface 18.3 hiện hành** — README, compatibility, roadmap và release/smoke checklist tập trung vào Factory Language Preview-first, Quality V2.1 và các action Reviewer hiện có; AI Study Sessions, Inventory và Blueprint được ghi rõ là đã retire, còn Knowledge là beta dormant. Metadata add-on không còn quảng bá Study Sessions.
+- **Tài liệu và metadata nay phản ánh đúng surface 18.3 hiện hành** — README, compatibility, roadmap và release/smoke checklist tập trung vào Factory Language Preview-first, Quality V2.1 và các action Reviewer hiện có; Knowledge vẫn là beta dormant.
+
+#### 🗑️ Removed
+
+- **Xóa hoàn toàn AI Study Sessions** — loại bỏ companion/dialog, session store, Study Library, coaching/context/prompt layer, candidate/artifact workspace cũ, worker chat, i18n và toàn bộ test/tài liệu triển khai riêng. Runtime không còn đọc hay ghi dữ liệu phiên cũ; file dữ liệu đã có trong profile không bị tự động xóa. Factory Preview-first và các chế độ học thẻ `QA/VN/WB/Pron/LG` giữ nguyên.
 
 ### 2026-09-07 — Version: `18.3.0` → `18.3.0`
 

@@ -2,7 +2,6 @@
 Unit tests cho:
 - Mở rộng giới hạn nội dung (max_chars 45k, chunk_size 20k, config được)
 - reasoning_effort truyền vào payload API
-- AI Chat cap 30k
 """
 
 import os
@@ -154,13 +153,3 @@ class TestLongTextChunkConfig:
         from utils.ai_extractor import extract_vocabulary_with_ai
         src = inspect.getsource(extract_vocabulary_with_ai)
         assert 'cfg.get("max_chars", 45000)' in src
-
-
-class TestChatCap:
-    def test_chat_cap_reads_from_config(self):
-        factory_path = os.path.join(_addon_root, "ui", "factory_dialog.py")
-        with open(factory_path, "r", encoding="utf-8") as f:
-            src = f.read()
-        # Cap chat phải đọc max_chars từ config (không cứng 30k)
-        assert 'get("max_chars", 45000)' in src
-        assert "_MAX_CHAT_CHARS = 30000" not in src

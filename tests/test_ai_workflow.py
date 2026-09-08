@@ -3,7 +3,10 @@
 import ast
 from pathlib import Path
 
+import pytest
+
 from utils.ai_workflow import AiWorkflowCoordinator
+from utils.ai_workspace import route_forge_lane
 
 
 class _Signal:
@@ -35,6 +38,22 @@ class _Worker:
 
     def stop(self):
         self.stopped = True
+
+
+@pytest.mark.parametrize(
+    ("source", "instruction", "fallback", "expected"),
+    [
+        ("A short article", "Tìm từ vựng đáng học", "grammar", "vocab"),
+        ("日本語の文法 ～ながら", "", "vocab", "grammar"),
+        ("N + that-clause", "", "vocab", "grammar"),
+        ("neutral source", "", "grammar", "grammar"),
+        ("neutral source", "", "unknown", "vocab"),
+    ],
+)
+def test_forge_router_prefers_explicit_intent_then_preserves_fallback(
+    source, instruction, fallback, expected,
+):
+    assert route_forge_lane(source, instruction, fallback) == expected
 
 
 def test_workflow_module_keeps_anki_and_qt_out_of_the_lifecycle_seam():
@@ -160,35 +179,7 @@ def test_extract_worker_forwards_topic_scope():
     assert worker.kwargs["topic_scope"] == "Ẩm thực"
 
 
-def test_chat_worker_uses_current_token_and_can_be_cleared():
-    coordinator = AiWorkflowCoordinator()
-    token = coordinator.begin()
-    progress, finished, errors = [], [], []
-
-    worker = coordinator.start_chat(
-        _Worker,
-        message="help me study",
-        lang="korean",
-        conversation_history=[{"role": "user", "content": "earlier"}],
-        anki_context={"cards": 2},
-        card_kind="grammar",
-        candidate_mode=True,
-        on_progress=progress.append,
-        on_finished=finished.append,
-        on_error=errors.append,
-    )
-
-    assert worker is coordinator.chat_worker
-    assert worker.started
-    assert worker.kwargs["cancel_event"] is token
-    assert worker.kwargs["anki_context"] == {"cards": 2}
-    assert worker.kwargs["card_kind"] == "grammar"
-    assert worker.kwargs["candidate_mode"] is True
-    coordinator.clear_chat_worker()
-    assert coordinator.chat_worker is None
-
-
-def test_cancel_signals_active_workers_without_blocking():
+def test_cancel_signals_active_worker_without_blocking():
     coordinator = AiWorkflowCoordinator()
     token = coordinator.begin()
     extract = coordinator.start_extract(
@@ -202,22 +193,10 @@ def test_cancel_signals_active_workers_without_blocking():
         on_finished=lambda _result: None,
         on_error=lambda _message: None,
     )
-    chat = coordinator.start_chat(
-        _Worker,
-        message="help",
-        lang="chinese",
-        conversation_history=None,
-        anki_context=None,
-        on_progress=lambda _message: None,
-        on_finished=lambda _result: None,
-        on_error=lambda _message: None,
-    )
-
     coordinator.cancel()
 
     assert token.is_set()
     assert extract.stopped
-    assert chat.stopped
     assert coordinator.is_cancelled()
     assert coordinator.start_extract(
         _Worker,

@@ -17,7 +17,7 @@ vào RAW/Xưởng; provider/model mặc định và usage history phải sống 
 
 ## Không làm
 
-- Không thêm card type, field ngôn ngữ, AI Study Sessions/history mới, OCR/image hoặc model routing.
+- Không thêm card type, field ngôn ngữ, OCR/image hoặc model routing.
 - Không tự điền field, viết tiếp JSON bị cắt hoặc suy đoán candidate mapping.
 - Không lưu API key, prompt, response hoặc conversation trong JSON usage/config.
 - Không bump 18.0.0; smoke Anki thật vẫn do chủ dự án chạy trên profile backup.

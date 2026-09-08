@@ -21,7 +21,7 @@
 
 ### Knowledge beta (đang tắt)
 
-Knowledge beta đang dormant. AI Study Sessions, Supervised Inventory và AI Deck Blueprint không còn bề mặt người dùng; backend/dữ liệu cũ chỉ được giữ để tránh xóa dữ liệu profile ngoài ý muốn.
+Knowledge beta đang dormant và không nằm trong release gate của luồng Language hiện hành.
 
 ## Cài đặt
 

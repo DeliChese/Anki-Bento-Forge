@@ -52,10 +52,6 @@ from .ai_card_request import build_card_request_message
 from .ai_prompt_defaults import KNOWLEDGE_PROMPT_VERSION
 from .ai_usage_history import record_usage as _record_usage
 from .ai_providers import detect_provider
-from .ai_study_prompts import build_study_prompt
-from .ai_workspace import (
-    validate_workspace_card_mode, validate_workspace_request,
-)
 from .language_identity import normalize_language
 from .user_data import (
     atomic_write_json,
@@ -878,153 +874,49 @@ def extract_vocabulary_with_ai(
 
 
 # ═══════════════════════════════════════════════════════════
-#  SMART ANKI QUERY — truy vấn thông minh, không quét toàn bộ
-# ═══════════════════════════════════════════════════════════
-
-def query_anki_context(user_message: str, lang: str = "japanese", collection=None) -> dict:
-    """
-    Thu thập ngữ cảnh Anki MỘT CÁCH THÔNG MINH dựa trên yêu cầu của người dùng.
-    Chỉ query những gì liên quan, không quét toàn bộ database.
-    
-    Returns:
-        dict với các key: decks, current_deck_stats, language, query_hint
-    """
-    context = {
-        "language": lang,
-        "decks": [],
-        "current_deck_stats": {},
-        "note": "",
-    }
-    
-    try:
-        if collection is None:
-            from aqt import mw
-            collection = mw.col
-        
-        # 1. Lấy danh sách deck (nhẹ, chỉ tên + số lượng)
-        deck_names = collection.decks.all_names()
-        deck_list = []
-        for name in deck_names:
-            try:
-                did = collection.decks.id(name)
-                # Chỉ đếm số thẻ trong deck này (có giới hạn)
-                count = collection.decks.card_count(did, include_subdecks=False)
-                deck_list.append({"name": name, "card_count": count})
-            except Exception:
-                deck_list.append({"name": name, "card_count": "?"})
-        context["decks"] = deck_list
-        
-        # 2. Nếu user đề cập đến deck cụ thể, lấy thêm stats
-        msg_lower = user_message.lower()
-        for d in deck_list:
-            if d["name"].lower() in msg_lower:
-                try:
-                    did = collection.decks.id(d["name"])
-                    # Stats cơ bản (không quét từng thẻ)
-                    due_count = 0
-                    new_count = 0
-                    try:
-                        # Due cards
-                        due = collection.find_cards(f'"deck:{d["name"]}" is:due')
-                        due_count = len(due) if due else 0
-                        # New cards
-                        new = collection.find_cards(f'"deck:{d["name"]}" is:new')
-                        new_count = len(new) if new else 0
-                    except Exception:
-                        pass
-                    
-                    context["current_deck_stats"] = {
-                        "name": d["name"],
-                        "total_cards": d["card_count"],
-                        "due_cards": due_count,
-                        "new_cards": new_count,
-                    }
-                except Exception:
-                    pass
-                break
-        
-        # Nếu không tìm thấy deck cụ thể, dùng deck đầu tiên
-        if not context["current_deck_stats"] and deck_list:
-            d = deck_list[0]
-            try:
-                did = collection.decks.id(d["name"])
-                due = collection.find_cards(f'"deck:{d["name"]}" is:due')
-                due_count = len(due) if due else 0
-                new = collection.find_cards(f'"deck:{d["name"]}" is:new')
-                new_count = len(new) if new else 0
-                context["current_deck_stats"] = {
-                    "name": d["name"],
-                    "total_cards": d["card_count"],
-                    "due_cards": due_count,
-                    "new_cards": new_count,
-                }
-            except Exception:
-                pass
-    
-    except Exception as e:
-        context["note"] = t("ai_context_query_failed", error=e)
-    
-    return context
-
-
-def _build_anki_context_text(context: dict) -> str:
-    """Xây dựng text mô tả ngữ cảnh Anki để gửi cho AI, kèm lịch sử import"""
-    language = normalize_language(context.get("language")); parts = [t("ai_context_language", language=language)]
-    
-    decks = context.get("decks", [])
-    if decks:
-        parts.append("\n" + t("ai_context_deck_list", count=len(decks)))
-        for d in decks[:20]:  # Giới hạn 20 deck
-            count = t("ai_context_card_count", count=d["card_count"])
-            parts.append(f"   - {d['name']} ({count})")
-        if len(decks) > 20:
-            parts.append("   " + t("ai_context_other_decks", count=len(decks) - 20))
-    
-    stats = context.get("current_deck_stats", {})
-    if stats:
-        parts.append("\n" + t("ai_context_current_deck", name=stats.get("name", "?")))
-        for label_key, value_key in (
-            ("ai_context_total", "total_cards"),
-            ("ai_context_due", "due_cards"),
-            ("ai_context_new", "new_cards"),
-        ):
-            count = stats.get(value_key, "?")
-            parts.append(f"   - {t(label_key)}: {t('ai_context_card_count', count=count)}")
-    
-    note = context.get("note", "")
-    if note:
-        parts.append(f"\n⚠️ {note}")
-
-    # Thêm lịch sử import (chỉ lấy summary, không chi tiết từng từ để tiết kiệm token)
-    try:
-        lang = language
-        history_text = get_history_summary_text(lang=lang, max_words_for_ai=30)
-        if history_text:
-            parts.append(f"\n{'═' * 40}")
-            parts.append(history_text)
-    except Exception:
-        pass
-    
-    return "\n".join(parts)
-
-
-# ═══════════════════════════════════════════════════════════
 #  AI CHAT — giao tiếp tự do với AI, không cần text trích xuất
 # ═══════════════════════════════════════════════════════════
 
-def _get_study_chat_system_prompt(
-    lang: str = "japanese", card_mode: Optional[str] = None, workspace: str = "reviewer",
-) -> str:
-    if workspace == "forge" and card_mode == "collocation":
-        return get_effective_system_prompt(lang, "collocation")
-    return build_study_prompt(lang, card_mode, english_ui=_ui_lang_en(), workspace=workspace)
-
-
 def _get_chat_system_prompt(
-    lang: str = "japanese", card_kind: str = "vocab",
+    lang: str = "japanese", card_mode: Optional[str] = None,
 ) -> str:
-    """Compatibility helper representing Forge's explicitly selected Card Mode."""
-    return _get_study_chat_system_prompt(lang, card_kind, workspace="forge")
+    """Build a compact prompt for generic helpers or explicit Factory Card Mode."""
+    lang = normalize_language(lang)
+    if card_mode not in {None, "vocab", "grammar", "collocation"}:
+        raise ValueError("unsupported chat card mode")
+    target = {
+        "japanese": "Japanese",
+        "chinese": "Chinese",
+        "korean": "Korean",
+        "english": "English",
+    }[lang]
+    base = (
+        f"You are a concise, precise {target} language-learning assistant. "
+        "Follow the current instruction, do not claim access to Anki cards or decks, "
+        "and never mutate cards or scheduling. Reply in "
+        + ("English." if _ui_lang_en() else "Vietnamese.")
+    )
+    if card_mode is None:
+        return base
+    label = (
+        ("grammar" if card_mode == "grammar" else "collocation" if card_mode == "collocation" else "vocabulary")
+        if _ui_lang_en()
+        else ("ngữ pháp" if card_mode == "grammar" else "cụm từ/thành ngữ" if card_mode == "collocation" else "từ vựng")
+    )
+    instruction = (
+        f"\nUI-ENABLED ONE-SHOT CARD MODE: create only {target} {label} cards. "
+        "Return only JSON matching the schema below; add no prose.\n"
+        if _ui_lang_en()
+        else f"\nCARD MODE MỘT LƯỢT: chỉ tạo thẻ {label} {target}. "
+        "Chỉ trả JSON đúng schema dưới đây; không thêm văn xuôi.\n"
+    )
+    return (
+        base
+        + instruction
+        + get_effective_system_prompt(lang, card_mode)
+        + "\nSCHEMA:\n"
+        + get_effective_json_template(lang, card_mode)
+    )
 
 
 def chat_with_ai(
@@ -1034,42 +926,15 @@ def chat_with_ai(
     progress_callback: Optional[Callable[[str], None]] = None,
     quick: bool = False,
     should_abort: Optional[Callable[[], bool]] = None,
-    anki_context: Optional[dict] = None,
     card_kind: str = "vocab",
     card_mode: Optional[str] = None,
-    study_session: Optional[dict] = None,
-    use_card_context: bool = False,
-    session_id: str = "",
-    runtime_config: Optional[dict] = None, workspace: str = "reviewer", workspace_request=None,
-    study_library_context: Optional[dict] = None,
+    runtime_config: Optional[dict] = None,
 ) -> dict:
-    """
-    Gửi tin nhắn đến AI và nhận phản hồi. AI có ngữ cảnh Anki.
-    
-    Args:
-        user_message: Tin nhắn của người dùng
-        lang: "japanese" hoặc "chinese"
-        conversation_history: Lịch sử hội thoại (list of {"role":"user"/"assistant", "content":"..."})
-        progress_callback: Callback trạng thái
-    
-    Returns:
-        dict với keys: "reply" (text phản hồi), "vocab_json" (nếu AI xuất từ vựng), "error"
-    """
-    workspace = validate_workspace_request(workspace, lang, workspace_request)
-    if workspace != "reviewer":
-        study_library_context = None
-    elif study_library_context is not None:
-        manifest = (
-            study_library_context.get("manifest")
-            if isinstance(study_library_context, dict) else None
-        )
-        if workspace_request is None or not isinstance(manifest, dict):
-            raise ValueError("Study Library context requires a Reviewer request")
-        if normalize_language(manifest.get("language")) != normalize_language(lang):
-            raise ValueError("Study Library language does not match the Reviewer request")
+    """Send a bounded standalone language request to an OpenAI-compatible API."""
     if card_kind not in {"vocab", "grammar", "collocation"}:
         raise ValueError("unsupported chat card kind")
-    card_mode = validate_workspace_card_mode(workspace, card_mode)
+    if card_mode not in {None, "vocab", "grammar", "collocation"}:
+        raise ValueError("unsupported chat card mode")
     cfg = dict(runtime_config) if isinstance(runtime_config, dict) else get_api_config()
     if not cfg.get("api_key") and "localhost" not in cfg.get("api_base", ""):
         return {"reply": "", "vocab_json": None, "error": t("error_api_key_missing")}
@@ -1077,66 +942,17 @@ def chat_with_ai(
         ensure_ai_session_budget(user_message)
     except ValueError as error:
         return {"reply": "", "vocab_json": None, "token_info": None, "error": str(error)}
-    
+
     effective_kind = card_mode or card_kind
-    context_summary = ""
-    context_summary_marker = ""
-    context_estimated_tokens = 0
-    context = anki_context if anki_context is not None and workspace == "reviewer" else {}
-    use_card_context = bool(use_card_context and workspace == "reviewer")
-    # Thu thập ngữ cảnh Anki THÔNG MINH dựa trên yêu cầu.
-    # quick=True → BỎ qua truy vấn context Anki (nhanh hơn) — dùng cho sinh câu ngữ pháp.
     if not quick and progress_callback:
         progress_callback(t("worker_progress_context"))
     if progress_callback:
         progress_callback(t("status_calling_model", model=cfg["model"]))
-    system_content = _get_study_chat_system_prompt(lang, card_mode, workspace)
+    messages = [{"role": "system", "content": _get_chat_system_prompt(lang, card_mode)}]
+    if conversation_history:
+        messages.extend(conversation_history[-20:])
+    messages.append({"role": "user", "content": user_message})
 
-    if study_session is not None:
-        from .ai_context_manager import prepare_study_context
-
-        prepared = prepare_study_context(
-            study_session,
-            current_user_message=user_message,
-            system_prompt=system_content,
-            model=cfg.get("model", ""),
-            session_max_tokens=cfg.get("session_max_tokens", 120_000),
-            max_output_tokens=cfg.get("max_tokens", DEFAULT_MAX_OUTPUT_TOKENS),
-            card_context=context,
-            use_card_context=use_card_context,
-            workspace_request=workspace_request,
-            study_library_context=study_library_context,
-        )
-        messages = list(prepared.messages)
-        context_summary = prepared.summary
-        context_summary_marker = prepared.summary_through_message_id
-        context_estimated_tokens = prepared.estimated_tokens
-    else:
-        messages = [{"role": "system", "content": system_content}]
-        if workspace_request is not None:
-            from .ai_workspace import workspace_context_message
-
-            messages.append(workspace_context_message(workspace_request))
-        elif not quick and context:
-            context_text = _build_anki_context_text(context)
-            messages.append({
-                "role": "system",
-                "content": (
-                    "ANKI SYSTEM CONTEXT (use only this data):\n" if _ui_lang_en()
-                    else "THÔNG TIN HỆ THỐNG ANKI (chỉ dùng dữ liệu này):\n"
-                ) + context_text,
-            })
-        if conversation_history:
-            for msg in conversation_history[-20:]:
-                messages.append(msg)
-        if study_library_context is not None:
-            from .study_library import library_context_message
-
-            library_message = library_context_message(study_library_context)
-            if library_message:
-                messages.append(library_message)
-        messages.append({"role": "user", "content": user_message})
-    
     payload = {
         "model": cfg["model"],
         "messages": messages,
@@ -1183,11 +999,10 @@ def chat_with_ai(
         )
         _record_token_info(
             token_info,
-            operation=(f"study_card_{card_mode}" if card_mode else "study_chat"),
+            operation=(f"card_chat_{card_mode}" if card_mode else "ai_chat"),
             started_at=request_started_at,
             duration_seconds=time.monotonic() - request_started_monotonic,
             provider=detect_provider(cfg.get("api_base", ""), cfg.get("model", "")) or "custom",
-            session_id=session_id,
         )
     
     try:
@@ -1241,13 +1056,6 @@ def chat_with_ai(
         "card_error": rejection_category,
         "card_warning": card_warning,
         "card_recovery": recovery,
-        "session_summary": context_summary,
-        "session_summary_through_message_id": context_summary_marker,
-        "context_estimated_tokens": context_estimated_tokens,
-        "scope_manifest": (
-            study_library_context.get("manifest")
-            if isinstance(study_library_context, dict) else None
-        ),
     }
 
 

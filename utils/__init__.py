@@ -10,7 +10,6 @@ from .ai_extractor import (
     extract_vocabulary_with_ai,
     extract_vocabulary_long_text,
     chat_with_ai,
-    query_anki_context,
     init_import_history,
 )
 from .import_history import (
@@ -61,7 +60,6 @@ __all__ = [
     "extract_vocabulary_with_ai",
     "extract_vocabulary_long_text",
     "chat_with_ai",
-    "query_anki_context",
     "init_import_history",
     "add_to_import_history",
     "get_import_history",

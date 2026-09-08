@@ -16,33 +16,6 @@ if _addon_root not in sys.path:
 
 
 # ═══════════════════════════════════════════════════════════
-#  AiChatDialog tests (pure logic, no Qt)
-# ═══════════════════════════════════════════════════════════
-
-class TestAiChatDialog:
-    """Test AiChatDialog formatting logic (inline, no imports)."""
-
-    def test_bold_format_logic(self):
-        """Regex: **text** → <b>text</b>."""
-        import re
-        text = "Hello **world**"
-        result = re.sub(r'\*\*(.+?)\*\*', r'<b>\1</b>', text)
-        assert "<b>world</b>" in result
-
-    def test_code_format_logic(self):
-        """Regex: `code` → <code>code</code>."""
-        import re
-        text = "Use `print()`"
-        result = re.sub(r'`([^`]+)`', r'<code>\1</code>', text)
-        assert "<code>print()</code>" in result
-
-    def test_newline_to_br(self):
-        """\n → <br>."""
-        text = "Line1\nLine2".replace("\n", "<br>")
-        assert "<br>" in text
-
-
-# ═══════════════════════════════════════════════════════════
 #  ImportWorker tests (mock Anki)
 # ═══════════════════════════════════════════════════════════
 
@@ -86,7 +59,7 @@ class TestImportWorker:
 
 
 # ═══════════════════════════════════════════════════════════
-#  AiExtractThread / AiChatThread tests
+#  AiExtractThread tests
 # ═══════════════════════════════════════════════════════════
 
 class TestAiExtractThread:
@@ -133,19 +106,6 @@ class TestFocusedExtractionContext:
         assert "食べる = ăn [food]" in context
         assert "学校" not in context
         assert "Nguồn và yêu cầu hiện tại luôn ưu tiên" in context
-
-
-class TestAiChatThread:
-    def test_basic_init(self):
-        from workers.ai_workers import AiChatThread
-        thread = AiChatThread(message="Hello AI", lang="japanese")
-        assert thread.message == "Hello AI"
-
-    def test_with_history(self):
-        from workers.ai_workers import AiChatThread
-        history = [{"role": "user", "content": "prev"}, {"role": "assistant", "content": "resp"}]
-        thread = AiChatThread(message="next", lang="japanese", conversation_history=history)
-        assert thread.message == "next"
 
 
 # ═══════════════════════════════════════════════════════════

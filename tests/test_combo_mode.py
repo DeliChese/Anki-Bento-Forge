@@ -220,13 +220,6 @@ class TestOverviewModeSelector:
         result = _on_js_message((False, None), "onigiri_study", None)
         assert result == (False, None)
 
-    def test_on_js_message_no_longer_exposes_ai_study_session(self):
-        from hooks.overview_mode import _on_js_message
-        context = MagicMock()
-        assert _on_js_message(
-            (False, None), "bento_forge_ai:open", context,
-        ) == (False, None)
-
     def test_on_js_message_opens_requested_example_slot(self):
         from unittest.mock import patch
         from hooks.overview_mode import _on_js_message

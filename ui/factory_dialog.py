@@ -805,7 +805,7 @@ class AnkiSmartFactory(QDialog):
             "font-weight:bold;border-radius:6px;border:none;font-size:12px;"
         )
         self.btn_ai_stop.setToolTip(t("btn_ai_stop_tip"))
-        self.btn_ai_stop.clicked.connect(self._cancel_ai_chat)
+        self.btn_ai_stop.clicked.connect(self._cancel_ai_request)
         self.btn_ai_stop.setVisible(False)
         ai_bar.addWidget(self.btn_ai_stop)
 
@@ -3888,6 +3888,14 @@ class AnkiSmartFactory(QDialog):
         showInfo(t("err_ai_extract_title") + f"\n\n{error_msg}")
         self._ai_workflow.clear_extract_worker()
 
+    def _cancel_ai_request(self):
+        """Signal the active extraction request to stop without blocking Qt."""
+        self._ai_workflow.cancel()
+        self._enable_ai_buttons()
+        self.lbl_ai_status.setText(t("tooltip_stopped_ai"))
+        self.lbl_ai_status.setStyleSheet("color:#e67e22;font-size:11px;font-weight:bold;")
+        tooltip(t("tooltip_stopped_ai"))
+
     def _enable_ai_buttons(self):
         self.btn_ai_extract.setEnabled(True)
         self.btn_ai_card_chat.setEnabled(True)
@@ -3924,245 +3932,6 @@ class AnkiSmartFactory(QDialog):
         """Compatibility alias for the focused one-shot card flow."""
         self._ai_extract()
 
-    def _ai_chat_legacy(self):
-        """Legacy entry now shares the focused Preview-first flow."""
-        return self._ai_extract()
-        user_msg = self.ai_text_input.toPlainText().strip()
-        custom_instr = self._current_ai_instruction()
-
-        # Kết hợp message
-        full_message = ""
-        if custom_instr:
-            full_message = custom_instr
-        if user_msg:
-            if full_message:
-                full_message += "\n\n---\n" + user_msg
-            else:
-                full_message = user_msg
-
-        if not full_message:
-            # Cho phép gửi trống — AI sẽ phản hồi dựa trên ngữ cảnh Anki
-            full_message = t("chat_default_message")
-
-        # Bảo vệ context: cắt theo max_chars trong Cài Đặt AI (mặc định 45k), không cứng 30k
-        _chat_cfg = get_api_config()
-        _MAX_CHAT_CHARS = int(_chat_cfg.get("max_chars", 45000) or 45000)
-        _MAX_CHAT_CHARS = max(10000, min(45000, _MAX_CHAT_CHARS))
-        if len(full_message) > _MAX_CHAT_CHARS:
-            tooltip(t(
-                "chat_truncated_warning",
-                length=len(full_message),
-                limit=_MAX_CHAT_CHARS,
-            ))
-            full_message = (
-                full_message[:_MAX_CHAT_CHARS]
-                + "\n\n"
-                + t("chat_truncated_suffix")
-            )
-
-        cfg_api = get_api_config()
-        if not self._ensure_ai_access(cfg_api):
-            return
-
-        # Cảnh báo nếu dùng model reasoning (chậm)
-        self._warn_reasoner_model()
-
-        # Disable UI
-        self.btn_ai_chat.setEnabled(False)
-        self.btn_ai_extract.setEnabled(False)
-        self.btn_ai_settings.setEnabled(False)
-        self.btn_ai_clear_text.setEnabled(False)
-        self.btn_mode_vocab.setEnabled(False)
-        self.btn_mode_grammar.setEnabled(False)
-        if hasattr(self, "btn_mode_collocation"):
-            self.btn_mode_collocation.setEnabled(False)
-
-        # Khởi tạo conversation history nếu chưa có
-        if not hasattr(self, '_ai_chat_history'):
-            self._ai_chat_history = []
-
-        # Ước tính thời gian
-        import time as _time
-        model = cfg_api.get("model", "")
-        is_reasoner = "reasoner" in model.lower()
-        est_seconds = 300 if is_reasoner else 30
-        est_text = f"~{est_seconds // 60}ph" if est_seconds >= 60 else f"~{est_seconds}s"
-
-        # Bắt đầu đếm thời gian
-        self._ai_chat_start_time = _time.time()
-        if not hasattr(self, '_ai_chat_timer'):
-            self._ai_chat_timer = QTimer(self)
-            self._ai_chat_timer.timeout.connect(self._update_ai_chat_timer)
-        self._ai_chat_timer.start(1000)
-
-        self.lbl_ai_status.setText(t("status_connecting_elapsed", elapsed="00:00", estimate=est_text))
-        self.lbl_ai_status.setStyleSheet("color:#2980b9;font-size:11px;font-weight:bold;")
-
-        # Hiện nút dừng
-        self.btn_ai_stop.setVisible(True)
-        mw.app.processEvents()
-
-        # Snapshot Collection context through QueryOp before starting the
-        # network-only chat worker.
-        self._ai_workflow.begin()
-        run_query(
-            self,
-            lambda col: query_anki_context(full_message, self._current_lang, collection=col),
-            lambda context: self._start_ai_chat_thread(full_message, context),
-            self._on_ai_chat_error,
-        )
-
-    def _start_ai_chat_thread(self, full_message, anki_context):
-        if self._ai_workflow.is_cancelled():
-            return
-
-        if not self._confirm_ai_budget(full_message):
-            return
-        self._ai_workflow.start_chat(
-            AiChatThread,
-            message=full_message,
-            lang=self._current_lang,
-            conversation_history=self._ai_chat_history if len(self._ai_chat_history) > 0 else None,
-            anki_context=anki_context,
-            card_kind=self._current_card_kind(),
-            on_progress=self._on_ai_chat_progress,
-            on_finished=self._on_ai_chat_finished,
-            on_error=self._on_ai_chat_error,
-        )
-
-    def _on_ai_chat_progress(self, msg):
-        elapsed = self._get_elapsed_str()
-        self.lbl_ai_status.setText(f"⏱ {elapsed} | {msg}")
-        self.lbl_ai_status.setStyleSheet("color:#2980b9;font-size:11px;font-weight:bold;")
-        mw.app.processEvents()
-
-    def _on_ai_chat_finished(self, result: dict):
-        self._stop_ai_chat_timer()
-        self._enable_ai_buttons()
-        elapsed = self._get_elapsed_str()
-        token_info = result.get("token_info")
-        status_text = t("status_chat_done", elapsed=elapsed)
-        if token_info:
-            from utils.ai_extractor import _format_token_report
-            status_text += f" | {_format_token_report(token_info)}"
-        self.lbl_ai_status.setText(status_text)
-        self.lbl_ai_status.setStyleSheet("color:#27ae60;font-size:11px;font-weight:bold;")
-
-        # Lưu vào conversation history để lần sau AI có context
-        reply_text = result.get("reply", "")
-        if reply_text:
-            worker = self._ai_workflow.chat_worker
-            if worker is not None:
-                self._ai_chat_history.append({"role": "user", "content": worker.message})
-            self._ai_chat_history.append({"role": "assistant", "content": reply_text[:3000]})
-            # Giới hạn 30 tin nhắn
-            if len(self._ai_chat_history) > 30:
-                self._ai_chat_history = self._ai_chat_history[-30:]
-
-        self._ai_workflow.clear_chat_worker()
-
-        # Mở dialog chat hiển thị kết quả
-        self._show_ai_chat_dialog(result)
-
-    def _on_ai_chat_error(self, error_msg):
-        self._stop_ai_chat_timer()
-        self._enable_ai_buttons()
-        elapsed = self._get_elapsed_str()
-        self.lbl_ai_status.setText(t("status_chat_error", elapsed=elapsed, error=error_msg[:60]))
-        self.lbl_ai_status.setStyleSheet("color:#e74c3c;font-size:11px;font-weight:bold;")
-        showInfo(t("err_ai_chat_title") + f"\n\n{error_msg}")
-        self._ai_workflow.clear_chat_worker()
-
-    def _get_elapsed_str(self) -> str:
-        """Trả về thời gian đã trôi qua dạng MM:SS"""
-        if not hasattr(self, '_ai_chat_start_time'):
-            return "00:00"
-        import time as _time
-        elapsed = int(_time.time() - self._ai_chat_start_time)
-        return f"{elapsed // 60:02d}:{elapsed % 60:02d}"
-
-    def _update_ai_chat_timer(self):
-        """Cập nhật hiển thị đồng hồ đếm"""
-        if hasattr(self, '_ai_chat_start_time') and self._ai_chat_timer.isActive():
-            elapsed = self._get_elapsed_str()
-            current = self.lbl_ai_status.text()
-            # Chỉ cập nhật phần thời gian
-            import re
-            new_text = re.sub(r'⏱ \d{2}:\d{2}', f'⏱ {elapsed}', current)
-            self.lbl_ai_status.setText(new_text)
-
-    def _stop_ai_chat_timer(self):
-        """Dừng đồng hồ đếm và ẩn nút dừng"""
-        if hasattr(self, '_ai_chat_timer'):
-            self._ai_chat_timer.stop()
-        self.btn_ai_stop.setVisible(False)
-
-    def _cancel_ai_chat(self):
-        """Dừng tác vụ AI (cả chat và extract)"""
-        # Signal cancellation only. Never block the UI waiting for a network
-        # thread, and never forcibly terminate one.
-        self._ai_workflow.cancel()
-
-        self._stop_ai_chat_timer()
-        self._enable_ai_buttons()
-        elapsed = self._get_elapsed_str() if hasattr(self, '_ai_chat_start_time') else "?"
-        self.lbl_ai_status.setText(t("status_stopped_ai", elapsed=elapsed))
-        self.lbl_ai_status.setStyleSheet("color:#e67e22;font-size:11px;font-weight:bold;")
-        tooltip(t("tooltip_stopped_ai"))
-
-    def _show_ai_chat_dialog(self, result: dict):
-        """Hiển thị dialog chat với phản hồi của AI"""
-        reply_text = result.get("reply", "")
-        vocab_json = result.get("card_json", result.get("vocab_json"))
-        card_kind = result.get("card_kind", "vocab")
-        error = result.get("error")
-        card_warning = result.get("card_warning")
-
-        dlg = AiChatDialog(
-            reply_text=reply_text,
-            vocab_json=vocab_json,
-            error=error,
-            card_warning=card_warning,
-            card_kind=card_kind,
-            parent=self,
-        )
-
-        if dlg.exec() == QDialog.DialogCode.Accepted and dlg.accepted_vocab:
-            # Đổ đúng card kind đã snapshot khi gửi request vào RAW/Xưởng.
-            if self._current_card_kind() != card_kind:
-                self._select_card_kind(card_kind)
-            json_str = json.dumps(dlg.accepted_vocab, indent=2, ensure_ascii=False)
-            if not self._set_json_artifact(json_str):
-                return
-            self._schedule_analyze()
-
-            # Ghi nhận vào lịch sử import
-            try:
-                deck_name = self.deck_chooser.currentText()
-                add_to_import_history(
-                    dlg.accepted_vocab,
-                    self._current_lang,
-                    deck_name=deck_name,
-                    source="ai_chat",
-                    kind=card_kind,
-                )
-            except Exception as e:
-                logger.warning("Lỗi ghi lịch sử AI chat: %s", e)
-
-            status_key = (
-                "status_poured_grammar" if card_kind == "grammar"
-                else "status_poured_collocation" if card_kind == "collocation"
-                else "status_poured_vocab"
-            )
-            message_key = (
-                "msg_chat_poured_grammar" if card_kind == "grammar"
-                else "msg_chat_poured_collocation" if card_kind == "collocation"
-                else "msg_chat_poured"
-            )
-            self.lbl_ai_status.setText(t(status_key, count=len(dlg.accepted_vocab)))
-            self.lbl_ai_status.setStyleSheet("color:#27ae60;font-size:11px;font-weight:bold;")
-            showInfo(t(message_key, count=len(dlg.accepted_vocab)))
-
     # ═══════════════════════════════════════════════════════
     #  DIALOG XEM TRƯỚC & CHỈNH SỬA THẺ SAU AI (wired → ui/ai_preview.py)
     # ═══════════════════════════════════════════════════════
@@ -4181,25 +3950,6 @@ class AnkiSmartFactory(QDialog):
             card_kind=self._current_card_kind(),
             learning_mode=getattr(self, "_learning_mode", "language"),
         )
-
-    def load_card_artifact(self, artifact):
-        """Load a validated Study Session snapshot into Xưởng without AI."""
-        from utils.ai_card_artifacts import artifact_to_factory_payload
-
-        language, kind, cards = artifact_to_factory_payload(artifact)
-        if getattr(self, "_learning_mode", "language") != "language":
-            self._select_learning_mode("language", persist=False, announce=False)
-        if self._current_lang != language:
-            self._select_lang(language)
-        if kind == "collocation":
-            self._select_card_kind(kind)
-        else:
-            self._select_mode(kind == "grammar")
-        if not self._set_json_artifact(json.dumps(cards, indent=2, ensure_ascii=False)):
-            return
-        self._schedule_analyze()
-        self.lbl_ai_status.setText(t("study_sent_forge"))
-        self.lbl_ai_status.setStyleSheet("color:#27ae60;font-size:11px;font-weight:bold;")
 
     def _finalize_ai_vocab(self, final_list):
         """Nhận dữ liệu cuối cùng từ AI preview, đổ vào json_input và phân tích"""
@@ -4346,4 +4096,3 @@ if not _register_tools_menu_action():
         gui_hooks.main_window_did_init.append(_register_tools_menu_action)
     except Exception:
         pass
-

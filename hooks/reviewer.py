@@ -330,7 +330,7 @@ def get_current_card_snapshot(reviewer, side=None):
         return snapshot
     except Exception as error:
         log_event(
-            "AI_CARD_CONTEXT_FAILED", "open_companion_without_card_context",
+            "REVIEWER_CARD_SNAPSHOT_FAILED", "continue_without_card_snapshot",
             error=error.__class__.__name__,
         )
         return None

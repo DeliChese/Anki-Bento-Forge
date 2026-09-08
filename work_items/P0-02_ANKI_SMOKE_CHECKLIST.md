@@ -30,7 +30,7 @@ Chỉ chạy trên profile Anki đã backup. Không đánh dấu `PASS` từ tes
 - [ ] Backup collection, media và config đã hoàn tất.
 - [ ] Mở **Tools → 🧪 Bento Forge** hoặc `Ctrl+Shift+I` không lỗi.
 - [ ] Ghi baseline note/media của deck thử nghiệm.
-- [ ] Xác nhận Knowledge selector, AI Study Sessions, Inventory và Blueprint không xuất hiện.
+- [ ] Xác nhận Knowledge selector và các flow đã gỡ không xuất hiện.
 
 ## Flow bắt buộc
 
@@ -56,7 +56,7 @@ Chỉ chạy trên profile Anki đã backup. Không đánh dấu `PASS` từ tes
 
 ## Bằng chứng lịch sử
 
-Lần smoke 2026-08-26 trên Anki 26.5/profile backup chỉ đạt một phần: Factory và Combo render được, nhưng action Reviewer không bám đúng card `看`. AI Study Sessions khi đó còn tồn tại. Current tree đã retire Study Sessions và đã sửa lifecycle action bằng card ID, cleanup DOM cũ cùng delayed retry; vì vậy kết quả cũ không còn là blocker đã xác minh và không thay thế re-smoke hiện tại.
+Lần smoke 2026-08-26 trên Anki 26.5/profile backup chỉ đạt một phần: Factory và Combo render được, nhưng action Reviewer không bám đúng card `看`. Current tree đã sửa lifecycle action bằng card ID, cleanup DOM cũ cùng delayed retry; vì vậy kết quả cũ không còn là blocker đã xác minh và không thay thế re-smoke hiện tại.
 
 ## Quy tắc kết thúc
 

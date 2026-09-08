@@ -131,17 +131,6 @@ def extract_text_from_files(filepaths: Iterable[str]) -> List[Tuple[str, str]]:
     return results
 
 
-def extract_study_text_from_file(filepath: str) -> str:
-    """Read a Study Library source, with a local DOCX fallback for headings."""
-    if os.path.splitext(str(filepath or ""))[1].lower() != ".docx":
-        return extract_text_from_file(filepath)
-    try:
-        import docx  # noqa: F401
-    except ImportError:
-        return _extract_docx_package_text(filepath)
-    return _extract_docx_text(filepath)
-
-
 def _extract_csv_text(filepath: str) -> str:
     """Read CSV rows and join non-empty cells with commas."""
     try:
@@ -373,6 +362,5 @@ __all__ = [
     "MissingDocumentDependencyError",
     "extract_text_from_file",
     "extract_text_from_files",
-    "extract_study_text_from_file",
     "get_document_install_command",
 ]

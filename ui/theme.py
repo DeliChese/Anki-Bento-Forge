@@ -133,7 +133,6 @@ QWidget {
     color: __TEXT__;
     font-size: __FONT__px;
 }
-QWidget#forgeAiCompanionRoot { background: transparent; }
 QScrollArea#forgeSourceProductionScroll,
 QScrollArea#forgeReviewImportScroll {
     background: transparent;

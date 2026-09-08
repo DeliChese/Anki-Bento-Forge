@@ -24,7 +24,6 @@ Mọi tài liệu khác trong thư mục này là supporting, frozen, dormant ho
 | --- | --- |
 | `PHASE_A_*` đến `PHASE_F_*` | Frozen historical plans. Chỉ đọc khi một item hiện hành liên kết trực tiếp. |
 | `AI_DECK_BLUEPRINT.md` | Retired 2026-09-01; implementation surface đã gỡ. |
-| `V18.3_AI_STUDY_COACH_TRAINING_PLAN.md` | Archived 2026-09-07 cùng AI Study Sessions. |
 | `V18_SMOKE_PROFILE.md` | Dormant; chỉ dùng khi chủ dự án bật lại Knowledge beta. |
 | `P1-05_USAGE_GUIDE_V1.md` | Contract V1 lịch sử; Quality V2.1/current roadmap có quyền cao hơn. |
 | `QUALITY_TESTING.md`, `SECURITY_PRIVACY.md`, `UX_ACCESSIBILITY.md` | Supporting checklists; gate hiện hành nằm ở roadmap/release checklist. |
@@ -37,9 +36,8 @@ Không mục nào dưới đây ảnh hưởng trực tiếp tới luồng chạ
 | Đề xuất | Lợi ích | Ảnh hưởng/rủi ro | Khuyến nghị |
 | --- | --- | --- | --- |
 | Chuyển `ACADEMIC_ASSESSMENT.md`, `REFACTOR_PLAN.md` vào `work_items/history/` | Gốc repo gọn hơn khoảng 70 KB tài liệu lịch sử | Phải sửa link và `tests/test_release_metadata.py` đang đọc `REFACTOR_PLAN.md` | Nên làm ở commit docs riêng. |
-| Chuyển Phase A–F và plan Study Coach/Blueprint vào `work_items/history/` | Thư mục work item chỉ còn việc đang dùng | Nhiều liên kết nội bộ cần đổi; không được làm mất provenance | Nên làm sau khi chạy link checker. |
+| Chuyển Phase A–F và plan Blueprint vào `work_items/history/` | Thư mục work item chỉ còn việc đang dùng | Nhiều liên kết nội bộ cần đổi; không được làm mất provenance | Nên làm sau khi chạy link checker. |
 | Giữ `CODE_MAP.md`, `UPGRADE_GUIDE.md` dưới dạng redirect ngắn | Không làm hỏng bookmark/link cũ | Còn hai file nhỏ ở root | Nên giữ. |
-| Xóa backend/test/i18n của Study Sessions, Inventory hoặc Blueprint | Giảm đáng kể code chết | Có thể phá import, migration/state profile cũ và regression contract | Không làm trong task tài liệu; cần audit code + smoke riêng. |
 | Xóa benchmark/evidence cũ | Giảm dung lượng | Mất baseline so sánh chất lượng/cost | Không khuyến nghị; giữ và gắn nhãn historical. |
 
 ## Quy tắc duy trì

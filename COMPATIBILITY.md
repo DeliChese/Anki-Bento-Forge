@@ -45,8 +45,7 @@ Before publishing, run the isolated suite twice and complete the active checks i
 4. Exercise TTS cancellation/offline handling, stored media and config migration.
 5. Verify LTS V14–V18 migration ownership and rebuild/install the current artifact.
 
-Knowledge is a dormant beta and is not part of the Language release gate. AI Study Sessions,
-Supervised Inventory and AI Deck Blueprint are retired surfaces.
+Knowledge is a dormant beta and is not part of the Language release gate.
 
 The headless runtime smoke is reproducible with Anki's bundled Python:
 

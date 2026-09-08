@@ -36,7 +36,7 @@ Version trong `manifest.json` có thể là release candidate cục bộ. Không
 ## Endpoint và phạm vi
 
 - [ ] Smoke endpoint Anki 2.1.50 trước khi tiếp tục công bố legacy target.
-- [x] AI Study Sessions, Supervised Inventory và AI Deck Blueprint đã retire khỏi surface; không thêm lại checklist UI cho các flow này.
+- [x] Runtime không còn import module của AI Study Sessions, Supervised Inventory hoặc AI Deck Blueprint.
 
 ## Knowledge beta (không phải release gate)
 
@@ -52,7 +52,7 @@ Knowledge beta vẫn ẩn. Chỉ dùng `work_items/V18_SMOKE_PROFILE.md` nếu c
 
 | Phiên bản | Ngày | CI | Smoke Anki thật | Người xác nhận | Ghi chú |
 | --- | --- | --- | --- | --- | --- |
-| 18.3.0 | Chưa phát hành | Chờ CI | Re-smoke bắt buộc | — | Current tree đã retire Study Sessions/Inventory/Blueprint và có Quality V2.1, Bulk Card Upgrade, Collocation, Radical Mindmap, Production Drill cùng Example Versions. Cần baseline cuối, artifact mới và smoke profile backup trước release. |
+| 18.3.0 | Chưa phát hành | Chờ CI | Re-smoke bắt buộc | — | Current tree đã xóa các subsystem Study Sessions/Inventory/Blueprint và có Quality V2.1, Bulk Card Upgrade, Collocation, Radical Mindmap, Production Drill cùng Example Versions. Cần baseline cuối, artifact mới và smoke profile backup trước release. |
 | 18.1.0 | Chưa phát hành | Chờ CI | Chờ GUI smoke | — | Snapshot lịch sử 2026-08-20; không phải trạng thái current tree. |
 | 17.2.0 | Chưa phát hành | Chờ CI | Chờ GUI smoke | — | Snapshot lịch sử 2026-08-16; không phải trạng thái current tree. |
 | 17.1.0 | Chưa phát hành lại | Chờ CI | Chưa chạy | — | Snapshot lịch sử 2026-08-13/14; không phải trạng thái current tree. |

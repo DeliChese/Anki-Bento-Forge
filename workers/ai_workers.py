@@ -1,5 +1,5 @@
 """
-AI Workers — Background threads for AI extract, AI chat, and audio preview.
+AI Workers — Background threads for AI extraction and audio preview.
 """
 
 import os
@@ -14,9 +14,7 @@ from utils.i18n import t
 from utils.ai_extractor import (
     extract_vocabulary_with_ai,
     extract_grammar_with_ai,
-    chat_with_ai,
 )
-from utils.ai_candidate_extractor import extract_source_candidates_with_ai
 from utils.ai_reliability import (
     canonical_identity,
     existing_entry_identity,
@@ -363,7 +361,6 @@ class PreviewThread(QThread):
     def stop(self):
         self.cancel_event.set()
 
-
 class AiExtractThread(QThread):
     """Thread gọi AI trích xuất từ vựng."""
 
@@ -537,85 +534,6 @@ class AiExtractThread(QThread):
                         card["topic"] = self.topic_scope
 
             self.finished.emit(result_list[:effective_max_cards])
-
-        except Exception as e:
-            if not self.cancel_event.is_set():
-                self.error.emit(str(e))
-
-    def stop(self):
-        self.cancel_event.set()
-
-
-class AiChatThread(QThread):
-    """Thread gọi AI chat."""
-
-    progress = pyqtSignal(str)
-    finished = pyqtSignal(dict)
-    error = pyqtSignal(str)
-
-    def __init__(
-        self, message, lang, conversation_history=None, anki_context=None,
-        card_kind="vocab", card_mode=None, candidate_mode=False, study_session=None,
-        use_card_context=False, session_id="", runtime_config=None, cancel_event=None,
-        workspace="reviewer", workspace_request=None, study_library_context=None,
-    ):
-        super().__init__()
-        self.message = message
-        self.lang = lang
-        self.conversation_history = conversation_history
-        self.anki_context = anki_context
-        self.card_kind = card_kind
-        self.card_mode = card_mode
-        self.candidate_mode = bool(candidate_mode)
-        self.study_session = study_session
-        self.use_card_context = bool(use_card_context)
-        self.session_id = session_id
-        self.runtime_config = runtime_config
-        self.workspace = workspace
-        self.workspace_request = workspace_request
-        self.study_library_context = study_library_context
-        self.cancel_event = cancel_event or threading.Event()
-
-    def run(self):
-        try:
-            self.progress.emit(t("worker_progress_context"))
-            if self.candidate_mode:
-                result = extract_source_candidates_with_ai(
-                    self.message,
-                    lang=self.lang,
-                    workspace_request=self.workspace_request,
-                    progress_callback=lambda msg: self.progress.emit(msg),
-                    should_abort=self.cancel_event.is_set,
-                    session_id=self.session_id,
-                    runtime_config=self.runtime_config,
-                )
-            else:
-                result = chat_with_ai(
-                    user_message=self.message,
-                    lang=self.lang,
-                    conversation_history=self.conversation_history,
-                    progress_callback=lambda msg: self.progress.emit(msg),
-                    should_abort=self.cancel_event.is_set,
-                    anki_context=self.anki_context,
-                    card_kind=self.card_kind,
-                    card_mode=self.card_mode,
-                    study_session=self.study_session,
-                    use_card_context=self.use_card_context,
-                    session_id=self.session_id,
-                    runtime_config=self.runtime_config,
-                    workspace=self.workspace,
-                    workspace_request=self.workspace_request,
-                    study_library_context=self.study_library_context,
-                )
-
-            if self.cancel_event.is_set():
-                return
-
-            if result.get("error"):
-                self.error.emit(result["error"])
-                return
-
-            self.finished.emit(result)
 
         except Exception as e:
             if not self.cancel_event.is_set():
