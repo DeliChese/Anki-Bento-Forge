@@ -86,16 +86,37 @@ def test_prompts_require_four_examples_and_grounded_usage_nuance_for_every_langu
     from utils.prompts import _GRAMMAR_SYSTEM_PROMPTS, _SYSTEM_PROMPTS
 
     for prompt in _SYSTEM_PROMPTS.values():
-        assert "1–3 pattern" in prompt
-        assert "0–3 micro-note" in prompt
-        assert "0–3" in prompt and "collocation —" in prompt
+        assert "usage_pattern: 1–2 khung dùng được ngay" in prompt
+        assert "usage_note: 1–2 câu hoàn chỉnh, tối đa 45 từ" in prompt
+        assert "collocation: 1–3 dòng" in prompt
         assert "example_3" in prompt and "example_4" in prompt
         assert "Bắt buộc đủ Ex1–Ex4" in prompt
-        assert "sắc thái/mức độ dùng" in prompt
+        assert "register_nuance tối đa 1 mệnh đề" in prompt
         assert "relationship_note" in prompt
     for prompt in _GRAMMAR_SYSTEM_PROMPTS.values():
         assert "Function → Form → Constraint → Contrast/Error → Variants" in prompt
+        assert "usage: 1–2 dòng, tối đa 35 từ" in prompt
+        assert "explanation: 1–2 câu hoàn chỉnh, tối đa 50 từ" in prompt
         assert "Ex3/4" in prompt
+
+
+def test_quality_v21_shared_rules_cover_vietnamese_and_english_without_unbounded_notes():
+    from utils.prompts import _GRAMMAR_SYSTEM_PROMPTS_EN, _SYSTEM_PROMPTS_EN
+    from utils.prompts.quality_v2 import (
+        GRAMMAR_QUALITY_V2_EN, GRAMMAR_QUALITY_V2_VI,
+        VOCAB_QUALITY_V2_EN, VOCAB_QUALITY_V2_VI,
+    )
+
+    assert "SOURCE + kiến thức ngôn ngữ chuẩn" in VOCAB_QUALITY_V2_VI
+    assert "at most 45 words" in VOCAB_QUALITY_V2_EN
+    assert "Không chép lại meaning" in VOCAB_QUALITY_V2_VI
+    assert "Never repeat the meaning" in VOCAB_QUALITY_V2_EN
+    assert "tối đa 50 từ" in GRAMMAR_QUALITY_V2_VI
+    assert "at most 50 words" in GRAMMAR_QUALITY_V2_EN
+    for prompt in _SYSTEM_PROMPTS_EN.values():
+        assert "usage_note: 1–2 complete sentences, at most 45 words" in prompt
+    for prompt in _GRAMMAR_SYSTEM_PROMPTS_EN.values():
+        assert "explanation: 1–2 complete sentences, at most 50 words" in prompt
 
 
 def test_normalizer_serializes_up_to_three_unique_guide_items_and_keeps_old_shape():

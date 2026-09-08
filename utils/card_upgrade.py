@@ -15,7 +15,7 @@ from collections.abc import Mapping, Sequence
 QUALITY_FIELD = "Bento Quality Version"
 # Bump only when the released Language content standard meaningfully changes.
 # Existing notes then become eligible for an explicit Reviewer upgrade again.
-CURRENT_QUALITY_VERSION = "1"
+CURRENT_QUALITY_VERSION = "2"
 _SUPPORTED_KINDS = frozenset({"vocab", "grammar", "collocation"})
 _CANDIDATE_IDENTITY_KEYS = {
     "vocab": (

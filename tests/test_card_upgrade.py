@@ -5,6 +5,11 @@ from utils.card_upgrade import (
 )
 
 
+def test_latest_quality_revision_requires_refresh_of_revision_one_cards():
+    assert CURRENT_QUALITY_VERSION == "2"
+    assert upgrade_is_available(_snapshot(quality_version="1")) is True
+
+
 def test_upgrade_dialog_has_visible_result_area_and_pyqt6_check_states():
     from pathlib import Path
 

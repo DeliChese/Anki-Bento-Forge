@@ -92,14 +92,18 @@ class TestBatchPromptExistingContext:
 
 class TestSystemPromptCompactness:
     def test_vocab_prompts_compact(self):
-        from utils.ai_extractor import _SYSTEM_PROMPTS
-        for lang in ("japanese", "chinese", "korean", "english"):
-            sp = _SYSTEM_PROMPTS[lang]
-            assert "MẪU:" in sp
-            assert "ĐẦU RA" in sp
-            # Chinese also carries the per-character radical mind-map schema.
-            budget = 2800 if lang == "chinese" else 2400
-            assert len(sp) < budget
+        from utils.ai_extractor import _SYSTEM_PROMPTS, _SYSTEM_PROMPTS_EN
+        for prompts, schema_marker, output_marker in (
+            (_SYSTEM_PROMPTS, "MẪU:", "ĐẦU RA"),
+            (_SYSTEM_PROMPTS_EN, "TEMPLATE:", "OUTPUT"),
+        ):
+            for lang in ("japanese", "chinese", "korean", "english"):
+                sp = prompts[lang]
+                assert schema_marker in sp
+                assert output_marker in sp
+                # Chinese also carries the per-character radical mind-map schema.
+                budget = 3300 if lang == "chinese" else 2900
+                assert len(sp) < budget
 
     def test_english_vocab_prompt_keeps_examples_in_one_sense(self):
         from utils.ai_extractor import _SYSTEM_PROMPTS
@@ -108,12 +112,16 @@ class TestSystemPromptCompactness:
         assert "Bắt buộc đủ Ex1–Ex4" in prompt
 
     def test_grammar_prompts_compact(self):
-        from utils.ai_extractor import _GRAMMAR_SYSTEM_PROMPTS
-        for lang in ("japanese", "chinese", "korean", "english"):
-            sp = _GRAMMAR_SYSTEM_PROMPTS[lang]
-            assert "MẪU:" in sp
-            assert "ĐẦU RA" in sp
-            assert len(sp) < 2400
+        from utils.ai_extractor import _GRAMMAR_SYSTEM_PROMPTS, _GRAMMAR_SYSTEM_PROMPTS_EN
+        for prompts, schema_marker, output_marker in (
+            (_GRAMMAR_SYSTEM_PROMPTS, "MẪU:", "ĐẦU RA"),
+            (_GRAMMAR_SYSTEM_PROMPTS_EN, "TEMPLATE:", "OUTPUT"),
+        ):
+            for lang in ("japanese", "chinese", "korean", "english"):
+                sp = prompts[lang]
+                assert schema_marker in sp
+                assert output_marker in sp
+                assert len(sp) < 2850
 
     def test_output_conciseness_rule(self):
         from utils.ai_extractor import _GRAMMAR_SYSTEM_PROMPTS
@@ -124,6 +132,6 @@ class TestSystemPromptCompactness:
 class TestCacheVersion:
     def test_version_bumped(self):
         from utils.ai_extractor import _PROMPT_VERSION, _ai_cache_key
-        assert _PROMPT_VERSION >= 3
+        assert _PROMPT_VERSION >= 45
         k1 = _ai_cache_key("text", "japanese", "", "h", kind="vocab")
         assert isinstance(k1, str) and len(k1) == 32

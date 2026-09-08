@@ -63,6 +63,7 @@ vào RAW/Xưởng; provider/model mặc định và usage history phải sống 
 - [x] Batch biết requested/valid/invalid/duplicate/missing và retry phần thiếu.
 - [x] Adaptive split/cap/cancel có regression tests.
 - [x] Quality V2 optional/multiline fields không bị reject.
+- [x] Quality V2.1 yêu cầu usage/note hoàn chỉnh có trần độ dài; output budget mặc định tăng có kiểm soát lên 10.240 token, cache 45 và content revision 2.
 - [x] Cache schema boundary được version hóa.
 - [x] Hai vòng full isolated suite xanh trên trạng thái cuối.
 - [x] Chat prose/card/structured/schema/ambiguity/truncation cùng dùng reliability contract.

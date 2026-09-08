@@ -2669,11 +2669,11 @@ _TRANSLATIONS = {
     "ai_set_chunk_tip": {
         "vi": "Số ký tự tối đa gửi trong 1 request AI (càng nhỏ càng mịn, chất lượng cao hơn).\n"
              "Văn bản DÀI HƠN vẫn được xử lý hết (tự chia đoạn) — con số này chỉ là kích thước mỗi lần gọi.\n"
-             "⚠️ ĐỪNG để quá lớn: DeepSeek giới hạn OUTPUT ~8192 token/lần, "
+             "⚠️ Đừng để quá lớn: mỗi provider/model có giới hạn OUTPUT riêng, "
              "chunk lớn → JSON dễ bị CẮT giữa chừng. Khuyên 6k-8k.",
         "en": "Max characters sent per AI request (smaller = finer, higher quality).\n"
               "LONGER text is still fully handled (auto-chunked) — this is just the per-call size.\n"
-              "⚠️ Do NOT set too large: DeepSeek caps OUTPUT at ~8192 tokens/call; "
+              "⚠️ Do not set too large: each provider/model has its own OUTPUT limit; "
               "large chunks → JSON may get CUT. Recommended 6k-8k.",
     },
     "ai_set_conn_grp": {

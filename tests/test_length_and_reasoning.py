@@ -23,6 +23,14 @@ class TestApiConfigExtras:
             assert cfg.get("max_chars") == 45000
             assert cfg.get("chunk_size") == 8000
             assert cfg.get("reasoning_effort") == ""
+            assert cfg.get("max_tokens") == 10_240
+
+    def test_old_hidden_output_budget_is_upgraded_but_custom_budget_is_kept(self):
+        from utils.ai_extractor import get_api_config
+        with patch("utils.ai_extractor._load_config", return_value={"max_tokens": 8192}):
+            assert get_api_config()["max_tokens"] == 10_240
+        with patch("utils.ai_extractor._load_config", return_value={"max_tokens": 12_288}):
+            assert get_api_config()["max_tokens"] == 12_288
 
     def test_sanitizes_old_large_chunk(self):
         """Config cũ lưu chunk 45k → tự hạ xuống 15k khi đọc (tránh cắt output)."""
@@ -46,6 +54,7 @@ class TestApiConfigExtras:
             assert saved["chunk_size"] == 8000
             assert saved["max_chars"] == 10000  # clamp lên sàn, không phải 8000
             assert saved["reasoning_effort"] == "medium"
+            assert saved["max_tokens"] == 10_240
 
     def test_save_clamps(self):
         from utils.ai_extractor import save_api_config

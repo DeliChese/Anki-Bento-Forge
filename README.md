@@ -44,7 +44,7 @@ Knowledge Basic/Cloze được giữ trong mã nguồn như beta riêng tư đ�
 | ✏️ **Sửa Prompt / Schema / Field Map (không cần code)** | Nút "✏️ Sửa Prompt / Schema AI" trong Cài Đặt AI → chỉnh System Prompt + mẫu JSON + map key→Field Anki (chọn mặt hiển thị: sau/trước/cả hai) cho từng ngôn ngữ; **field mới tự thêm vào Note Type và TỰ HIỆN TRÊN THẺ khi lưu**; sửa prompt → cache AI tự làm mới (`utils/ai_prompts.json`, gitignored). |
 | 📎 **Kẹp File Tham Khảo** | Đính kèm TXT/MD/CSV/PDF/DOCX/XLSX làm tài liệu → AI đọc nội dung để trích xuất từ vựng/ngữ pháp. |
 | 📘 **Ngữ pháp** | Note Type ngữ pháp riêng cho cả 4 ngôn ngữ: thẻ 2 chiều "Cấu trúc→Nghĩa" & "Nghĩa→Cấu trúc", AI trích xuất pattern + công thức + cách dùng + ví dụ (có đánh dấu `<b>…</b>` trong ví dụ). |
-| 🤖 **AI Trích Xuất** | Dùng OpenAI/DeepSeek/Ollama để trích xuất từ vựng từ văn bản. Tự động tránh từ đã có trong deck. |
+| 🤖 **AI Trích Xuất** | Dùng API hiện tại để trích xuất thẻ Nhật/Trung/Hàn/Anh; chuẩn Quality V2.1 tạo khung cách dùng và ghi chú học tập đầy đủ nhưng có giới hạn độ dài. Output budget mặc định là 10.240 token và tự tránh từ đã có trong deck. |
 | 🧩 **Sơ đồ bộ thủ tiếng Trung** | AI trả cấu tạo tối giản gồm ký tự và tên bộ thủ; hover/bấm cả từ để mở panel cạnh thẻ, xem tối đa 3 sơ đồ mỗi khung và kéo ngang khi từ dài. |
 | 🏭 **Dây chuyền Lò đúc AI** | Tích hợp thẳng trong Factory theo luồng `NGUỒN → ROUTER → CANDIDATE → ARTIFACT → KIỂM ĐỊNH/IMPORT`; không mở cửa sổ Xưởng riêng. |
 | ⚡ **Tối ưu Token** | Chỉ gửi từ vựng/ngữ pháp trùng với nội dung vào prompt (thay vì toàn bộ deck → giảm mạnh input); tổng hợp token/chi phí theo toàn bộ chunk. |

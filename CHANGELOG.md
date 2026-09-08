@@ -9,6 +9,10 @@
 - **Đồng bộ toàn bộ thẻ hiện có theo mode đang chọn** — Bento Forge có nút `🔄 Đồng bộ thẻ cũ`: đồng bộ template của Note Type một lần không tốn AI, quét tất cả note thuộc ngôn ngữ + Vocabulary/Grammar/Collocation hiện tại, rồi chỉ gọi AI tuần tự cho note còn cũ hoặc thiếu dữ liệu bắt buộc. Hộp xác nhận hiển thị số request có thể tốn token; từng note được kiểm tra định danh trước khi ghi, lỗi riêng lẻ bị bỏ qua và SRS không thay đổi.
 - **Sơ đồ bộ thủ tương tác cho thẻ tiếng Trung** — AI tạo `Radical Mindmap` tối giản theo từng Hán tự; Reviewer cho hover/focus hoặc bấm trực tiếp cả từ, xem ba sơ đồ mỗi khung và kéo ngang khi từ dài. Sơ đồ mở trong panel cạnh thẻ, có nút đóng và hiển thị offline; prompt/cache hiện ở revision `44`.
 
+#### Changed
+
+- **AI Language Quality V2.1 ưu tiên kiến thức dùng được khi học** — prompt chung của Nhật/Trung/Hàn/Anh nay yêu cầu `Usage Pattern` là khung có đủ slot/thành phần bắt buộc, `Usage Note` và giải thích ngữ pháp là 1–2 câu hoàn chỉnh về tình huống dùng + ràng buộc/đối chiếu/lỗi quan trọng, đồng thời chặn lặp nghĩa và mô tả chung chung. Mỗi field vẫn có trần 35–50 từ để chi phí chỉ tăng có kiểm soát; output budget API tăng 25% từ `8.192` lên `10.240` token. Cache tăng revision `45`, chuẩn nội dung tăng revision `2` để thẻ revision 1 có thể được nâng cấp/đồng bộ lại.
+
 #### Fixed
 
 - **Nâng cấp thẻ tiếng Trung không còn loại nhầm phản hồi AI hợp lệ** — bộ kiểm tra định danh nay nhận đúng khóa `simplified`/`traditional` mà prompt tiếng Trung thực sự trả về, nhưng vẫn chỉ chấp nhận các trường định danh của đúng mục tiêu. Bước Áp dụng cũng ánh xạ `simplified` sang field Anki `Front`, nhờ đó đề xuất `Radical Mindmap` được hiển thị và lưu thay vì bị chặn trước khi tạo bảng.

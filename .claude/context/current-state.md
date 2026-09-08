@@ -15,11 +15,11 @@
 
 | Item | Status | Next action |
 |---|---|---|
-| P0-01 baseline | local gate xanh | Compile Python/JavaScript xanh; full isolated suite gần nhất `834 passed, 28 skipped`. Giữ gate này xanh trước merge/release. |
+| P0-01 baseline | local gate xanh | Compile Python xanh; full isolated suite gần nhất `837 passed, 28 skipped`. Giữ gate này xanh trước merge/release. |
 | P0-02 smoke profile | local fix, chờ re-smoke | Lỗi Reviewer action bám DOM/card đầu đã được sửa bằng card ID, cleanup và delayed retry; cần re-smoke Anki 26.5/profile `ChinD` backup trên nhiều thẻ/deck. Không rating/mutation trong lượt kiểm tra trước. |
 | P0-04 release artifact | cần dựng lại | Runtime Batch/Inventory/Blueprint đã bị gỡ nên artifact cũ không còn đại diện current tree; cần rebuild trước release. |
 | LTS Card Contract | local implementation xanh, chờ GUI smoke | Language Note Type khóa tại schema V18.3; migration allowlist/additive, ownership template theo tên/alias lịch sử, không tự prune dữ liệu lạ. Chuẩn nội dung dùng revision riêng và Reviewer upgrade opt-in. Còn smoke V14–V18 trên profile backup trước release. |
-| P0-05 AI Output Reliability | local implementation xanh | Luồng nhỏ dùng một request trực tiếp, validate → Preview → Import; danh sách vocab tường minh có kiểm tra đủ mục và giữ thứ tự. Còn smoke restart/profile backup trước publish. |
+| P0-05 AI Output Reliability | local implementation xanh | Quality V2.1 dùng chung cho bốn ngôn ngữ: cách dùng/ghi chú/ngữ pháp đầy đủ theo giới hạn 35–50 từ, output budget 10.240 token, cache 45 và content revision 2. Luồng vẫn validate → Preview → Import; còn smoke restart/profile backup trước publish. |
 | P1-07 AI Study Sessions | retired 2026-09-07 | Đã gỡ action trên thẻ, menu và phím tắt; dữ liệu phiên cũ không bị xóa. |
 | V18.2 Contextual AI Workspaces | surface đã thu gọn | Reviewer không còn Study Coach; Factory chỉ còn nguồn nhỏ + yêu cầu tùy chọn + một nút tạo 5–20 thẻ → Preview → Import. |
 | V18.3 Language Study Library | archived with Study Sessions | Dữ liệu/library backend cũ được giữ để không xóa dữ liệu profile, nhưng không còn surface người dùng sau khi Study Sessions bị retire. |
@@ -29,7 +29,7 @@
 | Language Collocation subtype | local implementation xanh, chờ GUI smoke | Nhật/Trung/Hàn/Anh có lựa chọn Collocation/Thành ngữ chủ động, prompt/schema/candidate/artifact/history và Note Type riêng; hai hướng Nhận diện/Sản xuất, không migrate note/SRS vocab hoặc grammar. Batch danh sách thiếu ngữ cảnh bị chặn. Isolated `838 passed` ×2; còn smoke chọn mode → AI Preview → import → review trên profile backup. |
 | Supervised AI Inventory | retired 2026-09-01 | Đã xóa scanner, topic-first gate, checkpoint và UI sản xuất quy mô lớn. XLSX fallback chuẩn vẫn được giữ cho thao tác mở file nhỏ. |
 | P1-08 AI Deck Blueprint | retired 2026-09-01 | Đã xóa AI Blueprint/import nhiều deck; Deck Manager cơ bản tạo/đổi tên/xóa deck vẫn giữ nguyên. |
-| P1-05 Usage Guide | đã kiểm chứng | Dùng benchmark/fixture hiện có làm regression gate. |
+| P1-05 Usage Guide | local V2.1 xanh, chờ model smoke | Prompt buộc pattern có slot/thành phần bắt buộc và note 1–2 câu có giá trị học, không lặp nghĩa; giới hạn độ dài giữ token có kiểm soát. Dùng benchmark/fixture hiện có làm regression gate và cần smoke model thật trước publish. |
 | P1-06 Confusion Guard | local implementation xanh | Exact curated same-deck warning đã có fixtures bốn ngôn ngữ; chờ smoke profile backup, vẫn chỉ advisory và không tự sửa note/SRS. |
 | P2-03 Production Drill | local lifecycle fix, chờ re-smoke | Action nay đồng bộ theo card ID, retry sau render và dùng được Example khi Usage Pattern/Collocation trống. Targeted `51 passed`, full isolated `826 passed, 28 skipped`; cần re-smoke nhiều thẻ/deck ở bốn ngôn ngữ. |
 | Reviewer Example Versions | local implementation xanh, chờ GUI smoke | Ví dụ 1–4 có model AI riêng tùy chọn theo Provider/API Key hiện dùng, tạo/chỉnh theo độ khó và độ dài, lịch sử phiên bản + audio lưu theo note, tác vụ AI/TTS không modal và tiến độ import tính cả audio lẫn ghi note. Hai isolated suites `777 passed, 28 skipped`; cần smoke trên profile backup trước release. |

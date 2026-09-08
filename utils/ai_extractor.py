@@ -47,6 +47,7 @@ from .ai_reliability import (
 from .ai_text_recovery import IncompleteExtractionError, recover_text_chunk as _recover_text_chunk
 from .ai_reliability import is_exact_existing_card
 from .ai_output_validation import cache_payload_is_compatible
+from .ai_output_budget import DEFAULT_MAX_OUTPUT_TOKENS, normalize_output_token_budget
 from .ai_card_request import build_card_request_message
 from .ai_prompt_defaults import KNOWLEDGE_PROMPT_VERSION
 from .ai_usage_history import record_usage as _record_usage
@@ -64,7 +65,6 @@ from .user_data import (
 )
 
 logger = get_logger()
-
 # ═══════════════════════════════════════════════════════════
 #  PROMPT CONFIG — System prompt + JSON template có thể ghi đè ngoài
 #  (utils/ai_prompts.json qua utils/prompt_config.py) mà không sửa code.
@@ -183,7 +183,7 @@ def get_ai_session_estimate(text: str) -> dict:
     )
     estimate = policy.estimate(
         text_chars=len(text or ""), model=cfg.get("model", ""),
-        max_output_tokens=cfg.get("max_tokens", 8192), chunk_size=cfg.get("chunk_size", 8000),
+        max_output_tokens=cfg.get("max_tokens", DEFAULT_MAX_OUTPUT_TOKENS), chunk_size=cfg.get("chunk_size", 8000),
     )
     result = {
         "input_tokens": estimate.input_tokens, "output_tokens": estimate.output_tokens,
@@ -302,11 +302,11 @@ def get_api_config() -> dict:
         "default_provider": "",
         "default_models": {},
         "temperature": 0.3,
-        "max_tokens": 8192,
+        "max_tokens": DEFAULT_MAX_OUTPUT_TOKENS,
         # Độ dài nội dung tối đa gửi trong 1 request (ký tự) — DeepSeek 64k context
         "max_chars": 45000,
         # Kích thước chunk khi chia văn bản dài (ký tự).
-        # 8k = cắt mịn → chất lượng cao hơn; an toàn với giới hạn OUTPUT ~8192 token.
+        # 8k = cắt mịn → chất lượng cao hơn; chừa chỗ cho JSON đầu ra 10k token.
         "chunk_size": 8000,
         # Mức độ nỗ lực suy nghĩ: "" / auto (không gửi), "low", "medium", "high"
         "reasoning_effort": "",
@@ -326,6 +326,7 @@ def get_api_config() -> dict:
     except Exception:
         cfg["max_chars"] = 45000
         cfg["chunk_size"] = 8000
+    cfg["max_tokens"] = normalize_output_token_budget(cfg.get("max_tokens"))
     try:
         cfg["session_max_input_chars"] = max(1_000, min(500_000, int(cfg.get("session_max_input_chars") or 90_000)))
         cfg["session_max_tokens"] = max(1_000, min(1_000_000, int(cfg.get("session_max_tokens") or 120_000)))
@@ -369,7 +370,7 @@ def save_api_config(api_key: str, api_base: str, model: str, temperature: float 
     model = model.strip()
     temperature = max(0.0, min(2.0, temperature))
     max_chars = max(10000, min(45000, int(max_chars)))
-    # 3k-15k — cắt mịn hơn để chất lượng tốt & không tràn output token (DeepSeek ~8192)
+    # 3k-15k — cắt mịn hơn để chất lượng tốt và giữ JSON trong output budget.
     chunk_size = max(3000, min(15000, int(chunk_size)))
     reasoning_effort = (reasoning_effort or "").strip().lower()
     if reasoning_effort not in ("low", "medium", "high"):
@@ -408,7 +409,7 @@ def save_api_config(api_key: str, api_base: str, model: str, temperature: float 
         "default_models": default_models,
         "api_key_provider_migration_done": True,
         "temperature": temperature,
-        "max_tokens": 8192,
+        "max_tokens": DEFAULT_MAX_OUTPUT_TOKENS,
         "max_chars": max_chars,
         "chunk_size": chunk_size,
         "reasoning_effort": reasoning_effort,
@@ -434,8 +435,8 @@ def _apply_reasoning_effort(payload: dict, cfg: dict):
 def _check_truncated_output(content: str, progress_callback: Optional[Callable[[str], None]] = None):
     """Cảnh báo khi output JSON bị cắt (kết thúc không phải ] hoặc }).
 
-    DeepSeek giới hạn output ~8192 token/response → nếu chunk quá lớn,
-    JSON sẽ bị cắt giữa chừng gây lỗi parse.
+    Provider/model vẫn có giới hạn output riêng; nếu chunk quá lớn, JSON có thể
+    bị cắt giữa chừng và gây lỗi parse.
     """
     if not content:
         return
@@ -797,7 +798,7 @@ def extract_vocabulary_with_ai(
         "model": cfg["model"],
         "messages": messages,
         "temperature": cfg.get("temperature", 0.3),
-        "max_tokens": cfg.get("max_tokens", 8192),
+        "max_tokens": cfg.get("max_tokens", DEFAULT_MAX_OUTPUT_TOKENS),
     }
     _apply_reasoning_effort(payload, cfg)
     enable_deepseek_json_output(payload, cfg)
@@ -1100,7 +1101,7 @@ def chat_with_ai(
             system_prompt=system_content,
             model=cfg.get("model", ""),
             session_max_tokens=cfg.get("session_max_tokens", 120_000),
-            max_output_tokens=cfg.get("max_tokens", 8192),
+            max_output_tokens=cfg.get("max_tokens", DEFAULT_MAX_OUTPUT_TOKENS),
             card_context=context,
             use_card_context=use_card_context,
             workspace_request=workspace_request,
@@ -1140,7 +1141,7 @@ def chat_with_ai(
         "model": cfg["model"],
         "messages": messages,
         "temperature": cfg.get("temperature", 0.3),
-        "max_tokens": cfg.get("max_tokens", 8192),
+        "max_tokens": cfg.get("max_tokens", DEFAULT_MAX_OUTPUT_TOKENS),
     }
     _apply_reasoning_effort(payload, cfg)
     if card_mode is not None:
@@ -1438,7 +1439,7 @@ def extract_grammar_with_ai(
         "model": cfg["model"],
         "messages": messages,
         "temperature": cfg.get("temperature", 0.3),
-        "max_tokens": cfg.get("max_tokens", 8192),
+        "max_tokens": cfg.get("max_tokens", DEFAULT_MAX_OUTPUT_TOKENS),
     }
     _apply_reasoning_effort(payload, cfg)
     enable_deepseek_json_output(payload, cfg)
