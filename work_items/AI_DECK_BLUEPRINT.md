@@ -1,13 +1,15 @@
 # AI Deck Blueprint — Kế hoạch triển khai
 
-> Status: card-import slice locally implemented; GUI smoke pending
-> Authority: supporting; `PERSONAL_ROADMAP.md` vẫn là backlog chuẩn  
-> Opened: 2026-08-29  
+> Status: retired 2026-09-01
+> Authority: historical implementation record; `PERSONAL_ROADMAP.md` is canonical
+> Opened: 2026-08-29
 > Owner: Bento Forge personal workflow
 
 ## Mục tiêu
 
 Tạo một cửa sổ **AI Deck Blueprint** được mở từ điểm vào **Deck Center** duy nhất
+
+> Surface và importer nhiều deck mô tả dưới đây đã bị gỡ khỏi current tree. Giữ file để bảo toàn quyết định/evidence; không dùng như kế hoạch triển khai hiện hành.
 trong Forge. Người dùng có thể quản lý deck hiện hữu hoặc dán danh sách từ vựng
 có H1–H6, xem outline, yêu cầu AI đề xuất cây `Parent::Sub`, sửa trực tiếp và
 chỉ ghi vào Anki sau khi duyệt.

@@ -1,5 +1,8 @@
 # P1-05 — Usage Guide V1
 
+> Status: historical contract; superseded by Quality V2.1
+> Authority: supporting evidence; current state is in `PERSONAL_ROADMAP.md`
+
 ## Contract
 
 - Áp dụng cho vocab Nhật / Trung / Hàn / Anh; grammar và Knowledge không đổi.

@@ -5,7 +5,7 @@
   "human_version": "18.3.0",
   "min_point_version": 50,
   "max_point_version": 260500,
-  "description": "Bento Forge — Language card factory and dockable AI Study Sessions companion for Anki, with safe preview/import, optional TTS, and interactive learning templates.",
+  "description": "Bento Forge — Language card factory for Anki with safe AI preview/import, optional TTS, interactive templates, and guided card upgrades.",
   "author": "AnkiTool Team / Bento Station AIOS",
   "license": "MIT",
   "anki": {

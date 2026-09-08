@@ -1,4 +1,4 @@
-# 🤝 Hướng dẫn đóng góp — AnkiTool Multi-Language
+# 🤝 Hướng dẫn đóng góp — Bento Forge
 
 Cảm ơn bạn quan tâm đóng góp! Dự án này được tổ chức để **AI agent (Claude Code, Cursor, Copilot…) và con người cùng bảo trì hiệu quả**.
 
@@ -27,11 +27,11 @@ Cảm ơn bạn quan tâm đóng góp! Dự án này được tổ chức để 
 ```
 __init__.py   → compatibility facade (re-export API công khai)
 ui/factory_dialog.py → AnkiSmartFactory + entry start_smart_factory()
-Language/     → config từng ngôn ngữ (Nhật/Trung/Hàn + ngữ pháp)
+Language/     → config Nhật/Trung/Hàn/Anh cho vocab, grammar, collocation
 mode/         → template thẻ (HTML/CSS/JS games) + card_render.py
-utils/        → AI extractor, batch, prompt_config, i18n, logger...
-ui/           → dialog (ai_settings, prompt_editor, batch, history...)
-workers/      → background threads
+utils/        → AI, prompt, parser, cache, import, i18n, logger...
+ui/           → Factory, Preview, settings, history và các dialog
+workers/      → tác vụ nền Qt/Anki
 hooks/        → reviewer + overview hooks
-tests/        → 411 unit/integration tests (29 file)
+tests/        → regression suite; không hardcode số test trong tài liệu
 ```

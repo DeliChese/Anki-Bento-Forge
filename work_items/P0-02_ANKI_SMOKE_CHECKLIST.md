@@ -1,64 +1,67 @@
 # P0-02 — Manual Anki Smoke Checklist
 
-> Mục tiêu: xác nhận workflow cá nhân trên một profile Anki **đã sao lưu**. Đây là kiểm chứng thủ công; chỉ đánh dấu `PASS` khi thao tác trực tiếp trong Anki thật.
+> Status: active; current tree needs re-smoke
+> Authority: owner-operated evidence for `RELEASE_CHECKLIST.md`
+> Last verified: 2026-09-08
 
-## Phạm vi và an toàn dữ liệu
+Chỉ chạy trên profile Anki đã backup. Không đánh dấu `PASS` từ test mock/headless hoặc từ kết quả của tree cũ.
 
-- Add-on: Bento Forge `18.3.0` (theo `manifest.json`).
-- Phiên bản Anki mục tiêu hiện tại: `26.5`; endpoint legacy `2.1.50` là smoke tương thích riêng trước phát hành (xem `manifest.json` và `COMPATIBILITY.md`). Nếu Anki thực tế ngoài khoảng hỗ trợ, ghi rõ phiên bản và dừng để triage.
-- Dùng một profile bản sao hoặc profile đã backup đầy đủ (`collection.anki2`, thư mục `collection.media`, cấu hình profile). Ghi đường dẫn hoặc vị trí backup, không ghi dữ liệu nhạy cảm.
-- Chỉ dùng 1–2 mục thử nghiệm có thể nhận diện được (ví dụ tag `bento-smoke-YYYYMMDD`); không chạy batch trên collection chính.
-- Không xóa backup cho đến khi toàn bộ checklist có kết quả `PASS`.
+## Phạm vi và an toàn
 
-## Nhật ký lần chạy
+- Add-on/version lấy từ `manifest.json`; target chính hiện tại là Anki `26.5`.
+- Endpoint `2.1.50` là smoke tương thích riêng trước release.
+- Ghi số note/media trước và sau; dùng 1–2 note dễ nhận diện và không ghi dữ liệu học nhạy cảm vào repo.
+- Lượt kiểm tra Reviewer đầu chỉ quan sát render/action; không rating hoặc mutation cho tới khi đúng card/deck được xác nhận.
+- Không chạy Bulk Card Upgrade trên collection chính. Khi test mutation, dùng deck nhỏ trong profile bản sao và kiểm tra Undo.
+
+## Thông tin lần chạy mới
 
 | Trường | Giá trị |
 | --- | --- |
-| Ngày / giờ | 2026-08-26 08:27–09:23 (UTC+07) |
-| Phiên bản Anki (Help → About) | `26.5` (xác nhận từ installed package metadata `anki-26.5`) |
-| Hệ điều hành | Windows NT `10.0.26200.0`, 64-bit |
-| Profile / vị trí backup | `ChinD`; chủ dự án xác nhận profile đã backup, không ghi đường dẫn backup |
-| Deck và tag thử nghiệm | `Tiếng Trung::Từ vựng`; chỉ xem card `看`, không tạo tag/note mới |
-| Version add-on | 18.3.0 |
-| Kết quả tổng | `BLOCKED` — preflight/Reviewer partial pass; action `Hỏi AI` và `Tự đặt câu` không được inject |
+| Ngày/giờ | Chưa chạy |
+| Anki / hệ điều hành | Chưa ghi |
+| Profile backup | Chủ dự án xác nhận; không ghi đường dẫn nhạy cảm |
+| Deck/tag thử nghiệm | Chưa ghi |
+| Version add-on | `18.3.0` |
+| Kết quả tổng | `PENDING` |
 
-## Trước khi chạy
+## Preflight
 
-- [x] Đóng Anki và hoàn tất backup; mở lại đúng profile bản sao/đã backup.
-- [x] Xác nhận Anki `26.5` nằm trong phạm vi hỗ trợ hiện hành; endpoint legacy `2.1.50` chưa chạy trong phiên này.
-- [x] Mở **Tools → 🧪 Bento Forge** (hoặc `Ctrl+Shift+I`) không có lỗi khởi động.
-- [ ] Chụp/ghi lại số note trong deck thử nghiệm và danh sách media liên quan trước thử nghiệm.
+- [ ] Backup collection, media và config đã hoàn tất.
+- [ ] Mở **Tools → 🧪 Bento Forge** hoặc `Ctrl+Shift+I` không lỗi.
+- [ ] Ghi baseline note/media của deck thử nghiệm.
+- [ ] Xác nhận Knowledge selector, AI Study Sessions, Inventory và Blueprint không xuất hiện.
 
-## Luồng bắt buộc
+## Flow bắt buộc
 
-| Flow | Các bước quan sát | Kết quả | Bằng chứng / ghi chú |
-| --- | --- | --- | --- |
-| Factory / Study Coach preflight | Mở Factory, kiểm production workbench; mở Study Coach trong/ngoài Reviewer và kiểm role split | PASS một phần | Factory theme tối hiển thị đủ `Nguồn | AI/Artifact | Kiểm định/Import`; composer có checkbox tạo thẻ + Gửi. Trong Reviewer, Study Coach nhận `REVIEWER · QA · Mặt câu hỏi · Thẻ chính: 看`, quick actions/context/library hiện đủ. Ngoài Reviewer, menu chỉ hiện thông báo đúng boundary, không mở standalone surface. |
-| Extract | Nhập một mục thử nghiệm → chạy AI extract → dữ liệu trả về đúng ngôn ngữ và không có lỗi UI | Chưa chạy |  |
-| Preview / chỉnh sửa | Mở preview → sửa một field nhận diện được → xác nhận nội dung sửa vẫn còn trước khi import | Chưa chạy |  |
-| Import (add) | Import note mới vào deck thử nghiệm → mở Browser và xác nhận đúng 1 note, field/tag/template mong đợi | Chưa chạy |  |
-| Update | Chạy lại cùng mục với thay đổi nhận diện được → chọn update theo flow hiện có → xác nhận đúng note được cập nhật, không nhân bản | Chưa chạy |  |
-| Undo | Dùng Undo của Anki ngay sau import/update → xác nhận note/field trở về trạng thái trước thao tác | Chưa chạy |  |
-| TTS | Phát audio từ note thử nghiệm → xác nhận phát được và media xuất hiện/chỉ dùng media mong đợi; thử dừng nếu UI có nút dừng | Chưa chạy |  |
-| Review | Học/review note thử nghiệm → kiểm tra render template, âm thanh và các mode đang dùng; chấm một lần → sync trạng thái review trong Browser | `BLOCKED` | Card `看` render đủ 5 combo modes; mặt sau có Usage Pattern/Usage Note/Collocation/ví dụ. Không thấy action `Hỏi AI` hoặc `Tự đặt câu` ở mặt hỏi dù card có Usage Pattern/Collocation. Chỉ mở mặt đáp án rồi thoát bằng Decks, không chọn rating. |
+| Flow | Quan sát bắt buộc | Kết quả |
+| --- | --- | --- |
+| Factory | Chọn Nhật/Trung/Hàn/Anh và Vocab/Grammar/Collocation; state không lẫn flow | PENDING |
+| AI → Preview | Chạy nguồn nhỏ và Chat tạo thẻ; output đúng ngôn ngữ/mode, Preview cho sửa/xóa | PENDING |
+| Import/update | Add đúng note, update không nhân bản, lỗi từng mục rõ ràng | PENDING |
+| Undo/safety | Undo khôi phục đúng note; dữ liệu/SRS ngoài phạm vi không đổi | PENDING |
+| TTS | Online/offline/cancel, stored media và tốc độ phát hoạt động đúng | PENDING |
+| Combo/Independent | Combo đổi năm bài tập trong một card; Independent có lịch riêng và migration có checkpoint | PENDING |
+| Reviewer lifecycle | `Tự đặt câu`, `Nâng cấp thẻ`, Ví dụ 1–4 bám đúng card khi lật/đổi nhiều thẻ/deck | PENDING |
+| Bulk upgrade | Báo số request, chỉ xử lý note cũ/thiếu, lỗi riêng không dừng lô, Undo/SRS đúng | PENDING |
+| Chinese Radical | Trigger toàn từ, panel/close/Escape/mobile fallback và typography không đổi | PENDING |
+| LTS V14–V18 | Chỉ field/template Bento được cập nhật; field/template/card/media/SRS lạ được giữ | PENDING |
+| Restart | Config/draft hợp lệ, note/media thử nghiệm nhất quán sau khi mở lại Anki | PENDING |
 
-## Kiểm tra sau chạy
+## Nhật ký lỗi lần chạy mới
 
-- [ ] Đối chiếu số note trước/sau: chỉ thay đổi đúng theo bước add/update/undo đã ghi.
-- [ ] Đối chiếu media mới: chỉ có file TTS mong đợi, không có media bị mất.
-- [ ] Đóng/mở lại Anki và xác nhận config Bento Forge còn đọc được, note và media thử nghiệm vẫn nhất quán.
-- [ ] Nếu có lỗi: giữ nguyên backup, không thử tiếp trên collection chính; ghi stack trace, bước tái hiện tối thiểu và kết quả mong đợi/thực tế bên dưới.
-
-## Triage lỗi
-
-| Thời điểm | Flow | Kết quả mong đợi | Kết quả thực tế | Log / ảnh chụp | Quyết định |
+| Thời điểm | Flow | Mong đợi | Thực tế | Evidence | Quyết định |
 | --- | --- | --- | --- | --- | --- |
-| 2026-08-26 08:35–09:23 | Reviewer actions / Production Drill | Mặt hỏi có `Hỏi AI`; card có Usage Pattern/Collocation có thêm `Tự đặt câu`, gợi ý ẩn mặc định | Cả hai action vắng mặt trên card `看`; Study Coach vẫn mở đúng từ menu và nhận đúng context | UI Automation + quan sát trực tiếp Anki 26.5; log hiện hành không có hook exception | Dừng smoke mutation; mở bug hook injection trước khi chạy tiếp P0-02/P2-03 |
+| — | — | — | — | — | — |
+
+## Bằng chứng lịch sử
+
+Lần smoke 2026-08-26 trên Anki 26.5/profile backup chỉ đạt một phần: Factory và Combo render được, nhưng action Reviewer không bám đúng card `看`. AI Study Sessions khi đó còn tồn tại. Current tree đã retire Study Sessions và đã sửa lifecycle action bằng card ID, cleanup DOM cũ cùng delayed retry; vì vậy kết quả cũ không còn là blocker đã xác minh và không thay thế re-smoke hiện tại.
 
 ## Quy tắc kết thúc
 
-- `PASS`: tất cả flow bắt buộc và kiểm tra sau chạy đạt; không mất note, media hay config.
-- `FAIL`: có mất dữ liệu, duplicate ngoài dự kiến, undo không khôi phục đúng, hoặc lỗi chặn flow.
-- `BLOCKED`: phiên bản Anki ngoài phạm vi, backup chưa xác nhận, hoặc không thể chạy một flow; không coi là pass.
+- `PASS`: mọi flow bắt buộc đạt, note/media/config/SRS ngoài phạm vi không đổi.
+- `FAIL`: mất dữ liệu, duplicate ngoài dự kiến, Undo sai hoặc lỗi chặn flow.
+- `BLOCKED`: backup/target không hợp lệ hoặc một flow không thể chạy; không coi là pass.
 
-Khi hoàn thành, cập nhật bảng nhật ký, từng ô kết quả và thêm một mục `Personal / P0-02` vào `PERSONAL_ROADMAP.md`. Không đánh dấu release smoke trong `RELEASE_CHECKLIST.md` nếu checklist chưa có bằng chứng `PASS`.
+Sau khi chủ dự án chạy xong, cập nhật evidence tại đây, `PERSONAL_ROADMAP.md`, `.claude/context/current-state.md` và record trong `RELEASE_CHECKLIST.md`.

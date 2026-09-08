@@ -2,7 +2,7 @@
 
 > Status: active  
 > Authority: supporting; roadmap remains the canonical backlog  
-> Last verified: 2026-09-07
+> Last verified: 2026-09-08
 > Read when: every agent session, immediately after `AGENTS.md`
 
 ## Operating contract

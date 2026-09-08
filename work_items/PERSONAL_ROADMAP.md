@@ -5,7 +5,7 @@ Output:
 
 > Status: active
 > Authority: canonical backlog and current product decisions
-> Last verified: 2026-09-07
+> Last verified: 2026-09-08
 > Read when: choosing, scoping or closing work
 
 > **Quyết định sản phẩm:** 2026-08-16 — Bento Forge được duy trì như add-on cá nhân. Không có mục tiêu cạnh tranh thị trường, mở rộng đại trà hay xây cộng đồng.
@@ -17,8 +17,8 @@ Output:
 | Việc | Trạng thái | Điều cần biết ngay |
 | --- | --- | --- |
 | P0-01 — baseline test | 🟢 Local xanh | Compile Python xanh; full isolated suite gần nhất `837 passed, 28 skipped`. Vẫn cần giữ gate này xanh trước merge/release. |
-| P0-02 — smoke profile | 🔴 Partial smoke, blocked | Anki 26.5/profile backup: Factory và combo/Usage Guide pass; Reviewer không inject `Tự đặt câu` trên card `看`. Sửa hook rồi mới tiếp tục mutation/mục 42/restart smoke. |
-| P0-04 — release artifact | ✅ Đã kiểm chứng local | Builder allowlist runtime, gồm đủ `workers/`, loại cache/state local; artifact clean-profile compile xanh, SHA-256 và CycloneDX SBOM khớp. Cài/mở trên profile sạch vẫn thuộc P0-02 owner smoke. |
+| P0-02 — smoke profile | 🟡 Local fix, chờ re-smoke | Reviewer action đã đồng bộ theo card ID, cleanup DOM cũ và retry sau render. Cần re-smoke Anki 26.5 trên profile backup, không rating/mutation trong lượt kiểm tra đầu. |
+| P0-04 — release artifact | 🔴 Cần dựng lại | Artifact cũ còn đại diện tree có Batch/Inventory/Blueprint. Cần build lại từ current tree, kiểm tra allowlist, clean-profile compile, checksum và SBOM trước release. |
 | LTS Card Contract | 🟡 Local implementation xanh | Note Type Language khóa ở schema V18.3; migration allowlist/additive, không tự prune template/card lạ; content quality dùng revision và Reviewer upgrade opt-in. UI nâng cấp đã sửa cầu nối mở dialog và render kết quả theo enum PyQt6; còn smoke V14–V18 trên profile backup trước release. |
 | P0-05 — AI Output Reliability | 🟡 Local implementation xanh | Vocab/grammar dùng chung Quality V2.1 cho bốn ngôn ngữ, output budget 10.240 token, cache 45 và content revision 2; parser/schema gate và profile-dynamic config giữ nguyên. Còn smoke model thật/restart trên profile backup trước publish. |
 | P1-07 — AI Study Sessions | ⚫ Retired 2026-09-07 | Đã gỡ action Reviewer, menu và phím tắt theo yêu cầu owner; giữ dữ liệu phiên cũ, không mutation note/SRS. |
@@ -26,7 +26,7 @@ Output:
 | V18.3 — Language Study Library | ⚫ Archived with Study Sessions | Backend và dữ liệu profile cũ được giữ để không gây mất dữ liệu; không còn surface người dùng hay gate UI sau khi Study Sessions bị retire. |
 | Chinese Radical Mindmap | 🟡 Local xanh, chờ GUI smoke | AI sinh glyph+tên bộ thủ tối giản vào field additive (prompt/cache 44); cả từ giữ nguyên typography làm trigger hover/click, panel fixed tự chọn cạnh trái/phải với nút đóng, ba sơ đồ mỗi khung và kéo ngang. Targeted `54 passed`, JS syntax xanh; full isolated `829 passed, 28 skipped`, còn smoke profile backup. |
 | Bulk Card Upgrade | 🟡 Local xanh, chờ GUI smoke | Nút theo ngôn ngữ + mode đang chọn sync template một lần, quét mọi note của Note Type và chỉ tiêu token AI cho note còn cũ/thiếu dữ liệu. Xử lý tuần tự, recheck định danh trước ghi, error isolation và SRS-safe. Targeted `22 passed`; full isolated `834 passed, 28 skipped`, còn smoke profile backup. |
-| P1-08 — AI Deck Blueprint | 🟡 Local implementation xanh, chờ GUI smoke | Deck Center chuyển snapshot nguồn học liệu đã dán/file đã nạp vào Blueprint, không cần nhập lại; action Tools rời đã bỏ. Import nhiều deck có preview trùng/xung đột, add-only, final re-check và undo đúng batch; chưa tạo audio hay cập nhật note cũ. Còn smoke profile backup. |
+| P1-08 — AI Deck Blueprint | ⚫ Retired 2026-09-01 | Đã gỡ Blueprint và import nhiều deck; Deck Manager cơ bản tạo/đổi tên/xóa deck vẫn được giữ. |
 | P1-05 — Usage Guide V2.1 | 🟡 Local regression xanh | Pattern phải có slot/thành phần bắt buộc; note là 1–2 câu về cách dùng + constraint/contrast/error, không lặp nghĩa và có trần 45 từ. Benchmark V1 từng đạt `19/20`; cần chạy lại model thật cho V2.1 trên profile backup. |
 | P1-06 — Confusion Guard | 🟡 Local implementation xanh | Exact curated same-deck pairs + advisory preview đã có positive/negative fixtures bốn ngôn ngữ; còn smoke trên profile backup trước khi đánh dấu verified. |
 | P2-03 — Production Drill | 🟡 Local lifecycle fix, chờ re-smoke | Action đồng bộ theo card ID, hủy DOM cũ, retry sau render và dùng Example làm gợi ý fallback; targeted `51 passed`, full isolated `826 passed, 28 skipped`. Cần re-smoke nhiều thẻ/deck trước khi coi là usable. |
@@ -72,7 +72,7 @@ Nếu không thỏa điều kiện nào, ghi vào backlog `Để sau`, không tr
 | P0-01 | Thiết lập baseline xanh: tái chạy isolated suite, sửa mọi lỗi test/compile hiện có và thêm regression test đúng boundary | P0 — làm trước feature | 🟡 Trung bình | `gpt-5.6-terra` / `high` | 2–6 giờ | Hai vòng harness xanh; `py_compile` bao gồm cả `scripts/`; worktree không đổi sau test |
 | P0-02 | Xác nhận flow cá nhân trên profile Anki đã backup: extract → preview → import/update → undo → TTS → review | P0 — an toàn dữ liệu | 🟡 Trung bình | Chủ dự án thao tác; `gpt-5.6-terra` / `medium` hỗ trợ checklist/triage | 1–2 giờ mỗi phiên bản Anki | Có checklist ngày chạy, phiên bản Anki và kết quả từng flow; không mất note/media/config |
 | P0-03 | Thiết lập “personal contract”: bốn ngôn ngữ đang học, phiên bản Anki đang dùng, 2–3 flow hằng tuần và giới hạn chi phí tháng | P0 — định hướng | 🟢 Dễ | Chủ dự án; `gpt-5.6-luna` / `low` để ghi tài liệu | 20 phút | Ghi trong snapshot/history; mọi task mới liên hệ được với một flow |
-| P0-04 | Kiểm chứng artifact phát hành: build allowlist phải đóng gói `workers/`, không kèm Python cache/state local và có regression cho manifest/checksum/SBOM | P0 — local gate đã kiểm chứng | 🟡 Trung bình | `gpt-5.6-terra` / `medium` | 1–3 giờ | ✅ Artifact có 104 entries/101 Python files/5 worker files; clean-profile compile xanh, cache và sensitive state bằng 0, SHA-256/SBOM khớp |
+| P0-04 | Dựng lại artifact từ current tree: allowlist phải đóng gói `workers/`, không kèm Python cache/state local và có regression cho manifest/checksum/SBOM | P0 — release gate cần chạy lại | 🟡 Trung bình | `gpt-5.6-terra` / `medium` | 1–3 giờ | Artifact mới phản ánh tree không còn Batch/Inventory/Blueprint; clean-profile compile xanh, cache/sensitive state bằng 0, SHA-256/SBOM khớp |
 | P0-05 | **AI Output Reliability**: adapter provider-neutral, safe JSON recovery, language/mode validation, completeness reconciliation, partial retry và adaptive Quality V2 batching | P0 — release gate 18.1.0 | 🔴 Rất khó | `gpt-5.6-sol` / `high` | 8–16 giờ | Parser/schema/partial/adaptive tests và full isolated suite xanh; valid partial result không mất; không semantic repair; smoke profile backup + manual large batch được xác nhận |
 | P1-01 | Chạy benchmark model/prompt cho ngôn ngữ chính; chấm thủ công nghĩa, ví dụ, lỗi cấu trúc, cost và latency | P1 — trước tối ưu AI | 🟠 Khó | `gpt-5.6-sol` / `high` | 4–8 giờ | Ít nhất 3 model × 20 mục; có run JSON; chọn default và ngưỡng chấp nhận theo số liệu |
 | P1-02 | Tinh chỉnh prompt/schema/template cho ngôn ngữ chính dựa trên benchmark và thẻ đã học | P1 — khi P1-01 có dữ liệu | 🟠 Khó | `gpt-5.6-sol` / `high` | 3–8 giờ mỗi vòng | So sánh trước/sau trên cùng corpus; không giảm điểm benchmark; prompt version/cache được xử lý đúng |
@@ -80,9 +80,9 @@ Nếu không thỏa điều kiện nào, ghi vào backlog `Để sau`, không tr
 | P1-05 | **Usage Guide V1 — Nhật/Trung/Hàn/Anh**: sinh có chọn lọc `Usage Pattern`, `Usage Note` và tối đa 1 collocation có nghĩa; pattern/register/cảnh báo dùng sai riêng theo từng ngôn ngữ; hiển thị mặt sau, không tạo thêm card mặc định | P1 — đã kiểm chứng, là quality gate | 🔴 Rất khó | `gpt-5.6-sol` / `high` | 12–20 giờ | Corpus review cho cả 4 ngôn ngữ; pattern/usage đúng ≥90%, không sinh nội dung rỗng hoặc lặp ví dụ; migration field/template idempotent; không giảm benchmark/cost vượt ngưỡng đã chốt |
 | P1-06 | **Confusion Guard — Nhật/Trung/Hàn/Anh**: trước import, dò candidate dễ lẫn trong cùng deck và chỉ cảnh báo/đề xuất phân biệt có evidence; không tự merge hay tạo thẻ phụ | P1 — local code/fixtures xanh, chờ smoke | 🟠 Khó | `gpt-5.6-sol` / `high` | 8–14 giờ | Fixture mỗi ngôn ngữ có positive/negative pairs; không báo trùng sai hàng loạt; preview cho sửa/bỏ; không đổi dữ liệu hoặc lịch SRS cũ |
 | P1-07 | **AI Study Sessions — Dockable Study Coach** | Retired 2026-09-07 | — | — | — | Không còn entry point trong Reviewer/menu; dữ liệu phiên cũ được giữ để tránh xóa dữ liệu ngoài ý muốn. |
-| V18.2 | **Contextual AI Workspaces + Integrated Production Line**: Reviewer sở hữu learning loop; Factory là owner UI duy nhất của source production, candidate manifest, tùy chọn Tạo thẻ theo Vocab/Grammar, artifact và review/import; model memory tách theo workspace | P1 — local code xanh, chờ smoke | 🔴 Rất khó | `gpt-5.6-sol` / `high` | Reviewer checkpoint zero-AI/SRS; manifest bám source và fail-closed; chỉ candidate chọn thủ công đi vào Card Mode; current-deck match chỉ advisory qua QueryOp; history/summary không rò hai chiều; artifact → review/import zero-AI; không standalone Forge dialog; full suite + GUI smoke profile backup |
-| V18.3 | **Language Study Library + Semantic Scope + Card Drill**: pack tài liệu thuộc profile + ngôn ngữ, tái dùng qua Reviewer session; prompt người học quyết định tác vụ, card là reference trực tiếp hoặc target ví dụ | P2 — fix task-priority local, chờ re-smoke | 🔴 Rất khó | `gpt-5.6-sol` / `high` | Context board hiện target và exact section. Yêu cầu số mục phải khớp số + tiêu đề trong source, source task thắng generic card coaching/history sai; card chỉ hỗ trợ tác vụ khi phù hợp. Zero SRS/collection mutation; owner re-smoke đạt rồi mới khép. |
-| P1-08 | **Deck Center + AI Blueprint — H1–H6 → cây Parent/Sub có duyệt**: một nút trong Forge mở quản lý deck và AI planner, source compact, provenance, cây sửa trực tiếp; lưu cây create/reuse-only hoặc nhập note mới add-only theo sub-deck | P1 — local implementation, chờ smoke | 🟠 Khó | `gpt-5.6-sol` / `high` | Không có action Blueprint rời trong Tools; parser/organizer/path xanh; preview trước mutation; duplicate/conflict fail-closed + final re-check + exact-batch undo; không update note cũ/audio; full suite + GUI smoke profile backup trước release. |
+| V18.2 | **Contextual AI Workspaces** | Retired surface 2026-09-07 | — | — | — | Reviewer không còn Study Coach; Factory giữ flow tạo thẻ nhỏ Preview-first. Backend tương thích chỉ giữ để không xóa state cũ. |
+| V18.3 | **Language Study Library** | Archived with Study Sessions | — | — | — | Không còn surface hay release gate; dữ liệu/library backend cũ được giữ nguyên. |
+| P1-08 | **AI Deck Blueprint** | Retired 2026-09-01 | — | — | — | Blueprint/import nhiều deck đã gỡ; Deck Manager cơ bản vẫn hoạt động. |
 | P1-04 | Tích hợp AwesomeTTS tùy chọn theo stored-media và batch an toàn, chấp nhận tốc độ chậm để ổn định | P1 — nâng trải nghiệm TTS | 🟠 Khó | Theo lát cắt trong `P1-04_AWESOMETTS_SAFE_BATCH.md` (`terra`/`sol`) | 8–16 giờ | Đạt checklist provider thiếu/có, media local, retry/cancel/resume và smoke trên profile backup |
 | Knowledge beta | Giữ code/schema/model Knowledge riêng tư nhưng tắt UI; không phát hành V18 và không mở feature mới | Đóng băng | — | — | — | Chỉ mở lại khi chủ dự án yêu cầu, rồi khôi phục smoke/CI riêng |
 | P2-01 | Đơn giản hóa/ẩn các flow không dùng để giảm nhiễu UI và chi phí bảo trì | P2 — chỉ khi gây ma sát | 🟡 Trung bình | `gpt-5.6-terra` / `medium` | 1–4 giờ | Flow còn lại không regression; quyết định được ghi vào nhật ký |
@@ -101,14 +101,14 @@ Nếu không thỏa điều kiện nào, ghi vào backlog `Để sau`, không tr
 | Routing tự động, semantic cache, OCR/video/image AI | Để sau | Có dữ liệu P1-01 hoặc ma sát lặp lại chứng minh lợi ích |
 | Big-bang refactor | Không làm | Có lỗi bảo trì cụ thể không thể giải bằng lát cắt nhỏ |
 
-## Trình tự cho sáu phiên làm việc tới
+## Trình tự ưu tiên hiện tại
 
-1. Giữ P0-01 xanh: tái xác nhận baseline trước merge/release và trước feature lớn.
-2. Hoàn tất P0-02 trên profile đã backup trước merge/release.
-3. Smoke P1-06 Confusion Guard trên profile backup; chỉ đánh dấu verified sau khi xác nhận preview advisory và import không bị chặn/mutate ngoài flow.
-4. P0-04 đã xanh local; giữ test artifact làm release gate và chỉ còn clean-profile GUI install trong P0-02.
-5. Chỉ mở P1-04 AwesomeTTS khi P0-04 xanh và ma sát TTS còn lặp lại.
-6. V18.3 đang mở lại ở task-priority correction; ưu tiên owner re-smoke đúng yêu cầu “điểm ngữ pháp thứ 42” trên card `看`, rồi lặp với một card grammar trước khi khép. Kết quả phải nêu `42. Thái tiến hành: 在, 正在, 正, 呢` rồi mới cho ví dụ đúng cấu trúc (có thể dùng `看`), không được thay bằng bài luyện từ `看`, `是……的` hoặc quan hệ mục 41 tự suy diễn. Các smoke còn lại tiếp tục thuộc P0-02. Knowledge beta vẫn dormant.
+1. Giữ P0-01 xanh trên current tree trước merge/release.
+2. Dựng lại P0-04 và xác minh artifact không còn runtime Batch/Inventory/Blueprint.
+3. Hoàn tất P0-02 trên profile đã backup: Factory → Preview/Import/Undo → TTS → Reviewer.
+4. Re-smoke Reviewer action lifecycle, Bulk Card Upgrade, Collocation và Radical Mindmap trên nhiều thẻ/deck.
+5. Smoke P1-06 và Quality V2.1 bằng model thật; chỉ ghi verified khi có bằng chứng.
+6. Chỉ mở P1-04 AwesomeTTS khi P0-04 xanh và ma sát TTS còn lặp lại. Knowledge beta vẫn dormant.
 
 ## Nhật ký personal contract
 

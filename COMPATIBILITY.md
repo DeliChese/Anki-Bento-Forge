@@ -12,7 +12,7 @@ in `RELEASE_CHECKLIST.md`.
 | Anki | Bundled Python | Status | Evidence |
 | --- | --- | --- | --- |
 | 2.1.50 | 3.9 | Legacy compatibility target | Existing legacy adapters and regression suite remain in place; a fresh endpoint GUI smoke is still required before release. |
-| 26.5 | 3.13.5 | Validated compatibility target | Real Anki runtime smoke passed on 2026-08-16 for add-on/UI/hook imports and Knowledge Basic/Cloze add, update, card generation, and scoped rollback; GUI smoke remains pending. |
+| 26.5 | 3.13.5 | Validated compatibility target | Real Anki runtime smoke passed on 2026-08-16 for add-on/UI/hook imports and collection operations. The current Language-only surface still requires the release smoke below. |
 
 ## Compatibility design
 
@@ -36,14 +36,17 @@ in `RELEASE_CHECKLIST.md`.
 
 ## Remaining release verification
 
-Before publishing, run the isolated suite twice and complete
-`work_items/V18_SMOKE_PROFILE.md` on a copied profile:
+Before publishing, run the isolated suite twice and complete the active checks in
+`RELEASE_CHECKLIST.md` on a copied profile:
 
-1. Open Bento Forge from Tools and switch Language/Knowledge without losing drafts.
-2. Import a new note and update an existing note; verify undo and result counts.
-3. Review Language combo cards and verify public reviewer-hook controls.
-4. Exercise Language TTS cancellation/offline handling and config migration.
-5. Verify Knowledge strict validation, deck/model duplicate scope, history, and rollback.
+1. Open Bento Forge from Tools and exercise the current Language surface for all four languages.
+2. Run Preview-first import, update and Undo; verify note, media and result counts.
+3. Review Combo/Independent cards and the current Reviewer actions on multiple cards/decks.
+4. Exercise TTS cancellation/offline handling, stored media and config migration.
+5. Verify LTS V14–V18 migration ownership and rebuild/install the current artifact.
+
+Knowledge is a dormant beta and is not part of the Language release gate. AI Study Sessions,
+Supervised Inventory and AI Deck Blueprint are retired surfaces.
 
 The headless runtime smoke is reproducible with Anki's bundled Python:
 

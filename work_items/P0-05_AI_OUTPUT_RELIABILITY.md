@@ -1,5 +1,10 @@
 # Task: P0-05 — AI Output Reliability
 
+> Status: local Quality V2.1 implementation green; model/profile smoke pending
+> Authority: supporting evidence; `PERSONAL_ROADMAP.md` is canonical
+
+> Những đoạn mô tả Batch/Inventory bên dưới là evidence lịch sử trước khi các surface đó retire; không dùng chúng để suy ra runtime hiện hành.
+
 ## Mục tiêu
 
 Biến output model/provider không đáng tin thành card chỉ khi extraction, schema identity,

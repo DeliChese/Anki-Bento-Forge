@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+### 2026-09-08 — Phiên bản: `18.3.0` → `18.3.0`
+
+#### 🔧 Changed
+
+- **Tài liệu và metadata nay phản ánh đúng surface 18.3 hiện hành** — README, compatibility, roadmap và release/smoke checklist tập trung vào Factory Language Preview-first, Quality V2.1 và các action Reviewer hiện có; AI Study Sessions, Inventory và Blueprint được ghi rõ là đã retire, còn Knowledge là beta dormant. Metadata add-on không còn quảng bá Study Sessions.
+
 ### 2026-09-07 — Version: `18.3.0` → `18.3.0`
 
 #### Added
