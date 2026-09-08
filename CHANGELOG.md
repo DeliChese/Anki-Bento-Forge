@@ -6,14 +6,15 @@
 
 #### Added
 
-- **Sơ đồ bộ thủ tương tác cho thẻ tiếng Trung** — AI tạo `Radical Mindmap` tối giản theo từng Hán tự; Reviewer cho bấm trực tiếp chữ hoặc nút `Hiện bộ thủ`, xem ba sơ đồ mỗi khung, kéo ngang khi từ dài và rê chuột/focus để học tên bộ thủ. Dữ liệu được lưu trên note và hiển thị offline; prompt/cache hiện ở revision `44`.
+- **Đồng bộ toàn bộ thẻ hiện có theo mode đang chọn** — Bento Forge có nút `🔄 Đồng bộ thẻ cũ`: đồng bộ template của Note Type một lần không tốn AI, quét tất cả note thuộc ngôn ngữ + Vocabulary/Grammar/Collocation hiện tại, rồi chỉ gọi AI tuần tự cho note còn cũ hoặc thiếu dữ liệu bắt buộc. Hộp xác nhận hiển thị số request có thể tốn token; từng note được kiểm tra định danh trước khi ghi, lỗi riêng lẻ bị bỏ qua và SRS không thay đổi.
+- **Sơ đồ bộ thủ tương tác cho thẻ tiếng Trung** — AI tạo `Radical Mindmap` tối giản theo từng Hán tự; Reviewer cho hover/focus hoặc bấm trực tiếp cả từ, xem ba sơ đồ mỗi khung và kéo ngang khi từ dài. Sơ đồ mở trong panel cạnh thẻ, có nút đóng và hiển thị offline; prompt/cache hiện ở revision `44`.
 
 #### Fixed
 
 - **Nâng cấp thẻ tiếng Trung không còn loại nhầm phản hồi AI hợp lệ** — bộ kiểm tra định danh nay nhận đúng khóa `simplified`/`traditional` mà prompt tiếng Trung thực sự trả về, nhưng vẫn chỉ chấp nhận các trường định danh của đúng mục tiêu. Bước Áp dụng cũng ánh xạ `simplified` sang field Anki `Front`, nhờ đó đề xuất `Radical Mindmap` được hiển thị và lưu thay vì bị chặn trước khi tạo bảng.
 - **Nâng cấp thẻ mở và hiển thị kết quả AI ổn định** — cầu nối Reviewer nay giữ snapshot của đúng thẻ khi người dùng bấm, đưa hộp thoại lên trước và báo rõ nếu không thể mở. Hộp thoại có khu vực chờ kết quả luôn hiển thị; bảng dùng enum chuẩn PyQt6 nên đề xuất AI không còn mất khi dựng các ô chọn, đồng thời lỗi được hiện ngay trong hộp thoại và ghi log.
 - **Action Reviewer không còn bám nhầm thẻ đầu tiên** — Nâng cấp thẻ và Tự đặt câu được đồng bộ theo card ID, hủy lượt render trễ của thẻ cũ và thử lại sau khi Anki thay DOM. Thẻ đã đạt chuẩn chủ động xóa nút nâng cấp; Tự đặt câu có thể dùng câu ví dụ làm gợi ý khi Usage Pattern/Collocation còn trống.
-- **Hán tự chính trên mặt sau bấm được để mở sơ đồ bộ thủ** — trạng thái khởi tạo được giữ trên DOM node thay vì HTML attribute nên khi Anki sao chép mặt trước sang mặt sau, click/hover được gắn lại; hai lượt retry ngắn bảo vệ trường hợp webview render trễ.
+- **Tương tác bộ thủ giữ nguyên kiểu chữ của thẻ** — JS không còn tách từ thành nhiều nút Hán tự làm chữ nhỏ và giãn cách. Toàn bộ từ giữ nguyên DOM/font/cỡ chữ cũ, chỉ đổi màu và hiện tooltip khi hover/focus; bấm từ mở panel cố định ở cạnh trái/phải, thẻ chính dịch nhẹ để lấy chỗ và có nút đóng rõ ràng. Nút `Hiện bộ thủ` ở cuối thẻ đã được bỏ.
 - **Dữ liệu bộ thủ gọn để tránh AI cắt JSON** — mỗi thành phần mới chỉ yêu cầu ký tự và tên bộ thủ, bỏ pinyin/nghĩa/vai trò/từ nguyên khỏi đầu ra AI và tăng cache prompt lên `44`. Hán tự chính có gạch chân chấm, đổi màu, con trỏ tay và tooltip khi hover/focus; dữ liệu chi tiết cũ vẫn hiển thị tương thích. Khi Áp dụng nâng cấp, template Bento của đúng Note Type cũng được đồng bộ an toàn để sơ đồ xuất hiện ngay, không đụng template tùy chỉnh hay SRS.
 
 #### Removed

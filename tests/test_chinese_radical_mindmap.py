@@ -25,11 +25,14 @@ def test_chinese_ai_schema_and_field_map_include_structured_radicals():
         )
 
 
-def test_combo_card_has_toggle_clickable_characters_and_horizontal_three_slot_track():
+def test_combo_card_has_whole_word_trigger_and_side_panel_with_three_slot_track():
     for html in (tmpl_zh_combo_q(), tmpl_zh_combo_a()):
         assert "{{#Radical Mindmap}}" in html
-        assert t("radical_show") in html
-        assert "radical-character" in html
+        assert t("radical_show") not in html
+        assert "radical-toggle" not in html
+        assert "classList.add('radical-word')" in html
+        assert "hanzi[h].textContent=''" not in html
+        assert "aria-haspopup','dialog" in html
         assert "scrollIntoView" in html
         assert "component.role" not in html
         assert "component.pinyin" not in html
@@ -45,8 +48,10 @@ def test_combo_card_has_toggle_clickable_characters_and_horizontal_three_slot_tr
     assert "grid-auto-columns:calc((100% - 24px)/3)" in css
     assert "overflow-x:auto" in css
     assert ".radical-component:hover .radical-tip" in css
-    assert "text-decoration-style:dotted" in css
-    assert ".radical-character:hover::after" in css
+    assert ".radical-word{position:relative;cursor:pointer;user-select:none" in css
+    assert ".radical-word:hover::after" in css
+    assert ".radical-panel{position:fixed" in css
+    assert ".cw.bento-radical-host-right" in css
 
 
 def test_every_chinese_vocab_template_references_the_optional_mindmap_field():

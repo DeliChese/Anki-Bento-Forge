@@ -18,8 +18,6 @@ from utils.i18n import t
 def _radical_mindmap_block():
     """Optional offline radical diagram generated from the note field."""
     copy = {
-        "show": t("radical_show"),
-        "hide": t("radical_hide"),
         "title": t("radical_title"),
         "close": t("radical_close"),
         "count": t("radical_count_suffix"),
@@ -38,8 +36,7 @@ def _radical_mindmap_block():
         '{{#Radical Mindmap}}'
         '<div class="radical-mindmap"' + attrs + '>'
         '<div class="radical-source">{{Radical Mindmap}}</div>'
-        '<button class="radical-toggle" type="button" aria-expanded="false">' + copy["show"] + '</button>'
-        '<section class="radical-panel" hidden tabindex="-1" aria-label="' + copy["title"] + '">'
+        '<section class="radical-panel" hidden tabindex="-1" role="dialog" aria-label="' + copy["title"] + '">'
         '<div class="radical-panel-head"><span class="radical-panel-title">' + copy["title"] + '</span>'
         '<span class="radical-counter"></span></div>'
         '<button class="radical-close" type="button" aria-label="' + copy["close"] + '">×</button>'

@@ -45,7 +45,7 @@ Knowledge Basic/Cloze được giữ trong mã nguồn như beta riêng tư đ�
 | 📎 **Kẹp File Tham Khảo** | Đính kèm TXT/MD/CSV/PDF/DOCX/XLSX làm tài liệu → AI đọc nội dung để trích xuất từ vựng/ngữ pháp. |
 | 📘 **Ngữ pháp** | Note Type ngữ pháp riêng cho cả 4 ngôn ngữ: thẻ 2 chiều "Cấu trúc→Nghĩa" & "Nghĩa→Cấu trúc", AI trích xuất pattern + công thức + cách dùng + ví dụ (có đánh dấu `<b>…</b>` trong ví dụ). |
 | 🤖 **AI Trích Xuất** | Dùng OpenAI/DeepSeek/Ollama để trích xuất từ vựng từ văn bản. Tự động tránh từ đã có trong deck. |
-| 🧩 **Sơ đồ bộ thủ tiếng Trung** | AI trả cấu tạo tối giản gồm ký tự và tên bộ thủ; Reviewer hiển thị tối đa 3 sơ đồ mỗi khung, kéo ngang khi từ dài và hiện tên khi rê chuột. |
+| 🧩 **Sơ đồ bộ thủ tiếng Trung** | AI trả cấu tạo tối giản gồm ký tự và tên bộ thủ; hover/bấm cả từ để mở panel cạnh thẻ, xem tối đa 3 sơ đồ mỗi khung và kéo ngang khi từ dài. |
 | 🏭 **Dây chuyền Lò đúc AI** | Tích hợp thẳng trong Factory theo luồng `NGUỒN → ROUTER → CANDIDATE → ARTIFACT → KIỂM ĐỊNH/IMPORT`; không mở cửa sổ Xưởng riêng. |
 | ⚡ **Tối ưu Token** | Chỉ gửi từ vựng/ngữ pháp trùng với nội dung vào prompt (thay vì toàn bộ deck → giảm mạnh input); tổng hợp token/chi phí theo toàn bộ chunk. |
 | 💾 **Lưu trạng thái 2 luồng** | Text + file kẹp của Từ vựng và Ngữ pháp (mỗi ngôn ngữ) được lưu riêng, khôi phục khi mở lại Factory — không lẫn nhau, đỡ gọi lại AI. |
@@ -128,8 +128,12 @@ git clone https://github.com/DeliChese/Anki-Bento-Forge.git
 ### Cách 3: Học bộ thủ trên thẻ tiếng Trung
 
 1. Tạo từ mới hoặc dùng **Nâng cấp thẻ** cho từ tiếng Trung đã có; AI điền trường `Radical Mindmap` theo từng Hán tự.
-2. Trong Reviewer, bấm **🧩 Hiện bộ thủ** hoặc bấm trực tiếp một chữ đang phát sáng khi rê chuột.
-3. Mỗi khung hiển thị 3 chữ; kéo ngang để xem phần còn lại. Rê chuột hoặc dùng bàn phím focus vào một thành phần để xem tên bộ thủ.
+2. Trong Reviewer, rê chuột hoặc focus vào toàn bộ từ Hán để thấy gợi ý, rồi bấm từ đó để mở panel bộ thủ ở cạnh thẻ.
+3. Mỗi khung hiển thị 3 chữ; kéo ngang để xem phần còn lại. Rê chuột hoặc focus vào một thành phần để xem tên bộ thủ; dùng nút đóng hoặc phím `Esc` để trở lại thẻ.
+
+### Đồng bộ thẻ cũ theo template mới
+
+Trong Bento Forge, chọn ngôn ngữ và loại thẻ đang cần (Từ vựng, Ngữ pháp hoặc Collocation), rồi bấm **🔄 Đồng bộ thẻ cũ**. Forge cập nhật template của toàn bộ Note Type không tốn AI, quét toàn bộ thẻ thuộc phạm vi đó và báo trước số thẻ thật sự cần AI nâng cấp nội dung. Xác nhận mới bắt đầu gọi AI tuần tự; note đã đạt chuẩn không tốn token, SRS không đổi và lỗi một thẻ không dừng các thẻ còn lại.
 
 ---
 

@@ -453,12 +453,11 @@ _ZH_RADICAL_MINDMAP_JS = r"""
       });
       if(!characters.length){root.style.display='none';return;}
 
-      var toggle=root.querySelector('.radical-toggle');
       var panel=root.querySelector('.radical-panel');
       var close=root.querySelector('.radical-close');
       var track=root.querySelector('.radical-track');
       var counter=root.querySelector('.radical-counter');
-      if(!toggle||!panel||!track)return;
+      if(!panel||!track)return;
       track.textContent='';
       function copy(key,fallback){return root.getAttribute('data-copy-'+key)||fallback;}
       if(counter)counter.textContent=characters.length+' '+copy('count','characters');
@@ -508,24 +507,46 @@ _ZH_RADICAL_MINDMAP_JS = r"""
         track.appendChild(card);
       });
 
-      function setOpen(open,character){
+      var activeTrigger=null;
+      var activeHost=null;
+      var wordTriggers=[];
+      function setOpen(open,character,trigger){
+        if(trigger)activeTrigger=trigger;
         panel.hidden=!open;
-        toggle.setAttribute('aria-expanded',open?'true':'false');
-        toggle.textContent=open?copy('hide','🧩 Hide components'):copy('show','🧩 Show components');
+        wordTriggers.forEach(function(wordTrigger){
+          wordTrigger.setAttribute('aria-expanded',open?'true':'false');
+        });
         if(open){
+          var host=(activeTrigger&&activeTrigger.closest('.cw,.fqw'))||document.querySelector('.cw,.fqw');
+          var hostRect=host&&host.getBoundingClientRect?host.getBoundingClientRect():null;
+          var side=!hostRect||window.innerWidth-hostRect.right>=hostRect.left?'right':'left';
+          root.setAttribute('data-panel-side',side);
+          if(activeHost)activeHost.classList.remove('bento-radical-host-right','bento-radical-host-left');
+          activeHost=host;
+          if(activeHost)activeHost.classList.add('bento-radical-host-'+side);
           var target=null;
           var maps=track.querySelectorAll('[data-character]');
           for(var mapIndex=0;mapIndex<maps.length;mapIndex++){
             if(maps[mapIndex].getAttribute('data-character')===String(character)){target=maps[mapIndex];break;}
           }
           if(target&&target.scrollIntoView)target.scrollIntoView({behavior:'smooth',block:'nearest',inline:'center'});
+          panel.focus({preventScroll:true});
+        }else{
+          if(activeHost)activeHost.classList.remove('bento-radical-host-right','bento-radical-host-left');
+          activeHost=null;
+          root.removeAttribute('data-panel-side');
         }
       }
-      toggle.addEventListener('click',function(){setOpen(panel.hidden);});
-      if(close)close.addEventListener('click',function(){setOpen(false);toggle.focus();});
+      if(close)close.addEventListener('click',function(){
+        setOpen(false);
+        if(activeTrigger)activeTrigger.focus();
+      });
       panel.addEventListener('keydown',function(event){
         event.stopPropagation();
-        if(event.key==='Escape'){setOpen(false);toggle.focus();}
+        if(event.key==='Escape'){
+          setOpen(false);
+          if(activeTrigger)activeTrigger.focus();
+        }
       });
 
       var known={};
@@ -535,24 +556,29 @@ _ZH_RADICAL_MINDMAP_JS = r"""
         if(hanzi[h]._bentoRadicalReady)continue;
         var word=(hanzi[h].textContent||'').trim();
         if(!word)continue;
+        var firstKnown=Array.from(word).find(function(character){return known[character];});
+        if(!firstKnown)continue;
         hanzi[h]._bentoRadicalReady=true;
-        hanzi[h].textContent='';
-        Array.from(word).forEach(function(character){
-          if(!known[character]){
-            hanzi[h].appendChild(document.createTextNode(character));
-            return;
-          }
-          var button=document.createElement('button');
-          button.type='button';
-          button.className='radical-character';
-          button.textContent=character;
-          var tooltip=copy('hint','Open the component map for')+' '+character;
-          button.title=tooltip;
-          button.setAttribute('data-radical-tooltip',tooltip);
-          button.setAttribute('aria-label',tooltip);
-          button.addEventListener('click',function(){setOpen(true,character);});
-          hanzi[h].appendChild(button);
+        hanzi[h].classList.add('radical-word');
+        hanzi[h].setAttribute('role','button');
+        hanzi[h].setAttribute('tabindex','0');
+        hanzi[h].setAttribute('aria-haspopup','dialog');
+        hanzi[h].setAttribute('aria-expanded','false');
+        hanzi[h]._bentoRadicalFirstCharacter=firstKnown;
+        var tooltip=copy('hint','Open the component map for')+' '+word;
+        hanzi[h].title=tooltip;
+        hanzi[h].setAttribute('data-radical-tooltip',tooltip);
+        hanzi[h].setAttribute('aria-label',tooltip);
+        hanzi[h].addEventListener('click',function(){
+          setOpen(true,this._bentoRadicalFirstCharacter,this);
         });
+        hanzi[h].addEventListener('keydown',function(event){
+          if(event.key==='Enter'||event.key===' '){
+            event.preventDefault();
+            setOpen(true,this._bentoRadicalFirstCharacter,this);
+          }
+        });
+        wordTriggers.push(hanzi[h]);
       }
     })(roots[rootIndex]);
   }

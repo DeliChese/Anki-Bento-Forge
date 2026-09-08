@@ -990,6 +990,13 @@ class AnkiSmartFactory(QDialog):
         self.btn_rebuild.setToolTip(t("btn_rebuild_tip"))
         self.btn_rebuild.clicked.connect(self._force_rebuild_model)
 
+        self.btn_bulk_upgrade = QPushButton(t("bulk_upgrade_action"))
+        self.btn_bulk_upgrade.setProperty("class", "purple")
+        self.btn_bulk_upgrade.setMinimumWidth(0)
+        self.btn_bulk_upgrade.setMinimumHeight(42)
+        self.btn_bulk_upgrade.setToolTip(t("bulk_upgrade_action_tip"))
+        self.btn_bulk_upgrade.clicked.connect(self._open_bulk_card_upgrade)
+
         self.btn_diff_meaning = QPushButton(t("btn_diff_meaning"))
         self.btn_diff_meaning.setProperty("class", "warning")
         self.btn_diff_meaning.setMinimumWidth(0)
@@ -1003,6 +1010,7 @@ class AnkiSmartFactory(QDialog):
         action_bar.setSpacing(6)
         action_bar.addWidget(self.btn_verify, 1)
         action_bar.addWidget(self.btn_rebuild, 1)
+        action_bar.addWidget(self.btn_bulk_upgrade, 1)
         action_bar.addWidget(self.btn_diff_meaning, 1)
         gl.addLayout(action_bar, 4, 0, 1, 2)
 
@@ -1518,6 +1526,8 @@ class AnkiSmartFactory(QDialog):
             self.btn_verify.setToolTip(t("btn_verify_tip"))
             self.btn_rebuild.setText(t("btn_rebuild"))
             self.btn_rebuild.setToolTip(t("btn_rebuild_tip"))
+            self.btn_bulk_upgrade.setText(t("bulk_upgrade_action"))
+            self.btn_bulk_upgrade.setToolTip(t("bulk_upgrade_action_tip"))
             self.btn_diff_meaning.setText(t("btn_diff_meaning"))
             self.btn_diff_meaning.setToolTip(t("btn_diff_meaning_tip"))
             if self._learning_mode == "language":
@@ -1823,6 +1833,8 @@ class AnkiSmartFactory(QDialog):
             self.btn_rebuild, self.btn_diff_meaning,
         ):
             widget.setVisible(is_language)
+        if hasattr(self, "btn_bulk_upgrade"):
+            self.btn_bulk_upgrade.setVisible(is_language)
         if hasattr(self, "json_input"):
             self.json_input.setEnabled(True)
             self._apply_json_lock_state()
@@ -3338,6 +3350,24 @@ class AnkiSmartFactory(QDialog):
         )
         message_key = "model_rebuilt" if result.existed else "model_created"
         showInfo(t(message_key, model=cfg['model_name']))
+
+    def _open_bulk_card_upgrade(self):
+        """Open the opt-in all-card updater for the active language and subtype."""
+        try:
+            # This updates the selected Note Type once before scanning its notes;
+            # model migration remains additive and does not alter review history.
+            self.get_or_create_model()
+            from ui.bulk_card_upgrade_dialog import show_bulk_card_upgrade_dialog
+            return show_bulk_card_upgrade_dialog(
+                self,
+                cfg=self._cfg(),
+                language=self._current_lang,
+                kind=self._current_card_kind(),
+            )
+        except Exception as error:
+            logger.warning("BULK_CARD_UPGRADE_OPEN_FAILED: %s", error)
+            showInfo(t("bulk_upgrade_error", error=str(error)), parent=self)
+            return None
 
     def _model_assets(self):
         """Select card assets; model mutation lives in ``utils.model_lifecycle``."""
