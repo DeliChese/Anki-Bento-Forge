@@ -47,7 +47,7 @@ MẪU:
 LUẬT:
 1. Đủ 27 key; field tùy chọn không hữu ích = "". Ưu tiên 搭配, classifier có lexical value, result/directional complement, separable verb, register và word-class ambiguity; không tuyệt đối hóa kiểu “觉得 không dùng trang trọng” hay sinh 很 + tính từ chỉ để đủ collocation.
 2. Sinh đủ 4 ví dụ tự nhiên, 5–12 từ, cùng nghĩa ngữ cảnh và đúng cấp HSK; mỗi ví dụ dùng một khung ngữ pháp/mục đích câu khác nhau.
-3. KIỂM: giản/thể cùng từ; pinyin dấu thanh; bản dịch đúng câu; từ đích có trong ví dụ.
+3. KIỂM: giản/thể cùng từ; pinyin dấu thanh — ví dụ ghi đúng biến điệu ngữ cảnh (一/不, hai thanh 3 liền), pinyin từ gốc giữ âm từ điển; danh từ kèm lượng từ; bản dịch đúng câu; từ đích có trong ví dụ.
 4. Bỏ "TỪ ĐÃ CÓ", giữ thứ tự văn bản; không bịa nghĩa/cách dùng.
 5. radical_mindmap thật ngắn: đủ từng Hán tự (≤12); mỗi components chỉ có glyph và name tiếng Việt (tối đa 3 bộ/thành phần trực tiếp). Không trả pinyin, meaning, role hay giải thích từ nguyên.
 
@@ -91,9 +91,9 @@ TEMPLATE:
 {_CHINESE_JSON_TEMPLATE_EN}
 
 RULES:
-1. Fill all 27 keys; optional low-value fields = "". Prioritize 搭配, lexically useful classifiers, result/directional complements, separable verbs, register, and word-class ambiguity; do not generate 很 + adjective merely to fill collocations.
+1. Fill all 27 keys; optional low-value fields = "". Prioritize 搭配, useful classifiers, result/directional complements, separable verbs, register, and word-class ambiguity; do not generate 很 + adjective merely to fill collocations.
 2. Write all 4 natural 5–12-word examples at the same HSK and contextual sense; each must use a different grammar frame or sentence purpose.
-3. CHECK matching simplified/traditional, tone-marked pinyin, exact translation, and target in each example.
+3. CHECK simplified/traditional match; tone-marked pinyin with contextual sandhi (一/不, 3rd+3rd) in examples, headword keeps dictionary tone; nouns get a classifier; exact translation; target in each example.
 4. Skip "EXISTING WORDS", preserve text order, and never invent usage.
 5. Keep radical_mindmap compact: one item per Han character (≤12); every component has glyph and English name only (at most 3 direct radicals/components). Do not output pinyin, meaning, role, or etymology.
 
@@ -129,8 +129,8 @@ MẪU:
 {_CHINESE_GRAMMAR_JSON_TEMPLATE}
 
 LUẬT:
-1. Đủ 19 trường; optional = "". pattern dùng Hán tự + slot N/V/Adj, không dùng pinyin; pinyin cấu trúc và mọi ví dụ phải có dấu thanh.
-2. usage là công thức ngắn; explanation TỐI ĐA 2 câu về function + constraint/contrast/error có căn cứ.
+1. Đủ 19 trường; optional = "". pattern dùng Hán tự + slot N/V/Adj, không dùng pinyin; pinyin cấu trúc và mọi ví dụ phải có dấu thanh, ví dụ ghi đúng biến điệu ngữ cảnh (一/不, 3+3).
+2. usage là công thức ngắn; explanation TỐI ĐA 2 câu về function + constraint/contrast/error có căn cứ, ưu tiên lỗi người Việt thường gặp.
 3. Ví dụ 5–12 từ, đúng HSK/ngữ cảnh/bản dịch và bọc realization bằng <b>. Cùng form khác nghĩa đáng học → tách; không fake pattern.
 
 ĐẦU RA: CHỈ mảng JSON thuần, không markdown, không giải thích thừa. Cuối: {{"_comment":"≤15 từ"}}""" + GRAMMAR_QUALITY_V2_VI
@@ -165,8 +165,8 @@ TEMPLATE:
 {_CHINESE_GRAMMAR_JSON_TEMPLATE_EN}
 
 RULES:
-1. Fill all 19 fields; optional = "". pattern uses Han characters + N/V/Adj slots, never pinyin; the pattern and every example need tone-marked pinyin.
-2. usage is a short formula; explanation is max 2 sentences for evidenced function + constraint/contrast/error.
+1. Fill all 19 fields; optional = "". pattern uses Han characters + N/V/Adj slots, never pinyin; pattern and examples need tone-marked pinyin with contextual sandhi (一/不, 3rd+3rd).
+2. usage is a short formula; explanation is max 2 sentences for evidenced function + constraint/contrast/error; prioritize common Vietnamese-learner errors.
 3. Examples are 5–12 words with faithful translation/context/HSK and bold realization. Split a genuinely different meaning of the same form; never fake a pattern.
 
 OUTPUT: ONLY a plain JSON array, no markdown, no extra explanation. End with: {{"_comment":"≤15 words"}}""" + GRAMMAR_QUALITY_V2_EN

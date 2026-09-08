@@ -6,7 +6,11 @@ from Language.chinese import LANG_CONFIG
 from mode.css import css_chinese
 from mode.templates import LANG_TEMPLATES, tmpl_zh_combo_a, tmpl_zh_combo_q
 from utils.i18n import t
-from utils.prompts.chinese import _CHINESE_JSON_TEMPLATE, _CHINESE_JSON_TEMPLATE_EN
+from utils.prompts.chinese import (
+    _CHINESE_GRAMMAR_SYSTEM_PROMPT, _CHINESE_GRAMMAR_SYSTEM_PROMPT_EN,
+    _CHINESE_JSON_TEMPLATE, _CHINESE_JSON_TEMPLATE_EN,
+    _CHINESE_SYSTEM_PROMPT, _CHINESE_SYSTEM_PROMPT_EN,
+)
 
 
 def test_chinese_ai_schema_and_field_map_include_structured_radicals():
@@ -56,3 +60,15 @@ def test_combo_card_has_whole_word_trigger_and_side_panel_with_three_slot_track(
 
 def test_every_chinese_vocab_template_references_the_optional_mindmap_field():
     assert all("{{#Radical Mindmap}}" in render() for render in LANG_TEMPLATES["chinese"])
+
+
+def test_chinese_prompts_require_contextual_tone_sandhi_and_classifiers():
+    assert "biến điệu ngữ cảnh" in _CHINESE_SYSTEM_PROMPT
+    assert "lượng từ" in _CHINESE_SYSTEM_PROMPT
+    assert "contextual sandhi" in _CHINESE_SYSTEM_PROMPT_EN
+    assert "classifier" in _CHINESE_SYSTEM_PROMPT_EN
+
+    assert "biến điệu ngữ cảnh" in _CHINESE_GRAMMAR_SYSTEM_PROMPT
+    assert "ưu tiên lỗi người Việt thường gặp" in _CHINESE_GRAMMAR_SYSTEM_PROMPT
+    assert "contextual sandhi" in _CHINESE_GRAMMAR_SYSTEM_PROMPT_EN
+    assert "Vietnamese-learner errors" in _CHINESE_GRAMMAR_SYSTEM_PROMPT_EN

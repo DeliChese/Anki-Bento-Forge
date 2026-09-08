@@ -13,6 +13,8 @@ from typing import Dict, Optional
 
 
 _PRICING = {
+    "deepseek-v4-flash": (0.14, 0.28),
+    "deepseek-v4-pro": (0.435, 0.87),
     "deepseek-chat": (0.14, 0.28),
     "deepseek-reasoner": (0.55, 2.19),
 }

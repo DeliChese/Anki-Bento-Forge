@@ -7,6 +7,8 @@
 #### 🔧 Changed
 
 - **Tài liệu và metadata nay phản ánh đúng surface 18.3 hiện hành** — README, compatibility, roadmap và release/smoke checklist tập trung vào Factory Language Preview-first, Quality V2.1 và các action Reviewer hiện có; Knowledge vẫn là beta dormant.
+- **Prompt tiếng Trung chuyên sâu hơn về phát âm và cách dùng** — prompt từ vựng/ngữ pháp tiếng Trung nay yêu cầu pinyin trong ví dụ ghi đúng biến điệu ngữ cảnh (一/不, hai thanh 3 liền nhau) trong khi pinyin của từ gốc giữ âm từ điển; danh từ bắt buộc kèm lượng từ thông dụng; giải thích ngữ pháp ưu tiên lỗi người Việt thường gặp. Prompt/cache tăng lên revision `46`.
+- **Ước tính chi phí phiên AI phản ánh đúng giá DeepSeek V4** — chính sách ước tính token/chi phí trước khi gọi API nay nhận diện `deepseek-v4-flash` và `deepseek-v4-pro` với bảng giá hiện hành, giúp cảnh báo ngân sách chính xác thay vì dùng giá mặc định của dòng chat cũ.
 
 #### 🗑️ Removed
 
