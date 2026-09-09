@@ -77,3 +77,33 @@ def test_anki_collection_adapter_hides_collection_lookup_details():
     adapter = AnkiCollectionAdapter(Collection())
     assert adapter.model_id_by_name("model") == 7
     assert adapter.notes_for_model(7) == [{"id": 1}, {"id": 2}]
+
+
+def test_anki_collection_adapter_limits_model_notes_to_selected_deck_tree():
+    class Decks:
+        @staticmethod
+        def deck_and_child_ids(deck_id):
+            assert deck_id == 10
+            return [10, 11]
+
+    class Db:
+        @staticmethod
+        def list(query, deck_id):
+            assert query == "SELECT DISTINCT nid FROM cards WHERE did = ?"
+            return {10: [1], 11: [2]}.get(deck_id, [])
+
+    class Collection:
+        decks = Decks()
+        db = Db()
+
+        @staticmethod
+        def find_notes(query):
+            assert query == '"mid:7"'
+            return [1, 2, 3]
+
+        @staticmethod
+        def get_note(note_id):
+            return {"id": note_id}
+
+    adapter = AnkiCollectionAdapter(Collection())
+    assert adapter.notes_for_model(7, deck_id=10) == [{"id": 1}, {"id": 2}]

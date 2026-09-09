@@ -15,6 +15,7 @@ from utils.example_versions import (
     delete_version,
     empty_history,
     example_field_names,
+    normalize_record,
     parse_history,
     reusable_audio,
     select_version,
@@ -85,6 +86,16 @@ def test_duplicate_and_corrupt_history_are_rejected_without_data_loss():
         append_version(history, 1, _record("Same"))
     with pytest.raises(ValueError, match="example_history_corrupt"):
         parse_history("{broken")
+
+
+def test_version_keeps_voice_and_speed_used_for_its_audio():
+    record = normalize_record({
+        "text": "A spoken sentence.", "audio": "[sound:spoken.mp3]",
+        "audio_voice": "en-US-AvaNeural", "audio_speed": "1.25",
+    })
+
+    assert record["audio_voice"] == "en-US-AvaNeural"
+    assert record["audio_speed"] == 1.25
 
 
 class _FakeNote(dict):

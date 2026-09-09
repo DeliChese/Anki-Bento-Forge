@@ -203,6 +203,10 @@ _LANG_LABEL_KEYS = {
     "english": "lang_english",
 }
 
+_DUPLICATE_SCOPE_CONF_KEY = "bento_forge_duplicate_scope_by_deck"
+_DUPLICATE_SCOPE_COLLECTION = "collection"
+_DUPLICATE_SCOPE_DECK = "deck"
+
 
 def _translated_language_label(lang, grammar=False):
     key = _LANG_LABEL_KEYS[normalize_language(lang)]
@@ -264,6 +268,7 @@ class AnkiSmartFactory(QDialog):
         self._setup_ui()
         self.import_commit_progress.connect(self._on_import_commit_progress)
         self._ui_ready = True
+        self._sync_duplicate_scope_combo()
         stored_learning_mode = self._deck_learning_mode()
         # A dormant beta must not reopen merely because an older deck saved
         # its selection.  Do not persist this fallback: the old selection and
@@ -711,6 +716,18 @@ class AnkiSmartFactory(QDialog):
         self.lbl_deck = QLabel(t("deck_label"))
         bar.addWidget(self.lbl_deck, 0)
         bar.addWidget(self.deck_chooser, 1)
+        self.lbl_duplicate_scope = QLabel(t("duplicate_scope_label"))
+        bar.addWidget(self.lbl_duplicate_scope, 0)
+        self.cbo_duplicate_scope = QComboBox()
+        self.cbo_duplicate_scope.addItem(
+            t("duplicate_scope_collection"), _DUPLICATE_SCOPE_COLLECTION,
+        )
+        self.cbo_duplicate_scope.addItem(
+            t("duplicate_scope_deck"), _DUPLICATE_SCOPE_DECK,
+        )
+        self.cbo_duplicate_scope.setToolTip(t("duplicate_scope_tip"))
+        self.cbo_duplicate_scope.currentIndexChanged.connect(self._on_duplicate_scope_changed)
+        bar.addWidget(self.cbo_duplicate_scope, 0)
         self.btn_refresh_deck = QPushButton("🔄")
         self.btn_refresh_deck.setToolTip(t("btn_refresh_deck_tip"))
         self.btn_refresh_deck.setMaximumWidth(36)
@@ -1462,6 +1479,10 @@ class AnkiSmartFactory(QDialog):
             if hasattr(self, "btn_mode_collocation"):
                 self.btn_mode_collocation.setToolTip(t("factory_card_type_tip"))
             self.lbl_deck.setText(t("deck_label"))
+            self.lbl_duplicate_scope.setText(t("duplicate_scope_label"))
+            self.cbo_duplicate_scope.setItemText(0, t("duplicate_scope_collection"))
+            self.cbo_duplicate_scope.setItemText(1, t("duplicate_scope_deck"))
+            self.cbo_duplicate_scope.setToolTip(t("duplicate_scope_tip"))
             self.btn_refresh_deck.setToolTip(t("btn_refresh_deck_tip"))
             self.btn_manage_deck.setText(t("deck_manage_btn"))
             self.btn_manage_deck.setToolTip(t("btn_manage_deck_tip"))
@@ -1821,6 +1842,10 @@ class AnkiSmartFactory(QDialog):
         # These controls encode language, level, audio or Language model policy.
         for widget in (self.lang_grp, self.mode_grp, self.voice_grp):
             widget.setVisible(is_language)
+        for name in ("lbl_duplicate_scope", "cbo_duplicate_scope"):
+            widget = getattr(self, name, None)
+            if widget is not None:
+                widget.setVisible(is_language)
         for widget in (self.btn_ai_extract, self.btn_sample, self.btn_verify):
             widget.setVisible(True)
         if hasattr(self, "btn_ai_card_chat"):
@@ -2095,6 +2120,63 @@ class AnkiSmartFactory(QDialog):
         except Exception as exc:
             logger.warning("Lỗi lưu SRS layout: %s", exc)
 
+    def _duplicate_scope(self):
+        """Return the selected verification scope, defaulting to collection-safe."""
+        chooser = getattr(self, "cbo_duplicate_scope", None)
+        scope = chooser.currentData() if chooser is not None else None
+        return scope if scope in {
+            _DUPLICATE_SCOPE_COLLECTION, _DUPLICATE_SCOPE_DECK,
+        } else _DUPLICATE_SCOPE_COLLECTION
+
+    def _stored_duplicate_scope(self, deck_id):
+        if deck_id is None:
+            return _DUPLICATE_SCOPE_COLLECTION
+        try:
+            scopes = mw.col.conf.get(_DUPLICATE_SCOPE_CONF_KEY, {})
+            scope = scopes.get(str(deck_id)) if isinstance(scopes, dict) else None
+            return scope if scope in {
+                _DUPLICATE_SCOPE_COLLECTION, _DUPLICATE_SCOPE_DECK,
+            } else _DUPLICATE_SCOPE_COLLECTION
+        except Exception as error:
+            logger.warning("Could not read duplicate scope for deck %s: %s", deck_id, error)
+            return _DUPLICATE_SCOPE_COLLECTION
+
+    def _sync_duplicate_scope_combo(self):
+        chooser = getattr(self, "cbo_duplicate_scope", None)
+        if chooser is None:
+            return
+        scope = self._stored_duplicate_scope(self._current_deck_id())
+        index = chooser.findData(scope)
+        chooser.blockSignals(True)
+        chooser.setCurrentIndex(index if index >= 0 else 0)
+        chooser.blockSignals(False)
+
+    def _on_duplicate_scope_changed(self, index):
+        """Persist the verification policy on the selected deck only."""
+        if not getattr(self, "_ui_ready", False):
+            return
+        deck_id = self._current_deck_id()
+        if deck_id is None:
+            return
+        chooser = getattr(self, "cbo_duplicate_scope", None)
+        scope = chooser.itemData(index) if chooser is not None else None
+        if scope not in {_DUPLICATE_SCOPE_COLLECTION, _DUPLICATE_SCOPE_DECK}:
+            return
+        try:
+            scopes = mw.col.conf.get(_DUPLICATE_SCOPE_CONF_KEY, {})
+            scopes = dict(scopes) if isinstance(scopes, dict) else {}
+            if scope == _DUPLICATE_SCOPE_COLLECTION:
+                scopes.pop(str(deck_id), None)
+            else:
+                scopes[str(deck_id)] = scope
+            if scopes:
+                mw.col.conf[_DUPLICATE_SCOPE_CONF_KEY] = scopes
+            else:
+                mw.col.conf.pop(_DUPLICATE_SCOPE_CONF_KEY, None)
+            mw.col.setMod()
+        except Exception as error:
+            logger.warning("Could not save duplicate scope for deck %s: %s", deck_id, error)
+
     def _on_deck_changed(self, _name=None):
         if not getattr(self, "_ui_ready", False):
             return
@@ -2105,6 +2187,7 @@ class AnkiSmartFactory(QDialog):
             self._sync_study_mode_combo()
         if self._learning_mode == "language" and hasattr(self, "cbo_srs_layout"):
             self._sync_srs_layout_combo()
+        self._sync_duplicate_scope_combo()
 
     def _migrate_current_deck_srs(self):
         """Opt existing Combo notes into five schedules under one undo checkpoint."""
@@ -2559,7 +2642,13 @@ class AnkiSmartFactory(QDialog):
         meaning_to_notes = {}
         if mid:
             try:
-                for note in AnkiCollectionAdapter(mw.col).notes_for_model(mid):
+                scope_deck_id = (
+                    self._current_deck_id()
+                    if self._duplicate_scope() == _DUPLICATE_SCOPE_DECK else None
+                )
+                for note in AnkiCollectionAdapter(mw.col).notes_for_model(
+                    mid, deck_id=scope_deck_id,
+                ):
                     try:
                         f = str(note.get(front_field, "")).strip()
                         front_key = normalize_for_comparison(f)

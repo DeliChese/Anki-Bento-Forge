@@ -15,7 +15,7 @@
 
 | Item | Status | Next action |
 |---|---|---|
-| P0-01 baseline | local gate xanh | Compile Python xanh; full isolated suite gần nhất `689 passed, 28 skipped`. Giữ gate này xanh trước merge/release. |
+| P0-01 baseline | local gate xanh | Compile Python xanh; full isolated suite gần nhất `695 passed, 28 skipped`. Giữ gate này xanh trước merge/release. |
 | P0-02 smoke profile | local fix, chờ re-smoke | Lỗi Reviewer action bám DOM/card đầu đã được sửa bằng card ID, cleanup và delayed retry; cần re-smoke Anki 26.5/profile `ChinD` backup trên nhiều thẻ/deck. Không rating/mutation trong lượt kiểm tra trước. |
 | P0-04 release artifact | cần dựng lại | Runtime Batch/Inventory/Blueprint đã bị gỡ nên artifact cũ không còn đại diện current tree; cần rebuild trước release. |
 | LTS Card Contract | local implementation xanh, chờ GUI smoke | Language Note Type khóa tại schema V18.3; migration allowlist/additive, ownership template theo tên/alias lịch sử, không tự prune dữ liệu lạ. Chuẩn nội dung dùng revision riêng và Reviewer upgrade opt-in. Còn smoke V14–V18 trên profile backup trước release. |
@@ -39,7 +39,7 @@
 
 - Factory Language có `Chat tạo thẻ`: yêu cầu tự nhiên không cần tài liệu được gắn rõ là direct generation, có cache key riêng, đối chiếu deck tránh trùng và Preview-first Import như source flow. Coordinator chuyển cờ này tới worker mà không làm đổi worker cũ. Knowledge không hiển thị lối vào này vì yêu cầu nguồn để giữ schema. Verification 2026-09-04: targeted `42 passed, 1 skipped`; full isolated `780 passed, 28 skipped`.
 
-- Reviewer Example Versions giữ câu gốc và mọi lần tạo lại trong field `Example Versions`, đồng thời materialize phiên bản đang chọn về các field Example/reading/translation/audio hiện hữu để template và sync Anki tiếp tục hoạt động. AI chỉ nhận context gọn của thẻ cùng tối đa tám ví dụ cần tránh; có thể dùng model riêng cùng Provider/API Key đang chọn; TTS lưu sound tag một lần và dùng lại. Verification 2026-09-04: compile Python xanh và full isolated `777 passed, 28 skipped` ×2; chưa thay thế GUI smoke trên profile backup.
+- Reviewer Example Versions giữ câu gốc và mọi lần tạo lại trong field `Example Versions`, đồng thời materialize phiên bản đang chọn về các field Example/reading/translation/audio hiện hữu để template và sync Anki tiếp tục hoạt động. Action nhận diện cả Ví dụ 1–4, và dialog dùng lựa chọn giọng/tốc độ của Forge cho từng audio nền; metadata lựa chọn đi cùng phiên bản để không tái sử dụng nhầm audio khác giọng/tốc độ. AI chỉ nhận context gọn của thẻ cùng tối đa tám ví dụ cần tránh; có thể dùng model riêng cùng Provider/API Key đang chọn. Verification 2026-09-09: targeted `109 passed`; full isolated `695 passed, 28 skipped`; chưa thay thế GUI smoke trên profile backup.
 
 - AI Study Sessions cùng Study Library/workspace/artifact backend đã bị xóa hoàn toàn khỏi runtime ngày 2026-09-08. Add-on không còn đọc hoặc ghi dữ liệu phiên cũ và không tự xóa file profile đã tồn tại. Factory Preview-first cùng các mode thẻ `QA/VN/WB/Pron/LG` không đổi. Compile Python xanh; targeted `216 passed, 19 skipped`; full isolated `689 passed, 28 skipped`.
 - Bằng chứng Radical Mindmap 2026-09-07: schema song ngữ tối giản mỗi component còn glyph+name, structured field serialize JSON ổn định khi import/nâng cấp, toàn bộ 10 template Chinese Vocabulary tham chiếu field tùy chọn. Whole-word trigger không thay DOM chữ; side panel fixed có close/focus/Escape và mobile fallback. Targeted `54 passed`, JS qua `node --check`, full isolated `829 passed, 28 skipped`; còn GUI smoke profile backup.

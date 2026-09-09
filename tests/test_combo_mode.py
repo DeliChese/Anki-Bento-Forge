@@ -15,6 +15,8 @@ import sys
 import types
 from unittest.mock import MagicMock
 
+import pytest
+
 _addon_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if _addon_root not in sys.path:
     sys.path.insert(0, _addon_root)
@@ -220,15 +222,16 @@ class TestOverviewModeSelector:
         result = _on_js_message((False, None), "onigiri_study", None)
         assert result == (False, None)
 
-    def test_on_js_message_opens_requested_example_slot(self):
+    @pytest.mark.parametrize("slot", (1, 2, 3, 4))
+    def test_on_js_message_opens_requested_example_slot(self, slot):
         from unittest.mock import patch
         from hooks.overview_mode import _on_js_message
         with patch("hooks.reviewer.open_example_regenerator_from_reviewer") as open_example:
             context = MagicMock()
             assert _on_js_message(
-                (False, None), "bento_example:open:3", context,
+                (False, None), f"bento_example:open:{slot}", context,
             ) == (True, None)
-            open_example.assert_called_once_with(context, 3)
+            open_example.assert_called_once_with(context, slot)
 
         assert _on_js_message(
             (False, None), "bento_example:open:9", context,
@@ -366,6 +369,7 @@ class TestReviewerHookCompatibility:
         assert "setTimeout(render, 80)" in script
         assert "setTimeout(render, 240)" in script
         assert "match(/([1-4])" in script
+        assert "document.querySelectorAll('.ec .en')" in script
         assert "bento-example-placeholder" not in script
 
     def test_production_drill_is_opt_in_local_and_hides_guidance(self):

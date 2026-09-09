@@ -2,6 +2,13 @@
 
 ## [Unreleased]
 
+### 2026-09-09 — Version: `18.3.0` → `18.3.0`
+
+#### Added
+
+- **Kiểm định trùng theo từng nhánh deck** — Factory Language có lựa chọn theo deck: mặc định quét toàn collection, hoặc chỉ quét deck đang chọn cùng toàn bộ deck con. Tuỳ chọn được nhớ riêng cho từng deck, cho phép các giáo trình như HSK có thẻ và lịch ôn độc lập với deck “1000 từ” song song, nhưng vẫn chặn trùng trong chính nhánh giáo trình.
+- **Tạo lại đủ bốn ví dụ với audio tùy chọn** — action Reviewer nay nhận diện cả Ví dụ 1–2 trên template cũ/tùy chỉnh như Ví dụ 3–4. Hộp tạo lại cho chọn giọng và tốc độ theo danh mục/cài đặt Forge; lựa chọn được truyền vào tác vụ TTS nền và lưu cùng phiên bản audio.
+
 ### 2026-09-08 — Phiên bản: `18.3.0` → `18.3.0`
 
 #### 🔧 Changed

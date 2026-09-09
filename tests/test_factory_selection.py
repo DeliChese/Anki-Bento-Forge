@@ -444,7 +444,8 @@ def _make_factory():
                "_cancel_order", "_save_current_flow", "_restore_current_flow",
                "_save_factory_state", "_load_factory_state", "_on_range_changed",
                "_load_history_to_factory", "_analyze_content", "_verify_batch_impl",
-               "_add_to_queue", "_repopulate_preview_metadata_filters"):
+               "_add_to_queue", "_repopulate_preview_metadata_filters",
+               "_duplicate_scope"):
         obj.__dict__[_m] = addon.AnkiSmartFactory.__dict__[_m].__get__(obj, addon.AnkiSmartFactory)
     return obj
 
@@ -657,6 +658,30 @@ class TestBatchVerification:
         f._verify_batch_impl()
 
         assert [entry["action"] for entry in f.prepared_data] == ["add", "add_partial"]
+
+    def test_deck_scope_does_not_use_duplicate_notes_from_a_sibling_deck(self, monkeypatch):
+        class ScopedAdapter:
+            seen_deck_ids = []
+
+            def __init__(self, _collection):
+                pass
+
+            def notes_for_model(self, _model_id, *, deck_id=None):
+                self.seen_deck_ids.append(deck_id)
+                return []
+
+        f = self._factory()
+        f._get_model_id = lambda: 42
+        f._current_deck_id = lambda: 123
+        f.cbo_duplicate_scope = FakeComboBox()
+        f.cbo_duplicate_scope.addItem("deck", "deck")
+        f.raw_data = [{"front": "学习", "meaning": "học"}]
+        monkeypatch.setattr(factory_dialog, "AnkiCollectionAdapter", ScopedAdapter)
+
+        f._verify_batch_impl()
+
+        assert ScopedAdapter.seen_deck_ids == [123]
+        assert [entry["action"] for entry in f.prepared_data] == ["add"]
 
 
 class TestRangeAutoCheck:

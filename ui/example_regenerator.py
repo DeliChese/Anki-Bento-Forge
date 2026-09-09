@@ -5,10 +5,11 @@ from __future__ import annotations
 from aqt import mw
 from aqt.qt import (
     QCheckBox, QComboBox, QDialog, QFormLayout, QHBoxLayout, QLabel,
-    QPlainTextEdit, QProgressBar, QPushButton, QVBoxLayout,
+    QDoubleSpinBox, QPlainTextEdit, QProgressBar, QPushButton, QVBoxLayout,
 )
 from aqt.utils import askUser, showInfo
 
+from audio.engine import get_default_speed, get_selected_voice, get_voice_options
 from utils.anki_ops import run_collection
 from utils.example_note_ops import (
     activate_example_version,
@@ -69,8 +70,19 @@ class ExampleRegeneratorDialog(QDialog):
         self.cbo_length = QComboBox()
         for key in ("short", "medium", "long"):
             self.cbo_length.addItem(t(f"example_length_{key}"), key)
+        self.cbo_voice = QComboBox()
+        self._populate_voice_options()
+        self.spin_speed = QDoubleSpinBox()
+        self.spin_speed.setRange(0.25, 4.0)
+        self.spin_speed.setSingleStep(0.05)
+        self.spin_speed.setDecimals(2)
+        self.spin_speed.setSuffix(" ×")
+        self.spin_speed.setValue(get_default_speed(self._lang_code()))
+        self.spin_speed.setToolTip(t("spin_speed_tip"))
         options.addRow(t("example_regen_difficulty"), self.cbo_difficulty)
         options.addRow(t("example_regen_length"), self.cbo_length)
+        options.addRow(t("voice_label"), self.cbo_voice)
+        options.addRow(t("voice_speed_label"), self.spin_speed)
         root.addLayout(options)
 
         self.txt_example = QPlainTextEdit()
@@ -123,6 +135,7 @@ class ExampleRegeneratorDialog(QDialog):
         for widget in (
             self.btn_prev, self.btn_next, self.btn_delete, self.btn_ai,
             self.btn_save, self.cbo_difficulty, self.cbo_length,
+            self.cbo_voice, self.spin_speed,
         ):
             widget.setEnabled(not busy)
         self.txt_example.setReadOnly(busy)
@@ -154,6 +167,31 @@ class ExampleRegeneratorDialog(QDialog):
                 values.append(value)
         values.extend(str(item.get("text") or "") for item in self.versions)
         return list(dict.fromkeys(value for value in values if value))
+
+    def _lang_code(self):
+        return _LANG_CODES.get(self.language, "en")
+
+    def _populate_voice_options(self):
+        lang_code = self._lang_code()
+        selected_id = get_selected_voice(lang_code)
+        selected_index = -1
+        for index, voice in enumerate(get_voice_options(lang_code)):
+            gender = str(voice.get("gender") or "")
+            icon = "👩" if gender == "female" else "👨" if gender == "male" else "🎙"
+            voice_id = str(voice.get("id") or "")
+            self.cbo_voice.addItem(f"{icon} {voice.get('name') or voice_id}", voice_id)
+            if voice_id == selected_id:
+                selected_index = index
+        if selected_index >= 0:
+            self.cbo_voice.setCurrentIndex(selected_index)
+        elif self.cbo_voice.count():
+            self.cbo_voice.setCurrentIndex(0)
+
+    def _audio_choice(self):
+        voice_id = str(self.cbo_voice.currentData() or "").strip()
+        if not voice_id:
+            voice_id = get_selected_voice(self._lang_code())
+        return voice_id, round(float(self.spin_speed.value()), 2)
 
     def _generate_ai(self):
         if not askUser(t("example_regen_ai_confirm"), parent=self):
@@ -191,12 +229,19 @@ class ExampleRegeneratorDialog(QDialog):
             "reading": self.txt_reading.toPlainText().strip(),
             "translation": self.txt_translation.toPlainText().strip(),
             "audio": "",
+            "audio_voice": "",
+            "audio_speed": 0.0,
             "source": "ai" if text == self._ai_result_text else "manual",
         }
 
-    def _reusable_audio(self, text: str) -> str:
+    def _reusable_audio(self, text: str, voice_id: str, speed: float) -> str:
         for record in self.versions:
-            if str(record.get("text") or "").strip() == text and record.get("audio"):
+            if (
+                str(record.get("text") or "").strip() == text
+                and str(record.get("audio_voice") or "") == voice_id
+                and float(record.get("audio_speed") or 0) == speed
+                and record.get("audio")
+            ):
                 return str(record["audio"])
         return ""
 
@@ -220,15 +265,18 @@ class ExampleRegeneratorDialog(QDialog):
             showInfo(t("example_regen_duplicate"), parent=self)
             return
         if self.chk_audio.isChecked():
-            reused = self._reusable_audio(record["text"])
+            voice_id, speed = self._audio_choice()
+            reused = self._reusable_audio(record["text"], voice_id, speed)
             if reused:
                 record["audio"] = reused
+                record["audio_voice"] = voice_id
+                record["audio_speed"] = speed
                 self._persist_new(record)
                 return
             self._pending_record = record
             self._set_busy(True, t("example_regen_audio_loading"))
             self.audio_worker = ExampleAudioWorker(
-                record["text"], _LANG_CODES.get(self.language, "en"),
+                record["text"], self._lang_code(), voice_id=voice_id, speed=speed,
             )
             self.audio_worker.finished.connect(self._on_audio_ready)
             self.audio_worker.error.connect(self._on_error)

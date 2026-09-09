@@ -388,7 +388,7 @@ def _inject_example_regeneration(reviewer, snapshot):
                 `;
                 document.head.appendChild(style);
               }}
-              const headers = Array.from(document.querySelectorAll('.ec > .en'));
+              const headers = Array.from(document.querySelectorAll('.ec .en'));
               const blocks = {{}};
               headers.forEach(header => {{
                 const match = String(header.textContent || '').match(/([1-4])\\s*$/);

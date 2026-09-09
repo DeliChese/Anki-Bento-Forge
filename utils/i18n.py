@@ -77,6 +77,22 @@ _TRANSLATIONS = {
         "vi": "📦 Deck:",
         "en": "📦 Deck:",
     },
+    "duplicate_scope_label": {
+        "vi": "Kiểm định trùng:",
+        "en": "Duplicate check:",
+    },
+    "duplicate_scope_collection": {
+        "vi": "Toàn collection",
+        "en": "Whole collection",
+    },
+    "duplicate_scope_deck": {
+        "vi": "Deck này + deck con",
+        "en": "This deck + children",
+    },
+    "duplicate_scope_tip": {
+        "vi": "Toàn collection là chế độ an toàn mặc định. Chọn Deck này + deck con để cùng từ có thể được học độc lập trong các nhánh giáo trình khác nhau.",
+        "en": "Whole collection is the safe default. Choose This deck + children to study the same term independently in separate curriculum branches.",
+    },
     "open_file_btn": {
         "vi": "📁 MỞ FILE (JSON/TXT)",
         "en": "📁 OPEN FILE (JSON/TXT)",

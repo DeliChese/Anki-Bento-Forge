@@ -169,6 +169,27 @@ class TestImportWorker:
         assert finished.value["audio_tags"] == {"0:Audio": "[sound:test.mp3]"}
 
 
+class TestExampleAudioWorker:
+    def test_uses_the_selected_voice_and_speed(self, monkeypatch):
+        from workers import example_worker
+
+        calls = []
+        monkeypatch.setattr(
+            example_worker, "get_audio_multilang",
+            lambda *args, **kwargs: calls.append((args, kwargs)) or "[sound:example.mp3]",
+        )
+        worker = example_worker.ExampleAudioWorker(
+            "An example.", "en", voice_id="en-US-AvaNeural", speed=1.25,
+        )
+        worker.finished = MockSignal()
+        worker.run()
+
+        assert calls == [(
+            ("An example.", "en"),
+            {"voice": "en-US-AvaNeural", "rate": "+25%", "cancel_event": worker.cancel_event},
+        )]
+
+
 class TestAiExtractThread:
     def test_init_stores_params(self):
         from workers.ai_workers import AiExtractThread

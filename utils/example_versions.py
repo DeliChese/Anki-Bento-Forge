@@ -74,9 +74,15 @@ def normalize_record(record: dict | None, *, source: str = "manual") -> dict:
         "reading": str(record.get("reading") or "").strip()[:4_000],
         "translation": str(record.get("translation") or "").strip()[:4_000],
         "audio": str(record.get("audio") or "").strip()[:1_000],
+        "audio_voice": str(record.get("audio_voice") or "").strip()[:200],
+        "audio_speed": 0.0,
         "source": str(record.get("source") or source).strip()[:32] or source,
         "created_at": str(record.get("created_at") or "").strip()[:64],
     }
+    try:
+        normalized["audio_speed"] = round(float(record.get("audio_speed") or 0), 2)
+    except (TypeError, ValueError):
+        normalized["audio_speed"] = 0.0
     if not normalized["created_at"]:
         normalized["created_at"] = datetime.now(timezone.utc).isoformat(timespec="seconds")
     if not normalized["text"]:
@@ -176,4 +182,3 @@ def reusable_audio(history: dict, slot: int, text: str, seed: dict | None = None
         if item["text"] == target and item.get("audio"):
             return str(item["audio"])
     return ""
-
