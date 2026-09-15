@@ -23,6 +23,7 @@ _QUALITY_V2_EXAMPLE_FIELDS = {
     for suffix in ("", " Pinyin", " Romanization", " in Vietnamese")
 }
 _SEMANTIC_FIELD_LABELS = {
+    "Part of Speech": "Từ loại",
     "Semantic Group": "Nhóm nghĩa",
     "Relationship Note": "Quan hệ / ghi chú",
     "Register / Nuance": "Sắc thái / mức độ",

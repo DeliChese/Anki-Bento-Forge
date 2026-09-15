@@ -13,6 +13,7 @@ _CHINESE_JSON_TEMPLATE = """{
   "traditional": "學習",
   "pinyin": "xuéxí",
   "meaning": "học tập",
+  "part_of_speech": "động từ",
   "radical_mindmap": {"characters":[{"character":"学","components":[{"glyph":"子","name":"bộ Tử"}]},{"character":"习","components":[{"glyph":"习","name":"bộ Tập"}]}]},
   "usage_pattern": "在 + nơi chốn + 学习 + nội dung",
   "usage_note": "Không dùng 学习 để chỉ biết một người.",
@@ -45,7 +46,7 @@ MẪU:
 {_CHINESE_JSON_TEMPLATE}
 
 LUẬT:
-1. Đủ 27 key; field tùy chọn không hữu ích = "". Ưu tiên 搭配, classifier có lexical value, result/directional complement, separable verb, register và word-class ambiguity; không tuyệt đối hóa kiểu “觉得 không dùng trang trọng” hay sinh 很 + tính từ chỉ để đủ collocation.
+1. Đủ 28 key; field tùy chọn không hữu ích = "". Ưu tiên 搭配, classifier có lexical value, result/directional complement, separable verb và register; không tuyệt đối hóa kiểu “觉得 không dùng trang trọng” hay sinh 很 + tính từ chỉ để đủ collocation.
 2. Sinh đủ 4 ví dụ tự nhiên, 5–12 từ, cùng nghĩa ngữ cảnh và đúng cấp HSK; mỗi ví dụ dùng một khung ngữ pháp/mục đích câu khác nhau.
 3. KIỂM: giản/thể cùng từ; pinyin dấu thanh — ví dụ ghi đúng biến điệu ngữ cảnh (一/不, hai thanh 3 liền), pinyin từ gốc giữ âm từ điển; danh từ kèm lượng từ; bản dịch đúng câu; từ đích có trong ví dụ.
 4. Bỏ "TỪ ĐÃ CÓ", giữ thứ tự văn bản; không bịa nghĩa/cách dùng.
@@ -59,6 +60,7 @@ _CHINESE_JSON_TEMPLATE_EN = """{
   "traditional": "學習",
   "pinyin": "xuéxí",
   "meaning": "to study",
+  "part_of_speech": "verb",
   "radical_mindmap": {"characters":[{"character":"学","components":[{"glyph":"子","name":"child radical"}]},{"character":"习","components":[{"glyph":"习","name":"practice radical"}]}]},
   "usage_pattern": "在 + place + 学习 + subject",
   "usage_note": "Do not use 学习 to mean know a person.",
@@ -91,11 +93,11 @@ TEMPLATE:
 {_CHINESE_JSON_TEMPLATE_EN}
 
 RULES:
-1. Fill all 27 keys; optional low-value fields = "". Prioritize 搭配, useful classifiers, result/directional complements, separable verbs, register, and word-class ambiguity; do not generate 很 + adjective merely to fill collocations.
+1. Fill all 28 keys; optional low-value fields = "". Prioritize 搭配, useful classifiers, result/directional complements, separable verbs, register, and word-class ambiguity; do not generate 很 + adjective merely to fill collocations.
 2. Write all 4 natural 5–12-word examples at the same HSK and contextual sense; each must use a different grammar frame or sentence purpose.
 3. CHECK simplified/traditional match; tone-marked pinyin with contextual sandhi (一/不, 3rd+3rd) in examples, headword keeps dictionary tone; nouns get a classifier; exact translation; target in each example.
 4. Skip "EXISTING WORDS", preserve text order, and never invent usage.
-5. Keep radical_mindmap compact: one item per Han character (≤12); every component has glyph and English name only (at most 3 direct radicals/components). Do not output pinyin, meaning, role, or etymology.
+5. radical_mindmap: one item per Han character (≤12), components only glyph + English name (≤3); no pinyin/meaning/role/etymology.
 
 OUTPUT: Plain JSON array only; end with {{"_comment":"≤15 words"}}.""" + VOCAB_QUALITY_V2_EN
 

@@ -10,7 +10,7 @@ LANG_CONFIG = {
         "AnkiTool English V17.0 (Add-on)",
     ],
     "all_fields": [
-        "Front", "Pronunciation", "Meaning", "Usage Pattern", "Usage Note", "Collocation", "Semantic Group", "Relationship Note", "Register / Nuance", "Related Terms", "CEFR Level", "Topic",
+        "Front", "Pronunciation", "Meaning", "Part of Speech", "Usage Pattern", "Usage Note", "Collocation", "Semantic Group", "Relationship Note", "Register / Nuance", "Related Terms", "CEFR Level", "Topic",
         "Example", "Example Fill", "Example Pronunciation", "Example in Vietnamese", "Vocab Audio", "Example Audio",
         "Example2", "Example2 Fill", "Example2 Pronunciation", "Example2 in Vietnamese", "Example2 Audio",
         "Example3", "Example3 Pronunciation", "Example3 in Vietnamese", "Example3 Audio",
@@ -23,6 +23,7 @@ LANG_CONFIG = {
         "pronunciation": "Pronunciation",
         "ipa": "Pronunciation",
         "meaning": "Meaning",
+        "part_of_speech": "Part of Speech",
         "usage_pattern": "Usage Pattern",
         "usage_note": "Usage Note",
         "collocation": "Collocation",

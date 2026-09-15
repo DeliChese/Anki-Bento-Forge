@@ -2564,6 +2564,38 @@ _TRANSLATIONS = {
         "vi": "🧠 Model:",
         "en": "🧠 Model:",
     },
+    "ai_set_refresh_models_tip": {
+        "vi": "Đồng bộ lại danh sách model từ API của nhà cung cấp.",
+        "en": "Refresh the model list from the provider API.",
+    },
+    "ai_set_refresh_models_accessible": {
+        "vi": "Đồng bộ danh sách model",
+        "en": "Refresh model catalog",
+    },
+    "ai_set_models_builtin": {
+        "vi": "Đang dùng danh sách tích hợp; Bento sẽ tự kiểm tra model mới.",
+        "en": "Using the built-in list; Bento will automatically check for new models.",
+    },
+    "ai_set_models_cached": {
+        "vi": "Đã nạp {count} model từ catalog đã lưu; sẽ tự làm mới mỗi ngày.",
+        "en": "Loaded {count} cached models; the catalog refreshes automatically each day.",
+    },
+    "ai_set_models_syncing": {
+        "vi": "Đang đồng bộ catalog model trong nền…",
+        "en": "Refreshing the model catalog in the background…",
+    },
+    "ai_set_models_synced": {
+        "vi": "Đã đồng bộ {count} model từ API.",
+        "en": "Synced {count} models from the API.",
+    },
+    "ai_set_models_need_key": {
+        "vi": "Nhập API key để Bento tự tải catalog model của provider này.",
+        "en": "Enter an API key so Bento can fetch this provider's model catalog.",
+    },
+    "ai_set_models_sync_failed": {
+        "vi": "Không tải được catalog; danh sách tích hợp/cached vẫn được giữ nguyên.",
+        "en": "Catalog refresh failed; the built-in/cached list remains available.",
+    },
     "ai_set_review_example_model_label": {
         "vi": "✨ Model tạo lại ví dụ:",
         "en": "✨ Example regeneration model:",

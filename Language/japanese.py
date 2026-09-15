@@ -12,7 +12,7 @@ LANG_CONFIG = {
         "Mẫu Từ Vựng Tiếng Nhật V14.0 (Add-on)",
     ],
     "all_fields": [
-        "Front", "Meaning", "Usage Pattern", "Usage Note", "Collocation", "Semantic Group", "Relationship Note", "Register / Nuance", "Related Terms", "Furigana", "Sino-Vietnamese",
+        "Front", "Meaning", "Part of Speech", "Usage Pattern", "Usage Note", "Collocation", "Semantic Group", "Relationship Note", "Register / Nuance", "Related Terms", "Furigana", "Sino-Vietnamese",
         "JLPT Level", "Topic",
         "Example", "Example Fill", "Example Reading", "Example in Vietnamese", "Vocab Audio", "Example Audio",
         "Example2", "Example2 Fill", "Example2 Reading", "Example2 in Vietnamese", "Example2 Audio",
@@ -23,6 +23,7 @@ LANG_CONFIG = {
     "json_field_map": {
         "front":                "Front",
         "meaning":              "Meaning",
+        "part_of_speech":       "Part of Speech",
         "usage_pattern":        "Usage Pattern",
         "usage_note":           "Usage Note",
         "collocation":          "Collocation",

@@ -9,6 +9,7 @@ _ENGLISH_JSON_TEMPLATE = """{
   "front": "advice",
   "pronunciation": "/ədˈvaɪs/",
   "meaning": "lời khuyên",
+  "part_of_speech": "danh từ không đếm được",
   "usage_pattern": "advice on + N / a piece of advice",
   "usage_note": "Không đếm được; không dùng an advice.",
   "collocation": "seek advice — xin lời khuyên",
@@ -35,7 +36,7 @@ MẪU:
 {_ENGLISH_JSON_TEMPLATE}
 
 LUẬT:
-1. Đủ 20 key; lemma + IPA Anh-Anh (granted /ˈɡrɑːntɪd/, không /ˈɡræntɪd/); field tùy chọn không hữu ích = ""; giữ một nghĩa đúng ngữ cảnh.
+1. Đủ 21 key; lemma + IPA Anh-Anh (granted /ˈɡrɑːntɪd/, không /ˈɡræntɪd/); field tùy chọn không hữu ích = ""; giữ một nghĩa đúng ngữ cảnh.
 2. Ưu tiên complementation, countability, transitivity và collocation/register như depend heavily on/seek advice/genuinely interested; micro-note không lặp frame; take someone for granted chỉ là điền khe, KHÔNG phải collocation.
 3. Sinh đủ 4 ví dụ tự nhiên, 5–12 từ, cùng sense/CEFR và mỗi ví dụ có khung ngữ pháp hoặc mục đích câu khác nhau. Bỏ "EXISTING WORDS"; không bịa cách dùng.
 
@@ -46,6 +47,7 @@ _ENGLISH_JSON_TEMPLATE_EN = """{
   "front": "advice",
   "pronunciation": "/ədˈvaɪs/",
   "meaning": "guidance about what somebody should do",
+  "part_of_speech": "noun; uncountable",
   "usage_pattern": "advice on + N / a piece of advice",
   "usage_note": "Uncountable; never use an advice.",
   "collocation": "seek advice — ask for guidance",
@@ -72,7 +74,7 @@ TEMPLATE:
 {_ENGLISH_JSON_TEMPLATE_EN}
 
 RULES:
-1. Fill all 20 keys; dictionary form + British IPA (granted /ˈɡrɑːntɪd/, never /ˈɡræntɪd/); optional low-value fields = "".
+1. Fill all 21 keys; dictionary form + British IPA (granted /ˈɡrɑːntɪd/, never /ˈɡræntɪd/); optional low-value fields = "".
 2. Prioritize complementation, countability, transitivity, register, and lexical collocation; take someone for granted is only a slot filler, not a collocation.
 3. Write all 4 natural 5–12-word examples at this sense's CEFR, each with a different grammar frame or sentence purpose. Skip "EXISTING WORDS" and never invent usage.
 

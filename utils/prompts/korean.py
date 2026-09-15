@@ -12,6 +12,7 @@ _KOREAN_JSON_TEMPLATE = """{
   "front": "먹다",
   "romanization": "meokda",
   "meaning": "ăn",
+  "part_of_speech": "động từ",
   "usage_pattern": "N을/를 먹다",
   "usage_note": "드시다 là kính ngữ của 먹다.",
   "collocation": "밥을 먹다 — ăn cơm",
@@ -43,7 +44,7 @@ MẪU:
 {_KOREAN_JSON_TEMPLATE}
 
 LUẬT:
-1. Đủ 25 key; field tùy chọn không hữu ích = "". Ưu tiên 조사, 어미, speech level, honorific constraint như N께 N을/를 드리다, transitivity và verb–noun/adjective pairing; 묻다: 길을 묻다, KHÔNG 질문을 묻다.
+1. Đủ 26 key; field tùy chọn không hữu ích = "". Ưu tiên 조사, 어미, speech level, honorific constraint như N께 N을/를 드리다, transitivity và verb–noun/adjective pairing; 묻다: 길을 묻다, KHÔNG 질문을 묻다.
 2. Sinh đủ 4 ví dụ tự nhiên, 5–12 từ, cùng nghĩa ngữ cảnh và đúng cấp TOPIK; mỗi ví dụ dùng một khung ngữ pháp/mục đích câu khác nhau.
 3. KIỂM: bản dịch đúng câu; từ đích có thể chia; Romanization Revised không gạch nối.
 4. Bỏ "TỪ ĐÃ CÓ", giữ thứ tự văn bản; không bịa nghĩa/cách dùng.
@@ -55,6 +56,7 @@ _KOREAN_JSON_TEMPLATE_EN = """{
   "front": "먹다",
   "romanization": "meokda",
   "meaning": "to eat",
+  "part_of_speech": "verb",
   "usage_pattern": "N을/를 먹다",
   "usage_note": "드시다 is the honorific form of 먹다.",
   "collocation": "밥을 먹다 — eat a meal",
@@ -86,7 +88,7 @@ TEMPLATE:
 {_KOREAN_JSON_TEMPLATE_EN}
 
 RULES:
-1. Fill all 25 keys; optional low-value fields = "". Prioritize 조사, 어미, speech level, honorific constraints, transitivity, and verb–noun/adjective pairing; 묻다: 길을 묻다, NEVER 질문을 묻다.
+1. Fill all 26 keys; optional low-value fields = "". Prioritize 조사, 어미, speech level, honorific constraints, transitivity, and verb–noun/adjective pairing; 묻다: 길을 묻다, NEVER 질문을 묻다.
 2. Write all 4 natural 5–12-word examples at the same TOPIK and contextual sense; each must use a different grammar frame or sentence purpose.
 3. CHECK exact translation, inflected target use, and Revised Romanization without hyphens.
 4. Skip "EXISTING WORDS", preserve text order, and never invent usage.

@@ -586,8 +586,8 @@ class AnkiSmartFactory(QDialog):
 
     def _setup_ui(self):
         root = QVBoxLayout(self)
-        root.setContentsMargins(10, 6, 10, 10)
-        root.setSpacing(8)
+        root.setContentsMargins(8, 6, 8, 8)
+        root.setSpacing(6)
 
         # ── TOP TOOLBAR: giao diện + ngôn ngữ + chia cửa sổ ─────────
         top = QHBoxLayout()
@@ -617,14 +617,14 @@ class AnkiSmartFactory(QDialog):
         top.addStretch()
         self.lbl_tip = QLabel(t("lbl_tip"))
         self.lbl_tip.setProperty("class", "dim")
-        # The workbench is fixed at 6:4, so a drag instruction is obsolete.
+        # The workbench is fixed as two side-by-side stages at 60:40.
         self.lbl_tip.setVisible(False)
         top.addWidget(self.lbl_tip)
         root.addLayout(top)
 
-        # ── MAIN SPLITTER (chia đôi, kéo thả 3:7, thích ứng) ──
-        # Fixed Blueprint grid: production uses 60%, review/import uses 40%.
-        # A layout (rather than QSplitter) prevents accidental 7:3 states.
+        # ── MAIN WORKSPACE: left/right columns at 60:40 ──
+        # Production owns 60% and review/import owns 40% of the available width.
+        # A layout keeps the workflow ratio stable across window sizes.
         self.main_columns = QHBoxLayout()
         self.main_columns.setContentsMargins(0, 0, 0, 0)
         self.main_columns.setSpacing(10)
@@ -676,6 +676,7 @@ class AnkiSmartFactory(QDialog):
         )
         self.btn_mode_vocab.clicked.connect(lambda checked: self._select_mode(False))
         self.btn_mode_vocab.setToolTip(t("factory_card_type_tip"))
+        self.btn_mode_vocab.setMinimumWidth(0)
         mode_layout.addWidget(self.btn_mode_vocab)
         self.btn_mode_grammar = QPushButton(t("btn_mode_grammar"))
         self.btn_mode_grammar.setCheckable(True)
@@ -686,6 +687,7 @@ class AnkiSmartFactory(QDialog):
         )
         self.btn_mode_grammar.clicked.connect(lambda checked: self._select_mode(True))
         self.btn_mode_grammar.setToolTip(t("factory_card_type_tip"))
+        self.btn_mode_grammar.setMinimumWidth(0)
         mode_layout.addWidget(self.btn_mode_grammar)
         self.btn_mode_collocation = QPushButton(t("btn_mode_collocation"))
         self.btn_mode_collocation.setCheckable(True)
@@ -698,26 +700,29 @@ class AnkiSmartFactory(QDialog):
             lambda checked: self._select_card_kind("collocation")
         )
         self.btn_mode_collocation.setToolTip(t("factory_card_type_tip"))
+        self.btn_mode_collocation.setMinimumWidth(0)
         mode_layout.addWidget(self.btn_mode_collocation)
         self.mode_grp.setLayout(mode_layout)
 
         # Blueprint: keep language and the AI router on one compact control row.
         selector_row = QHBoxLayout()
         selector_row.setSpacing(8)
-        selector_row.addWidget(self.lang_grp, 2)
-        selector_row.addWidget(self.mode_grp, 3)
+        selector_row.addWidget(self.lang_grp, 1)
+        selector_row.addWidget(self.mode_grp, 2)
         left.addLayout(selector_row)
 
         # Deck + file
-        bar = QHBoxLayout()
+        bar = QGridLayout()
+        bar.setHorizontalSpacing(6)
+        bar.setVerticalSpacing(4)
         self.deck_chooser = QComboBox()
         self.deck_chooser.addItems(mw.col.decks.all_names())
         self.deck_chooser.currentTextChanged.connect(self._on_deck_changed)
         self.lbl_deck = QLabel(t("deck_label"))
-        bar.addWidget(self.lbl_deck, 0)
-        bar.addWidget(self.deck_chooser, 1)
+        bar.addWidget(self.lbl_deck, 0, 0)
+        bar.addWidget(self.deck_chooser, 0, 1)
         self.lbl_duplicate_scope = QLabel(t("duplicate_scope_label"))
-        bar.addWidget(self.lbl_duplicate_scope, 0)
+        bar.addWidget(self.lbl_duplicate_scope, 1, 0)
         self.cbo_duplicate_scope = QComboBox()
         self.cbo_duplicate_scope.addItem(
             t("duplicate_scope_collection"), _DUPLICATE_SCOPE_COLLECTION,
@@ -727,17 +732,19 @@ class AnkiSmartFactory(QDialog):
         )
         self.cbo_duplicate_scope.setToolTip(t("duplicate_scope_tip"))
         self.cbo_duplicate_scope.currentIndexChanged.connect(self._on_duplicate_scope_changed)
-        bar.addWidget(self.cbo_duplicate_scope, 0)
+        bar.addWidget(self.cbo_duplicate_scope, 1, 1, 1, 3)
         self.btn_refresh_deck = QPushButton("🔄")
         self.btn_refresh_deck.setToolTip(t("btn_refresh_deck_tip"))
         self.btn_refresh_deck.setMaximumWidth(36)
         self.btn_refresh_deck.clicked.connect(self._refresh_deck_chooser)
-        bar.addWidget(self.btn_refresh_deck, 0)
+        bar.addWidget(self.btn_refresh_deck, 0, 2)
         self.btn_manage_deck = QPushButton(t("deck_manage_btn"))
         self.btn_manage_deck.setProperty("class", "info")
         self.btn_manage_deck.setToolTip(t("btn_manage_deck_tip"))
         self.btn_manage_deck.clicked.connect(self._open_deck_manager)
-        bar.addWidget(self.btn_manage_deck, 0)
+        self.btn_manage_deck.setMinimumWidth(0)
+        bar.addWidget(self.btn_manage_deck, 0, 3)
+        bar.setColumnStretch(1, 1)
         self.btn_load = QPushButton(t("open_file_btn"))
         self.btn_load.setProperty("class", "info")
         self.btn_load.clicked.connect(self._load_from_file)
@@ -772,7 +779,9 @@ class AnkiSmartFactory(QDialog):
         ai_main = QVBoxLayout()
 
         # Row 1: Buttons
-        ai_bar = QHBoxLayout()
+        ai_bar = QGridLayout()
+        ai_bar.setHorizontalSpacing(6)
+        ai_bar.setVerticalSpacing(4)
 
         self.btn_ai_settings = QPushButton(t("ai_settings_btn"))
         self.btn_ai_settings.setStyleSheet(
@@ -780,7 +789,8 @@ class AnkiSmartFactory(QDialog):
             "font-weight:bold;border-radius:6px;border:none;"
         )
         self.btn_ai_settings.clicked.connect(self._show_ai_settings)
-        ai_bar.addWidget(self.btn_ai_settings)
+        self.btn_ai_settings.setMinimumWidth(0)
+        ai_bar.addWidget(self.btn_ai_settings, 0, 0)
 
         self.btn_ai_clear_text = QPushButton(t("ai_clear_text_btn"))
         self.btn_ai_clear_text.setStyleSheet(
@@ -788,7 +798,8 @@ class AnkiSmartFactory(QDialog):
             "font-weight:bold;border-radius:6px;border:none;"
         )
         self.btn_ai_clear_text.clicked.connect(self._ai_clear_text)
-        ai_bar.addWidget(self.btn_ai_clear_text)
+        self.btn_ai_clear_text.setMinimumWidth(0)
+        ai_bar.addWidget(self.btn_ai_clear_text, 1, 0)
 
         self.btn_ai_extract = QPushButton(t("ai_extract_btn"))
         self.btn_ai_extract.setStyleSheet(
@@ -797,7 +808,8 @@ class AnkiSmartFactory(QDialog):
         )
         self.btn_ai_extract.clicked.connect(self._ai_extract)
         self.btn_ai_extract.setEnabled(True)
-        ai_bar.addWidget(self.btn_ai_extract)
+        self.btn_ai_extract.setMinimumWidth(0)
+        ai_bar.addWidget(self.btn_ai_extract, 0, 1)
 
         self.btn_ai_card_chat = QPushButton(t("ai_card_chat_btn"))
         self.btn_ai_card_chat.setStyleSheet(
@@ -806,15 +818,13 @@ class AnkiSmartFactory(QDialog):
         )
         self.btn_ai_card_chat.setToolTip(t("ai_card_chat_tip"))
         self.btn_ai_card_chat.clicked.connect(self._open_card_creation_chat)
-        ai_bar.addWidget(self.btn_ai_card_chat)
+        self.btn_ai_card_chat.setMinimumWidth(0)
+        ai_bar.addWidget(self.btn_ai_card_chat, 0, 2)
 
-        # Clear belongs after the production actions, not before the primary
-        # Workshop entry.
-        ai_bar.removeWidget(self.btn_ai_clear_text)
-        ai_bar.addWidget(self.btn_ai_clear_text)
         self.btn_ai_clear_text.setVisible(False)
-        ai_bar.setStretchFactor(self.btn_ai_extract, 3)
-        ai_bar.setStretchFactor(self.btn_ai_clear_text, 1)
+        ai_bar.setColumnStretch(0, 1)
+        ai_bar.setColumnStretch(1, 2)
+        ai_bar.setColumnStretch(2, 1)
 
         self.btn_ai_stop = QPushButton(t("ai_stop_btn"))
         self.btn_ai_stop.setStyleSheet(
@@ -824,7 +834,8 @@ class AnkiSmartFactory(QDialog):
         self.btn_ai_stop.setToolTip(t("btn_ai_stop_tip"))
         self.btn_ai_stop.clicked.connect(self._cancel_ai_request)
         self.btn_ai_stop.setVisible(False)
-        ai_bar.addWidget(self.btn_ai_stop)
+        self.btn_ai_stop.setMinimumWidth(0)
+        ai_bar.addWidget(self.btn_ai_stop, 1, 1)
 
         self.btn_history_cancel = QPushButton(t("history_scan_cancel_btn"))
         self.btn_history_cancel.setStyleSheet(
@@ -834,7 +845,8 @@ class AnkiSmartFactory(QDialog):
         self.btn_history_cancel.setToolTip(t("history_scan_cancel_tip"))
         self.btn_history_cancel.clicked.connect(self._cancel_history_scan)
         self.btn_history_cancel.setVisible(False)
-        ai_bar.addWidget(self.btn_history_cancel)
+        self.btn_history_cancel.setMinimumWidth(0)
+        ai_bar.addWidget(self.btn_history_cancel, 1, 2)
 
         self.lbl_history_status = QLabel("")
         self.lbl_history_status.setProperty("class", "dim")
@@ -884,21 +896,25 @@ class AnkiSmartFactory(QDialog):
         production_layout.addWidget(self.source_grp, 4)
 
         # Row 3: Custom instruction
-        instr_bar = QHBoxLayout()
+        instr_bar = QGridLayout()
+        instr_bar.setHorizontalSpacing(6)
+        instr_bar.setVerticalSpacing(4)
         self.lbl_instruction = QLabel(t("ai_instruction_label"))
-        instr_bar.addWidget(self.lbl_instruction)
+        instr_bar.addWidget(self.lbl_instruction, 0, 0)
         self.ai_instruction = QLineEdit()
         self.ai_instruction.setPlaceholderText(t("ai_instruction_placeholder"))
         self.ai_instruction.setStyleSheet("font-size:12px;padding:4px;")
-        instr_bar.addWidget(self.ai_instruction, 1)
+        self.ai_instruction.setMinimumWidth(0)
+        instr_bar.addWidget(self.ai_instruction, 0, 1)
         self.lbl_ai_card_count = QLabel(t("ai_card_count_label"))
-        instr_bar.addWidget(self.lbl_ai_card_count)
+        instr_bar.addWidget(self.lbl_ai_card_count, 1, 0)
         self.spn_ai_card_count = QSpinBox()
         self.spn_ai_card_count.setRange(SMALL_RUN_MIN_CARDS, SMALL_RUN_MAX_CARDS)
         self.spn_ai_card_count.setValue(SMALL_RUN_DEFAULT_CARDS)
         self.spn_ai_card_count.setAccessibleName(t("ai_card_count_label"))
         self.spn_ai_card_count.valueChanged.connect(self._update_ai_extract_button_label)
-        instr_bar.addWidget(self.spn_ai_card_count)
+        instr_bar.addWidget(self.spn_ai_card_count, 1, 1)
+        instr_bar.setColumnStretch(1, 1)
         self._update_ai_extract_button_label()
         self.lbl_instruction.setVisible(True)
         self.ai_instruction.setVisible(True)
@@ -934,12 +950,19 @@ class AnkiSmartFactory(QDialog):
         self.json_grp.setObjectName("forgeArtifactPanel")
         json_layout = QVBoxLayout(self.json_grp)
         json_layout.setSpacing(5)
-        json_tools = QHBoxLayout()
-        json_tools.addWidget(self.btn_load)
-        json_tools.addWidget(self.btn_sample)
-        json_tools.addWidget(self.btn_history)
-        json_tools.addWidget(self.btn_json_lock)
-        json_tools.addStretch(1)
+        json_tools = QGridLayout()
+        json_tools.setHorizontalSpacing(6)
+        json_tools.setVerticalSpacing(4)
+        for button in (
+            self.btn_load, self.btn_sample, self.btn_history, self.btn_json_lock,
+        ):
+            button.setMinimumWidth(0)
+        json_tools.addWidget(self.btn_load, 0, 0)
+        json_tools.addWidget(self.btn_sample, 0, 1)
+        json_tools.addWidget(self.btn_history, 1, 0)
+        json_tools.addWidget(self.btn_json_lock, 1, 1)
+        json_tools.setColumnStretch(0, 1)
+        json_tools.setColumnStretch(1, 1)
         json_layout.addLayout(json_tools)
         self.lbl_json_label = QLabel(t("json_input_label"))
         self.lbl_json_label.setProperty("class", "dim")
@@ -973,7 +996,9 @@ class AnkiSmartFactory(QDialog):
         gl.addWidget(self.lbl_topic, 2, 0)
         gl.addWidget(self.txt_topic, 2, 1)
 
-        audio_box = QHBoxLayout()
+        audio_box = QGridLayout()
+        audio_box.setHorizontalSpacing(6)
+        audio_box.setVerticalSpacing(2)
         self.chk_audio_vocab = QCheckBox(t("filter_audio_vocab"))
         self.chk_audio_vocab.setChecked(True)
         self.chk_audio_ex1 = QCheckBox(t("filter_audio_ex1"))
@@ -984,11 +1009,11 @@ class AnkiSmartFactory(QDialog):
         self.chk_audio_ex3.setChecked(True)
         self.chk_audio_ex4 = QCheckBox(t("filter_audio_ex4"))
         self.chk_audio_ex4.setChecked(True)
-        for c in (
+        for index, c in enumerate((
             self.chk_audio_vocab, self.chk_audio_ex1, self.chk_audio_ex2,
             self.chk_audio_ex3, self.chk_audio_ex4,
-        ):
-            audio_box.addWidget(c)
+        )):
+            audio_box.addWidget(c, index // 3, index % 3)
         self.lbl_audio = QLabel(t("filter_audio_label"))
         gl.addWidget(self.lbl_audio, 3, 0)
         gl.addLayout(audio_box, 3, 1)
@@ -1023,36 +1048,42 @@ class AnkiSmartFactory(QDialog):
         self.btn_diff_meaning.clicked.connect(self._show_diff_meaning_report)
 
         # Hàng ngang 3 nút
-        action_bar = QHBoxLayout()
-        action_bar.setSpacing(6)
-        action_bar.addWidget(self.btn_verify, 1)
-        action_bar.addWidget(self.btn_rebuild, 1)
-        action_bar.addWidget(self.btn_bulk_upgrade, 1)
-        action_bar.addWidget(self.btn_diff_meaning, 1)
+        action_bar = QGridLayout()
+        action_bar.setHorizontalSpacing(6)
+        action_bar.setVerticalSpacing(4)
+        action_bar.addWidget(self.btn_verify, 0, 0)
+        action_bar.addWidget(self.btn_rebuild, 0, 1)
+        action_bar.addWidget(self.btn_bulk_upgrade, 1, 0)
+        action_bar.addWidget(self.btn_diff_meaning, 1, 1)
+        action_bar.setColumnStretch(0, 1)
+        action_bar.setColumnStretch(1, 1)
         gl.addLayout(action_bar, 4, 0, 1, 2)
 
         # ── Voice Selection ───────────────────────────────
         self.voice_grp = QGroupBox(t("voice_group_title"))
         vgl = QVBoxLayout()
-        voice_row = QHBoxLayout()
+        voice_row = QGridLayout()
+        voice_row.setHorizontalSpacing(6)
+        voice_row.setVerticalSpacing(4)
         self.lbl_voice = QLabel(t("voice_label"))
-        voice_row.addWidget(self.lbl_voice, 0)
+        voice_row.addWidget(self.lbl_voice, 0, 0)
         self.cbo_voice = QComboBox()
         self.cbo_voice.setMinimumWidth(150)
         self.cbo_voice.currentIndexChanged.connect(self._on_voice_changed)
-        voice_row.addWidget(self.cbo_voice, 1)
+        voice_row.addWidget(self.cbo_voice, 0, 1, 1, 3)
         self.btn_preview_voice = QPushButton(t("voice_preview_btn"))
         self.btn_preview_voice.setProperty("class", "purple")
         self.btn_preview_voice.clicked.connect(self._preview_voice)
-        voice_row.addWidget(self.btn_preview_voice, 0)
+        self.btn_preview_voice.setMinimumWidth(0)
+        voice_row.addWidget(self.btn_preview_voice, 0, 4)
         self.btn_tts_settings = QPushButton(t("tts_settings_btn"))
         self.btn_tts_settings.setProperty("class", "ghost")
         self.btn_tts_settings.setToolTip(t("tts_settings_tip"))
         self.btn_tts_settings.clicked.connect(self._open_tts_settings)
-        voice_row.addWidget(self.btn_tts_settings, 0)
-        voice_row.addSpacing(12)
+        self.btn_tts_settings.setMinimumWidth(0)
+        voice_row.addWidget(self.btn_tts_settings, 0, 5)
         self.lbl_speed = QLabel(t("voice_speed_label"))
-        voice_row.addWidget(self.lbl_speed, 0)
+        voice_row.addWidget(self.lbl_speed, 1, 0)
         self.spin_speed = QDoubleSpinBox()
         self.spin_speed.setRange(0.25, 4.0)
         self.spin_speed.setSingleStep(0.05)
@@ -1062,27 +1093,32 @@ class AnkiSmartFactory(QDialog):
         self.spin_speed.setMinimumWidth(70)
         self.spin_speed.setToolTip(t("spin_speed_tip"))
         self.spin_speed.valueChanged.connect(self._on_speed_changed)
-        voice_row.addWidget(self.spin_speed, 0)
+        voice_row.addWidget(self.spin_speed, 1, 1)
+        voice_row.setColumnStretch(1, 1)
         vgl.addLayout(voice_row)
         # ── Chế độ học mặc định (đồng bộ với Study now của Onigiri) ──
-        study_row = QHBoxLayout()
+        study_row = QGridLayout()
+        study_row.setHorizontalSpacing(6)
+        study_row.setVerticalSpacing(4)
         self.lbl_study_mode = QLabel(t("study_mode_label"))
-        study_row.addWidget(self.lbl_study_mode, 0)
+        study_row.addWidget(self.lbl_study_mode, 0, 0)
         self.cbo_study_mode = QComboBox()
         self.cbo_study_mode.setMinimumWidth(130)
         self.cbo_study_mode.currentIndexChanged.connect(self._on_study_mode_changed)
-        study_row.addWidget(self.cbo_study_mode, 1)
-        study_row.addSpacing(12)
+        study_row.addWidget(self.cbo_study_mode, 0, 1)
         self.lbl_srs_layout = QLabel(t("srs_layout_label"))
-        study_row.addWidget(self.lbl_srs_layout, 0)
+        study_row.addWidget(self.lbl_srs_layout, 0, 2)
         self.cbo_srs_layout = QComboBox()
         self.cbo_srs_layout.setMinimumWidth(155)
         self.cbo_srs_layout.currentIndexChanged.connect(self._on_srs_layout_changed)
-        study_row.addWidget(self.cbo_srs_layout, 1)
+        study_row.addWidget(self.cbo_srs_layout, 0, 3)
         self.btn_migrate_srs = QPushButton(t("srs_migrate_btn"))
         self.btn_migrate_srs.setProperty("class", "info")
         self.btn_migrate_srs.clicked.connect(self._migrate_current_deck_srs)
-        study_row.addWidget(self.btn_migrate_srs, 0)
+        self.btn_migrate_srs.setMinimumWidth(0)
+        study_row.addWidget(self.btn_migrate_srs, 1, 2, 1, 2)
+        study_row.setColumnStretch(1, 1)
+        study_row.setColumnStretch(3, 1)
         vgl.addLayout(study_row)
         self.voice_grp.setLayout(vgl)
         left.addWidget(self.voice_grp)
@@ -1092,7 +1128,7 @@ class AnkiSmartFactory(QDialog):
         self.left_scroll.setWidgetResizable(True)
         self.left_scroll.setFrameShape(QFrame.Shape.NoFrame)
         self.left_scroll.setHorizontalScrollBarPolicy(
-            Qt.ScrollBarPolicy.ScrollBarAlwaysOff
+            Qt.ScrollBarPolicy.ScrollBarAsNeeded
         )
         self.left_scroll.setVerticalScrollBarPolicy(
             Qt.ScrollBarPolicy.ScrollBarAsNeeded
@@ -1248,7 +1284,7 @@ class AnkiSmartFactory(QDialog):
         self.right_scroll.setWidgetResizable(True)
         self.right_scroll.setFrameShape(QFrame.Shape.NoFrame)
         self.right_scroll.setHorizontalScrollBarPolicy(
-            Qt.ScrollBarPolicy.ScrollBarAlwaysOff
+            Qt.ScrollBarPolicy.ScrollBarAsNeeded
         )
         self.right_scroll.setVerticalScrollBarPolicy(
             Qt.ScrollBarPolicy.ScrollBarAsNeeded
@@ -1294,6 +1330,39 @@ class AnkiSmartFactory(QDialog):
         # Đồng bộ toàn bộ chuỗi hiển thị theo ngôn ngữ UI hiện tại
         self._retranslate_ui()
         self._configure_accessibility()
+
+    def _configure_compact_icon_actions(self):
+        """Use compact icons for secondary actions while retaining full semantics."""
+        actions = (
+            ("btn_theme", "🎨", "btn_theme", "btn_theme_tip"),
+            ("btn_lang_toggle", "🌐", "btn_lang_toggle", "btn_lang_toggle_tip"),
+            ("btn_snap_max", "⛶", "btn_snap_max", "btn_snap_max_tip"),
+            ("btn_manage_deck", "🗂", "deck_manage_btn", "btn_manage_deck_tip"),
+            ("btn_load", "📂", "open_file_btn", "open_file_btn"),
+            ("btn_sample", "🧪", "sample_json_btn", "sample_json_btn"),
+            ("btn_history", "◷", "btn_history", "btn_history_tip"),
+            ("btn_ai_settings", "⚙", "ai_settings_btn", "ai_settings_btn"),
+            ("btn_ai_attach", "📎", "btn_ai_attach", "btn_ai_attach_tip"),
+            ("btn_ai_attach_clear", "✕", "btn_ai_attach_clear", "btn_ai_attach_clear_tip"),
+            ("btn_manage_ai_topics", "🗂", "topic_scope_manage", "topic_scope_manage_tip"),
+            ("btn_verify", "✓", "btn_verify", "btn_verify_tip"),
+            ("btn_rebuild", "↻", "btn_rebuild", "btn_rebuild_tip"),
+            ("btn_bulk_upgrade", "⬆", "bulk_upgrade_action", "bulk_upgrade_action_tip"),
+            ("btn_diff_meaning", "≠", "btn_diff_meaning", "btn_diff_meaning_tip"),
+            ("btn_preview_voice", "▶", "voice_preview_btn", "voice_preview_btn"),
+            ("btn_tts_settings", "⚙", "tts_settings_btn", "tts_settings_tip"),
+            ("btn_select_all", "☑", "btn_select_all", "btn_select_all_tip"),
+            ("btn_select_none", "☐", "btn_select_none", "btn_select_none_tip"),
+            ("btn_reset_cost", "↺", "btn_reset_cost", "btn_reset_cost"),
+        )
+        for attr, icon, label_key, tooltip_key in actions:
+            button = getattr(self, attr, None)
+            if button is None:
+                continue
+            button.setText(icon)
+            button.setToolTip(t(tooltip_key))
+            button.setAccessibleName(t(label_key))
+            button.setFixedWidth(38)
 
     def _configure_accessibility(self):
         """Keep the main workflow fully reachable by keyboard and screen readers."""
@@ -1599,6 +1668,7 @@ class AnkiSmartFactory(QDialog):
             self.btn_cancel.setText(t("btn_cancel"))
             self.btn_cancel_order.setText(t("btn_cancel_order"))
             self.btn_cancel_order.setToolTip(t("btn_cancel_order_tip"))
+            self._configure_compact_icon_actions()
             self._configure_accessibility()
 
             # Counts theo dữ liệu hiện tại
@@ -2342,7 +2412,7 @@ class AnkiSmartFactory(QDialog):
 
     def _on_preview_done(self, filepath):
         self.btn_preview_voice.setEnabled(True)
-        self.btn_preview_voice.setText(t("voice_preview_btn"))
+        self.btn_preview_voice.setText("▶")
         if filepath and os.path.exists(filepath):
             try:
                 from aqt.sound import av_player

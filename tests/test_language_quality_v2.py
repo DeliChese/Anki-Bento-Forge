@@ -26,6 +26,8 @@ SEMANTIC_KEYS = (
 SEMANTIC_FIELDS = (
     "Semantic Group", "Relationship Note", "Register / Nuance", "Related Terms",
 )
+PART_OF_SPEECH_KEY = "part_of_speech"
+PART_OF_SPEECH_FIELD = "Part of Speech"
 
 
 class _ModelManager:
@@ -93,6 +95,7 @@ def test_prompts_require_four_examples_and_grounded_usage_nuance_for_every_langu
         assert "Bắt buộc đủ Ex1–Ex4" in prompt
         assert "register_nuance tối đa 1 mệnh đề" in prompt
         assert "relationship_note" in prompt
+        assert PART_OF_SPEECH_KEY in prompt
     for prompt in _GRAMMAR_SYSTEM_PROMPTS.values():
         assert "Function → Form → Constraint → Contrast/Error → Variants" in prompt
         assert "usage: 1–2 dòng, tối đa 35 từ" in prompt
@@ -196,6 +199,9 @@ def test_vocab_import_contract_requires_all_four_examples_but_grammar_does_not()
 def test_semantic_context_schema_migrates_and_renders_only_on_vocab_answers():
     for language, cfg in LANG_CONFIG.items():
         schema = json.loads(prompt_config.get_json_template(language, "vocab"))
+        assert PART_OF_SPEECH_KEY in schema
+        assert cfg["json_field_map"][PART_OF_SPEECH_KEY] == PART_OF_SPEECH_FIELD
+        assert PART_OF_SPEECH_FIELD in cfg["all_fields"]
         assert all(key in schema for key in SEMANTIC_KEYS)
         assert tuple(cfg["json_field_map"][key] for key in SEMANTIC_KEYS) == SEMANTIC_FIELDS
         assert all(field in cfg["all_fields"] for field in SEMANTIC_FIELDS)
@@ -206,6 +212,8 @@ def test_semantic_context_schema_migrates_and_renders_only_on_vocab_answers():
         )):
             assert f"{{{{#{field}}}}}" in back
             assert label in back
+        assert f"{{{{#{PART_OF_SPEECH_FIELD}}}}}" in back
+        assert "Từ loại" in back
 
 
 def test_example_field_migration_is_additive_idempotent_and_keeps_card_count():
@@ -225,7 +233,7 @@ def test_example_field_migration_is_additive_idempotent_and_keeps_card_count():
             )
         names = [field["name"] for field in model["flds"]]
         assert len(names) == len(set(names))
-        assert all(field in names for field in ("Example3", "Example4"))
+        assert all(field in names for field in ("Part of Speech", "Example3", "Example4"))
         assert len(model["tmpls"]) == len(LANG_TEMPLATES[language]) // 2
 
     for language, cfg in LANG_GRAMMAR_CONFIG.items():

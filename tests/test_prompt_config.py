@@ -213,9 +213,10 @@ class TestOverrideLifecycle:
         assert all(rule in vocab for rule in ("nghĩa đúng ngữ cảnh", "CEFR", "collocation/register"))
         assert all(rule in grammar for rule in ("form–meaning pair", "TỐI ĐA 2 câu", "<b>…</b>"))
         vocab_schema = json.loads(pc.get_json_template("english", "vocab"))
-        assert len(vocab_schema) == 20
+        assert len(vocab_schema) == 21
         assert all(key in vocab_schema for key in (
-            "semantic_group", "relationship_note", "register_nuance", "related_terms",
+            "part_of_speech", "semantic_group", "relationship_note", "register_nuance",
+            "related_terms",
         ))
         assert len(json.loads(pc.get_json_template("english", "grammar"))) == 15
 

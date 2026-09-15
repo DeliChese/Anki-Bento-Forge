@@ -6,8 +6,18 @@
 
 #### Added
 
+- **Tự đồng bộ catalog model AI** — AI Settings tự tải nền danh sách model từ API chính thức của provider, cache theo profile trong 24 giờ và hợp nhất với preset tích hợp; OpenAI-compatible, DeepSeek, Gemini, Anthropic, OpenRouter, Ollama, LM Studio và endpoint Custom đều có đường discovery phù hợp, đồng thời luôn giữ model người dùng đang chọn.
 - **Kiểm định trùng theo từng nhánh deck** — Factory Language có lựa chọn theo deck: mặc định quét toàn collection, hoặc chỉ quét deck đang chọn cùng toàn bộ deck con. Tuỳ chọn được nhớ riêng cho từng deck, cho phép các giáo trình như HSK có thẻ và lịch ôn độc lập với deck “1000 từ” song song, nhưng vẫn chặn trùng trong chính nhánh giáo trình.
 - **Tạo lại đủ bốn ví dụ với audio tùy chọn** — action Reviewer nay nhận diện cả Ví dụ 1–2 trên template cũ/tùy chỉnh như Ví dụ 3–4. Hộp tạo lại cho chọn giọng và tốc độ theo danh mục/cài đặt Forge; lựa chọn được truyền vào tác vụ TTS nền và lưu cùng phiên bản audio.
+
+#### Changed
+
+- **Từ loại cho Vocabulary bốn ngôn ngữ** — Vocabulary Nhật, Trung, Hàn và Anh nay có field `Part of Speech` additive. Schema/prompt AI yêu cầu khóa `part_of_speech` theo đúng nghĩa đang học, import ánh xạ dữ liệu vào note và template Bento hiển thị nhãn “Từ loại” ở mặt sau; cache prompt được làm mới.
+
+#### Fixed
+
+- **API key sống qua cập nhật Anki** — trên Windows, Bento Forge dùng trực tiếp Credential Manager nên không phụ thuộc gói `keyring` trong Python đi kèm Anki; cấu hình từng ghi `unavailable` cũng tự nối lại key an toàn còn tồn tại theo đúng profile/provider.
+- **Workshop hai cột 60:40** — vùng Sản xuất nằm bên trái và chiếm `60%`, vùng Duyệt/Import nằm bên phải và chiếm `40%` chiều rộng; thao tác phụ trợ dùng icon có tooltip và accessible name song ngữ, trong khi hành động tạo/import quan trọng vẫn giữ nhãn chữ rõ ràng.
 
 ### 2026-09-08 — Phiên bản: `18.3.0` → `18.3.0`
 

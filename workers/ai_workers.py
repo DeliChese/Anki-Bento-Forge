@@ -371,7 +371,7 @@ class AiExtractThread(QThread):
     def __init__(self, text, lang, custom_instruction="", existing_words=None, grammar=False,
                  cancel_event=None, learning_mode="language", card_kind=None,
                  max_cards=SMALL_RUN_DEFAULT_CARDS, history_entries=None,
-                 generation_request=False, topic_scope=""):
+                 generation_request=False, topic_scope="", reference_language=None):
         super().__init__()
         self.text = text
         self.lang = lang
@@ -384,6 +384,7 @@ class AiExtractThread(QThread):
         self.history_entries = list(history_entries or [])
         self.generation_request = bool(generation_request)
         self.topic_scope = str(topic_scope or "").strip()
+        self.reference_language = str(reference_language or "").strip() or None
         self.cancel_event = cancel_event or threading.Event()
 
     def run(self):
@@ -468,6 +469,7 @@ class AiExtractThread(QThread):
                     progress_callback=lambda msg: self.progress.emit(msg),
                     should_abort=self.cancel_event.is_set,
                     generation_request=self.generation_request,
+                    reference_language=self.reference_language,
                 )
                 empty_msg = t("empty_grammar")
             else:
@@ -484,6 +486,7 @@ class AiExtractThread(QThread):
                     should_abort=self.cancel_event.is_set,
                     kind=self.card_kind,
                     generation_request=self.generation_request,
+                    reference_language=self.reference_language,
                 )
                 empty_msg = t(
                     "empty_collocation" if self.card_kind == "collocation" else "empty_vocab"

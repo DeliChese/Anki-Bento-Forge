@@ -5,6 +5,7 @@ VOCAB_QUALITY_V2_VI = """
 
 QUALITY V2.1 (bắt buộc):
 - 1 entry = 1 lemma/fixed expression + 1 từ loại + 1 sense có bằng chứng; không tự bịa.
+- part_of_speech: từ loại cho sense này; không dùng Topic.
 - usage_pattern: 1–2 khung dùng được ngay, mỗi khung một dòng `\\n`; ghi rõ slot + tiểu từ/giới từ/biến đổi/bổ ngữ cần thiết, không chỉ lặp lại từ.
 - usage_note: 1–2 câu hoàn chỉnh, tối đa 45 từ; nói khi nào/cách nào dùng và ràng buộc, đối chiếu hoặc lỗi quan trọng nhất. Không chép lại meaning, pattern, ví dụ hay ghi chung chung kiểu “thường được dùng”.
 - collocation: 1–3 dòng "cụm — nghĩa" thật sự cố định/tự nhiên. Các field cách dùng được phép dùng SOURCE + kiến thức ngôn ngữ chuẩn, ổn định và chắc chắn; không chắc → "".
@@ -18,6 +19,7 @@ VOCAB_QUALITY_V2_EN = """
 
 QUALITY V2.1 (mandatory):
 - 1 entry = 1 lemma/fixed expression + 1 POS + 1 evidenced sense; never invent one.
+- part_of_speech: POS, not Topic.
 - usage_pattern: 1–2 immediately usable frames, one per `\\n`; include required slots plus particles/prepositions/inflection/complements, not merely the headword.
 - usage_note: 1–2 complete sentences, at most 45 words; explain when/how to use it and the most useful constraint, contrast, or learner error. Never repeat the meaning, pattern, examples, or a generic “commonly used” summary.
 - collocation: 1–3 natural fixed "phrase — meaning" lines. Usage fields may use SOURCE plus high-confidence, stable standard-language knowledge; if uncertain, use "".

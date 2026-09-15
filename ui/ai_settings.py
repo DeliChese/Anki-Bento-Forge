@@ -16,6 +16,7 @@ import time
 import urllib.request
 import urllib.error
 
+from aqt import mw
 from aqt.qt import (
     QDialog, QVBoxLayout, QHBoxLayout, QFormLayout, QLabel,
     QLineEdit, QCheckBox, QComboBox, QSpinBox, QDoubleSpinBox,
@@ -66,6 +67,12 @@ from utils.ai_extractor import (
 )
 from utils.import_history import clear_import_history
 from utils.ai_providers import AI_PROVIDERS, detect_provider, get_provider
+from utils.ai_model_discovery import (
+    fetch_provider_models,
+    load_cached_models,
+    model_cache_is_fresh,
+    save_cached_models,
+)
 from utils.i18n import t
 from ui.prompt_editor import show_prompt_editor_dialog
 
@@ -406,7 +413,22 @@ def show_ai_settings_dialog(parent):
     cbo_model = QComboBox()
     cbo_model.setEditable(True)
     cbo_model.setMinimumHeight(32)
-    cf.addRow(QLabel(f"<b>{t('ai_set_model_label')}</b>"), cbo_model)
+    model_row = QWidget()
+    model_row_layout = QHBoxLayout(model_row)
+    model_row_layout.setContentsMargins(0, 0, 0, 0)
+    model_row_layout.setSpacing(5)
+    model_row_layout.addWidget(cbo_model, 1)
+    btn_refresh_models = QPushButton("↻")
+    btn_refresh_models.setFixedSize(34, 32)
+    btn_refresh_models.setToolTip(t("ai_set_refresh_models_tip"))
+    btn_refresh_models.setAccessibleName(t("ai_set_refresh_models_accessible"))
+    model_row_layout.addWidget(btn_refresh_models)
+    cf.addRow(QLabel(f"<b>{t('ai_set_model_label')}</b>"), model_row)
+
+    lbl_model_sync = QLabel(t("ai_set_models_builtin"))
+    lbl_model_sync.setWordWrap(True)
+    lbl_model_sync.setStyleSheet("color:#7f8c8d;font-size:11px;")
+    cf.addRow("", lbl_model_sync)
 
     cbo_review_example_provider = QComboBox()
     cbo_review_example_provider.setMinimumHeight(32)
@@ -552,17 +574,54 @@ def show_ai_settings_dialog(parent):
             return data.get("id", "")
         return data or ""
 
+    catalog_models = {}
+    catalog_requests = {}
+    dialog_state = {"active": True}
+    dlg.finished.connect(lambda _result: dialog_state.update(active=False))
+
+    def _catalog_identity(provider_id, api_base):
+        return (str(provider_id or "").strip(), str(api_base or "").strip().rstrip("/"))
+
+    def _models_for_provider(provider_id, api_base=""):
+        provider = get_provider(provider_id)
+        base = api_base or ((provider or {}).get("base", ""))
+        identity = _catalog_identity(provider_id, base)
+        if identity not in catalog_models:
+            catalog_models[identity] = load_cached_models(provider_id, base)
+        merged = []
+        for model_name in list(catalog_models[identity]) + list((provider or {}).get("models", [])):
+            if model_name and model_name not in merged:
+                merged.append(model_name)
+        return merged
+
+    def _populate_main_models(provider_id, desired_model=""):
+        provider = get_provider(provider_id) if provider_id != "__custom__" else None
+        models = _models_for_provider(provider_id, txt_base.text().strip())
+        default_model = (provider or {}).get("default", models[0] if models else "")
+        desired = desired_model or preferred_models.get(provider_id, "") or default_model
+        cbo_model.blockSignals(True)
+        cbo_model.clear()
+        cbo_model.addItems(models)
+        if desired:
+            if cbo_model.findText(desired) < 0:
+                cbo_model.addItem(desired)
+            cbo_model.setCurrentText(desired)
+        cbo_model.blockSignals(False)
+
     def _populate_review_example_models(keep_current_model=False):
         current_model = cbo_review_example_model.currentText().strip()
         review_provider_id = str(cbo_review_example_provider.currentData() or "")
         main_provider_id = _provider_id_from_data(cbo_provider.currentData())
         provider = get_provider(review_provider_id or main_provider_id)
+        provider_id = review_provider_id or main_provider_id
+        provider_base = (provider or {}).get("base", "")
+        if not review_provider_id:
+            provider_base = txt_base.text().strip()
         cbo_review_example_model.blockSignals(True)
         cbo_review_example_model.clear()
         cbo_review_example_model.addItem(t("ai_set_review_example_model_inherit"), "")
-        if provider:
-            for model_name in provider["models"]:
-                cbo_review_example_model.addItem(model_name, model_name)
+        for model_name in _models_for_provider(provider_id, provider_base):
+            cbo_review_example_model.addItem(model_name, model_name)
         saved_model = str(cfg.get("review_example_model") or "").strip()
         desired_model = current_model if keep_current_model and current_model else saved_model
         if desired_model:
@@ -577,7 +636,6 @@ def show_ai_settings_dialog(parent):
 
     def _apply_provider(provider_id, keep_current_model=False):
         current_model = cbo_model.currentText().strip()
-        current_review_model = cbo_review_example_model.currentText().strip()
         prow = get_provider(provider_id) if provider_id != "__custom__" else None
 
         cbo_provider.set_glow_color((prow or {}).get("color", "#8d9aae"))
@@ -604,24 +662,9 @@ def show_ai_settings_dialog(parent):
         txt_key.setText(get_api_key_for_provider(provider_id, txt_base.text().strip()))
 
         # Model combo: chỉ model của provider
-        cbo_model.blockSignals(True)
-        cbo_model.clear()
         preferred_model = preferred_models.get(provider_id, "")
-        if prow:
-            models = prow["models"]
-            default_model = prow.get("default", models[0] if models else "")
-            cbo_model.addItems(list(models))
-            if keep_current_model and current_model and current_model in models:
-                cbo_model.setCurrentText(current_model)
-            elif preferred_model in models:
-                cbo_model.setCurrentText(preferred_model)
-            else:
-                cbo_model.setCurrentText(default_model)
-        elif preferred_model:
-            cbo_model.setEditText(preferred_model)
-        elif keep_current_model and current_model:
-            cbo_model.setEditText(current_model)
-        cbo_model.blockSignals(False)
+        desired_model = current_model if keep_current_model and current_model else preferred_model
+        _populate_main_models(provider_id, desired_model)
 
         # An inherited reviewer provider follows the main provider's model list.
         if not cbo_review_example_provider.currentData():
@@ -630,6 +673,72 @@ def show_ai_settings_dialog(parent):
         if prow:
             # Effort mặc định: chỉ có ý nghĩa với model OpenAI o-series → để auto
             pass
+
+        # Refresh after the visible credential/base have been switched.
+        _schedule_model_refresh(
+            provider_id,
+            txt_base.text().strip(),
+            txt_key.text().strip(),
+        )
+
+    def _set_model_sync_status(key, *, count=0, error=False):
+        lbl_model_sync.setText(t(key, count=count))
+        lbl_model_sync.setStyleSheet(
+            "color:#c0392b;font-size:11px;" if error else "color:#267a3d;font-size:11px;"
+        )
+
+    def _schedule_model_refresh(provider_id, api_base, api_key, *, force=False):
+        provider_id = str(provider_id or "").strip()
+        api_base = str(api_base or "").strip().rstrip("/")
+        if not provider_id or not api_base:
+            return
+        identity = _catalog_identity(provider_id, api_base)
+        _models_for_provider(provider_id, api_base)
+        cached = catalog_models.get(identity, [])
+        if cached:
+            _set_model_sync_status("ai_set_models_cached", count=len(cached))
+        else:
+            _set_model_sync_status("ai_set_models_builtin")
+        if not force and model_cache_is_fresh(provider_id, api_base):
+            return
+        if provider_id in {"openai", "deepseek", "gemini", "anthropic"} and not api_key:
+            _set_model_sync_status("ai_set_models_need_key", error=True)
+            return
+
+        request_number = catalog_requests.get(identity, 0) + 1
+        catalog_requests[identity] = request_number
+        btn_refresh_models.setEnabled(False)
+        _set_model_sync_status("ai_set_models_syncing")
+
+        def task():
+            return fetch_provider_models(provider_id, api_base, api_key)
+
+        def on_done(future):
+            if not dialog_state["active"] or catalog_requests.get(identity) != request_number:
+                return
+            try:
+                models = future.result()
+                if not models:
+                    raise ValueError("empty model catalog")
+                save_cached_models(provider_id, api_base, models)
+                catalog_models[identity] = models
+                active_id = _provider_id_from_data(cbo_provider.currentData())
+                review_id = str(cbo_review_example_provider.currentData() or active_id)
+                if review_id == provider_id:
+                    _populate_review_example_models(keep_current_model=True)
+                if active_id == provider_id and txt_base.text().strip().rstrip("/") == api_base:
+                    current = cbo_model.currentText().strip()
+                    _populate_main_models(provider_id, current)
+                    _set_model_sync_status("ai_set_models_synced", count=len(models))
+            except Exception:
+                _set_model_sync_status("ai_set_models_sync_failed", error=True)
+            finally:
+                btn_refresh_models.setEnabled(True)
+
+        try:
+            mw.taskman.run_in_background(task, on_done, uses_collection=False)
+        except TypeError:
+            mw.taskman.run_in_background(task, on_done)
 
     # ── Gắn sự kiện ──
     def _on_provider_changed(index):
@@ -643,10 +752,31 @@ def show_ai_settings_dialog(parent):
 
     def _on_review_example_provider_changed(_index):
         _populate_review_example_models(keep_current_model=False)
+        provider_id = str(cbo_review_example_provider.currentData() or "")
+        provider = get_provider(provider_id)
+        if provider:
+            base = provider.get("base", "")
+            _schedule_model_refresh(
+                provider_id,
+                base,
+                get_api_key_for_provider(provider_id, base),
+            )
 
     cbo_review_example_provider.currentIndexChanged.connect(
         _on_review_example_provider_changed
     )
+
+    def _refresh_current_models():
+        _schedule_model_refresh(
+            _provider_id_from_data(cbo_provider.currentData()),
+            txt_base.text().strip(),
+            txt_key.text().strip(),
+            force=True,
+        )
+
+    btn_refresh_models.clicked.connect(_refresh_current_models)
+    txt_key.editingFinished.connect(_refresh_current_models)
+    txt_base.editingFinished.connect(_refresh_current_models)
 
     def _find_provider_index(provider_id):
         """Tìm index item combo theo provider id.
@@ -683,9 +813,9 @@ def show_ai_settings_dialog(parent):
         not preferred_models.get(target_id)
         and cfg.get("model") and target_id != "__custom__"
     ):
-        prow = get_provider(target_id)
-        if prow and cfg["model"] in prow["models"]:
-            cbo_model.setCurrentText(cfg["model"])
+        if cbo_model.findText(cfg["model"]) < 0:
+            cbo_model.addItem(cfg["model"])
+        cbo_model.setCurrentText(cfg["model"])
 
     # ── Thanh nút dưới cùng ──
     btn_layout = QHBoxLayout()

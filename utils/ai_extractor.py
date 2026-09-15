@@ -53,6 +53,10 @@ from .ai_prompt_defaults import KNOWLEDGE_PROMPT_VERSION
 from .ai_usage_history import record_usage as _record_usage
 from .ai_providers import detect_provider
 from .language_identity import normalize_language
+from .reference_language import (
+    apply_reference_language_instruction,
+    resolve_reference_language,
+)
 from .user_data import (
     atomic_write_json,
     get_user_data_path,
@@ -334,20 +338,29 @@ def get_api_config() -> dict:
     provider_scope = _api_key_scope(cfg.get("provider", ""), cfg.get("api_base", ""))
     if "api_key" in cfg:
         resolved_api_key = _migrate_legacy_api_key(cfg, provider_scope)
-    elif cfg.get("api_key_storage") == "keyring":
+    else:
+        # The credential itself can outlive Anki's embedded Python packages.
+        # If an update temporarily made keyring unavailable, save_api_config()
+        # recorded ``unavailable`` even though Windows still retained the key.
+        # Always ask the current secure backend before trusting that stale flag.
         resolved_api_key = load_api_key(provider_scope) or ""
+        if resolved_api_key and cfg.get("api_key_storage") != "keyring":
+            cfg["api_key_storage"] = "keyring"
+            _save_config(cfg)
         # Move the one pre-V17.2 generic key into the provider that was active
         # when the user upgrades. It is never used as a fallback afterwards,
         # so selecting another provider cannot expose the previous key.
-        if not resolved_api_key and not cfg.get("api_key_provider_migration_done"):
+        if (
+            not resolved_api_key
+            and cfg.get("api_key_storage") == "keyring"
+            and not cfg.get("api_key_provider_migration_done")
+        ):
             legacy_key = load_api_key() or ""
             if legacy_key and save_api_key(legacy_key, provider_scope):
                 delete_api_key()
                 resolved_api_key = legacy_key
             cfg["api_key_provider_migration_done"] = True
             _save_config(cfg)
-    else:
-        resolved_api_key = ""
     # Keep the runtime key separate so callers cannot persist it by mistake.
     runtime_cfg = dict(cfg)
     runtime_cfg["api_key"] = resolved_api_key
@@ -656,6 +669,15 @@ def _ui_lang_en() -> bool:
         return False
 
 
+def _resolved_reference_language(reference_language, target_language) -> str:
+    """Resolve one request without coupling card content to the UI language."""
+    return resolve_reference_language(
+        reference_language or "ui",
+        target_language,
+        "en" if _ui_lang_en() else "vi",
+    )
+
+
 def _format_existing_context(existing: List[str], text: str, label: str = "TỪ") -> str:
     """Tạo chuỗi 'mục đã có' GỌN cho prompt — tối ưu token input.
 
@@ -722,6 +744,7 @@ def extract_vocabulary_with_ai(
     token_callback: Optional[Callable[[dict], None]] = None,
     should_abort: Optional[Callable[[], bool]] = None,
     kind: str = "vocab", generation_request: bool = False,
+    reference_language: Optional[str] = None,
 ) -> list:
     """
     Gửi văn bản đến AI API để trích xuất từ vựng. Cache thông minh.
@@ -743,7 +766,14 @@ def extract_vocabulary_with_ai(
     if should_abort and should_abort():
         raise RuntimeError(t("error_cancelled_by_user"))
 
-    cache_instruction = f"[direct-card-generation]\n{custom_instruction}" if generation_request else custom_instruction
+    reference_code = _resolved_reference_language(reference_language, lang)
+    prompt_locale = "en" if _ui_lang_en() else "vi"
+    cache_instruction = (
+        f"[reference-language:{reference_code}][prompt-locale:{prompt_locale}]\n"
+        f"{custom_instruction}"
+    )
+    if generation_request:
+        cache_instruction = f"[direct-card-generation]\n{cache_instruction}"
     # Cache
     if not force_refresh:
         cached = _ai_cache_get(text, lang, cache_instruction, existing_hash, kind=kind)
@@ -756,7 +786,9 @@ def extract_vocabulary_with_ai(
     if not cfg.get("api_key") and "localhost" not in cfg.get("api_base", ""):
         raise ValueError(t("error_api_key_missing"))
 
-    system_prompt = get_effective_system_prompt(lang, kind)
+    system_prompt = apply_reference_language_instruction(
+        get_effective_system_prompt(lang, kind), reference_code,
+    )
 
     # Giới hạn text — có thể cấu hình (mặc định 45k ký tự, DeepSeek 64k context)
     max_chars = cfg.get("max_chars", 45000)
@@ -1073,6 +1105,7 @@ def extract_vocabulary_long_text(
     force_refresh: bool = False,
     should_abort: Optional[Callable[[], bool]] = None,
     kind: str = "vocab",
+    reference_language: Optional[str] = None,
 ) -> list:
     """Xử lý văn bản dài: chia đoạn, gọi AI, loại trùng, tổng hợp token."""
     if kind not in {"vocab", "collocation"}:
@@ -1121,6 +1154,7 @@ def extract_vocabulary_long_text(
                     token_callback=_acc,
                     should_abort=should_abort,
                     kind=kind,
+                    reference_language=reference_language,
                 )
 
             vocab_chunk, unresolved_spans = _recover_text_chunk(
@@ -1179,6 +1213,7 @@ def extract_grammar_with_ai(
     force_refresh: bool = False,
     token_callback: Optional[Callable[[dict], None]] = None,
     should_abort: Optional[Callable[[], bool]] = None, generation_request: bool = False,
+    reference_language: Optional[str] = None,
 ) -> list:
     """
     Gửi văn bản đến AI API để trích xuất CẤU TRÚC NGỮ PHÁP (khác từ vựng).
@@ -1198,7 +1233,14 @@ def extract_grammar_with_ai(
     if should_abort and should_abort():
         raise RuntimeError(t("error_cancelled_by_user"))
 
-    cache_instruction = f"[direct-card-generation]\n{custom_instruction}" if generation_request else custom_instruction
+    reference_code = _resolved_reference_language(reference_language, lang)
+    prompt_locale = "en" if _ui_lang_en() else "vi"
+    cache_instruction = (
+        f"[reference-language:{reference_code}][prompt-locale:{prompt_locale}]\n"
+        f"{custom_instruction}"
+    )
+    if generation_request:
+        cache_instruction = f"[direct-card-generation]\n{cache_instruction}"
     # Cache
     if not force_refresh:
         cached = _ai_cache_get(text, lang, cache_instruction, existing_hash, kind="grammar")
@@ -1211,7 +1253,9 @@ def extract_grammar_with_ai(
     if not cfg.get("api_key") and "localhost" not in cfg.get("api_base", ""):
         raise ValueError(t("error_api_key_missing"))
 
-    system_prompt = get_effective_system_prompt(lang, "grammar")
+    system_prompt = apply_reference_language_instruction(
+        get_effective_system_prompt(lang, "grammar"), reference_code,
+    )
 
     # Giới hạn text — có thể cấu hình (mặc định 45k ký tự, DeepSeek 64k context)
     max_chars = cfg.get("max_chars", 45000)
@@ -1341,6 +1385,7 @@ def extract_grammar_long_text(
     progress_callback: Optional[Callable[[str], None]] = None,
     force_refresh: bool = False,
     should_abort: Optional[Callable[[], bool]] = None,
+    reference_language: Optional[str] = None,
 ) -> list:
     """Xử lý văn bản dài: chia đoạn, gọi AI trích ngữ pháp, loại trùng, tổng hợp token."""
     ensure_ai_session_budget(text)
@@ -1381,6 +1426,7 @@ def extract_grammar_long_text(
                     progress_callback=None, force_refresh=force_refresh,
                     token_callback=_acc,
                     should_abort=should_abort,
+                    reference_language=reference_language,
                 )
 
             grammar_chunk, unresolved_spans = _recover_text_chunk(

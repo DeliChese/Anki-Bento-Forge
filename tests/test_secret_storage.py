@@ -3,6 +3,34 @@
 from unittest.mock import patch
 
 
+class _MemorySecretStore:
+    def __init__(self):
+        self.values = {}
+
+    def get_password(self, service, username):
+        return self.values.get((service, username))
+
+    def set_password(self, service, username, password):
+        self.values[(service, username)] = password
+
+    def delete_password(self, service, username):
+        self.values.pop((service, username), None)
+
+
+def test_native_secret_store_keeps_working_without_optional_keyring():
+    from utils import credentials
+
+    store = _MemorySecretStore()
+    with patch.object(credentials, "_get_windows_credential_store", return_value=store), patch.object(
+        credentials, "_get_keyring", return_value=None,
+    ), patch.object(credentials, "_account_name", return_value="stable-profile:provider"):
+        assert credentials.get_secret_store_status()["available"] is True
+        assert credentials.save_api_key("sk-persisted", "deepseek") is True
+        assert credentials.load_api_key("deepseek") == "sk-persisted"
+        assert credentials.delete_api_key("deepseek") is True
+        assert credentials.load_api_key("deepseek") == ""
+
+
 def test_save_never_writes_api_key_to_json():
     from utils.ai_extractor import save_api_config
 
@@ -85,6 +113,26 @@ def test_get_api_config_keyring_branch_not_blocked_by_empty_api_key():
         cfg = get_api_config()
 
     assert cfg["api_key"] == "sk-live"
+
+
+def test_get_api_config_recovers_key_after_stale_unavailable_marker():
+    """An Anki update may remove keyring while Windows still retains the key."""
+    from utils.ai_extractor import get_api_config
+
+    stored = {
+        "api_key_storage": "unavailable",
+        "provider": "deepseek",
+        "api_base": "https://api.deepseek.com/v1",
+        "model": "deepseek-chat",
+    }
+    with patch("utils.ai_extractor._load_config", return_value=stored), patch(
+        "utils.ai_extractor.load_api_key", return_value="sk-recovered"
+    ), patch("utils.ai_extractor._save_config") as save:
+        cfg = get_api_config()
+
+    assert cfg["api_key"] == "sk-recovered"
+    assert cfg["api_key_storage"] == "keyring"
+    assert save.call_args.args[0]["api_key_storage"] == "keyring"
 
 
 def test_provider_keys_use_distinct_credential_scopes():

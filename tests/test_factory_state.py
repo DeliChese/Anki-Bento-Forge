@@ -450,6 +450,33 @@ def test_factory_has_no_large_batch_control():
     assert "BatchWordListDialog" not in setup
 
 
+def test_factory_layout_uses_side_by_side_60_40_columns_and_scroll_fallback():
+    source = Path(factory_dialog.__file__).read_text(encoding="utf-8")
+    setup = source[source.index("def _setup_ui"):source.index("def _configure_accessibility")]
+
+    assert "self.main_columns = QHBoxLayout()" in setup
+    assert "self.main_columns.addWidget(self.left_scroll, 6)" in setup
+    assert "self.main_columns.addWidget(self.right_scroll, 4)" in setup
+    assert "self.main_columns = QVBoxLayout()" not in setup
+    for layout_name in ("bar", "ai_bar", "instr_bar", "json_tools", "audio_box", "action_bar"):
+        assert f"{layout_name} = QGridLayout()" in setup
+    assert setup.count("Qt.ScrollBarPolicy.ScrollBarAsNeeded") >= 4
+    assert "Qt.ScrollBarPolicy.ScrollBarAlwaysOff" not in setup
+
+
+def test_factory_secondary_actions_use_icons_with_tooltips_and_accessible_names():
+    source = Path(factory_dialog.__file__).read_text(encoding="utf-8")
+    compact = source[
+        source.index("def _configure_compact_icon_actions"):
+        source.index("def _configure_accessibility")
+    ]
+    assert compact.count("button.setText(icon)") == 1
+    assert "button.setToolTip(t(tooltip_key))" in compact
+    assert "button.setAccessibleName(t(label_key))" in compact
+    for action in ("btn_theme", "btn_load", "btn_ai_settings", "btn_verify", "btn_select_all"):
+        assert f'("{action}",' in compact
+
+
 class TestComboMigration:
     """Card model references every field required by safe SRS migration."""
 
