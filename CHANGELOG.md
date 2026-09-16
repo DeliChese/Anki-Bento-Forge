@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+### 2026-09-16 — Version: `18.3.0` → `18.3.0`
+
+#### Changed
+
+- **Giới hạn thẻ per-run lên tối max 30** — Factory Language và Focused Learning nay cho phép tạo tối max 30 thẻ/từ vựng mỗi lượt gửi yêu cầu AI (trước 20); danh sách từ 21–30 mục nay không lỗi với “vượt giới hạn”. Giới hạn nguồn text 4.000 ký và mặc định 10 thẻ giữ nguyen.
+
 ### 2026-09-09 — Version: `18.3.0` → `18.3.0`
 
 #### Added

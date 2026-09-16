@@ -446,7 +446,7 @@ class TestAiExtractThread:
         assert finished == []
         assert errors
 
-    def test_explicit_vocab_over_twenty_is_rejected_before_ai_call(self, monkeypatch):
+    def test_explicit_vocab_over_thirty_is_rejected_before_ai_call(self, monkeypatch):
         from workers import ai_workers
 
         calls = []
@@ -456,7 +456,7 @@ class TestAiExtractThread:
             lambda *args, **kwargs: calls.append((args, kwargs)),
         )
         worker = ai_workers.AiExtractThread(
-            text="、".join(f"词{index}" for index in range(21)),
+            text="、".join(f"词{index}" for index in range(31)),
             lang="chinese",
         )
         errors = []
@@ -465,7 +465,7 @@ class TestAiExtractThread:
         worker.run()
 
         assert calls == []
-        assert errors and "21" in errors[-1] and "20" in errors[-1]
+        assert errors and "31" in errors[-1] and "30" in errors[-1]
 
     def test_large_source_is_rejected_before_any_ai_call(self, monkeypatch):
         from workers import ai_workers

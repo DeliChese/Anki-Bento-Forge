@@ -84,7 +84,7 @@ class TestAiExtractThread:
     def test_card_target_is_clamped_to_focused_range(self):
         from workers.ai_workers import AiExtractThread
         assert AiExtractThread(text="x", lang="english", max_cards=1).max_cards == 5
-        assert AiExtractThread(text="x", lang="english", max_cards=99).max_cards == 20
+        assert AiExtractThread(text="x", lang="english", max_cards=99).max_cards == 30
         assert AiExtractThread(text="x", lang="english", max_cards="bad").max_cards == 10
 
 
